@@ -1,0 +1,62 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'com.google.cloud.tools.jib'
+    id "com.gorylenko.gradle-git-properties"
+    id("com.github.johnrengelman.shadow")
+    id("io.micronaut.application") version "1.2.0"
+}
+
+micronaut {
+    testRuntime("junit5")
+    processing {
+        incremental(true)
+        annotations("com.datastax.cassandra.cdc.producer.*")
+    }
+}
+
+application {
+    mainClass.set("$mainClassName")
+}
+
+jar {
+    manifest {
+        attributes "Main-Class": mainClassName
+    }
+    zip64=true
+    from {
+        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+
+tasks.jar.dependsOn project(':common').jar
+
+compileTestJava {
+    options.compilerArgs += '-parameters'
+}
+
+dependencies {
+    compile project(':common')
+
+    implementation("io.micronaut:micronaut-validation")
+    implementation("io.micronaut:micronaut-runtime")
+    implementation("javax.annotation:javax.annotation-api")
+    runtimeOnly("ch.qos.logback:logback-classic")
+
+    testAnnotationProcessor "io.micronaut:micronaut-inject-java"
+    implementation("javax.annotation:javax.annotation-api")
+
+    implementation("info.picocli:picocli")
+    implementation("io.micronaut.picocli:micronaut-picocli:3.2.0")
+
+    implementation("io.micronaut:micronaut-management")
+    //compile 'io.micronaut.configuration:micronaut-micrometer-registry-prometheus'
+}
+
+run {
+    if ( project.hasProperty('args') ) {
+        args project.args.split('\\s+')
+    }
+    //jvmArgs = [ "-Djavax.net.debug=all" ]
+}
+

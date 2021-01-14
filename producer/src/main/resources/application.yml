@@ -1,0 +1,7 @@
+micronaut:
+  application:
+    name: cdcProducer
+pulsar:
+  serviceUrl: "pulsar://localhost:6650"
+  topic: "persistent://public/default/topic1"
+

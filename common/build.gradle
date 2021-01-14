@@ -1,0 +1,24 @@
+plugins {
+    id 'java'
+    id 'java-library'
+}
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs += '-Xlint:none'
+}
+
+artifacts {
+    archives jar
+}
+
+dependencies {
+    implementation "org.projectlombok:lombok:${lombokVersion}"
+    annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+    implementation "com.xebia:jackson-lombok:1.1"
+
+    annotationProcessor "io.micronaut:micronaut-inject-java"
+    annotationProcessor "io.micronaut:micronaut-validation"
+    implementation("io.micronaut:micronaut-inject-java")
+    implementation "io.micronaut:micronaut-runtime"
+    implementation "javax.inject:javax.inject:1"
+}

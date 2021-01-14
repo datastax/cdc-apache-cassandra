@@ -1,0 +1,5 @@
+rootProject.name = 'cdcrep'
+
+include 'common'
+include 'producer'
+include 'consumer'
