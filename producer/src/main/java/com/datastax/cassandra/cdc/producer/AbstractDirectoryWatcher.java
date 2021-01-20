@@ -51,7 +51,7 @@ public abstract class AbstractDirectoryWatcher {
                 Path absolutePath = directory.resolve(relativePath);
 
                 if (kinds.contains(event.kind())) {
-                    LOGGER.debug("Detected new commitlog file={}", absolutePath);
+                    LOGGER.trace("Detected new commitlog file={}", absolutePath);
                     handleEvent(event, absolutePath);
                 }
             }

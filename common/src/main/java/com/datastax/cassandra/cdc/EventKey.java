@@ -17,13 +17,13 @@ public class EventKey {
     UUID node;
     String keyspace;
     String table;
-    Object[] columns;
+    Object[] pkColumns;
 
     public String id() {
-        if (columns.length == 1) {
-            return columns[0].toString();
+        if (pkColumns.length == 1) {
+            return pkColumns[0].toString();
         } else {
-            return "[" + Arrays.stream(columns).map(x -> x.toString()).collect(Collectors.joining(",")) + "]";
+            return "[" + Arrays.stream(pkColumns).map(x -> x.toString()).collect(Collectors.joining(",")) + "]";
         }
     }
 }

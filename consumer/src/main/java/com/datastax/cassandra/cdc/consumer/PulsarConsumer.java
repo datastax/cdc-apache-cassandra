@@ -48,11 +48,13 @@ public class PulsarConsumer {
 
             consumer = client.newConsumer(CDCSchema.kvSchema)
                     .topic(pulsarConfiguration.getTopic())
+                    .autoUpdatePartitions(true)
                     .subscriptionName(pulsarConfiguration.getSubscription())
                     .subscriptionType(SubscriptionType.Key_Shared)
                     //.readCompacted(true)
                     .subscribe();
 
+            logger.debug("Starting consumer topic={} subscription={}",pulsarConfiguration.getTopic(), pulsarConfiguration.getSubscription());
             while(true) {
                 Message<KeyValue<EventKey, EventValue>> msg = null;
                 try {
@@ -80,7 +82,7 @@ public class PulsarConsumer {
                                         consumerFinal.acknowledge(msgFinal);
                                     } else {
                                         // Read from cassandra
-                                        cassandraService.selectRowAsync(pk)
+                                        cassandraService.selectRowAsync(pk, kv.getValue().getNodeId())
                                             .thenAcceptAsync(json -> {
                                                 // update Elasticsearch
                                                 try {

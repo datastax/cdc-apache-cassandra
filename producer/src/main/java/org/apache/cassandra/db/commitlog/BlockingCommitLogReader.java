@@ -241,10 +241,10 @@ public class BlockingCommitLogReader
             if (shouldSkipSegmentId(file, desc, minPosition))
                 return;
 
-            ProgressiveCommitLogSegmentReader segmentReader;
+            CommitLogSegmentReader segmentReader;
             try
             {
-                segmentReader = new ProgressiveCommitLogSegmentReader(handler, desc, reader, tolerateTruncation);
+                segmentReader = new CommitLogSegmentReader(handler, desc, reader, tolerateTruncation);
             }
             catch(Exception e)
             {
@@ -259,7 +259,7 @@ public class BlockingCommitLogReader
             {
                 ReadStatusTracker statusTracker = new ReadStatusTracker(mutationLimit, tolerateTruncation);
 
-                Iterator<ProgressiveCommitLogSegmentReader.SyncSegment> it = segmentReader.iterator();
+                Iterator<CommitLogSegmentReader.SyncSegment> it = segmentReader.iterator();
                 while(true) {
                     if (semaphore != null) {
                         // block until we get some permit
@@ -267,13 +267,10 @@ public class BlockingCommitLogReader
                         semaphore.acquireUninterruptibly(1);
                     }
 
-                    if (lastReadPosition > ?) {
-                        segmentReader.
-                    }
                     if (!it.hasNext())
                         break;
 
-                    ProgressiveCommitLogSegmentReader.SyncSegment syncSegment = it.next();
+                    CommitLogSegmentReader.SyncSegment syncSegment = it.next();
                     // Only tolerate truncation if we allow in both global and segment
                     statusTracker.tolerateErrorsInSection = tolerateTruncation & syncSegment.toleratesErrorsInSection;
 

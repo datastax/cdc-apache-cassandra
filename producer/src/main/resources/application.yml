@@ -10,15 +10,10 @@ micronaut:
         descriptions: false
   server:
     port: 8082
-    enabled: false
-  executors:
-    post-processor:
-      type: FIXED
-      number-of-threads: 1
 
 endpoints:
   all:
-    port: 8085
+    port: 8086
   info:
     enabled: true
     sensitive: false

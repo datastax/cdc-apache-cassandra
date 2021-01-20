@@ -25,7 +25,7 @@ import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
 /**
  * The {@link CommitLogProcessor} is used to process CommitLog in CDC directory.
  * Upon readCommitLog, it processes the entire CommitLog specified in the {@link CassandraConnectorConfiguration}
- * and converts each row change in the commit log into a {@link Record}.
+ * and converts each row change in the commit log into a {@link Mutation}.
  */
 @Singleton
 public class CommitLogProcessor extends AbstractProcessor implements AutoCloseable {
@@ -58,7 +58,7 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
         this.newCommitLogWatcher = new AbstractDirectoryWatcher(cdcDir.toPath(), config.cdcDirPollIntervalMs, ImmutableSet.of(ENTRY_CREATE, ENTRY_MODIFY)) {
             @Override
             void handleEvent(WatchEvent<?> event, Path path) throws IOException {
-                if (path.toString().endsWith(".log") && event.kind().name().equals(ENTRY_CREATE.name())) {
+                if (path.toString().endsWith(".log")) {
                     commitLogReaderProcessor.submitCommitLog(path.toFile());
                 }
                 if (path.toString().endsWith("_cdc.idx")) {

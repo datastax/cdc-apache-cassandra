@@ -13,7 +13,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.cql3.ColumnSpecification;
 import org.apache.cassandra.db.LivenessInfo;
-import org.apache.cassandra.db.Mutation;
 import org.apache.cassandra.db.commitlog.CommitLogDescriptor;
 import org.apache.cassandra.db.commitlog.CommitLogPosition;
 import org.apache.cassandra.db.commitlog.CommitLogReadHandler;
@@ -37,9 +36,9 @@ import static com.datastax.cassandra.cdc.producer.CommitLogReadHandlerImpl.RowTy
 /**
  * Handler that implements {@link CommitLogReadHandler} interface provided by Cassandra source code.
  *
- * This handler implementation processes each {@link Mutation} and invokes one of the registered partition handler
- * for each {@link PartitionUpdate} in the {@link Mutation} (a mutation could have multiple partitions if it is a batch update),
- * which in turn makes one or more record via the {@link RecordMaker} and enqueue the record into the {@link ChangeEventQueue}.
+ * This handler implementation processes each {@link org.apache.cassandra.db.Mutation} and invokes one of the registered partition handler
+ * for each {@link PartitionUpdate} in the {@link org.apache.cassandra.db.Mutation} (a mutation could have multiple partitions if it is a batch update),
+ * which in turn makes one or more record via the {@link MutationMaker} and enqueue the record into the {@link MutationQueue}.
  */
 @Singleton
 public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
@@ -47,16 +46,16 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
     private static final boolean MARK_OFFSET = true;
 
-    private final ChangeEventQueue queue;
-    private final RecordMaker recordMaker;
+    private final MutationQueue queue;
+    private final MutationMaker recordMaker;
     private final FileOffsetWriter offsetWriter;
     private final MeterRegistry meterRegistry;
     private final CassandraConnectorConfiguration config;
 
     CommitLogReadHandlerImpl(CassandraConnectorConfiguration config,
-                             ChangeEventQueue queue,
+                             MutationQueue queue,
                              FileOffsetWriter fileOffsetWriter,
-                             RecordMaker recordMaker,
+                             MutationMaker recordMaker,
                              MeterRegistry meterRegistry) {
         this.config = config;
         this.queue = queue;
@@ -204,7 +203,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     }
 
     @Override
-    public void handleMutation(Mutation mutation, int size, int entryLocation, CommitLogDescriptor descriptor) {
+    public void handleMutation(org.apache.cassandra.db.Mutation mutation, int size, int entryLocation, CommitLogDescriptor descriptor) {
         if (!mutation.trackedByCDC()) {
             return;
         }
@@ -250,7 +249,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     /**
      * Method which processes a partition update if it's valid (either a single-row partition-level
      * deletion or a row-level modification) or throw an exception if it isn't. The valid partition
-     * update is then converted into a {@link Record} and enqueued to the {@link ChangeEventQueue}.
+     * update is then converted into a {@link Mutation} and enqueued to the {@link MutationQueue}.
      */
     private void process(PartitionUpdate pu, CommitLogPosition position, KeyspaceTable keyspaceTable) {
         PartitionType partitionType = PartitionType.getPartitionType(pu);
@@ -287,7 +286,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
     /**
      * Handle a valid deletion event resulted from a partition-level deletion by converting Cassandra representation
-     * of this event into a {@link Record} object and queue the record to {@link ChangeEventQueue}. A valid deletion
+     * of this event into a {@link Mutation} object and queue the record to {@link MutationQueue}. A valid deletion
      * event means a partition only has a single row, this implies there are no clustering keys.
      *
      * The steps are:
@@ -295,7 +294,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
      *      (3) Populate the "after" field for this event
      *          a. populate partition columns
      *          b. populate regular columns with null values
-     *      (4) Assemble a {@link Record} object from the populated data and queue the record
+     *      (4) Assemble a {@link Mutation} object from the populated data and queue the record
      */
     private void handlePartitionDeletion(PartitionUpdate pu, CommitLogPosition offsetPosition, KeyspaceTable keyspaceTable) {
         try {
@@ -335,7 +334,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
     /**
      * Handle a valid event resulted from a row-level modification by converting Cassandra representation of
-     * this event into a {@link Record} object and queue the record to {@link ChangeEventQueue}. A valid event
+     * this event into a {@link Mutation} object and queue the record to {@link MutationQueue}. A valid event
      * implies this must be an insert, update, or delete.
      *
      * The steps are:
@@ -345,7 +344,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
      *          b. populate clustering columns
      *          c. populate regular columns
      *          d. for deletions, populate regular columns with null values
-     *      (4) Assemble a {@link Record} object from the populated data and queue the record
+     *      (4) Assemble a {@link Mutation} object from the populated data and queue the record
      */
     private void handleRowModifications(Row row, RowType rowType, PartitionUpdate pu, CommitLogPosition offsetPosition, KeyspaceTable keyspaceTable) {
 

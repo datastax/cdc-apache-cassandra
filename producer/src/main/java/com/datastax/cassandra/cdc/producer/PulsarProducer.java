@@ -8,17 +8,16 @@ import org.slf4j.LoggerFactory;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class Application {
-    private static final Logger logger = LoggerFactory.getLogger(Application.class);
+public class PulsarProducer {
+    private static final Logger logger = LoggerFactory.getLogger(PulsarProducer.class);
 
     public static void main(String[] args) {
-        try(ApplicationContext context = Micronaut.run(Application.class, args);
-            ChangeEventProcessor queueProcessor = context.getBean(ChangeEventProcessor.class);
+        try(ApplicationContext context = Micronaut.run(PulsarProducer.class, args);
+            MutationProcessor mutationProcessor = context.getBean(MutationProcessor.class);
             CommitLogProcessor commitLogProcessor = context.getBean(CommitLogProcessor.class);
             CommitLogReaderProcessor commitLogReaderProcessor = context.getBean(CommitLogReaderProcessor.class);
         ) {
-            queueProcessor.initialize();
-
+            mutationProcessor.initialize();
 
             // detect commitlogs file and submit new/modified files to the commitLogReader
             ExecutorService commitLogExecutor = Executors.newSingleThreadExecutor();
@@ -47,9 +46,7 @@ public class Application {
 
             // process mutations
             try {
-                while (true) {
-                    queueProcessor.process();
-                }
+                mutationProcessor.start();
             } catch(InterruptedException e) {
                 logger.error("error:", e);
             } finally {

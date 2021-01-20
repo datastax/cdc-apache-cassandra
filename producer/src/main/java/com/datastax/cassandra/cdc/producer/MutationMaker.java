@@ -20,38 +20,38 @@ import java.util.UUID;
  * Responsible for generating ChangeRecord and/or TombstoneRecord for create/update/delete events, as well as EOF events.
  */
 @Singleton
-public class RecordMaker {
-    private static final Logger LOGGER = LoggerFactory.getLogger(RecordMaker.class);
+public class MutationMaker {
+    private static final Logger LOGGER = LoggerFactory.getLogger(MutationMaker.class);
     private final boolean emitTombstoneOnDelete;
 
-    public RecordMaker(CassandraConnectorConfiguration config) {
+    public MutationMaker(CassandraConnectorConfiguration config) {
         this.emitTombstoneOnDelete = config.tombstonesOnDelete;
     }
 
     public void insert(String cluster, UUID node, CommitLogPosition offsetPosition, KeyspaceTable keyspaceTable, boolean snapshot,
                        Instant tsMicro, RowData data,
-                       boolean markOffset, BlockingConsumer<Record> consumer) {
+                       boolean markOffset, BlockingConsumer<Mutation> consumer) {
         createRecord(cluster, node, offsetPosition, keyspaceTable, snapshot, tsMicro,
                 data, markOffset, consumer, Operation.INSERT);
     }
 
     public void update(String cluster, UUID node, CommitLogPosition offsetPosition, KeyspaceTable keyspaceTable, boolean snapshot,
                        Instant tsMicro, RowData data,
-                       boolean markOffset, BlockingConsumer<Record> consumer) {
+                       boolean markOffset, BlockingConsumer<Mutation> consumer) {
         createRecord(cluster, node, offsetPosition, keyspaceTable, snapshot, tsMicro,
                 data, markOffset, consumer, Operation.UPDATE);
     }
 
     public void delete(String cluster, UUID node, CommitLogPosition offsetPosition, KeyspaceTable keyspaceTable, boolean snapshot,
                        Instant tsMicro, RowData data,
-                       boolean markOffset, BlockingConsumer<Record> consumer) {
+                       boolean markOffset, BlockingConsumer<Mutation> consumer) {
         createRecord(cluster, node, offsetPosition, keyspaceTable, snapshot, tsMicro,
                 data, markOffset, consumer, Operation.DELETE);
     }
 
     private void createRecord(String cluster, UUID node, CommitLogPosition offsetPosition, KeyspaceTable keyspaceTable, boolean snapshot,
                               Instant tsMicro, RowData data,
-                              boolean markOffset, BlockingConsumer<Record> consumer, Operation operation) {
+                              boolean markOffset, BlockingConsumer<Mutation> consumer, Operation operation) {
         // TODO: filter columns
         RowData filteredData;
         switch (operation) {
@@ -66,25 +66,13 @@ public class RecordMaker {
         }
 
         SourceInfo source = new SourceInfo(cluster, node, offsetPosition, keyspaceTable, tsMicro);
-        ChangeRecord record = new ChangeRecord(source, filteredData, operation, markOffset);
+        Mutation record = new Mutation(offsetPosition.segmentId, offsetPosition.position, source, filteredData, operation, markOffset, tsMicro.toEpochMilli());
         try {
             consumer.accept(record);
         }
         catch (InterruptedException e) {
             LOGGER.error("Interruption while enqueuing Change Event {}", record.toString());
             throw new CassandraConnectorTaskException("Enqueuing has been interrupted: ", e);
-        }
-
-        if (operation == Operation.DELETE && emitTombstoneOnDelete) {
-            // generate kafka tombstone event
-            TombstoneRecord tombstoneRecord = new TombstoneRecord(source, filteredData);
-            try {
-                consumer.accept(tombstoneRecord);
-            }
-            catch (Exception e) {
-                LOGGER.error("Interruption while enqueuing Tombstone Event {}", record.toString());
-                throw new CassandraConnectorTaskException("Enqueuing has been interrupted: ", e);
-            }
         }
     }
 

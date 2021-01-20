@@ -20,10 +20,12 @@ import lombok.ToString;
 @AllArgsConstructor
 @ToString
 @EqualsAndHashCode
-public abstract class Record implements Event {
-    public final SourceInfo source;
-    public final RowData rowData;
-    public final Operation op;
-    public final boolean shouldMarkOffset;
-    public final long ts;
+public class Mutation {
+    private long segment;
+    private int position;
+    private SourceInfo source;
+    private RowData rowData;
+    private Operation op;
+    private boolean shouldMarkOffset;
+    private long ts;
 }

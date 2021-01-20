@@ -1,9 +1,14 @@
 package com.datastax.cassandra.cdc.consumer;
 
 import com.datastax.cassandra.cdc.EventKey;
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.cql.SimpleStatement;
+import com.datastax.oss.driver.api.core.cql.Statement;
+import com.datastax.oss.driver.api.core.metadata.EndPoint;
 import com.datastax.oss.driver.api.core.metadata.Metadata;
+import com.datastax.oss.driver.api.core.metadata.Node;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
@@ -15,6 +20,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.inject.Singleton;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletionStage;
 
 import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.bindMarker;
@@ -37,7 +43,7 @@ public class CassandraService {
         return cassandraSessionFactory.session(cassandraConfiguration).buildAsync();
     }
 
-    public CompletionStage<String> selectRowAsync(EventKey pk) {
+    public CompletionStage<String> selectRowAsync(EventKey pk, UUID nodeId) {
         return getSession()
                 .thenComposeAsync(s -> {
                     Metadata metadata = s.getMetadata();
@@ -53,7 +59,18 @@ public class CassandraService {
                     Select query = selectFrom(pk.getKeyspace(), pk.getTable()).json().all();
                     for(ColumnMetadata cm : tableMetadataOptional.get().getPrimaryKey())
                         query = query.whereColumn(cm.getName()).isEqualTo(bindMarker());
-                    return s.executeAsync(query.build(pk.getColumns()));
+                    SimpleStatement statement = query.build(pk.getPkColumns());
+                    statement.setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
+                    if (nodeId != null) {
+                        Node node = s.getMetadata().getNodes().get(nodeId);
+                        if (node != null) {
+                            logger.debug("node={} query={}", node.getHostId(), query.toString());
+                            statement.setNode(node);
+                        }
+                    } else {
+                        logger.debug("query={}", query.toString());
+                    }
+                    return s.executeAsync(statement);
                 })
                 .thenApply(rs -> {
                     Row row = rs.one();

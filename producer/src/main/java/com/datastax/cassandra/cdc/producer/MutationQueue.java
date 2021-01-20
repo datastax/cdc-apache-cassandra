@@ -1,19 +1,13 @@
 package com.datastax.cassandra.cdc.producer;
 
-import io.debezium.time.Temporals;
 import io.debezium.util.Clock;
 import io.debezium.util.Metronome;
 import io.debezium.util.ObjectSizeCalculator;
-import io.debezium.util.Threads;
-import io.debezium.util.Threads.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -35,24 +29,26 @@ import java.util.concurrent.atomic.AtomicLong;
 
  */
 @Singleton
-public class ChangeEventQueue  {
+public class MutationQueue {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ChangeEventQueue.class);
+    private static final Logger logger = LoggerFactory.getLogger(MutationQueue.class);
 
     private final CassandraConnectorConfiguration config;
     private final Duration pollInterval;
     private final int maxBatchSize;
     private final int maxQueueSize;
     private final long maxQueueSizeInBytes;
-    private final BlockingQueue<Event> queue;
+    private final BlockingQueue<Mutation> queue;
     private final Metronome metronome;
     //private final Supplier<PreviousContext> loggingContextSupplier;
     private AtomicLong currentQueueSizeInBytes = new AtomicLong(0);
-    private Map<Event, Long> objectMap = new ConcurrentHashMap<>();
+    private Map<Mutation, Long> objectMap = new ConcurrentHashMap<>();
 
-    private volatile RuntimeException producerException;
+    // last enqueue event position
+    volatile long segment = 0;
+    volatile int position = 0;
 
-    public ChangeEventQueue(CassandraConnectorConfiguration config) {
+    public MutationQueue(CassandraConnectorConfiguration config) {
         this.config = config;
         this.pollInterval = config.pollIntervalMs;
         this.maxBatchSize = config.maxBatchSize;
@@ -62,8 +58,9 @@ public class ChangeEventQueue  {
         this.maxQueueSizeInBytes = config.maxQueueSizeInBytes;
     }
 
-    public void enqueue(Event event) throws InterruptedException {
-        if (event == null) {
+    public void enqueue(Mutation mutation) throws InterruptedException {
+        if (mutation == null || mutation.getSegment() < this.segment || (mutation.getSegment() == this.segment && mutation.getPosition() <= this.position)) {
+            logger.debug("seg/pos={}/{} Ignoring mutation={}", this.segment, this.position, mutation);
             return;
         }
 
@@ -72,51 +69,30 @@ public class ChangeEventQueue  {
             throw new InterruptedException();
         }
 
-        if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Enqueuing source record '{}'", event);
-        }
+        logger.debug("Enqueuing mutation={}", mutation);
+
         // Waiting for queue to add more record.
         while (maxQueueSizeInBytes > 0 && currentQueueSizeInBytes.get() > maxQueueSizeInBytes) {
             Thread.sleep(pollInterval.toMillis());
         }
+
         // this will also raise an InterruptedException if the thread is interrupted while waiting for space in the queue
-        queue.put(event);
+        this.queue.put(mutation);
+        this.segment = mutation.getSegment();
+        this.position = mutation.getPosition();
+
         // If we pass a positiveLong max.queue.size.in.bytes to enable handling queue size in bytes feature
         if (maxQueueSizeInBytes > 0) {
-            long messageSize = ObjectSizeCalculator.getObjectSize(event);
-            objectMap.put(event, messageSize);
+            long messageSize = ObjectSizeCalculator.getObjectSize(mutation);
+            objectMap.put(mutation, messageSize);
             currentQueueSizeInBytes.addAndGet(messageSize);
         }
     }
 
-    public Event take() throws InterruptedException {
-        return queue.take();
-    }
-
-    public void producerException(final RuntimeException producerException) {
-        this.producerException = producerException;
-    }
-
-    private void throwProducerExceptionIfPresent() {
-        if (producerException != null) {
-            throw producerException;
-        }
-    }
-
-    public int totalCapacity() {
-        return maxQueueSize;
-    }
-
-    public int remainingCapacity() {
-        return queue.remainingCapacity();
-    }
-
-    public long maxQueueSizeInBytes() {
-        return maxQueueSizeInBytes;
-    }
-
-    public long currentQueueSizeInBytes() {
-        return currentQueueSizeInBytes.get();
+    public Mutation take() throws InterruptedException {
+        Mutation m = queue.take();
+        logger.debug("m={}", m);
+        return m;
     }
 }
 

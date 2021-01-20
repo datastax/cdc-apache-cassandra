@@ -8,6 +8,7 @@ plugins {
 }
 
 micronaut {
+    runtime("netty")
     testRuntime("junit5")
     processing {
         incremental(true)
@@ -46,9 +47,6 @@ dependencies {
     implementation("io.micronaut:micronaut-runtime")
     implementation("javax.annotation:javax.annotation-api")
     runtimeOnly("ch.qos.logback:logback-classic")
-
-    testAnnotationProcessor "io.micronaut:micronaut-inject-java"
-    implementation("javax.annotation:javax.annotation-api")
 
     implementation("info.picocli:picocli")
     implementation("io.micronaut.picocli:micronaut-picocli:3.2.0")

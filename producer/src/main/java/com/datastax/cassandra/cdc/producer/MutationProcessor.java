@@ -10,7 +10,6 @@ import com.datastax.cassandra.cdc.CDCSchema;
 import com.datastax.cassandra.cdc.EventKey;
 import com.datastax.cassandra.cdc.EventValue;
 import com.datastax.cassandra.cdc.PulsarConfiguration;
-import com.datastax.cassandra.cdc.producer.exceptions.CassandraConnectorTaskException;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.pulsar.client.api.Producer;
 import org.apache.pulsar.client.api.PulsarClient;
@@ -22,7 +21,6 @@ import org.slf4j.LoggerFactory;
 import javax.inject.Singleton;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
@@ -31,14 +29,14 @@ import java.util.concurrent.TimeUnit;
  * The processor is also responsible for marking the offset to file and deleting the commit log files.
  */
 @Singleton
-public class ChangeEventProcessor extends AbstractProcessor implements AutoCloseable {
-    private static final Logger logger = LoggerFactory.getLogger(ChangeEventProcessor.class);
+public class MutationProcessor extends AbstractProcessor implements AutoCloseable {
+    private static final Logger logger = LoggerFactory.getLogger(MutationProcessor.class);
     private static final String NAME = "Change Event Queue Processor";
 
     public static final String ARCHIVE_FOLDER = "archive";
     public static final String ERROR_FOLDER = "error";
 
-    final ChangeEventQueue queue;
+    final MutationQueue queue;
     final String commitLogRelocationDir;
 
     final PulsarClient client;
@@ -50,11 +48,11 @@ public class ChangeEventProcessor extends AbstractProcessor implements AutoClose
     private volatile Long notCommittedEvents = 0L;
     private final MeterRegistry meterRegistry;
 
-    ChangeEventProcessor(CassandraConnectorConfiguration config,
-                         PulsarConfiguration pulsarConfiguration,
-                         ChangeEventQueue changeEventQueue,
-                         FileOffsetWriter offsetWriter,
-                         MeterRegistry meterRegistry) throws PulsarClientException {
+    MutationProcessor(CassandraConnectorConfiguration config,
+                      PulsarConfiguration pulsarConfiguration,
+                      MutationQueue changeEventQueue,
+                      FileOffsetWriter offsetWriter,
+                      MeterRegistry meterRegistry) throws PulsarClientException {
         super(NAME, 0);
         this.queue = changeEventQueue;
         this.offsetWriter = offsetWriter;
@@ -76,11 +74,11 @@ public class ChangeEventProcessor extends AbstractProcessor implements AutoClose
 
     @Override
     public void process() throws InterruptedException {
-        Event e, notSuccessfullProcessedEvent = null;
+        Mutation e, notSuccessfullProcessedEvent = null;
         while (true) {
             e = notSuccessfullProcessedEvent != null ? notSuccessfullProcessedEvent : queue.take(); // blocking
             try {
-                processEvent(e);
+                processMutation(e);
                 notSuccessfullProcessedEvent = null;
             } catch(Exception ex) {
                 notSuccessfullProcessedEvent = e;
@@ -88,9 +86,9 @@ public class ChangeEventProcessor extends AbstractProcessor implements AutoClose
                 // TODO: exponential retry
                 Thread.sleep(1000);
             }
-            if (notSuccessfullProcessedEvent == null && e instanceof Record) {
+            if (notSuccessfullProcessedEvent == null) {
                 try {
-                    maybeFlushAndMarkOffset((Record)e);
+                    maybeFlushAndMarkOffset(e);
                 } catch(Exception ex) {
                     logger.warn("flush offset error record={}", e);
                 }
@@ -129,43 +127,26 @@ public class ChangeEventProcessor extends AbstractProcessor implements AutoClose
         client.close();
     }
 
-    void processEvent(Event event) throws PulsarClientException {
-        switch (event.getEventType()) {
-            case CHANGE_EVENT:
-            case TOMBSTONE_EVENT:
-                publishRecord((Record) event);
-                notCommittedEvents++;
-                break;
-            case EOF_EVENT:
-                EOFEvent eofEvent = (EOFEvent) event;
-                String folder = eofEvent.success ? ARCHIVE_FOLDER : ERROR_FOLDER;
-                CommitLogUtil.moveCommitLog(eofEvent.file, Paths.get(commitLogRelocationDir, folder));
-                meterRegistry.counter("processedFiles").increment();
-                break;
-            default:
-                throw new CassandraConnectorTaskException("Encountered unexpected record with type: " + event.getEventType());
-        }
-    }
-
-    Record publishRecord(Record record) throws PulsarClientException {
-        EventKey ek = new EventKey(record.source.nodeId,
-                record.source.keyspaceTable.keyspace,
-                record.source.keyspaceTable.table,
-                record.rowData.primaryKeyValues());
-        EventValue ev = new EventValue(record.source.timestamp.toEpochMilli(),
-                record.source.nodeId, record.op);
+    Mutation processMutation(Mutation record) throws PulsarClientException {
+        EventKey ek = new EventKey(record.getSource().nodeId,
+                record.getSource().keyspaceTable.keyspace,
+                record.getSource().keyspaceTable.table,
+                record.getRowData().primaryKeyValues());
+        EventValue ev = new EventValue(record.getSource().timestamp.toEpochMilli(),
+                record.getSource().nodeId, record.getOp());
         KeyValue<EventKey, EventValue> kv = new KeyValue<>(ek, ev);
         producer.send(kv);
+        notCommittedEvents++;
         meterRegistry.counter("processedMutations").increment();
         logger.debug("Sending record key={} value={}", ek, ev);
         return record;
     }
 
-    void maybeFlushAndMarkOffset(Record record) throws IOException {
+    void maybeFlushAndMarkOffset(Mutation record) throws IOException {
         long now = System.currentTimeMillis();
         long timeSinceLastFlush = now - timeOfLastFlush;
         if (offsetFlushPolicy.shouldFlush(Duration.ofMillis(timeSinceLastFlush), notCommittedEvents)) {
-            SourceInfo source = record.source;
+            SourceInfo source = record.getSource();
             offsetWriter.markOffset(source.keyspaceTable.name(), source.commitLogPosition);
             offsetWriter.flush();
             this.meterRegistry.counter("commits").increment();

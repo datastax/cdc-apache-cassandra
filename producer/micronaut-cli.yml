@@ -1,4 +1,4 @@
-applicationType: service
+applicationType: message
 defaultPackage: com.datastax.cassandra.cdc.producer
 testFramework: junit
 sourceLanguage: java
