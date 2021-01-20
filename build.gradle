@@ -14,26 +14,6 @@ plugins {
     id "kr.motd.sphinx" version "2.6.1"
 }
 
-shadowJar {
-    append 'reference.conf'
-    classifier = null
-    version = null
-    mergeServiceFiles()
-}
-
-sphinx {
-    // Change the source directory.
-    sourceDirectory = "${projectDir}/docs/source"
-    // Change the output directory.
-    outputDirectory = "${projectDir}/server/src/main/resources/docs"
-    // Add environment variables.
-    //environments = ['ENV_FOO': 'value1', 'ENV_BAR': 'value2']
-    //env 'ENV_BAZ', 'value3'
-    // Add tags.
-    //tags 'tagA', 'tagB'
-}
-
-
 ext {
     repoUsername = project.hasProperty("repoUsername") ? project.getProperty("repoUsername") : System.getenv("NEXUS_USERNAME")
     repoPassword = project.hasProperty("repoPassword") ? project.getProperty("repoPassword") : System.getenv("NEXUS_PASSWORD")
@@ -129,11 +109,6 @@ subprojects {
         }
     }
     */
-
-    task sourcesJar(type: Jar) {
-        classifier = 'sources'
-        from sourceSets.main.allJava
-    }
 
 
     /*
