@@ -9,9 +9,9 @@ import java.sql.Timestamp;
 
 public class CDCSchema {
 
-    public static final Schema<KeyValue<PrimaryKey, Timestamp>> kvSchema = Schema.KeyValue(
-            JSONSchema.of(PrimaryKey.class),
-            Schema.TIMESTAMP,
+    public static final Schema<KeyValue<EventKey, EventValue>> kvSchema = Schema.KeyValue(
+            JSONSchema.of(EventKey.class),
+            JSONSchema.of(EventValue.class),
             KeyValueEncodingType.SEPARATED
     );
 

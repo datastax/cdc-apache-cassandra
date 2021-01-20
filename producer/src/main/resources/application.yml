@@ -1,7 +1,61 @@
 micronaut:
   application:
     name: cdcProducer
+  metrics:
+    enabled: true
+    export:
+      prometheus:
+        enabled: true
+        step: PT1M
+        descriptions: false
+  server:
+    port: 8082
+    enabled: false
+  executors:
+    post-processor:
+      type: FIXED
+      number-of-threads: 1
+
+endpoints:
+  all:
+    port: 8085
+  info:
+    enabled: true
+    sensitive: false
+  env:
+    enabled: true
+    sensitive: false
+  stop:
+    enabled: true
+    sensitive: false
+  metrics:
+    enabled: true
+    sensitive: false
+    binders:
+      jvm:
+        enabled: true
+      web:
+        enabled: true
+      uptime:
+        enabled: true
+      processor:
+        enabled: true
+  prometheus:
+    enabled: true
+    sensitive: false
+
 pulsar:
   serviceUrl: "pulsar://localhost:6650"
   topic: "persistent://public/default/topic1"
 
+cassandra-connector:
+  clusterName: Test cluster
+  nodeId: 263a0473-6297-4c99-b70a-3b0632cfc03a
+  cassandraStorageDir: /Users/vroyer/git/datastax/elassandra68-next/private/elassandra-6.8.4.12-SNAPSHOT-1/data
+  cassandraConf: /Users/vroyer/git/datastax/elassandra68-next/private/elassandra-6.8.4.12-SNAPSHOT-1/conf/cassandra.yaml
+  cassandraSnitchConf: /Users/vroyer/git/datastax/elassandra68-next/private/elassandra-6.8.4.12-SNAPSHOT-1/conf/cassandra-rackdc.properties
+  commitLogRelocationDir: /Users/vroyer/git/datastax/elassandra68-next/private/elassandra-6.8.4.12-SNAPSHOT-1/data/cdc
+  offsetBackingStoreDir: /Users/vroyer/git/datastax/elassandra68-next/private/elassandra-6.8.4.12-SNAPSHOT-1/data/cdc
+  errorCommitLogReprocessEnabled: false
+  latestCommitLogOnly: false
+  tombstonesOnDelete: true

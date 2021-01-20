@@ -1,15 +1,12 @@
 package com.datastax.cassandra.cdc.consumer;
 
-import com.datastax.cassandra.cdc.PrimaryKey;
+import com.datastax.cassandra.cdc.EventKey;
 import com.datastax.oss.driver.api.core.CqlSession;
-import com.datastax.oss.driver.api.core.cql.AsyncResultSet;
-import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.metadata.Metadata;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
-import com.datastax.oss.driver.api.core.session.Session;
 import com.datastax.oss.driver.api.querybuilder.select.Select;
 import io.micronaut.configuration.cassandra.CassandraConfiguration;
 import io.micronaut.configuration.cassandra.CassandraSessionFactory;
@@ -40,7 +37,7 @@ public class CassandraService {
         return cassandraSessionFactory.session(cassandraConfiguration).buildAsync();
     }
 
-    public CompletionStage<String> selectRowAsync(PrimaryKey pk) {
+    public CompletionStage<String> selectRowAsync(EventKey pk) {
         return getSession()
                 .thenComposeAsync(s -> {
                     Metadata metadata = s.getMetadata();
@@ -53,7 +50,6 @@ public class CassandraService {
                     if (!tableMetadataOptional.isPresent()) {
                         throw new IllegalArgumentException("No metadata for table " + pk.getKeyspace() + "." + pk.getTable());
                     }
-
                     Select query = selectFrom(pk.getKeyspace(), pk.getTable()).json().all();
                     for(ColumnMetadata cm : tableMetadataOptional.get().getPrimaryKey())
                         query = query.whereColumn(cm.getName()).isEqualTo(bindMarker());

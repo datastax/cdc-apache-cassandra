@@ -3,6 +3,7 @@ package com.datastax.cassandra.cdc;
 import lombok.*;
 
 import java.util.Arrays;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Getter
@@ -11,8 +12,9 @@ import java.util.stream.Collectors;
 @With
 @NoArgsConstructor
 @AllArgsConstructor
-public class PrimaryKey {
-    //UUID node;
+@ToString
+public class EventKey {
+    UUID node;
     String keyspace;
     String table;
     Object[] columns;

@@ -9,7 +9,9 @@
         </encoder>
     </appender>
 
-    <root level="info">
+    <logger name="com.datastax.cassandra.cdc" level="DEBUG" />
+    <logger name="org.apache.cassandra.db.commitlog" level="DEBUG" />
+    <root level="INFO">
         <appender-ref ref="STDOUT" />
     </root>
 </configuration>

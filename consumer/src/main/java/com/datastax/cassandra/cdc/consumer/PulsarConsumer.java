@@ -1,7 +1,8 @@
 package com.datastax.cassandra.cdc.consumer;
 
 import com.datastax.cassandra.cdc.CDCSchema;
-import com.datastax.cassandra.cdc.PrimaryKey;
+import com.datastax.cassandra.cdc.EventKey;
+import com.datastax.cassandra.cdc.EventValue;
 import com.datastax.cassandra.cdc.PulsarConfiguration;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,17 +22,17 @@ import java.util.Map;
  * Hello world!
  */
 @Singleton
-public class CDCConsumer {
-    private static final Logger logger = LoggerFactory.getLogger(CDCConsumer.class);
+public class PulsarConsumer {
+    private static final Logger logger = LoggerFactory.getLogger(PulsarConsumer.class);
     private static final ObjectMapper mapper = new ObjectMapper();
 
     final PulsarConfiguration pulsarConfiguration;
     final ElasticsearchService elasticsearchService;
     final CassandraService cassandraService;
 
-    public CDCConsumer(PulsarConfiguration pulsarConfiguration,
-                       ElasticsearchService elasticsearchService,
-                       CassandraService cassandraService) {
+    public PulsarConsumer(PulsarConfiguration pulsarConfiguration,
+                          ElasticsearchService elasticsearchService,
+                          CassandraService cassandraService) {
         this.pulsarConfiguration = pulsarConfiguration;
         this.elasticsearchService = elasticsearchService;
         this.cassandraService = cassandraService;
@@ -39,7 +40,7 @@ public class CDCConsumer {
 
     void consume() {
         PulsarClient client = null;
-        Consumer<KeyValue<PrimaryKey, Timestamp>> consumer = null;
+        Consumer<KeyValue<EventKey, EventValue>> consumer = null;
         try {
             client = PulsarClient.builder()
                     .serviceUrl(pulsarConfiguration.getServiceUrl())
@@ -53,18 +54,18 @@ public class CDCConsumer {
                     .subscribe();
 
             while(true) {
-                Message<KeyValue<PrimaryKey, Timestamp>> msg = null;
+                Message<KeyValue<EventKey, EventValue>> msg = null;
                 try {
                     // Wait for a message
                     msg = consumer.receive();
-                    final KeyValue<PrimaryKey, Timestamp> kv = msg.getValue();
-                    final PrimaryKey pk = kv.getKey();
+                    final KeyValue<EventKey, EventValue> kv = msg.getValue();
+                    final EventKey pk = kv.getKey();
 
                     logger.debug("Message from producer={} msgId={} key={} value={}\n",
                             msg.getProducerName(), msg.getMessageId(), kv.getKey(), kv.getValue());
 
-                    final Consumer<KeyValue<PrimaryKey, Timestamp>> consumerFinal = consumer;
-                    final Message<KeyValue<PrimaryKey, Timestamp>> msgFinal = msg;
+                    final Consumer<KeyValue<EventKey, EventValue>> consumerFinal = consumer;
+                    final Message<KeyValue<EventKey, EventValue>> msgFinal = msg;
 
                     elasticsearchService.getWritetime(kv.getKey())
                         .thenAcceptAsync(writetime -> {
@@ -74,7 +75,7 @@ public class CDCConsumer {
                                     // Elasticsearch is not available
                                     consumerFinal.negativeAcknowledge(msgFinal);
                                 } else {
-                                    if (kv.getValue().getTime() < writetime) {
+                                    if (kv.getValue().getWritetime() < writetime) {
                                         // update is obsolete
                                         consumerFinal.acknowledge(msgFinal);
                                     } else {
@@ -85,7 +86,7 @@ public class CDCConsumer {
                                                 try {
                                                     Map<String, Object> source = mapper.readValue(json, new TypeReference<Map<String, Object>>() {
                                                     });
-                                                    elasticsearchService.index(pk, kv.getValue().getTime(), source)
+                                                    elasticsearchService.index(pk, kv.getValue().getWritetime(), source)
                                                         .thenAcceptAsync(wt -> {
                                                             // Acknowledge the message so that it can be deleted by the message broker
                                                             try {
@@ -132,8 +133,8 @@ public class CDCConsumer {
     }
 
     public static void main(String[] args) {
-        try(ApplicationContext context = Micronaut.run(CDCConsumer.class, args)) {
-            context.getBean(CDCConsumer.class).consume();
+        try(ApplicationContext context = Micronaut.run(PulsarConsumer.class, args)) {
+            context.getBean(PulsarConsumer.class).consume();
         }
     }
 }

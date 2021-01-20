@@ -36,6 +36,10 @@ compileTestJava {
 }
 
 dependencies {
+    implementation "org.projectlombok:lombok:${lombokVersion}"
+    annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+    implementation "com.xebia:jackson-lombok:1.1"
+
     compile project(':common')
 
     implementation("io.micronaut:micronaut-validation")
@@ -50,7 +54,16 @@ dependencies {
     implementation("io.micronaut.picocli:micronaut-picocli:3.2.0")
 
     implementation("io.micronaut:micronaut-management")
-    //compile 'io.micronaut.configuration:micronaut-micrometer-registry-prometheus'
+    implementation("io.micronaut.micrometer:micronaut-micrometer-core")
+    implementation("io.micronaut.micrometer:micronaut-micrometer-registry-prometheus")
+    runtimeOnly("ch.qos.logback:logback-classic")
+
+    testAnnotationProcessor "io.micronaut:micronaut-inject-java"
+    implementation("javax.annotation:javax.annotation-api")
+
+    implementation("io.micronaut.cassandra:micronaut-cassandra:3.1.0")
+    implementation("com.strapdata.cassandra:cassandra-all:4.0-beta3-SNAPSHOT")
+    implementation("io.debezium:debezium-core:1.4.0.Final")
 }
 
 run {

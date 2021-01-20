@@ -1,6 +1,6 @@
 package com.datastax.cassandra.cdc.consumer;
 
-import com.datastax.cassandra.cdc.PrimaryKey;
+import com.datastax.cassandra.cdc.EventKey;
 import io.micronaut.cache.annotation.CacheConfig;
 import io.micronaut.cache.annotation.CachePut;
 import io.micronaut.cache.annotation.Cacheable;
@@ -21,6 +21,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.inject.Singleton;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
@@ -43,7 +44,7 @@ public class ElasticsearchService {
      * fetch asynchronously the writetime from elasticsearch
      */
     @Cacheable
-    public CompletableFuture<Long> getWritetime(PrimaryKey pk) {
+    public CompletableFuture<Long> getWritetime(EventKey pk) {
         GetRequest request = new GetRequest(
                 pk.getKeyspace(),
                 //pk.getTable(),
@@ -83,7 +84,7 @@ public class ElasticsearchService {
     }
 
     @CachePut(parameters = {"pk"}, async = true)
-    public CompletableFuture<Long> index(final PrimaryKey pk, final Long writetime, final Map<String, Object> source) throws IOException {
+    public CompletableFuture<Long> index(final EventKey pk, final Long writetime, final Map<String, Object> source) throws IOException {
         IndexRequest request = new IndexRequest(pk.getKeyspace());
         request.id(pk.id());
         //request.type(kv.getKey().getTable());
