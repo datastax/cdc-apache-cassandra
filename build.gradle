@@ -12,6 +12,7 @@ plugins {
     id 'com.google.cloud.tools.jib' version '1.0.2'
     id "com.google.osdetector" version "1.6.2"
     id "kr.motd.sphinx" version "2.6.1"
+    id 'com.bmuschko.docker-remote-api' version '6.7.0'
 }
 
 ext {

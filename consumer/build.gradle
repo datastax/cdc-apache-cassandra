@@ -68,3 +68,6 @@ run {
     mainClass = "$mainClassName"
 }
 
+dockerBuild {
+    images = ["datastax/cassandra-cdc-consumer:$project.version"]
+}
