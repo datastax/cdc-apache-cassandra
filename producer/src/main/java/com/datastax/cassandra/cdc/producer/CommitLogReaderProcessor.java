@@ -1,6 +1,14 @@
 package com.datastax.cassandra.cdc.producer;
 
+import com.datastax.cassandra.cdc.*;
+import io.micrometer.core.instrument.MeterRegistry;
+import org.apache.cassandra.db.commitlog.CommitLogPosition;
 import org.apache.cassandra.db.commitlog.CommitLogReader;
+import org.apache.pulsar.client.api.BatcherBuilder;
+import org.apache.pulsar.client.api.HashingScheme;
+import org.apache.pulsar.client.api.Producer;
+import org.apache.pulsar.client.api.PulsarClient;
+import org.apache.pulsar.common.schema.KeyValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -8,41 +16,61 @@ import javax.inject.Singleton;
 import java.io.*;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.ToDoubleFunction;
 
 /**
- * Manage BlockingCommitLogReaders to read synced data as soon as possible.
+ * Consume a queue of commitlog files to read mutations.
  *
+ * @author vroyer
  */
 @Singleton
 public class CommitLogReaderProcessor extends AbstractProcessor implements AutoCloseable {
     private static final Logger logger = LoggerFactory.getLogger(CommitLogReaderProcessor.class);
     private static final String NAME = "CommitLogReader Processor";
 
+    public static final String ARCHIVE_FOLDER = "archive";
+    public static final String ERROR_FOLDER = "error";
+
     // synced position
-    private volatile long syncedSegmentId = -1;
-    private volatile int  syncedPosition = -1;
-    private CountDownLatch syncedPositionLatch = new CountDownLatch(1);
+    private AtomicReference<CommitLogPosition> syncedOffsetRef = new AtomicReference<>(new CommitLogPosition(0,0));
+
+    private CountDownLatch syncedOffsetLatch = new CountDownLatch(1);
 
     private final PriorityBlockingQueue<File> commitLogQueue = new PriorityBlockingQueue<>(128, CommitLogUtil::compareCommitLogs);
 
-    private final MutationQueue changeEventQueue;
+    private final CassandraCdcConfiguration config;
     private final CommitLogReadHandlerImpl commitLogReadHandler;
-    private final FileOffsetWriter fileOffsetWriter;
+    private final OffsetFileWriter offsetFileWriter;
     private final CommitLogTransfer commitLogTransfer;
+    private final MeterRegistry meterRegistry;
 
-    public CommitLogReaderProcessor(CassandraConnectorConfiguration config,
+    public CommitLogReaderProcessor(CassandraCdcConfiguration config,
                                     CommitLogReadHandlerImpl commitLogReadHandler,
-                                    MutationQueue changeEventQueue,
-                                    FileOffsetWriter fileOffsetWriter,
-                                    CommitLogTransfer commitLogTransfer) {
+                                    OffsetFileWriter offsetFileWriter,
+                                    CommitLogTransfer commitLogTransfer,
+                                    MeterRegistry meterRegistry) {
         super(NAME, 0);
-        this.changeEventQueue = changeEventQueue;
+        this.config = config;
         this.commitLogReadHandler = commitLogReadHandler;
-        this.fileOffsetWriter = fileOffsetWriter;
+        this.offsetFileWriter = offsetFileWriter;
         this.commitLogTransfer = commitLogTransfer;
+
+        this.meterRegistry = meterRegistry;
+        this.meterRegistry.gauge(Metrics.METRICS_PREFIX + "synced_segment", syncedOffsetRef, new ToDoubleFunction<AtomicReference<CommitLogPosition>>() {
+            @Override
+            public double applyAsDouble(AtomicReference<CommitLogPosition> offsetRef) {
+                return offsetRef.get().segmentId;
+            }
+        });
+        this.meterRegistry.gauge(Metrics.METRICS_PREFIX + "synced_position", syncedOffsetRef, new ToDoubleFunction<AtomicReference<CommitLogPosition>>() {
+            @Override
+            public double applyAsDouble(AtomicReference<CommitLogPosition> offsetRef) {
+                return offsetRef.get().position;
+            }
+        });
     }
 
     public void submitCommitLog(File file)  {
@@ -50,7 +78,7 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
             // you can have old _cdc.idx file, ignore it
             long seg = CommitLogUtil.extractTimestamp(file.getName());
             int pos = 0;
-            if (seg >= this.syncedSegmentId) {
+            if (seg >= this.syncedOffsetRef.get().segmentId) {
                 try {
                     List<String> lines = Files.readAllLines(file.toPath(), Charset.forName("UTF-8"));
                     pos = Integer.parseInt(lines.get(0));
@@ -61,14 +89,13 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
                         }
                     } catch(Exception ex) {
                     }
-                    logger.debug("New synced position={}:{} completed={}", seg, pos, completed);
-                    assert seg > this.syncedSegmentId || pos > this.syncedPosition : "Unexpected synced position " + seg + ":" +pos;
+                    syncedOffsetRef.set(new CommitLogPosition(seg, pos));
+                    logger.debug("New synced position={} completed={}", syncedOffsetRef.get(), completed);
+                    assert seg > this.syncedOffsetRef.get().segmentId || pos > this.syncedOffsetRef.get().position : "Unexpected synced position " + seg + ":" +pos;
 
-                    this.syncedSegmentId = seg;
-                    this.syncedPosition = pos;
                     // unlock the processing of commitlogs
-                    if (syncedPositionLatch.getCount() > 0)
-                        syncedPositionLatch.countDown();
+                    if (syncedOffsetLatch.getCount() > 0)
+                        syncedOffsetLatch.countDown();
                 } catch(IOException ex) {
                     logger.warn("error while reading file=" + file.getName(), ex);
                 }
@@ -81,46 +108,71 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
     }
 
     public void awaitSyncedPosition() throws InterruptedException {
-        syncedPositionLatch.await();
+        syncedOffsetLatch.await();
     }
 
     @Override
     public void process() throws InterruptedException {
-        assert this.syncedSegmentId >= this.fileOffsetWriter.position().segmentId : "offset segment is beyond the synced segment";
-        assert this.syncedSegmentId > this.fileOffsetWriter.position().segmentId || this.syncedPosition > this.fileOffsetWriter.position().position : "offset is beyond the synced position";
+        assert this.offsetFileWriter.offset().segmentId <= this.syncedOffsetRef.get().segmentId || this.offsetFileWriter.offset().position <= this.offsetFileWriter.offset().position : "file offset is greater than synced offset";
         File file = null;
         while(true) {
             file = this.commitLogQueue.take();
             long seg = CommitLogUtil.extractTimestamp(file.getName());
 
             // ignore file before the last write offset
-            if (seg < this.fileOffsetWriter.position().segmentId) {
-                logger.debug("Ignoring file={} before the replicated segment={}", file.getName(), this.fileOffsetWriter.position().segmentId);
+            if (seg < this.offsetFileWriter.offset().segmentId) {
+                logger.debug("Ignoring file={} before the replicated segment={}", file.getName(), this.offsetFileWriter.offset().segmentId);
                 continue;
             }
             // ignore file beyond the last synced commitlog, it will be re-queued on a file modification.
-            if (seg > this.syncedSegmentId) {
-                logger.debug("Ignore dummy file={} after the synced segment={}", file.getName(), this.syncedSegmentId);
+            if (seg > this.syncedOffsetRef.get().segmentId) {
+                logger.debug("Ignore a not synced file={}, last synced offset={}", file.getName(), this.syncedOffsetRef.get());
                 continue;
             }
-            logger.debug("processing file={} synced position={}:{}",
-                    file.getName(), this.syncedSegmentId, this.syncedPosition);
-            assert seg <= this.syncedSegmentId : "reading a commitlog ahead the last synced commitlog";
+            logger.debug("processing file={} synced offset={}",
+                    file.getName(), this.syncedOffsetRef.get());
+            assert seg <= this.syncedOffsetRef.get().segmentId: "reading a commitlog ahead the last synced offset";
 
             CommitLogReader commitLogReader = new CommitLogReader();
             try {
-                commitLogReader.readCommitLogSegment(commitLogReadHandler, file, fileOffsetWriter.position(), false);
-                logger.debug("Successfully processed commitlog immutable={} file={}", seg < this.syncedSegmentId, file.getName());
-                if (seg < this.syncedSegmentId) {
+                CommitLogPosition commitLogPosition = offsetFileWriter.offset();
+                commitLogReader.readCommitLogSegment(commitLogReadHandler, file, offsetFileWriter.offset(), false);
+                logger.debug("Successfully processed commitlog immutable={} position={} file={}",
+                        seg < this.syncedOffsetRef.get().segmentId, commitLogPosition, file.getName());
+                if (seg < this.syncedOffsetRef.get().segmentId) {
                     commitLogTransfer.onSuccessTransfer(file);
                 }
             } catch(Exception e) {
-                logger.warn("Failed to read commitlog immutable="+(seg < this.syncedSegmentId)+"file="+file.getName(), e);
-                if (seg < this.syncedSegmentId) {
+                logger.warn("Failed to read commitlog immutable="+(seg < this.syncedOffsetRef.get().segmentId)+"file="+file.getName(), e);
+                if (seg < this.syncedOffsetRef.get().segmentId) {
                     commitLogTransfer.onErrorTransfer(file);
                 }
             }
         }
+    }
+
+    @Override
+    public void initialize() throws Exception {
+        File dir = new File(config.commitLogRelocationDir);
+        if (!dir.exists()) {
+            if (!dir.mkdir()) {
+                throw new IOException("Failed to create " + config.commitLogRelocationDir);
+            }
+        }
+        File archiveDir = new File(dir, ARCHIVE_FOLDER);
+        if (!archiveDir.exists()) {
+            if (!archiveDir.mkdir()) {
+                throw new IOException("Failed to create " + archiveDir);
+            }
+        }
+        File errorDir = new File(dir, ERROR_FOLDER);
+        if (!errorDir.exists()) {
+            if (!errorDir.mkdir()) {
+                throw new IOException("Failed to create " + errorDir);
+            }
+        }
+
+        this.commitLogReadHandler.initialize();
     }
 
     /**

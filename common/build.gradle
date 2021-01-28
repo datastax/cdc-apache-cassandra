@@ -18,7 +18,7 @@ dependencies {
 
     annotationProcessor "io.micronaut:micronaut-inject-java"
     annotationProcessor "io.micronaut:micronaut-validation"
-    implementation("io.micronaut:micronaut-inject-java")
+    implementation "io.micronaut:micronaut-inject-java"
     implementation "io.micronaut:micronaut-runtime"
     implementation "javax.inject:javax.inject:1"
 }

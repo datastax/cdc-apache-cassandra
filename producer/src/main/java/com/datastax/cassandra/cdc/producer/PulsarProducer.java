@@ -13,12 +13,9 @@ public class PulsarProducer {
 
     public static void main(String[] args) {
         try(ApplicationContext context = Micronaut.run(PulsarProducer.class, args);
-            MutationProcessor mutationProcessor = context.getBean(MutationProcessor.class);
             CommitLogProcessor commitLogProcessor = context.getBean(CommitLogProcessor.class);
             CommitLogReaderProcessor commitLogReaderProcessor = context.getBean(CommitLogReaderProcessor.class);
         ) {
-            mutationProcessor.initialize();
-
             // detect commitlogs file and submit new/modified files to the commitLogReader
             ExecutorService commitLogExecutor = Executors.newSingleThreadExecutor();
             commitLogExecutor.submit(() -> {
@@ -34,25 +31,13 @@ public class PulsarProducer {
             commitLogReaderProcessor.awaitSyncedPosition();
 
             // continuously read commitlogs
-            ExecutorService commitLogReaderExecutor = Executors.newSingleThreadExecutor();
-            commitLogReaderExecutor.submit(() -> {
-                try {
-                    commitLogReaderProcessor.initialize();
-                    commitLogReaderProcessor.start();
-                } catch(Exception e) {
-                    logger.error("commitLogReaderProcessor error:", e);
-                }
-            });
-
-            // process mutations
             try {
-                mutationProcessor.start();
-            } catch(InterruptedException e) {
-                logger.error("error:", e);
-            } finally {
-                commitLogExecutor.shutdownNow();
-                commitLogReaderExecutor.shutdownNow();
+                commitLogReaderProcessor.initialize();
+                commitLogReaderProcessor.start();
+            } catch(Exception e) {
+                logger.error("commitLogReaderProcessor error:", e);
             }
+
         } catch(Throwable e) {
             logger.error("error:", e);
         }

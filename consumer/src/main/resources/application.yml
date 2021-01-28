@@ -13,7 +13,7 @@ micronaut:
         step: PT1M
         descriptions: false
   server:
-    port: 8081
+    port: "${SERVER_PORT:8081}"
     enabled: false
   caches:
     elasticache:
@@ -21,7 +21,7 @@ micronaut:
 
 endpoints:
   all:
-    port: 8085
+    port: "${ENDPOINTS_PORT:8085}"
   info:
     enabled: true
     sensitive: false
@@ -56,17 +56,17 @@ endpoints:
             enabled: false
 ---
 pulsar:
-  serviceUrl: "pulsar://localhost:6650"
-  topic: "persistent://public/default/topic1"
-  subscription: "sub1"
+  serviceUrl: "${PULSAR_SERVICE_URL:`pulsar://localhost:6650`}"
+  topic: "${PULSAR_TOPIC:`persistent://public/default/topic1`}"
+  subscription: "${PULSAR_SUBSCRIPTION:`sub1`}"
 ---
 cassandra:
   default:
     basic:
       contact-points:
-        - "127.0.0.1:9042"
-      load-balancing-policy:
-        local-datacenter: DC1
+        - "${CASSANDRA_CONTACTPOINT:`localhost:9042`}"
+        load-balancing-policy:
+          local-datacenter: "${CASSANDRA_DATACENTER:`DC1`}"
     advanced:
       control-connection:
         schema-agreement:
@@ -76,4 +76,4 @@ cassandra:
           enabled: true
 ---
 elasticsearch:
-  httpHosts: "http://localhost:9200"
+  httpHosts: "${ELASTICSEARCH_HOSTS:`http://localhost:9200`}"

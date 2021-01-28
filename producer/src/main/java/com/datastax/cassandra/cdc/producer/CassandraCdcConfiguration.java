@@ -5,6 +5,7 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import io.micronaut.context.annotation.ConfigurationProperties;
 
 import java.time.Duration;
@@ -16,8 +17,8 @@ import java.util.UUID;
 /**
  * All configs used by a Cassandra connector agent.
  */
-@ConfigurationProperties("cassandra-connector")
-public class CassandraConnectorConfiguration {
+@ConfigurationProperties("cassandra-cdc")
+public class CassandraCdcConfiguration {
 
     /**
      * The set of predefined SnapshotMode options.
@@ -105,6 +106,10 @@ public class CassandraConnectorConfiguration {
 
     Boolean tombstonesOnDelete = true;
 
+    /**
+     * Fetch the cassandra row before sending a pulsar message.
+     */
+    Boolean fetchRow = false;
 
     // In-memory Queue settings
     /**
@@ -113,12 +118,4 @@ public class CassandraConnectorConfiguration {
      */
     public Duration pollIntervalMs = Duration.of(1, ChronoUnit.SECONDS);
     public int maxQueueSize = 1024;
-    public int maxQueueSizeInBytes = 1024 * 1024;
-    public int maxBatchSize = 64;
-
-    /**
-     * The maximum wait time before {@code poll()} return control back to Connect when no events
-     * are available.
-     */
-    public Duration returnControlInterval = Duration.ofSeconds(5);
 }

@@ -10,8 +10,9 @@ import java.util.UUID;
 @AllArgsConstructor
 @ToString
 @EqualsAndHashCode
-public class EventValue {
+public class MutationValue {
     Long writetime;
     UUID nodeId;
     Operation operation;
+    String document;
 }

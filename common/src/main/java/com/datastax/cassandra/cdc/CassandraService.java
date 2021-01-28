@@ -1,18 +1,19 @@
-package com.datastax.cassandra.cdc.consumer;
+package com.datastax.cassandra.cdc;
 
-import com.datastax.cassandra.cdc.EventKey;
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
-import com.datastax.oss.driver.api.core.cql.Statement;
-import com.datastax.oss.driver.api.core.metadata.EndPoint;
 import com.datastax.oss.driver.api.core.metadata.Metadata;
 import com.datastax.oss.driver.api.core.metadata.Node;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
+import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
 import com.datastax.oss.driver.api.querybuilder.select.Select;
+import com.google.common.collect.ImmutableList;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tag;
 import io.micronaut.configuration.cassandra.CassandraConfiguration;
 import io.micronaut.configuration.cassandra.CassandraSessionFactory;
 import org.slf4j.Logger;
@@ -22,9 +23,7 @@ import javax.inject.Singleton;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletionStage;
-
-import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.bindMarker;
-import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.selectFrom;
+import java.util.concurrent.ExecutionException;
 
 @Singleton
 public class CassandraService {
@@ -32,22 +31,31 @@ public class CassandraService {
 
     final CassandraSessionFactory cassandraSessionFactory;
     final CassandraConfiguration cassandraConfiguration;
+    final MeterRegistry meterRegistry;
 
     public CassandraService(CassandraSessionFactory cassandraSessionFactory,
-                            CassandraConfiguration cassandraConfiguration) {
+                            CassandraConfiguration cassandraConfiguration,
+                            MeterRegistry meterRegistry) {
         this.cassandraSessionFactory = cassandraSessionFactory;
         this.cassandraConfiguration = cassandraConfiguration;
+        this.meterRegistry = meterRegistry;
     }
 
     public CompletionStage<CqlSession> getSession() {
-        return cassandraSessionFactory.session(cassandraConfiguration).buildAsync();
+        return cassandraSessionFactory
+                .session(cassandraConfiguration)
+                .buildAsync();
     }
 
-    public CompletionStage<String> selectRowAsync(EventKey pk, UUID nodeId) {
+    public String selectRow(MutationKey pk, UUID nodeId) throws ExecutionException, InterruptedException {
+        return selectRowAsync(pk, nodeId).toCompletableFuture().get();
+    }
+
+    public CompletionStage<String> selectRowAsync(MutationKey pk, UUID nodeId) {
+        final Iterable<Tag> tags = ImmutableList.of(Tag.of("keyspace", pk.getKeyspace()), Tag.of("table", pk.getTable()));
         return getSession()
                 .thenComposeAsync(s -> {
                     Metadata metadata = s.getMetadata();
-
                     Optional<KeyspaceMetadata> keyspaceMetadataOptional = metadata.getKeyspace(pk.getKeyspace());
                     if (!keyspaceMetadataOptional.isPresent()) {
                         throw new IllegalArgumentException("No metadata for keyspace " + pk.getKeyspace());
@@ -56,9 +64,10 @@ public class CassandraService {
                     if (!tableMetadataOptional.isPresent()) {
                         throw new IllegalArgumentException("No metadata for table " + pk.getKeyspace() + "." + pk.getTable());
                     }
-                    Select query = selectFrom(pk.getKeyspace(), pk.getTable()).json().all();
+
+                    Select query = QueryBuilder.selectFrom(pk.getKeyspace(), pk.getTable()).json().all();
                     for(ColumnMetadata cm : tableMetadataOptional.get().getPrimaryKey())
-                        query = query.whereColumn(cm.getName()).isEqualTo(bindMarker());
+                        query = query.whereColumn(cm.getName()).isEqualTo(QueryBuilder.bindMarker());
                     SimpleStatement statement = query.build(pk.getPkColumns());
                     statement.setConsistencyLevel(ConsistencyLevel.LOCAL_ONE);
                     if (nodeId != null) {
@@ -75,12 +84,14 @@ public class CassandraService {
                 .thenApply(rs -> {
                     Row row = rs.one();
                     String json = row.get(0, String.class);
-                    logger.debug("Row id={} source={}", pk.id(), json);
+                    logger.debug("Row id={} source={}", pk.id, json);
+                    meterRegistry.counter("cassandraRead", tags).increment();
                     return json;
                 })
                 .whenComplete((map, error) -> {
                     if (error != null) {
                         logger.warn("Failed to retrieve row: {}", error);
+                        meterRegistry.counter("cassandraError", tags).increment();
                     }
                 });
     }

@@ -22,7 +22,7 @@ application {
 
 jar {
     manifest {
-        attributes "Main-Class": mainClassName
+        attributes 'Main-Class': "$mainClassName"
     }
     zip64=true
     from {
@@ -62,6 +62,7 @@ dependencies {
     implementation("io.micronaut.cassandra:micronaut-cassandra:3.1.0")
     implementation("com.strapdata.cassandra:cassandra-all:4.0-beta3-SNAPSHOT")
     implementation("io.debezium:debezium-core:1.4.0.Final")
+    implementation("io.micronaut.elasticsearch:micronaut-elasticsearch:2.1.0")
 }
 
 run {
@@ -69,5 +70,6 @@ run {
         args project.args.split('\\s+')
     }
     //jvmArgs = [ "-Djavax.net.debug=all" ]
+    mainClass = "$mainClassName"
 }
 

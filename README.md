@@ -21,7 +21,7 @@ A Pulsar key-shared subscription ensure all mutations for a given primary key ar
 Additionally, even if Pulsar deduplication is enabled, it does not deduplicate messages processed buy the pulsar consumers.
 It only deduplicate message storage in bookkeeper as show in the following figure.
 
-![pulsar-deduplication](docs/images/subscription-key-shared.png)
+![pulsar-deduplication](docs/images/pulsar-deduplication.png)
 
 So the pulsar consumer keep the last sync writetime in a memory cache to deduplicate the same Cassandra mutation 
 coming from multiple replicas.

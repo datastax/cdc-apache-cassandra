@@ -293,6 +293,7 @@ public class BlockingCommitLogReader
                         // consume the remaining permit for this section
                         logger.debug("acquireUninterruptibly {} / {}", logicalSectionSize - 1, semaphore.availablePermits());
                         semaphore.acquireUninterruptibly(logicalSectionSize - 1);
+                        reader.reBuffer();
                     }
                 }
             }

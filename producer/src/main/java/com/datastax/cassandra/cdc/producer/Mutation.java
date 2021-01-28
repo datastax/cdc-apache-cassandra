@@ -5,6 +5,8 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
+import com.datastax.cassandra.cdc.MutationKey;
+import com.datastax.cassandra.cdc.MutationValue;
 import com.datastax.cassandra.cdc.Operation;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
@@ -28,4 +30,15 @@ public class Mutation {
     private Operation op;
     private boolean shouldMarkOffset;
     private long ts;
+
+    public MutationKey mutationKey() {
+        return new MutationKey(
+                source.keyspaceTable.keyspace,
+                source.keyspaceTable.table,
+                rowData.primaryKeyValues());
+    }
+
+    public MutationValue mutationValue(String jsonDocument) {
+        return new MutationValue(source.timestamp.toEpochMilli(), source.nodeId, op, jsonDocument);
+    }
 }

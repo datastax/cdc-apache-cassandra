@@ -5,13 +5,11 @@ import org.apache.pulsar.client.impl.schema.JSONSchema;
 import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.common.schema.KeyValueEncodingType;
 
-import java.sql.Timestamp;
-
 public class CDCSchema {
 
-    public static final Schema<KeyValue<EventKey, EventValue>> kvSchema = Schema.KeyValue(
-            JSONSchema.of(EventKey.class),
-            JSONSchema.of(EventValue.class),
+    public static final Schema<KeyValue<MutationKey, MutationValue>> kvSchema = Schema.KeyValue(
+            JSONSchema.of(MutationKey.class),
+            JSONSchema.of(MutationValue.class),
             KeyValueEncodingType.SEPARATED
     );
 

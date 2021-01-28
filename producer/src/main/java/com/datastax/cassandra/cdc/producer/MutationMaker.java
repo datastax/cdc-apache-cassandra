@@ -24,7 +24,7 @@ public class MutationMaker {
     private static final Logger LOGGER = LoggerFactory.getLogger(MutationMaker.class);
     private final boolean emitTombstoneOnDelete;
 
-    public MutationMaker(CassandraConnectorConfiguration config) {
+    public MutationMaker(CassandraCdcConfiguration config) {
         this.emitTombstoneOnDelete = config.tombstonesOnDelete;
     }
 

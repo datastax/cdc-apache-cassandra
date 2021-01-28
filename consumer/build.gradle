@@ -57,8 +57,6 @@ dependencies {
 
     implementation("io.micronaut.cache:micronaut-cache-caffeine")
 
-    implementation "org.apache.pulsar:pulsar-client"
-    implementation("io.micronaut.cassandra:micronaut-cassandra:3.1.0")
     implementation("io.micronaut.elasticsearch:micronaut-elasticsearch:2.1.0")
 }
 
@@ -67,5 +65,6 @@ run {
         args project.args.split('\\s+')
     }
     //jvmArgs = [ "-Djavax.net.debug=all" ]
+    mainClass = "$mainClassName"
 }
 

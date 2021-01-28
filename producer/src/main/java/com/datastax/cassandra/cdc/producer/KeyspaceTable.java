@@ -5,9 +5,10 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
-import com.datastax.driver.core.TableMetadata;
-import io.debezium.schema.DataCollectionId;
+import com.google.common.collect.ImmutableList;
+import io.micrometer.core.instrument.Tag;
 
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -20,11 +21,6 @@ public class KeyspaceTable {
     public KeyspaceTable(String keyspace, String table) {
         this.keyspace = keyspace;
         this.table = table;
-    }
-
-    public KeyspaceTable(TableMetadata tableMetadata) {
-        this.keyspace = tableMetadata.getKeyspace().getName();
-        this.table = tableMetadata.getName();
     }
 
     public String name() {
@@ -55,5 +51,9 @@ public class KeyspaceTable {
 
     public String identifier() {
         return keyspace + "." + table;
+    }
+
+    public List<Tag> tags() {
+        return ImmutableList.of(Tag.of("keyspace", keyspace), Tag.of("table", table));
     }
 }

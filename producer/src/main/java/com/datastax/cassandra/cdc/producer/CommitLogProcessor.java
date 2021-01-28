@@ -5,10 +5,20 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
+import com.datastax.cassandra.cdc.CDCSchema;
+import com.datastax.cassandra.cdc.MutationKey;
+import com.datastax.cassandra.cdc.MutationValue;
+import com.datastax.cassandra.cdc.PulsarConfiguration;
 import com.google.common.collect.ImmutableSet;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.locator.SnitchProperties;
 import org.apache.cassandra.schema.Schema;
+import org.apache.cassandra.service.StorageService;
+import org.apache.pulsar.client.api.BatcherBuilder;
+import org.apache.pulsar.client.api.HashingScheme;
+import org.apache.pulsar.client.api.Producer;
+import org.apache.pulsar.client.api.PulsarClient;
+import org.apache.pulsar.common.schema.KeyValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,14 +28,16 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.WatchEvent;
 import java.util.Arrays;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import static java.nio.file.StandardWatchEventKinds.ENTRY_CREATE;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
 
 /**
- * The {@link CommitLogProcessor} is used to process CommitLog in CDC directory.
- * Upon readCommitLog, it processes the entire CommitLog specified in the {@link CassandraConnectorConfiguration}
- * and converts each row change in the commit log into a {@link Mutation}.
+ * Detect and read commitlogs files.
+ *
+ * @author vroyer
  */
 @Singleton
 public class CommitLogProcessor extends AbstractProcessor implements AutoCloseable {
@@ -33,24 +45,27 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
 
     private static final String NAME = "Commit Log Processor";
 
-    private final CassandraConnectorConfiguration config;
+    private final CassandraCdcConfiguration config;
     private final CommitLogTransfer commitLogTransfer;
     private final File cdcDir;
     private final AbstractDirectoryWatcher newCommitLogWatcher;
     private boolean initial = true;
 
     CommitLogReaderProcessor commitLogReaderProcessor;
-    FileOffsetWriter fileOffsetWriter;
+    OffsetFileWriter offsetFileWriter;
+    UUID localHostId = null;
 
-    public CommitLogProcessor(CassandraConnectorConfiguration config,
+
+
+    public CommitLogProcessor(CassandraCdcConfiguration config,
                               CommitLogTransfer commitLogTransfer,
-                              FileOffsetWriter fileOffsetWriter,
+                              OffsetFileWriter offsetFileWriter,
                               CommitLogReaderProcessor commitLogReaderProcessor) throws IOException {
         super(NAME, 0);
         this.config = config;
         this.commitLogReaderProcessor = commitLogReaderProcessor;
         this.commitLogTransfer = commitLogTransfer;
-        this.fileOffsetWriter = fileOffsetWriter;
+        this.offsetFileWriter = offsetFileWriter;
 
         loadDdlFromDisk(config.cassandraConf);
 
@@ -69,9 +84,7 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
 
     }
 
-    @Override
-    public void initialize() {
-    }
+
 
     /**
      * Override destroy to clean up resources after stopping the processor
@@ -99,7 +112,7 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
                 long segmentId = CommitLogUtil.extractTimestamp(file.getName());
                 if (file.getName().endsWith(".log")) {
                     // only submit logs, not _cdc.idx
-                    if(segmentId >= fileOffsetWriter.position().segmentId) {
+                    if(segmentId >= offsetFileWriter.offset().segmentId) {
                         commitLogReaderProcessor.submitCommitLog(file);
                     }
                 } else if (file.getName().endsWith("_cdc.idx")) {
@@ -110,6 +123,7 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
             }
             if (youngerCdcIdxFile != null) {
                 // init the last synced position
+                LOGGER.debug("Read last synced position from file={}", youngerCdcIdxFile);
                 commitLogReaderProcessor.submitCommitLog(youngerCdcIdxFile);
             }
             initial = false;
@@ -132,6 +146,8 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
         if (!DatabaseDescriptor.isDaemonInitialized() && !DatabaseDescriptor.isToolInitialized()) {
             DatabaseDescriptor.toolInitialization();
             Schema.instance.loadFromDisk(false);
+            localHostId = StorageService.instance.getLocalHostUUID();
+            LOGGER.info("CQL schema loaded for hostId={}", this.localHostId);
         }
     }
 }

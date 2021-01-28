@@ -9,11 +9,11 @@ micronaut:
         step: PT1M
         descriptions: false
   server:
-    port: 8082
+    port: "${SERVER_PORT:8082}"
 
 endpoints:
   all:
-    port: 8086
+    port: "${ENDPOINTS_PORT:8086}"
   info:
     enabled: true
     sensitive: false
@@ -38,12 +38,12 @@ endpoints:
   prometheus:
     enabled: true
     sensitive: false
-
+---
 pulsar:
-  serviceUrl: "pulsar://localhost:6650"
-  topic: "persistent://public/default/topic1"
-
-cassandra-connector:
+  serviceUrl: "${PULSAR_SERVICE_URL:`pulsar://localhost:6650`}"
+  topic: "${PULSAR_TOPIC:`persistent://public/default/topic1`}"
+---
+cassandra-cdc:
   clusterName: Test cluster
   nodeId: 263a0473-6297-4c99-b70a-3b0632cfc03a
   cassandraStorageDir: /Users/vroyer/git/datastax/elassandra68-next/private/elassandra-6.8.4.12-SNAPSHOT-1/data
@@ -54,3 +54,19 @@ cassandra-connector:
   errorCommitLogReprocessEnabled: false
   latestCommitLogOnly: false
   tombstonesOnDelete: true
+  fetchRow: false
+---
+cassandra:
+  default:
+    basic:
+      contact-points:
+        - "${CASSANDRA_CONTACTPOINT:`localhost:9042`}"
+      load-balancing-policy:
+        local-datacenter: "${CASSANDRA_DATACENTER:`DC1`}"
+    advanced:
+      control-connection:
+        schema-agreement:
+          timeout: 30
+      metadata:
+        schema:
+          enabled: true

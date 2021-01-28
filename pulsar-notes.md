@@ -10,7 +10,7 @@ Start pulsar standalone or as a daemon:
 ## Pulsar GUI
 
     docker pull apachepulsar/pulsar-manager:v0.2.0
-    docker run -it \
+    docker run -d -it \
         -p 9527:9527 -p 7750:7750 \
         -e SPRING_CONFIGURATION_FILE=/pulsar-manager/pulsar-manager/application.properties \
         apachepulsar/pulsar-manager:v0.2.0

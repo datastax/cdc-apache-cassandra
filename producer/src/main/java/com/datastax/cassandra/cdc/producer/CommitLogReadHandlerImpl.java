@@ -5,11 +5,14 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
+import com.datastax.cassandra.cdc.*;
 import com.datastax.cassandra.cdc.producer.exceptions.CassandraConnectorSchemaException;
 import com.datastax.cassandra.cdc.producer.exceptions.CassandraConnectorTaskException;
 import io.debezium.DebeziumException;
 import io.debezium.time.Conversions;
+import io.debezium.util.ObjectSizeCalculator;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tag;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.cql3.ColumnSpecification;
 import org.apache.cassandra.db.LivenessInfo;
@@ -23,13 +26,20 @@ import org.apache.cassandra.db.rows.Unfiltered;
 import org.apache.cassandra.db.rows.UnfilteredRowIterator;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.utils.ByteBufferUtil;
+import org.apache.pulsar.client.api.*;
+import org.apache.pulsar.common.schema.KeyValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Singleton;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.datastax.cassandra.cdc.producer.CommitLogReadHandlerImpl.RowType.DELETE;
 
@@ -38,28 +48,36 @@ import static com.datastax.cassandra.cdc.producer.CommitLogReadHandlerImpl.RowTy
  *
  * This handler implementation processes each {@link org.apache.cassandra.db.Mutation} and invokes one of the registered partition handler
  * for each {@link PartitionUpdate} in the {@link org.apache.cassandra.db.Mutation} (a mutation could have multiple partitions if it is a batch update),
- * which in turn makes one or more record via the {@link MutationMaker} and enqueue the record into the {@link MutationQueue}.
+ * which in turn makes one or more record via the {@link MutationMaker}.
  */
 @Singleton
 public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
-    private static final Logger LOGGER = LoggerFactory.getLogger(CommitLogReadHandlerImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(CommitLogReadHandlerImpl.class);
 
     private static final boolean MARK_OFFSET = true;
 
-    private final MutationQueue queue;
     private final MutationMaker recordMaker;
-    private final FileOffsetWriter offsetWriter;
+    private final OffsetFileWriter offsetWriter;
     private final MeterRegistry meterRegistry;
-    private final CassandraConnectorConfiguration config;
+    private final CassandraCdcConfiguration config;
+    private final CassandraService cassandraService;
+    private final PulsarConfiguration pulsarConfiguration;
 
-    CommitLogReadHandlerImpl(CassandraConnectorConfiguration config,
-                             MutationQueue queue,
-                             FileOffsetWriter fileOffsetWriter,
+    PulsarClient client;
+    Producer<KeyValue<MutationKey, MutationValue>> producer;
+
+    private AtomicReference<CommitLogPosition> sentOffset = new AtomicReference<>(new CommitLogPosition(0,0));
+
+    CommitLogReadHandlerImpl(CassandraCdcConfiguration config,
+                             PulsarConfiguration pulsarConfiguration,
+                             OffsetFileWriter offsetFileWriter,
                              MutationMaker recordMaker,
+                             CassandraService cassandraService,
                              MeterRegistry meterRegistry) {
         this.config = config;
-        this.queue = queue;
-        this.offsetWriter = fileOffsetWriter;
+        this.cassandraService = cassandraService;
+        this.pulsarConfiguration = pulsarConfiguration;
+        this.offsetWriter = offsetFileWriter;
         this.recordMaker = recordMaker;
         this.meterRegistry = meterRegistry;
     }
@@ -212,8 +230,8 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
             CommitLogPosition entryPosition = new CommitLogPosition(CommitLogUtil.extractTimestamp(descriptor.fileName()), entryLocation);
             KeyspaceTable keyspaceTable = new KeyspaceTable(mutation.getKeyspaceName(), pu.metadata().name);
 
-            if (offsetWriter.position().compareTo(entryPosition) > 0) {
-                LOGGER.debug("Mutation at {} for table {} already processed, skipping...", entryPosition, keyspaceTable);
+            if (offsetWriter.offset().compareTo(entryPosition) > 0) {
+                logger.debug("Mutation at {} for table {} already processed, skipping...", entryPosition, keyspaceTable);
                 return;
             }
 
@@ -225,23 +243,21 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                         pu.toString(), entryPosition.toString(), keyspaceTable.name()), e);
             }
         }
-
-        meterRegistry.counter("number-of-processed-mutations").increment();
     }
 
     @Override
     public void handleUnrecoverableError(CommitLogReadException exception) throws IOException {
-        LOGGER.error("Unrecoverable error when reading commit log", exception);
-        meterRegistry.counter("number-of-unrecoverable-errors").increment();
+        logger.error("Unrecoverable error when reading commit log", exception);
+        meterRegistry.counter("errors").increment();
     }
 
     @Override
     public boolean shouldSkipSegmentOnError(CommitLogReadException exception) throws IOException {
         if (exception.permissible) {
-            LOGGER.error("Encountered a permissible exception during log replay", exception);
+            logger.error("Encountered a permissible exception during log replay", exception);
         }
         else {
-            LOGGER.error("Encountered a non-permissible exception during log replay", exception);
+            logger.error("Encountered a non-permissible exception during log replay", exception);
         }
         return false;
     }
@@ -249,13 +265,13 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     /**
      * Method which processes a partition update if it's valid (either a single-row partition-level
      * deletion or a row-level modification) or throw an exception if it isn't. The valid partition
-     * update is then converted into a {@link Mutation} and enqueued to the {@link MutationQueue}.
+     * update is then converted into a {@link Mutation}.
      */
     private void process(PartitionUpdate pu, CommitLogPosition position, KeyspaceTable keyspaceTable) {
         PartitionType partitionType = PartitionType.getPartitionType(pu);
 
         if (!PartitionType.isValid(partitionType)) {
-            LOGGER.warn("Encountered an unsupported partition type {}, skipping...", partitionType);
+            logger.warn("Encountered an unsupported partition type {}, skipping...", partitionType);
             return;
         }
 
@@ -270,7 +286,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                     Unfiltered rowOrRangeTombstone = it.next();
                     RowType rowType = RowType.getRowType(rowOrRangeTombstone);
                     if (!RowType.isValid(rowType)) {
-                        LOGGER.warn("Encountered an unsupported row type {}, skipping...", rowType);
+                        logger.warn("Encountered an unsupported row type {}, skipping...", rowType);
                         continue;
                     }
                     Row row = (Row) rowOrRangeTombstone;
@@ -286,7 +302,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
     /**
      * Handle a valid deletion event resulted from a partition-level deletion by converting Cassandra representation
-     * of this event into a {@link Mutation} object and queue the record to {@link MutationQueue}. A valid deletion
+     * of this event into a {@link Mutation} object and send it to pulsar. A valid deletion
      * event means a partition only has a single row, this implies there are no clustering keys.
      *
      * The steps are:
@@ -325,16 +341,16 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
             recordMaker.delete(DatabaseDescriptor.getClusterName(), config.nodeId, offsetPosition, keyspaceTable, false,
                     Conversions.toInstantFromMicros(pu.maxTimestamp()), after,
-                    MARK_OFFSET, queue::enqueue);
+                    MARK_OFFSET, this::blockingSend);
         }
         catch (Exception e) {
-            LOGGER.error("Fail to delete partition at {}. Reason: {}", offsetPosition, e);
+            logger.error("Fail to send delete partition at {}. Reason: {}", offsetPosition, e);
         }
     }
 
     /**
      * Handle a valid event resulted from a row-level modification by converting Cassandra representation of
-     * this event into a {@link Mutation} object and queue the record to {@link MutationQueue}. A valid event
+     * this event into a {@link Mutation} object and sent it to pulsar. A valid event
      * implies this must be an insert, update, or delete.
      *
      * The steps are:
@@ -358,17 +374,17 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         switch (rowType) {
             case INSERT:
                 recordMaker.insert(DatabaseDescriptor.getClusterName(), config.nodeId, offsetPosition, keyspaceTable, false,
-                        Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, queue::enqueue);
+                        Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, this::blockingSend);
                 break;
 
             case UPDATE:
                 recordMaker.update(DatabaseDescriptor.getClusterName(), config.nodeId, offsetPosition, keyspaceTable, false,
-                        Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, queue::enqueue);
+                        Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, this::blockingSend);
                 break;
 
             case DELETE:
                 recordMaker.delete(DatabaseDescriptor.getClusterName(), config.nodeId, offsetPosition, keyspaceTable, false,
-                        Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, queue::enqueue);
+                        Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, this::blockingSend);
                 break;
 
             default:
@@ -517,5 +533,77 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         }
 
         return values;
+    }
+
+    public void blockingSend(Mutation mutation) {
+        long seg = this.sentOffset.get().segmentId;
+        int pos = this.sentOffset.get().position;
+
+        assert mutation != null : "Unexpected null mutation";
+        assert mutation.getSegment() >= seg : "Unexpected mutation segment";
+        assert mutation.getSegment() > seg ||
+                (mutation.getSegment() == seg && mutation.getPosition() > pos)
+                : "Unexpected mutation offset";
+
+        logger.debug("Sending mutation={}", mutation);
+
+        while(true) {
+            try {
+                processMutation(mutation).toCompletableFuture().get();
+                break;
+            } catch(Exception e) {
+                logger.error("failed to send message to pulsar:", e);
+                try {
+                    Thread.sleep(10000);
+                } catch(InterruptedException interruptedException) {
+                }
+            }
+        }
+    }
+
+    CompletionStage<Void> processMutation(final Mutation mutation) throws PulsarClientException {
+        if (config.fetchRow && !Operation.DELETE.equals(mutation.getOp())) {
+            // read the cassandra row from the local node, for insert/update operation
+            return cassandraService.selectRowAsync(mutation.mutationKey(), mutation.getSource().getNodeId())
+                    .thenComposeAsync(json -> {
+                        CompletableFuture<Void> future = new CompletableFuture<>();
+                        try {
+                            return sendMutationAsync(mutation, json);
+                        } catch(Exception ex) {
+                            future.completeExceptionally(ex);
+                        }
+                        return future;
+                    });
+        } else {
+            return sendMutationAsync(mutation, null);
+        }
+    }
+
+    CompletionStage<Void> sendMutationAsync(final Mutation mutation, String jsonDocument) {
+        TypedMessageBuilder<KeyValue<MutationKey, MutationValue>> messageBuilder = this.producer.newMessage();
+        MutationKey eventKey = mutation.mutationKey();
+        return messageBuilder.value(new KeyValue<>(eventKey, mutation.mutationValue(jsonDocument))).sendAsync()
+            .thenAccept(msgId -> {
+                this.sentOffset.set(mutation.getSource().commitLogPosition);
+                List<Tag> tags = mutation.getSource().getKeyspaceTable().tags();
+                meterRegistry.counter(Metrics.METRICS_PREFIX + "sent", tags).increment();
+                meterRegistry.counter(Metrics.METRICS_PREFIX + "sent_in_bytes", tags).increment(ObjectSizeCalculator.getObjectSize(mutation));
+                offsetWriter.notCommittedEvents++;
+                offsetWriter.maybeCommitOffset(mutation);
+            });
+    }
+
+    public void initialize() throws Exception {
+        this.client = PulsarClient.builder()
+                .serviceUrl(pulsarConfiguration.getServiceUrl())
+                .build();
+        this.producer = client.newProducer(CDCSchema.kvSchema)
+                .producerName("CDC producer " + config.nodeId)
+                .topic(pulsarConfiguration.getTopic())
+                .sendTimeout(15, TimeUnit.SECONDS)
+                .maxPendingMessages(3)
+                .hashingScheme(HashingScheme.Murmur3_32Hash)
+                .batcherBuilder(BatcherBuilder.KEY_BASED)
+                .create();
     }
 }
