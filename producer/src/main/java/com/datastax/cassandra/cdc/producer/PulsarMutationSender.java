@@ -60,11 +60,11 @@ public class PulsarMutationSender implements MutationSender<KeyValue<MutationKey
     @Override
     public CompletionStage<Void> sendMutationAsync(final Mutation mutation, String jsonDocument) {
         TypedMessageBuilder<KeyValue<MutationKey, MutationValue>> messageBuilder = this.producer.newMessage();
-        MutationKey eventKey = mutation.mutationKey();
-        return messageBuilder.value(new KeyValue<>(eventKey, mutation.mutationValue(jsonDocument))).sendAsync()
+        MutationKey mutationKey = mutation.mutationKey();
+        return messageBuilder.value(new KeyValue<>(mutationKey, mutation.mutationValue(jsonDocument))).sendAsync()
                 .thenAccept(msgId -> {
                     this.sentOffset.set(mutation.getSource().commitLogPosition);
-                    List<Tag> tags = mutation.getSource().getKeyspaceTable().tags();
+                    List<Tag> tags = mutationKey.tags();
                     meterRegistry.counter(MetricConstants.METRICS_PREFIX + "sent", tags).increment();
                     meterRegistry.counter(MetricConstants.METRICS_PREFIX + "sent_in_bytes", tags).increment(ObjectSizeCalculator.getObjectSize(mutation));
                     offsetWriter.notCommittedEvents++;

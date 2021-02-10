@@ -28,28 +28,32 @@ public class MutationMaker {
         this.emitTombstoneOnDelete = config.tombstonesOnDelete;
     }
 
-    public void insert(String cluster, UUID node, CommitLogPosition offsetPosition, KeyspaceTable keyspaceTable, boolean snapshot,
+    public void insert(String cluster, UUID node, CommitLogPosition offsetPosition,
+                       String keyspace, String name, boolean snapshot,
                        Instant tsMicro, RowData data,
                        boolean markOffset, BlockingConsumer<Mutation> consumer) {
-        createRecord(cluster, node, offsetPosition, keyspaceTable, snapshot, tsMicro,
+        createRecord(cluster, node, offsetPosition, keyspace, name, snapshot, tsMicro,
                 data, markOffset, consumer, Operation.INSERT);
     }
 
-    public void update(String cluster, UUID node, CommitLogPosition offsetPosition, KeyspaceTable keyspaceTable, boolean snapshot,
+    public void update(String cluster, UUID node, CommitLogPosition offsetPosition,
+                       String keyspace, String name, boolean snapshot,
                        Instant tsMicro, RowData data,
                        boolean markOffset, BlockingConsumer<Mutation> consumer) {
-        createRecord(cluster, node, offsetPosition, keyspaceTable, snapshot, tsMicro,
+        createRecord(cluster, node, offsetPosition, keyspace, name, snapshot, tsMicro,
                 data, markOffset, consumer, Operation.UPDATE);
     }
 
-    public void delete(String cluster, UUID node, CommitLogPosition offsetPosition, KeyspaceTable keyspaceTable, boolean snapshot,
+    public void delete(String cluster, UUID node, CommitLogPosition offsetPosition,
+                       String keyspace, String name, boolean snapshot,
                        Instant tsMicro, RowData data,
                        boolean markOffset, BlockingConsumer<Mutation> consumer) {
-        createRecord(cluster, node, offsetPosition, keyspaceTable, snapshot, tsMicro,
+        createRecord(cluster, node, offsetPosition, keyspace, name, snapshot, tsMicro,
                 data, markOffset, consumer, Operation.DELETE);
     }
 
-    private void createRecord(String cluster, UUID node, CommitLogPosition offsetPosition, KeyspaceTable keyspaceTable, boolean snapshot,
+    private void createRecord(String cluster, UUID node, CommitLogPosition offsetPosition,
+                              String keyspace, String name, boolean snapshot,
                               Instant tsMicro, RowData data,
                               boolean markOffset, BlockingConsumer<Mutation> consumer, Operation operation) {
         // TODO: filter columns
@@ -65,7 +69,7 @@ public class MutationMaker {
                 break;
         }
 
-        SourceInfo source = new SourceInfo(cluster, node, offsetPosition, keyspaceTable, tsMicro);
+        SourceInfo source = new SourceInfo(cluster, node, offsetPosition, keyspace, name, tsMicro);
         Mutation record = new Mutation(offsetPosition.segmentId, offsetPosition.position, source, filteredData, operation, markOffset, tsMicro.toEpochMilli());
         try {
             consumer.accept(record);

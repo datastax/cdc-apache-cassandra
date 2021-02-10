@@ -103,6 +103,7 @@ public class QuasarController {
 
     /**
      * Add the node at the provided ordinal position.
+     * Used by the coordinator node to join the cluster.
      * @param ordinal
      * @return
      */
@@ -113,6 +114,7 @@ public class QuasarController {
 
     /**
      * Remove the node at the provided ordinal position.
+     * Used by the coordinator node to leave the cluster.
      * @param ordinal
      * @return
      */

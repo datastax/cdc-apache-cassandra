@@ -225,19 +225,19 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
         for (PartitionUpdate pu : mutation.getPartitionUpdates()) {
             CommitLogPosition entryPosition = new CommitLogPosition(CommitLogUtil.extractTimestamp(descriptor.fileName()), entryLocation);
-            KeyspaceTable keyspaceTable = new KeyspaceTable(mutation.getKeyspaceName(), pu.metadata().name);
 
             if (offsetWriter.offset().compareTo(entryPosition) > 0) {
-                logger.debug("Mutation at {} for table {} already processed, skipping...", entryPosition, keyspaceTable);
+                logger.debug("Mutation at {} for table {}.{} already processed, skipping...",
+                        entryPosition, pu.metadata().keyspace, pu.metadata().name);
                 return;
             }
 
             try {
-                process(pu, entryPosition, keyspaceTable);
+                process(pu, entryPosition);
             }
             catch (Exception e) {
-                throw new DebeziumException(String.format("Failed to process PartitionUpdate %s at %s for table %s.",
-                        pu.toString(), entryPosition.toString(), keyspaceTable.name()), e);
+                throw new DebeziumException(String.format("Failed to process PartitionUpdate %s at %s for table %s.%s.",
+                        pu.toString(), entryPosition.toString(), pu.metadata().keyspace, pu.metadata().name), e);
             }
         }
     }
@@ -264,7 +264,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
      * deletion or a row-level modification) or throw an exception if it isn't. The valid partition
      * update is then converted into a {@link Mutation}.
      */
-    private void process(PartitionUpdate pu, CommitLogPosition position, KeyspaceTable keyspaceTable) {
+    private void process(PartitionUpdate pu, CommitLogPosition position) {
         PartitionType partitionType = PartitionType.getPartitionType(pu);
 
         if (!PartitionType.isValid(partitionType)) {
@@ -274,7 +274,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
         switch (partitionType) {
             case PARTITION_KEY_ROW_DELETION:
-                handlePartitionDeletion(pu, position, keyspaceTable);
+                handlePartitionDeletion(pu, position);
                 break;
 
             case ROW_LEVEL_MODIFICATION:
@@ -288,7 +288,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                     }
                     Row row = (Row) rowOrRangeTombstone;
 
-                    handleRowModifications(row, rowType, pu, position, keyspaceTable);
+                    handleRowModifications(row, rowType, pu, position);
                 }
                 break;
 
@@ -309,7 +309,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
      *          b. populate regular columns with null values
      *      (4) Assemble a {@link Mutation} object from the populated data and queue the record
      */
-    private void handlePartitionDeletion(PartitionUpdate pu, CommitLogPosition offsetPosition, KeyspaceTable keyspaceTable) {
+    private void handlePartitionDeletion(PartitionUpdate pu, CommitLogPosition offsetPosition) {
         try {
 
             RowData after = new RowData();
@@ -336,7 +336,8 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
             }
             */
 
-            recordMaker.delete(DatabaseDescriptor.getClusterName(), config.nodeId, offsetPosition, keyspaceTable, false,
+            recordMaker.delete(DatabaseDescriptor.getClusterName(), config.nodeId, offsetPosition,
+                    pu.metadata().keyspace, pu.metadata().name, false,
                     Conversions.toInstantFromMicros(pu.maxTimestamp()), after,
                     MARK_OFFSET, this::blockingSend);
         }
@@ -359,7 +360,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
      *          d. for deletions, populate regular columns with null values
      *      (4) Assemble a {@link Mutation} object from the populated data and queue the record
      */
-    private void handleRowModifications(Row row, RowType rowType, PartitionUpdate pu, CommitLogPosition offsetPosition, KeyspaceTable keyspaceTable) {
+    private void handleRowModifications(Row row, RowType rowType, PartitionUpdate pu, CommitLogPosition offsetPosition) {
 
         RowData after = new RowData();
         populatePartitionColumns(after, pu);
@@ -370,17 +371,20 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
         switch (rowType) {
             case INSERT:
-                recordMaker.insert(DatabaseDescriptor.getClusterName(), config.nodeId, offsetPosition, keyspaceTable, false,
+                recordMaker.insert(DatabaseDescriptor.getClusterName(), config.nodeId, offsetPosition,
+                        pu.metadata().keyspace, pu.metadata().name, false,
                         Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, this::blockingSend);
                 break;
 
             case UPDATE:
-                recordMaker.update(DatabaseDescriptor.getClusterName(), config.nodeId, offsetPosition, keyspaceTable, false,
+                recordMaker.update(DatabaseDescriptor.getClusterName(), config.nodeId, offsetPosition,
+                        pu.metadata().keyspace, pu.metadata().name, false,
                         Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, this::blockingSend);
                 break;
 
             case DELETE:
-                recordMaker.delete(DatabaseDescriptor.getClusterName(), config.nodeId, offsetPosition, keyspaceTable, false,
+                recordMaker.delete(DatabaseDescriptor.getClusterName(), config.nodeId, offsetPosition,
+                        pu.metadata().keyspace, pu.metadata().name, false,
                         Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, this::blockingSend);
                 break;
 

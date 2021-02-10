@@ -69,7 +69,7 @@ public class OffsetFileWriter implements AutoCloseable {
         return this.fileOffsetRef.get();
     }
 
-    public void markOffset(String sourceTable, CommitLogPosition sourceOffset) {
+    public void markOffset(CommitLogPosition sourceOffset) {
         this.fileOffsetRef.set(sourceOffset);
     }
 
@@ -128,7 +128,7 @@ public class OffsetFileWriter implements AutoCloseable {
             long timeSinceLastFlush = now - timeOfLastFlush;
             if(offsetFlushPolicy.shouldFlush(Duration.ofMillis(timeSinceLastFlush), notCommittedEvents)) {
                 SourceInfo source = record.getSource();
-                markOffset(source.keyspaceTable.name(), source.commitLogPosition);
+                markOffset(source.commitLogPosition);
                 flush();
                 this.meterRegistry.counter(MetricConstants.METRICS_PREFIX + "commit").increment();
                 this.meterRegistry.counter(MetricConstants.METRICS_PREFIX + "committed").increment(notCommittedEvents);
