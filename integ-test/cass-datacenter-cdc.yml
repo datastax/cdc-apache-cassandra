@@ -1,0 +1,55 @@
+apiVersion: cassandra.datastax.com/v1beta1
+kind: CassandraDatacenter
+metadata:
+  name: dc1
+spec:
+  clusterName: cl1
+  serverType: cassandra
+  serverVersion: 4.0.0
+  managementApiAuth:
+    insecure: {}
+  size: 1
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: "cdc-producer"
+          terminationMessagePolicy: "FallbackToLogsOnError"
+          image: "vrtestregistry.azurecr.io/datastax/cassandra-cdc-producer:0.1-SNAPSHOT"
+          imagePullSecret: acr-secret
+          imagePullPolicy: Always
+          env:
+          - name: CASSANDRA_CONTACTPOINT
+            value: "cl1-dc1-service:9042"
+          - name: CASSANDRA_DATACENTER
+            value: "dc1"
+          - name: CASSANDRA_CONF
+            value: "/config"
+          - name: SERVER_PORT
+            value: "8081"
+          - name: ENDPOINTS_PORT
+            value: "8082"
+          - name: PULSAR_SERVICE_URL
+            value: "pulsar://pulsar-broker.pulsar.svc.cluster.local:6650"
+          ports:
+          - containerPort: 8081
+            name: server
+            protocol: TCP
+          - containerPort: 8082
+            name: endpoints
+            protocol: TCP
+          volumeMounts:
+          - mountPath: /config
+            name: server-config
+          - mountPath: /var/lib/cassandra
+            name: server-data
+  storageConfig:
+    cassandraDataVolumeClaimSpec:
+      storageClassName: default
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 5Gi
+  config:
+    cassandra-yaml:
+      cdc_enabled: true

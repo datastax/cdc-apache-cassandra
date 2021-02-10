@@ -1,0 +1,38 @@
+Non-terminated Pods:         (27 in total)
+  Namespace                  Name                                                    CPU Requests  CPU Limits  Memory Requests  Memory Limits  AGE
+  ---------                  ----                                                    ------------  ----------  ---------------  -------------  ---
+  default                    cass-operator-cb985c584-mpdrn                           0 (0%)        0 (0%)      0 (0%)           0 (0%)         129m
+  elastic-system             elastic-operator-0                                      100m (2%)     1 (25%)     150Mi (1%)       512Mi (4%)     124m
+  kube-system                azure-cni-networkmonitor-8lxds                          0 (0%)        0 (0%)      0 (0%)           0 (0%)         135m
+  kube-system                azure-ip-masq-agent-5djxw                               100m (2%)     500m (12%)  50Mi (0%)        250Mi (1%)     135m
+  kube-system                coredns-748cdb7bf4-rl64d                                100m (2%)     0 (0%)      70Mi (0%)        170Mi (1%)     134m
+  kube-system                coredns-748cdb7bf4-wn7xn                                100m (2%)     0 (0%)      70Mi (0%)        170Mi (1%)     136m
+  kube-system                coredns-autoscaler-868b684fd4-bhn5l                     20m (0%)      0 (0%)      10Mi (0%)        0 (0%)         136m
+  kube-system                kube-proxy-pvcqs                                        100m (2%)     0 (0%)      0 (0%)           0 (0%)         135m
+  kube-system                metrics-server-58fdc875d5-lst22                         44m (1%)      0 (0%)      55Mi (0%)        0 (0%)         136m
+  kube-system                tunnelfront-6f6655dfc5-zws4q                            10m (0%)      0 (0%)      64Mi (0%)        0 (0%)         136m
+  pulsar                     prometheus-pulsar-kube-prometheus-sta-prometheus-0      100m (2%)     100m (2%)   50Mi (0%)        50Mi (0%)      67m
+  pulsar                     pulsar-adminconsole-95c954dc7-pm2fc                     500m (12%)    0 (0%)      512Mi (4%)       0 (0%)         68m
+  pulsar                     pulsar-autorecovery-758b766f4f-jkrjh                    300m (7%)     0 (0%)      300Mi (2%)       0 (0%)         68m
+  pulsar                     pulsar-bastion-bbc944465-22zpd                          250m (6%)     0 (0%)      256Mi (2%)       0 (0%)         68m
+  pulsar                     pulsar-bookkeeper-0                                     300m (7%)     0 (0%)      512Mi (4%)       0 (0%)         68m
+  pulsar                     pulsar-broker-7dfc6fd786-pvqmk                          300m (7%)     0 (0%)      600Mi (4%)       0 (0%)         68m
+  pulsar                     pulsar-cert-manager-5c79d54c7f-cwqkh                    0 (0%)        0 (0%)      0 (0%)           0 (0%)         68m
+  pulsar                     pulsar-cert-manager-cainjector-7b697f58c6-9t47b         0 (0%)        0 (0%)      0 (0%)           0 (0%)         68m
+  pulsar                     pulsar-cert-manager-webhook-84447ff685-fvnwl            0 (0%)        0 (0%)      0 (0%)           0 (0%)         68m
+  pulsar                     pulsar-function-0                                       300m (7%)     0 (0%)      512Mi (4%)       0 (0%)         68m
+  pulsar                     pulsar-grafana-5d8b8ff687-5xpr7                         0 (0%)        0 (0%)      0 (0%)           0 (0%)         68m
+  pulsar                     pulsar-kube-prometheus-sta-operator-6d59bd558d-bldx9    0 (0%)        0 (0%)      0 (0%)           0 (0%)         68m
+  pulsar                     pulsar-kube-state-metrics-659fc58989-xd6kl              0 (0%)        0 (0%)      0 (0%)           0 (0%)         68m
+  pulsar                     pulsar-prometheus-node-exporter-twhfd                   0 (0%)        0 (0%)      0 (0%)           0 (0%)         68m
+  pulsar                     pulsar-proxy-688b67586b-chqfm                           600m (15%)    0 (0%)      1Gi (8%)         0 (0%)         68m
+  pulsar                     pulsar-pulsarheartbeat-6b65b8ccb4-cln9j                 100m (2%)     250m (6%)   64Mi (0%)        128Mi (1%)     68m
+  pulsar                     pulsar-zookeeper-0                                      300m (7%)     0 (0%)      300Mi (2%)       0 (0%)         68m
+Allocated resources:
+  (Total limits may be over 100 percent, i.e., overcommitted.)
+  Resource                       Requests      Limits
+  --------                       --------      ------
+  cpu                            3624m (93%)   1850m (47%)
+  memory                         4599Mi (36%)  1280Mi (10%)
+  ephemeral-storage              0 (0%)        0 (0%)
+  attachable-volumes-azure-disk  0             0

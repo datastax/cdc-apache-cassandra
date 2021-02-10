@@ -1,0 +1,25 @@
+task createCluster(type: Exec) {
+  commandLine "./setup_cluster.sh"
+}
+
+task deleteCluster(type: Exec) {
+  commandLine "./delete_cluster.sh"
+}
+
+task installElassandraOperator(type: Exec) {
+  commandLine "./install_elassandra_operator.sh"
+}
+
+
+task testAll(type: Exec) {
+  commandLine "./test-all.sh"
+}
+
+task test {
+  dependsOn 'testAll'
+}
+
+#tasks.withType(Exec) {
+#  environment << [IMAGE_SUFFIX: project.dockerImageSuffix, IMAGE_PREFIX: project.registryUrl+project.dockerImagePrefix, REGISTRY: project.registryUrl]
+#}
+

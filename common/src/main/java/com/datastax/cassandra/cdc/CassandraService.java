@@ -16,15 +16,18 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import io.micronaut.configuration.cassandra.CassandraConfiguration;
 import io.micronaut.configuration.cassandra.CassandraSessionFactory;
+import io.micronaut.context.annotation.Requires;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Singleton;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 
+//@Requires(configuration = "default")
 @Singleton
 public class CassandraService {
     private static final Logger logger = LoggerFactory.getLogger(CassandraService.class);
@@ -39,6 +42,10 @@ public class CassandraService {
         this.cassandraSessionFactory = cassandraSessionFactory;
         this.cassandraConfiguration = cassandraConfiguration;
         this.meterRegistry = meterRegistry;
+    }
+
+    public CassandraConfiguration getCassandraConfiguration() {
+        return this.cassandraConfiguration;
     }
 
     public CompletionStage<CqlSession> getSession() {
@@ -75,24 +82,32 @@ public class CassandraService {
                         if (node != null) {
                             logger.debug("node={} query={}", node.getHostId(), query.toString());
                             statement.setNode(node);
+                        } else {
+                            logger.warn("Cannot get row pk={} from node={}", pk, nodeId);
+                            meterRegistry.counter("cassandraNodeUnavailable").increment();
+                            throw new IllegalStateException("Node=" + nodeId + " not available");
                         }
                     } else {
                         logger.debug("query={}", query.toString());
                     }
-                    return s.executeAsync(statement);
-                })
-                .thenApply(rs -> {
-                    Row row = rs.one();
-                    String json = row.get(0, String.class);
-                    logger.debug("Row id={} source={}", pk.id, json);
-                    meterRegistry.counter("cassandraRead", tags).increment();
-                    return json;
-                })
-                .whenComplete((map, error) -> {
-                    if (error != null) {
-                        logger.warn("Failed to retrieve row: {}", error);
-                        meterRegistry.counter("cassandraError", tags).increment();
-                    }
+                    return s.executeAsync(statement)
+                            .thenApply(rs -> {
+                                Row row = rs.one();
+                                if (row == null) {
+                                    logger.debug("Row id={} does not exist any more", pk.id);
+                                    return "";
+                                }
+                                String json = row.get(0, String.class);
+                                logger.debug("Row id={} source={}", pk.id, json);
+                                meterRegistry.counter("cassandraRead", tags).increment();
+                                return json;
+                            })
+                            .whenComplete((map, error) -> {
+                                if (error != null) {
+                                    logger.warn("Failed to retrieve row: {}", error);
+                                    meterRegistry.counter("cassandraError", tags).increment();
+                                }
+                            });
                 });
     }
 

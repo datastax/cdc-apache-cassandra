@@ -1,0 +1,6 @@
+applicationType: service
+defaultPackage: com.datastax.cassandra.cdc.consumer
+testFramework: junit
+sourceLanguage: java
+buildTool: gradle
+features: [annotation-api, app-name, gradle, java, java-application, junit, logback, readme, shade, yaml, management, micrometer, micrometer-prometheus]

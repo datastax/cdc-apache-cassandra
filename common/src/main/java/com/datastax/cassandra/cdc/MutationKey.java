@@ -44,6 +44,10 @@ public class MutationKey {
         return this.id;
     }
 
+    public int hash() {
+        return Murmur3HashFunction.hash(id());
+    }
+
     public List<Tag> tags() {
         return ImmutableList.of(Tag.of("keyspace", keyspace), Tag.of("table", table));
     }

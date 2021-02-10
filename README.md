@@ -34,6 +34,16 @@ Creating native image inside Docker:
 
     ./gradlew dockerBuildNative
 
+Docker push
+
+    docker push vrtestregistry.azurecr.io/datastax/cassandra-cdc-producer:0.1-SNAPSHOT
+    docker push vrtestregistry.azurecr.io/datastax/cassandra-cdc-consumer:0.1-SNAPSHOT
+    
+JIB Build
+
+    ./gradlew clean producer:jib -Djib.to.auth.username=$DOCKER_USERNAME -Djib.to.auth.password=$DOCKER_PASSWORD
+    ./gradlew clean consumer:jib -Djib.to.auth.username=$DOCKER_USERNAME -Djib.to.auth.password=$DOCKER_PASSWORD
+
 ## Configuration
 
 See the **resources/application.yml** files.

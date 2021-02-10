@@ -53,13 +53,14 @@ public class CassandraCdcConfiguration {
      */
     UUID nodeId;
 
+    String cassandraConfDir;
     String cassandraStorageDir;
 
     /**
      * Cassandra YAML configuration file
      */
-    String cassandraConf;
-    String cassandraSnitchConf;
+    String cassandraConfigFile;
+    String cassandraSnitchFile;
 
     /**
      * Reprocess on error commitlogs.

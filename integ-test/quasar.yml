@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: quasar
+  name: quasar
+spec:
+  clusterIP: None
+  ports:
+    - port: 8081
+  selector:
+    app: quasar
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: quasar
+  labels:
+    app: quasar
+spec:
+  serviceName: quasar
+  replicas: 3
+  selector:
+    matchLabels:
+      app: quasar
+  template:
+    metadata:
+      labels:
+        app: quasar
+    spec:
+      terminationGracePeriodSeconds: 300
+      terminationMessagePolicy: "FallbackToLogsOnError"
+      containers:
+        - name: quasar
+            image: "vrtestregistry.azurecr.io/datastax/quasar-consumer:0.1-SNAPSHOT"
+            imagePullSecret: acr-secret
+            imagePullPolicy: Always
+            env:
+              - name: SERVER_HOST
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: status.podIP
+              - name: QUASAR_DNS_NAME_PREFIX
+                value: "quasar-"
+              - name: QUASAR_ORDINAL
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.annotations['spec.pod.beta.kubernetes.io/statefulset-index']
+              - name: ELASTICSEARCH_HOSTS
+                value: "
+
+            ports:
+              - containerPort: 8081
+                name: http
+              - containerPort: 8085
+                name: endpoint
+            livenessProbe:
+              httpGet:
+                path: /health
+                port: 8080
+              initialDelaySeconds: 15
+              timeoutSeconds: 5
+            readinessProbe:
+              httpGet:
+                path: /ready
+                port: 8080
+              initialDelaySeconds: 15
+              timeoutSeconds: 5

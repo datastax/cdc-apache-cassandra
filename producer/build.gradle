@@ -41,15 +41,12 @@ dependencies {
     annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
     implementation "com.xebia:jackson-lombok:1.1"
 
-    compile project(':common')
+    implementation project(':common')
 
     implementation("io.micronaut:micronaut-validation")
     implementation("io.micronaut:micronaut-runtime")
     implementation("javax.annotation:javax.annotation-api")
     runtimeOnly("ch.qos.logback:logback-classic")
-
-    implementation("info.picocli:picocli")
-    implementation("io.micronaut.picocli:micronaut-picocli:3.2.0")
 
     implementation("io.micronaut:micronaut-management")
     implementation("io.micronaut.micrometer:micronaut-micrometer-core")
@@ -60,9 +57,10 @@ dependencies {
     implementation("javax.annotation:javax.annotation-api")
 
     implementation("io.micronaut.cassandra:micronaut-cassandra:3.1.0")
+    //implementation("org.apache.cassandra:cassandra-all:4.0-alpha2")
     implementation("com.strapdata.cassandra:cassandra-all:4.0-beta3-SNAPSHOT")
     implementation("io.debezium:debezium-core:1.4.0.Final")
-    implementation("io.micronaut.elasticsearch:micronaut-elasticsearch:2.1.0")
+    implementation "io.micronaut:micronaut-http-client-core"
 }
 
 run {
@@ -73,6 +71,39 @@ run {
     mainClass = "$mainClassName"
 }
 
-dockerBuild {
-    images = ["datastax/cassandra-cdc-producer:$project.version"]
+task runLocalPulsar(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    main = mainClassName
+    //jvmArgs = [ "-Djavax.net.debug=all" ]
+    jvmArgs '-Dmicronaut.environments=localpulsar'
+    mainClass = "$mainClassName"
+}
+
+task runLocalQuasar(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    main = mainClassName
+    //jvmArgs = [ "-Djavax.net.debug=all" ]
+    jvmArgs '-Dmicronaut.environments=localquasar'
+    mainClass = "$mainClassName"
+}
+
+jib {
+    from {
+        image = 'openjdk:alpine'
+    }
+    to {
+        image = project.image
+        credHelper = 'osxkeychain'
+        tags = [ project.version, 'latest' ]
+    }
+    container {
+        jvmFlags = ['-Xmx300m',
+                    '-XX:+UnlockExperimentalVMOptions', '-XX:+UseCGroupMemoryLimitForHeap', '-XX:MaxRAMFraction=2',
+                    '-XX:+ExitOnOutOfMemoryError',
+                    '-Xdebug', '-Xnoagent', '-Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=5005'
+        ]
+        mainClass = mainClassName
+        ports = ['8080', '8081']
+        labels = [ description:'Cassandra CDC producer']
+    }
 }

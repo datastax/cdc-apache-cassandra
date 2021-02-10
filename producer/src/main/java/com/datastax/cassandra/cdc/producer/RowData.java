@@ -5,6 +5,8 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
+import org.apache.cassandra.db.DecoratedKey;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +33,6 @@ public class RowData {
     public boolean hasCell(String columnName) {
         return cellMap.containsKey(columnName);
     }
-
 
     public RowData copy() {
         RowData copy = new RowData();

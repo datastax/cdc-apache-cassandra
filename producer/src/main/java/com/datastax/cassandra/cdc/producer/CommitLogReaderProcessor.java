@@ -4,11 +4,6 @@ import com.datastax.cassandra.cdc.*;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.cassandra.db.commitlog.CommitLogPosition;
 import org.apache.cassandra.db.commitlog.CommitLogReader;
-import org.apache.pulsar.client.api.BatcherBuilder;
-import org.apache.pulsar.client.api.HashingScheme;
-import org.apache.pulsar.client.api.Producer;
-import org.apache.pulsar.client.api.PulsarClient;
-import org.apache.pulsar.common.schema.KeyValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,13 +54,13 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
         this.commitLogTransfer = commitLogTransfer;
 
         this.meterRegistry = meterRegistry;
-        this.meterRegistry.gauge(Metrics.METRICS_PREFIX + "synced_segment", syncedOffsetRef, new ToDoubleFunction<AtomicReference<CommitLogPosition>>() {
+        this.meterRegistry.gauge(MetricConstants.METRICS_PREFIX + "synced_segment", syncedOffsetRef, new ToDoubleFunction<AtomicReference<CommitLogPosition>>() {
             @Override
             public double applyAsDouble(AtomicReference<CommitLogPosition> offsetRef) {
                 return offsetRef.get().segmentId;
             }
         });
-        this.meterRegistry.gauge(Metrics.METRICS_PREFIX + "synced_position", syncedOffsetRef, new ToDoubleFunction<AtomicReference<CommitLogPosition>>() {
+        this.meterRegistry.gauge(MetricConstants.METRICS_PREFIX + "synced_position", syncedOffsetRef, new ToDoubleFunction<AtomicReference<CommitLogPosition>>() {
             @Override
             public double applyAsDouble(AtomicReference<CommitLogPosition> offsetRef) {
                 return offsetRef.get().position;
@@ -129,16 +124,19 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
                 logger.debug("Ignore a not synced file={}, last synced offset={}", file.getName(), this.syncedOffsetRef.get());
                 continue;
             }
-            logger.debug("processing file={} synced offset={}",
-                    file.getName(), this.syncedOffsetRef.get());
+            logger.debug("processing file={} synced offset={}", file.getName(), this.syncedOffsetRef.get());
             assert seg <= this.syncedOffsetRef.get().segmentId: "reading a commitlog ahead the last synced offset";
 
             CommitLogReader commitLogReader = new CommitLogReader();
             try {
-                CommitLogPosition commitLogPosition = offsetFileWriter.offset();
-                commitLogReader.readCommitLogSegment(commitLogReadHandler, file, offsetFileWriter.offset(), false);
-                logger.debug("Successfully processed commitlog immutable={} position={} file={}",
-                        seg < this.syncedOffsetRef.get().segmentId, commitLogPosition, file.getName());
+                // hack to use a dummy min position for segment ahead of the offetFile.
+                CommitLogPosition minPosition = (seg > offsetFileWriter.offset().segmentId)
+                        ? new CommitLogPosition(seg, 0)
+                        : offsetFileWriter.offset();
+
+                commitLogReader.readCommitLogSegment(commitLogReadHandler, file, minPosition, false);
+                logger.debug("Successfully processed commitlog immutable={} minPosition={} file={}",
+                        seg < this.syncedOffsetRef.get().segmentId, minPosition, file.getName());
                 if (seg < this.syncedOffsetRef.get().segmentId) {
                     commitLogTransfer.onSuccessTransfer(file);
                 }
@@ -153,26 +151,28 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
 
     @Override
     public void initialize() throws Exception {
-        File dir = new File(config.commitLogRelocationDir);
-        if (!dir.exists()) {
-            if (!dir.mkdir()) {
+        File relocationDir = config.commitLogRelocationDir.startsWith(File.separator)
+                ? new File(config.commitLogRelocationDir)
+                : new File(config.cassandraStorageDir, config.commitLogRelocationDir);
+
+        if (!relocationDir.exists()) {
+            if (!relocationDir.mkdir()) {
                 throw new IOException("Failed to create " + config.commitLogRelocationDir);
             }
         }
-        File archiveDir = new File(dir, ARCHIVE_FOLDER);
+
+        File archiveDir = new File(relocationDir, ARCHIVE_FOLDER);
         if (!archiveDir.exists()) {
             if (!archiveDir.mkdir()) {
                 throw new IOException("Failed to create " + archiveDir);
             }
         }
-        File errorDir = new File(dir, ERROR_FOLDER);
+        File errorDir = new File(relocationDir, ERROR_FOLDER);
         if (!errorDir.exists()) {
             if (!errorDir.mkdir()) {
                 throw new IOException("Failed to create " + errorDir);
             }
         }
-
-        this.commitLogReadHandler.initialize();
     }
 
     /**

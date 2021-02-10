@@ -10,9 +10,7 @@ import com.datastax.cassandra.cdc.producer.exceptions.CassandraConnectorSchemaEx
 import com.datastax.cassandra.cdc.producer.exceptions.CassandraConnectorTaskException;
 import io.debezium.DebeziumException;
 import io.debezium.time.Conversions;
-import io.debezium.util.ObjectSizeCalculator;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Tag;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.cql3.ColumnSpecification;
 import org.apache.cassandra.db.LivenessInfo;
@@ -25,21 +23,20 @@ import org.apache.cassandra.db.rows.Row;
 import org.apache.cassandra.db.rows.Unfiltered;
 import org.apache.cassandra.db.rows.UnfilteredRowIterator;
 import org.apache.cassandra.schema.ColumnMetadata;
+import org.apache.cassandra.schema.SchemaConstants;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.pulsar.client.api.*;
 import org.apache.pulsar.common.schema.KeyValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
 import javax.inject.Singleton;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static com.datastax.cassandra.cdc.producer.CommitLogReadHandlerImpl.RowType.DELETE;
 
@@ -61,22 +58,18 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     private final MeterRegistry meterRegistry;
     private final CassandraCdcConfiguration config;
     private final CassandraService cassandraService;
-    private final PulsarConfiguration pulsarConfiguration;
-
-    PulsarClient client;
-    Producer<KeyValue<MutationKey, MutationValue>> producer;
-
-    private AtomicReference<CommitLogPosition> sentOffset = new AtomicReference<>(new CommitLogPosition(0,0));
+    private final MutationSender<KeyValue<MutationKey, MutationValue>> mutationSender;
 
     CommitLogReadHandlerImpl(CassandraCdcConfiguration config,
-                             PulsarConfiguration pulsarConfiguration,
                              OffsetFileWriter offsetFileWriter,
                              MutationMaker recordMaker,
-                             CassandraService cassandraService,
+                             @Nullable CassandraService cassandraService,
+                             MutationSender<KeyValue<MutationKey, MutationValue>> mutationSender,
                              MeterRegistry meterRegistry) {
         this.config = config;
         this.cassandraService = cassandraService;
-        this.pulsarConfiguration = pulsarConfiguration;
+        this.mutationSender = mutationSender;
+
         this.offsetWriter = offsetFileWriter;
         this.recordMaker = recordMaker;
         this.meterRegistry = meterRegistry;
@@ -222,6 +215,10 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
     @Override
     public void handleMutation(org.apache.cassandra.db.Mutation mutation, int size, int entryLocation, CommitLogDescriptor descriptor) {
+        if (mutation.getKeyspaceName().equalsIgnoreCase(SchemaConstants.SCHEMA_KEYSPACE_NAME)) {
+            logger.info("Schema update tables={}", mutation.getTableIds());
+        }
+
         if (!mutation.trackedByCDC()) {
             return;
         }
@@ -536,8 +533,9 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     }
 
     public void blockingSend(Mutation mutation) {
-        long seg = this.sentOffset.get().segmentId;
-        int pos = this.sentOffset.get().position;
+        CommitLogPosition sentOffset = this.mutationSender.sentOffset();
+        long seg = sentOffset.segmentId;
+        int pos = sentOffset.position;
 
         assert mutation != null : "Unexpected null mutation";
         assert mutation.getSegment() >= seg : "Unexpected mutation segment";
@@ -562,48 +560,21 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     }
 
     CompletionStage<Void> processMutation(final Mutation mutation) throws PulsarClientException {
-        if (config.fetchRow && !Operation.DELETE.equals(mutation.getOp())) {
+        if (cassandraService != null && !Operation.DELETE.equals(mutation.getOp())) {
             // read the cassandra row from the local node, for insert/update operation
             return cassandraService.selectRowAsync(mutation.mutationKey(), mutation.getSource().getNodeId())
                     .thenComposeAsync(json -> {
                         CompletableFuture<Void> future = new CompletableFuture<>();
                         try {
-                            return sendMutationAsync(mutation, json);
+                            return this.mutationSender.sendMutationAsync(mutation, json);
                         } catch(Exception ex) {
                             future.completeExceptionally(ex);
                         }
                         return future;
                     });
         } else {
-            return sendMutationAsync(mutation, null);
+            return this.mutationSender.sendMutationAsync(mutation, null);
         }
     }
 
-    CompletionStage<Void> sendMutationAsync(final Mutation mutation, String jsonDocument) {
-        TypedMessageBuilder<KeyValue<MutationKey, MutationValue>> messageBuilder = this.producer.newMessage();
-        MutationKey eventKey = mutation.mutationKey();
-        return messageBuilder.value(new KeyValue<>(eventKey, mutation.mutationValue(jsonDocument))).sendAsync()
-            .thenAccept(msgId -> {
-                this.sentOffset.set(mutation.getSource().commitLogPosition);
-                List<Tag> tags = mutation.getSource().getKeyspaceTable().tags();
-                meterRegistry.counter(Metrics.METRICS_PREFIX + "sent", tags).increment();
-                meterRegistry.counter(Metrics.METRICS_PREFIX + "sent_in_bytes", tags).increment(ObjectSizeCalculator.getObjectSize(mutation));
-                offsetWriter.notCommittedEvents++;
-                offsetWriter.maybeCommitOffset(mutation);
-            });
-    }
-
-    public void initialize() throws Exception {
-        this.client = PulsarClient.builder()
-                .serviceUrl(pulsarConfiguration.getServiceUrl())
-                .build();
-        this.producer = client.newProducer(CDCSchema.kvSchema)
-                .producerName("CDC producer " + config.nodeId)
-                .topic(pulsarConfiguration.getTopic())
-                .sendTimeout(15, TimeUnit.SECONDS)
-                .maxPendingMessages(3)
-                .hashingScheme(HashingScheme.Murmur3_32Hash)
-                .batcherBuilder(BatcherBuilder.KEY_BASED)
-                .create();
-    }
 }

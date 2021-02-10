@@ -5,20 +5,10 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
-import com.datastax.cassandra.cdc.CDCSchema;
-import com.datastax.cassandra.cdc.MutationKey;
-import com.datastax.cassandra.cdc.MutationValue;
-import com.datastax.cassandra.cdc.PulsarConfiguration;
 import com.google.common.collect.ImmutableSet;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.locator.SnitchProperties;
 import org.apache.cassandra.schema.Schema;
-import org.apache.cassandra.service.StorageService;
-import org.apache.pulsar.client.api.BatcherBuilder;
-import org.apache.pulsar.client.api.HashingScheme;
-import org.apache.pulsar.client.api.Producer;
-import org.apache.pulsar.client.api.PulsarClient;
-import org.apache.pulsar.common.schema.KeyValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,7 +19,6 @@ import java.nio.file.Path;
 import java.nio.file.WatchEvent;
 import java.util.Arrays;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 import static java.nio.file.StandardWatchEventKinds.ENTRY_CREATE;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
@@ -67,7 +56,7 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
         this.commitLogTransfer = commitLogTransfer;
         this.offsetFileWriter = offsetFileWriter;
 
-        loadDdlFromDisk(config.cassandraConf);
+        loadDdlFromDisk();
 
         this.cdcDir = new File(DatabaseDescriptor.getCDCLogLocation());
         this.newCommitLogWatcher = new AbstractDirectoryWatcher(cdcDir.toPath(), config.cdcDirPollIntervalMs, ImmutableSet.of(ENTRY_CREATE, ENTRY_MODIFY)) {
@@ -136,18 +125,28 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
     /**
      * Initialize database using cassandra.yml config file. If initialization is successful,
      * load up non-system keyspace schema definitions from Cassandra.
-     * @param yamlConfig the main config file path of a cassandra node
      */
-    public void loadDdlFromDisk(String yamlConfig) {
+    public void loadDdlFromDisk() {
+        String confDir = config.cassandraConfDir;
+        if (!confDir.endsWith(File.separator))
+            confDir += File.separator;
+
+        String configFile = config.cassandraConfigFile.startsWith(File.separator)
+                ? config.cassandraConfigFile
+                : confDir + config.cassandraConfigFile;
+
+        String snitchFile = config.cassandraSnitchFile.startsWith(File.separator)
+                ? config.cassandraSnitchFile
+                : confDir + config.cassandraSnitchFile;
+
         System.setProperty("tests.maven","true");
         System.setProperty("cassandra.storagedir", config.cassandraStorageDir);
-        System.setProperty("cassandra.config", "file:///" + yamlConfig);
-        System.setProperty(SnitchProperties.RACKDC_PROPERTY_FILENAME, "file:///" +config.cassandraSnitchConf);
+        System.setProperty("cassandra.config", "file:///" + configFile);
+
+        System.setProperty(SnitchProperties.RACKDC_PROPERTY_FILENAME, "file:///" + snitchFile);
         if (!DatabaseDescriptor.isDaemonInitialized() && !DatabaseDescriptor.isToolInitialized()) {
             DatabaseDescriptor.toolInitialization();
             Schema.instance.loadFromDisk(false);
-            localHostId = StorageService.instance.getLocalHostUUID();
-            LOGGER.info("CQL schema loaded for hostId={}", this.localHostId);
         }
     }
 }

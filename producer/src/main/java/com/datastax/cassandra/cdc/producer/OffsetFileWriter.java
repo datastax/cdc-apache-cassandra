@@ -5,7 +5,7 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
-import com.datastax.cassandra.cdc.Metrics;
+import com.datastax.cassandra.cdc.MetricConstants;
 import com.datastax.cassandra.cdc.producer.exceptions.CassandraConnectorConfigException;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.cassandra.db.commitlog.CommitLogPosition;
@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import javax.inject.Singleton;
 import java.io.*;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.ToDoubleFunction;
@@ -54,7 +55,13 @@ public class OffsetFileWriter implements AutoCloseable {
                 return offsetPositionRef.get().position;
             }
         });
-        this.offsetFile = new File(config.offsetBackingStoreDir, COMMITLOG_OFFSET_FILE);
+        String storageDir = config.cassandraStorageDir.endsWith(File.separator)
+                ? config.cassandraStorageDir
+                : config.cassandraStorageDir + File.separator;
+        String backingStoreDir = config.offsetBackingStoreDir.startsWith(File.separator)
+                ? config.offsetBackingStoreDir
+                : storageDir + config.offsetBackingStoreDir;
+        this.offsetFile = new File(backingStoreDir, COMMITLOG_OFFSET_FILE);
         init();
     }
 
@@ -108,7 +115,9 @@ public class OffsetFileWriter implements AutoCloseable {
         if (offsetFile.exists()) {
             loadOffset();
         } else {
-            Files.createDirectories( new File(config.offsetBackingStoreDir).toPath());
+            Path parentPath = offsetFile.toPath().getParent();
+            if (!parentPath.toFile().exists())
+                Files.createDirectories(parentPath);
             saveOffset();
         }
     }
@@ -121,8 +130,8 @@ public class OffsetFileWriter implements AutoCloseable {
                 SourceInfo source = record.getSource();
                 markOffset(source.keyspaceTable.name(), source.commitLogPosition);
                 flush();
-                this.meterRegistry.counter(Metrics.METRICS_PREFIX + "commit").increment();
-                this.meterRegistry.counter(Metrics.METRICS_PREFIX + "committed").increment(notCommittedEvents);
+                this.meterRegistry.counter(MetricConstants.METRICS_PREFIX + "commit").increment();
+                this.meterRegistry.counter(MetricConstants.METRICS_PREFIX + "committed").increment(notCommittedEvents);
                 notCommittedEvents = 0L;
                 timeOfLastFlush = now;
                 logger.debug("Offset flushed source=" + source);

@@ -1,0 +1,81 @@
+micronaut:
+  application:
+    name: cdcConsumer
+  executors:
+    fetcher:
+      type: FIXED
+      number-of-threads: 4
+  metrics:
+    enabled: true
+    export:
+      prometheus:
+        enabled: true
+        step: PT1M
+        descriptions: false
+  server:
+    port: "${SERVER_PORT:8081}"
+    host: "${SERVER_HOST:`localhost`}"
+    enabled: false
+  caches:
+    elasticache:
+      maximum-size: 10
+
+endpoints:
+  all:
+    port: "${ENDPOINTS_PORT:8085}"
+    host: "${ENDPOINTS_HOST:`localhost`}"
+  info:
+    enabled: true
+    sensitive: false
+  env:
+    enabled: true
+    sensitive: false
+  stop:
+    enabled: true
+    sensitive: false
+  metrics:
+    enabled: true
+    sensitive: false
+    binders:
+      jvm:
+        enabled: true
+      web:
+        enabled: true
+      uptime:
+        enabled: true
+      processor:
+        enabled: true
+  prometheus:
+    enabled: true
+    sensitive: false
+  health:
+    cassandra:
+      enabled: true
+    elasticsearch:
+      rest:
+        high:
+          level:
+            enabled: false
+---
+pulsar:
+  serviceUrl: "${PULSAR_SERVICE_URL:`pulsar://localhost:6650`}"
+  topic: "${PULSAR_TOPIC:`persistent://public/default/topic1`}"
+  subscription: "${PULSAR_SUBSCRIPTION:`sub1`}"
+#---
+#cassandra:
+#  default:
+#    basic:
+#      contact-points:
+#        - "${CASSANDRA_CONTACTPOINT:`localhost:9042`}"
+#      load-balancing-policy:
+#        local-datacenter: "${CASSANDRA_DATACENTER:`DC1`}"
+#    advanced:
+#      control-connection:
+#        schema-agreement:
+#          timeout: 30
+#      metadata:
+#        schema:
+#         enabled: true
+---
+elasticsearch:
+  httpHosts: "${ELASTICSEARCH_HOSTS:`http://localhost:9200`}"
