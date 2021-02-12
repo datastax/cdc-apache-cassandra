@@ -9,7 +9,7 @@ import com.datastax.cassandra.cdc.quasar.State;
 import com.datastax.cassandra.cdc.quasar.Status;
 import com.datastax.oss.driver.api.core.cql.Row;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micronaut.aop.Around;
+import io.micronaut.context.annotation.Context;
 import io.reactivex.Completable;
 import io.reactivex.Single;
 import io.reactivex.schedulers.Schedulers;
@@ -17,7 +17,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.PostConstruct;
-import javax.inject.Singleton;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.Callable;
@@ -25,8 +24,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicReference;
 
-@Singleton
-@Around(lazy = false)
+@Context
 public class QuasarClusterManager {
     private static final Logger logger = LoggerFactory.getLogger(QuasarClusterManager.class);
 
@@ -35,7 +33,7 @@ public class QuasarClusterManager {
     final ElasticsearchService elasticsearchService;
     final MeterRegistry meterRegistry;
 
-    final AtomicReference<State> stateAtomicReference;
+    final AtomicReference<State> stateAtomicReference = new AtomicReference<>(State.NO_STATE);
 
     final HttpClientFactory httpClientFactory;
 
@@ -47,7 +45,6 @@ public class QuasarClusterManager {
         this.quasarConfiguration = configuration;
         this.cassandraService = cassandraService;
         this.elasticsearchService = elasticsearchService;
-        this.stateAtomicReference = new AtomicReference<>(State.NO_STATE);
         this.meterRegistry = meterRegistry;
         this.httpClientFactory = httpClientFactory;
     }
@@ -272,12 +269,12 @@ public class QuasarClusterManager {
         });
     }
 
-    public Integer ordinalForHash(int hash) {
+    public Integer ordinal(int hash) {
         return Math.abs(hash) % this.stateAtomicReference.get().getSize();
     }
 
-    public boolean manage(int hash) {
-        return ordinalForHash(hash) == quasarConfiguration.ordinal;
+    public boolean isManaged(int hash) {
+        return ordinal(hash) == quasarConfiguration.ordinal;
     }
 
     public void checkStatus() throws ServiceNotRunningException {
@@ -288,7 +285,7 @@ public class QuasarClusterManager {
 
     public void checkHash(Integer hash) throws HashNotManagedException, ServiceNotRunningException {
         checkStatus();
-        if (hash != null && !manage(hash)) {
+        if (hash == null || !isManaged(hash)) {
             throw new HashNotManagedException(stateAtomicReference.get(), hash);
         }
     }

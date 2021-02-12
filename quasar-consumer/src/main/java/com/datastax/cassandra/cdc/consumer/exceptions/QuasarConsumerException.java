@@ -8,4 +8,9 @@ public abstract class QuasarConsumerException extends Exception {
     public QuasarConsumerException(State state) {
         this.state = state;
     }
+
+    public QuasarConsumerException(State state, String msg) {
+        super(msg);
+        this.state = state;
+    }
 }

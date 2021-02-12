@@ -56,7 +56,7 @@ public class QuasarController {
      */
     @Get(value = "/ordinal/{hash}" , produces = MediaType.APPLICATION_JSON)
     public Single<Integer> ordinal(@NotBlank @QueryValue("hash") Integer hash) {
-        return Single.just(quasarClusterManager.ordinalForHash(hash));
+        return Single.just(quasarClusterManager.ordinal(hash));
     }
 
     /**

@@ -65,7 +65,7 @@ quasar:
   defaultDatacenter: "${CASSANDRA_DATACENTER:`datacenter1`}"
   consumerThreads: "${QUASAR_CONSUMER_THREAD:4}"
 quasarcli:
-  serviceName: "${QUASAR_SERVICE_NAME:`quasar-`}"
+  serviceName: "${QUASAR_SERVICE_NAME:`quasar`}"
   port: "${SERVER_PORT:8081}"
 ---
 cassandra:

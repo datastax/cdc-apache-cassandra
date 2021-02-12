@@ -7,7 +7,11 @@ public class HashNotManagedException extends QuasarConsumerException {
     public final Integer hash;
 
     public HashNotManagedException(State state, int hash) {
-        super(state);
+        this(state, hash, "hash=" + hash + " size=" + state.getSize());
+    }
+
+    public HashNotManagedException(State state, int hash, String msg) {
+        super(state, msg);
         this.hash = hash;
     }
 }
