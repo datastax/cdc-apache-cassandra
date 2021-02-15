@@ -4,6 +4,7 @@ import com.datastax.cassandra.cdc.CassandraService;
 import com.datastax.cassandra.cdc.ElasticsearchService;
 import com.datastax.cassandra.cdc.consumer.exceptions.HashNotManagedException;
 import com.datastax.cassandra.cdc.consumer.exceptions.ServiceNotRunningException;
+import com.datastax.cassandra.cdc.quasar.ConsistentHashWithVirtualNodes;
 import com.datastax.cassandra.cdc.quasar.HttpClientFactory;
 import com.datastax.cassandra.cdc.quasar.State;
 import com.datastax.cassandra.cdc.quasar.Status;
@@ -35,6 +36,7 @@ public class QuasarClusterManager {
 
     final AtomicReference<State> stateAtomicReference = new AtomicReference<>(State.NO_STATE);
 
+    final ConsistentHashWithVirtualNodes consistentHashWithVirtualNodes;
     final HttpClientFactory httpClientFactory;
 
     public QuasarClusterManager(QuasarConfiguration configuration,
@@ -47,6 +49,7 @@ public class QuasarClusterManager {
         this.elasticsearchService = elasticsearchService;
         this.meterRegistry = meterRegistry;
         this.httpClientFactory = httpClientFactory;
+        this.consistentHashWithVirtualNodes = new ConsistentHashWithVirtualNodes(0);
     }
 
     @PostConstruct
@@ -74,6 +77,7 @@ public class QuasarClusterManager {
                                     long version = row.getLong("v");
                                     Status status = size > quasarConfiguration.ordinal ? Status.RUNNING : Status.JOINING;
                                     this.stateAtomicReference.set(new State(status, size, version));
+                                    consistentHashWithVirtualNodes.updateNumberOfNode(size);
                                     logger.debug("Row cluster_name={} state={}", quasarConfiguration.clusterName, stateAtomicReference.get());
                                     return status.equals(Status.JOINING) ? doJoin() : CompletableFuture.completedFuture(stateAtomicReference.get());
                                 })
@@ -86,6 +90,7 @@ public class QuasarClusterManager {
                                 }));
     }
 
+
     CompletionStage<State> increaseSize() {
         return cassandraService.getSession()
                 .thenCompose(session -> {
@@ -97,6 +102,7 @@ public class QuasarClusterManager {
                             .thenApply(rs -> {
                                 if(rs.wasApplied()) {
                                     stateAtomicReference.set(new State(Status.RUNNING, newSize, newVersion));
+                                    consistentHashWithVirtualNodes.updateNumberOfNode(newSize);
                                 }
                                 logger.info("applied={} old_state={} currentState={}",
                                         rs.wasApplied(), state, stateAtomicReference.get());
@@ -116,6 +122,7 @@ public class QuasarClusterManager {
                             .thenApply(rs -> {
                                 if(rs.wasApplied()) {
                                     stateAtomicReference.set(new State(Status.LEFT, newSize, newVersion));
+                                    consistentHashWithVirtualNodes.updateNumberOfNode(newSize);
                                 }
                                 logger.info("applied={} old_state={} currentState={}",
                                         rs.wasApplied(), state, stateAtomicReference.get());
@@ -238,11 +245,11 @@ public class QuasarClusterManager {
                     return stateAtomicReference.get();
                 }
                 // try to increase size.
-                State currentState = stateAtomicReference.get();
-                if (stateAtomicReference.compareAndSet(
-                        currentState,
-                        new State(currentState.getStatus(), ordinal+1, currentState.getVersion() + 1))) {
+                State current = stateAtomicReference.get();
+                State next = new State(current.getStatus(), ordinal+1, current.getVersion() + 1);
+                if (stateAtomicReference.compareAndSet(current, next)) {
                     logger.info("added ordinal={} size={}", ordinal, stateAtomicReference.get());
+                    consistentHashWithVirtualNodes.updateNumberOfNode(next.getSize());
                     return stateAtomicReference.get();
                 }
                 throw new IllegalArgumentException("Failed to add ordinal=" + ordinal);
@@ -262,6 +269,7 @@ public class QuasarClusterManager {
                 State next = current.toBuilder().size(current.getSize() - 1).version(current.getVersion() + 1).build();
                 if (stateAtomicReference.compareAndSet(current, next)) {
                     logger.info("removed ordinal={} state={}", ordinal, stateAtomicReference.get());
+                    consistentHashWithVirtualNodes.updateNumberOfNode(next.getSize());
                     return stateAtomicReference.get();
                 }
                 throw new IllegalArgumentException("Cannot remove ordinal=" + ordinal);
@@ -270,7 +278,7 @@ public class QuasarClusterManager {
     }
 
     public Integer ordinal(int hash) {
-        return Math.abs(hash) % this.stateAtomicReference.get().getSize();
+        return consistentHashWithVirtualNodes.getOrdinal(hash);
     }
 
     public boolean isManaged(int hash) {

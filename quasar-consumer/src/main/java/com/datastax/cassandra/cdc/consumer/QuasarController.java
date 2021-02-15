@@ -1,6 +1,6 @@
 package com.datastax.cassandra.cdc.consumer;
 
-import com.datastax.cassandra.cdc.Murmur3HashFunction;
+import com.datastax.cassandra.cdc.quasar.Murmur3HashFunction;
 import com.datastax.cassandra.cdc.MutationKey;
 import com.datastax.cassandra.cdc.MutationValue;
 import com.datastax.cassandra.cdc.Operation;
@@ -124,6 +124,34 @@ public class QuasarController {
     }
 
     /**
+     * Read from Cassandra and insert/delete the corresponding Elasticsearch document.
+     * @param keyspace
+     * @param table
+     * @param id
+     * @param writetime
+     * @param nodeId
+     * @return
+     * @throws ServiceNotRunningException
+     * @throws HashNotManagedException
+     */
+    @Get(value = "/replicate/{keyspace}/{table}/{id}",
+            produces = MediaType.TEXT_PLAIN)
+    public Single<Long> readAndReplicate(@NotBlank @QueryValue("keyspace") String keyspace,
+                               @NotBlank @QueryValue("table") String table,
+                               @NotBlank @QueryValue("id") String id,
+                               @NotBlank @QueryValue("writetime") Long writetime,
+                               @Nullable @QueryValue("nodeId") UUID nodeId)
+            throws ServiceNotRunningException, HashNotManagedException
+    {
+        int hash = Murmur3HashFunction.hash(id);
+        quasarClusterManager.checkHash(hash);
+        return Single.fromFuture(quasarConsumer.consume(
+                new MutationKey(keyspace, table, id).parseId(),
+                new MutationValue(writetime, nodeId, Operation.INSERT, null)),
+                schedulerPool.getScheduler(hash));
+    }
+
+    /**
      * Index an Elasticsearch document if the mutations is not obsolete according to the writetime.
      * @param keyspace
      * @param table
@@ -135,8 +163,10 @@ public class QuasarController {
      * @throws ServiceNotRunningException
      * @throws HashNotManagedException
      */
-    @Post(value = "/replicate/{keyspace}/{table}/{id}", consumes = MediaType.APPLICATION_JSON)
-    public Single<Long> insert(@NotBlank @QueryValue("keyspace") String keyspace,
+    @Post(value = "/replicate/{keyspace}/{table}/{id}",
+            consumes = MediaType.APPLICATION_JSON,
+            produces = MediaType.TEXT_PLAIN)
+    public Single<Long> upsert(@NotBlank @QueryValue("keyspace") String keyspace,
                                   @NotBlank @QueryValue("table") String table,
                                   @NotBlank @QueryValue("id") String id,
                                   @NotBlank @QueryValue("writetime") Long writetime,
@@ -163,7 +193,8 @@ public class QuasarController {
      * @throws ServiceNotRunningException
      * @throws HashNotManagedException
      */
-    @Delete(value = "/replicate/{keyspace}/{table}/{id}")
+    @Delete(value = "/replicate/{keyspace}/{table}/{id}",
+            produces = MediaType.TEXT_PLAIN)
     public Single<Long> delete(@NotBlank @QueryValue("keyspace") String keyspace,
                                   @NotBlank @QueryValue("table") String table,
                                   @NotBlank @QueryValue("id") String id,

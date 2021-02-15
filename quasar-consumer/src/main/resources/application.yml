@@ -1,19 +1,14 @@
 micronaut:
   application:
     name: quasarConsumer
-  metrics:
-    enabled: true
-    export:
-      prometheus:
-        enabled: true
-        step: PT1M
-        descriptions: false
   server:
     host: "${SERVER_HOST:`localhost`}"
     port: "${SERVER_PORT:8081}"
-#    http-version: http_2_0
-#  ssl:
-#    build-self-signed: true
+#    http-version: HTTP_2_0
+    dualProtocol : true
+  ssl:
+    enabled: true
+    build-self-signed: true
   caches:
     elasticache:
       maximum-size: 10
@@ -22,6 +17,13 @@ micronaut:
       swagger:
         paths: classpath:META-INF/swagger
         mapping: /swagger/**
+  metrics:
+    enabled: true
+    export:
+      prometheus:
+        enabled: true
+        step: PT1M
+        descriptions: false
 endpoints:
   all:
     host: "${SERVER_HOST:`localhost`}"

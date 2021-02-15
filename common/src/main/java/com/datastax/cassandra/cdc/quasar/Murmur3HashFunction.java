@@ -16,14 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package com.datastax.cassandra.cdc;
+package com.datastax.cassandra.cdc.quasar;
 
 import org.apache.lucene.util.StringHelper;
 
 public class Murmur3HashFunction {
 
     private Murmur3HashFunction() {
-        //no instance
     }
 
     public static int hash(String routing) {

@@ -90,12 +90,17 @@ public class QuasarConsumer {
                         readFuture = cassandraService.selectRowAsync(pk, mutationValue.getNodeId());
                     }
                     return readFuture.thenCompose(json -> {
-                        // update Elasticsearch
                         try {
-                            Map<String, Object> source = mapper.readValue(json, new TypeReference<Map<String, Object>>() {
-                            });
-                            return elasticsearchService.index(pk, mutationValue.getWritetime(), source)
-                                    .thenApply(wt -> ack(pk, mutationValue, mutationValue.getWritetime()));
+                            if (json == null || json.length() == 0) {
+                                // delete the elasticsearch doc
+                                return elasticsearchService.delete(pk, mutationValue.getWritetime())
+                                        .thenApply(wt -> ack(pk, mutationValue, mutationValue.getWritetime()));
+                            } else {
+                                // insert the elasticsearch doc
+                                Map<String, Object> source = mapper.readValue(json, new TypeReference<Map<String, Object>>() {});
+                                return elasticsearchService.index(pk, mutationValue.getWritetime(), source)
+                                        .thenApply(wt -> ack(pk, mutationValue, mutationValue.getWritetime()));
+                            }
                         } catch(IOException e) {
                             CompletableFuture<Long> completedFuture = new CompletableFuture<>();
                             completedFuture.completeExceptionally(nack(pk, mutationValue, e));

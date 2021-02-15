@@ -1,5 +1,6 @@
 package com.datastax.cassandra.cdc;
 
+import com.datastax.cassandra.cdc.quasar.Murmur3HashFunction;
 import com.google.common.collect.ImmutableList;
 import io.micrometer.core.instrument.Tag;
 import lombok.*;
@@ -50,5 +51,11 @@ public class MutationKey {
 
     public List<Tag> tags() {
         return ImmutableList.of(Tag.of("keyspace", keyspace), Tag.of("table", table));
+    }
+
+    // TODO: parse compound key.
+    public MutationKey parseId() {
+        this.pkColumns = new Object[] { id };
+        return this;
     }
 }
