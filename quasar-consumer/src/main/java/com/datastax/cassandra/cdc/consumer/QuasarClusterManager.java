@@ -75,7 +75,7 @@ public class QuasarClusterManager {
                                     Row row = rs.one();
                                     int size = row.getInt("size");
                                     long version = row.getLong("v");
-                                    Status status = size > quasarConfiguration.ordinal ? Status.RUNNING : Status.JOINING;
+                                    Status status = size > quasarConfiguration.ordinal() ? Status.RUNNING : Status.JOINING;
                                     this.stateAtomicReference.set(new State(status, size, version));
                                     consistentHashWithVirtualNodes.updateNumberOfNode(size);
                                     logger.debug("Row cluster_name={} state={}", quasarConfiguration.clusterName, stateAtomicReference.get());
@@ -138,7 +138,7 @@ public class QuasarClusterManager {
         List<Single<State>> notifications = new ArrayList<>();
         for(int i = 0; i < stateAtomicReference.get().getSize(); i++) {
             final int j = i;
-            if (j == quasarConfiguration.ordinal) {
+            if (j == quasarConfiguration.ordinal()) {
                 notifications.add(Single.just(stateAtomicReference.get()));
             } else {
                 try {
@@ -170,14 +170,14 @@ public class QuasarClusterManager {
      * notify all members and update the cluster size if succeed.
      */
     public CompletionStage<State> doJoin() {
-        logger.debug("Joining the cluster={} with name={}", quasarConfiguration.clusterName, quasarConfiguration.nodeName());
+        logger.debug("Joining the cluster={} with name={}", quasarConfiguration.clusterName, quasarConfiguration.nodeName);
         List<Completable> notifications = new ArrayList<>();
-        for(int i = 0; i < quasarConfiguration.ordinal; i++) {
+        for(int i = 0; i < quasarConfiguration.ordinal(); i++) {
             final int j = i;
             try {
                 notifications.add(
                         httpClientFactory.clientForOrdinal(i, false)
-                                .add(quasarConfiguration.ordinal)
+                                .add(quasarConfiguration.ordinal())
                                 .subscribeOn(Schedulers.io())
                                 .map(vs -> {
                                     logger.info("node[{}]={}", j, vs);
@@ -192,7 +192,7 @@ public class QuasarClusterManager {
         Completable.merge(notifications)
                 .andThen(Completable.fromFuture(increaseSize().toCompletableFuture()))
                 .subscribe(() -> {
-                    logger.info("All notification succeed to add ordinal={}", quasarConfiguration.ordinal);
+                    logger.info("All notification succeed to add ordinal={}", quasarConfiguration.ordinal());
                     cf.complete(stateAtomicReference.get());
                 }, t -> {
                     logger.error("add notification failed:", t);
@@ -205,14 +205,14 @@ public class QuasarClusterManager {
      * Decrement the cluster size by one, notify all cluster member to update, and stop.
      */
     public CompletionStage<State> doLeave() {
-        logger.debug("Leaving the cluster={} ordinal={}", quasarConfiguration.clusterName, quasarConfiguration.ordinal);
+        logger.debug("Leaving the cluster={} ordinal={}", quasarConfiguration.clusterName, quasarConfiguration.ordinal());
         List<Completable> notifications = new ArrayList<>();
-        for(int i = 0; i < quasarConfiguration.ordinal; i++) {
+        for(int i = 0; i < quasarConfiguration.ordinal(); i++) {
             final int j = i;
             try {
                 notifications.add(
                         httpClientFactory.clientForOrdinal(j, false)
-                                .remove(quasarConfiguration.ordinal)
+                                .remove(quasarConfiguration.ordinal())
                                 .subscribeOn(Schedulers.io())
                                 .map(vs -> {
                                     logger.info("node[{}]={}", j, vs);
@@ -227,7 +227,7 @@ public class QuasarClusterManager {
         Completable.merge(notifications)
                 .andThen(Completable.fromFuture(decreaseSize().toCompletableFuture()))
                 .subscribe(() -> {
-                    logger.info("All notification succeed to remove ordinal={}", quasarConfiguration.ordinal);
+                    logger.info("All notification succeed to remove ordinal={}", quasarConfiguration.ordinal());
                     cf.complete(stateAtomicReference.get());
                 }, t -> {
                     logger.error("remove notification failed:", t);
@@ -282,7 +282,7 @@ public class QuasarClusterManager {
     }
 
     public boolean isManaged(int hash) {
-        return ordinal(hash) == quasarConfiguration.ordinal;
+        return ordinal(hash) == quasarConfiguration.ordinal();
     }
 
     public void checkStatus() throws ServiceNotRunningException {

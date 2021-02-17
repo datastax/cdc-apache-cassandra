@@ -94,6 +94,8 @@ subprojects {
         implementation group: 'com.fasterxml.jackson.core', name: 'jackson-annotations', version: '2.11.1'
         implementation group: 'com.fasterxml.jackson.dataformat', name: 'jackson-dataformat-yaml', version: '2.11.1'
 
+        implementation "io.vavr:vavr:0.10.3"
+
         testImplementation "org.junit.jupiter:junit-jupiter-api"
         testImplementation "io.micronaut.test:micronaut-test-junit5"
         testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine"

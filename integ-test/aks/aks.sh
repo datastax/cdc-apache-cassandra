@@ -66,6 +66,9 @@ create-acr-rbac() {
             --docker-username=$SPN_CLIENT_ID \
             --docker-password=$SPN_PW \
             --docker-email=ignorethis@email.com
+
+  # ACR_REGISTRY_ID=/subscriptions/72738c1b-8ae6-4f23-8531-5796fe866f2e/resourceGroups/aks1/providers/Microsoft.ContainerRegistry/registries/vrtestregistry
+  # az role assignment create --assignee 1c6aa525-f624-4fec-80d8-fd0d0d9f664a --scope /subscriptions/72738c1b-8ae6-4f23-8531-5796fe866f2e/resourceGroups/aks1/providers/Microsoft.ContainerRegistry/registries/vrtestregistry --role acrpull
 }
 
 acr-login() {

@@ -7,6 +7,7 @@ sequentially to avoid a possible race condition.
 ## Docker build
 
     ./gradlew quasar-consumer:jib
+    
 
 ## Configuration
 
@@ -14,9 +15,9 @@ See the [application.yml](src/main/resources/application.yml) file.
 
 ## Run
 
-    SERVER_HOST=127.0.0.1 QUASAR_ORDINAL=0 ./gradlew quasar-consumer:run
-    SERVER_HOST=127.0.0.2 QUASAR_ORDINAL=1 ./gradlew quasar-consumer:run
-    SERVER_HOST=127.0.0.3 QUASAR_ORDINAL=2 ./gradlew quasar-consumer:run
+    SERVER_HOST=127.0.0.1 QUASAR_NODE_NAME=quasar-0 ./gradlew quasar-consumer:run
+    SERVER_HOST=127.0.0.2 QUASAR_NODE_NAME=quasar-1 ./gradlew quasar-consumer:run
+    SERVER_HOST=127.0.0.3 QUASAR_NODE_NAME=quasar-2 ./gradlew quasar-consumer:run
 
 The health endpoint test the connectivity to both Cassandra and Elasticsearch:
 

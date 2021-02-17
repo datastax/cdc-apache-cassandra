@@ -1,0 +1,30 @@
+apiVersion: cassandra.datastax.com/v1beta1
+kind: CassandraDatacenter
+metadata:
+  name: dc1
+spec:
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: cassandra
+          imagePullPolicy: Always
+          imagePullSecrets:
+            - name: regcred
+  clusterName: cl1
+  serverType: cassandra
+  serverVersion: 4.0.0
+  serverImage: vrtestregistry.azurecr.io/stargazer/cassandra-with-mgmtapi:4.0-beta5-a22dd285ab
+  managementApiAuth:
+    insecure: {}
+  size: 1
+  storageConfig:
+    cassandraDataVolumeClaimSpec:
+      storageClassName: default
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 5Gi
+  config:
+    cassandra-yaml:
+      cdc_enabled: true

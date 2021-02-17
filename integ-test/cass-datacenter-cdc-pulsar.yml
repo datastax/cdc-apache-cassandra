@@ -12,7 +12,7 @@ spec:
   podTemplateSpec:
     spec:
       containers:
-        - name: "cdc-producer"
+        - name: "cdc-pulsar-producer"
           terminationMessagePolicy: "FallbackToLogsOnError"
           image: "vrtestregistry.azurecr.io/datastax/cassandra-cdc-producer:0.1-SNAPSHOT"
           imagePullSecret: acr-secret

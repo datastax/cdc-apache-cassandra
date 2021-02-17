@@ -47,7 +47,7 @@ public class QuasarController {
      */
     @Get(value = "/ordinal")
     public Single<Integer> ordinal() {
-        return Single.just(quasarConfiguration.ordinal);
+        return Single.just(quasarConfiguration.ordinal());
     }
 
     /**
@@ -83,7 +83,7 @@ public class QuasarController {
      */
     @Post(value="/cluster/_leave" , produces = MediaType.APPLICATION_JSON)
     public Single<State> leave() {
-        if (quasarClusterManager.stateAtomicReference.get().getSize() - 1 != quasarConfiguration.ordinal) {
+        if (quasarClusterManager.stateAtomicReference.get().getSize() - 1 != quasarConfiguration.ordinal()) {
             throw new IllegalStateException("Can only remove the last node at ordinal="+(quasarClusterManager.stateAtomicReference.get().getSize() - 1));
         }
         return Single.fromFuture(quasarClusterManager.doLeave().toCompletableFuture());
@@ -95,7 +95,7 @@ public class QuasarController {
      */
     @Post(value="/cluster/_join" , produces = MediaType.APPLICATION_JSON)
     public Single<State> join() {
-        if (quasarClusterManager.stateAtomicReference.get().getSize() != quasarConfiguration.ordinal) {
+        if (quasarClusterManager.stateAtomicReference.get().getSize() != quasarConfiguration.ordinal()) {
             throw new IllegalStateException("Can only add the last node at ordinal="+(quasarClusterManager.stateAtomicReference.get().getSize()));
         }
         return Single.fromFuture(quasarClusterManager.doJoin().toCompletableFuture());

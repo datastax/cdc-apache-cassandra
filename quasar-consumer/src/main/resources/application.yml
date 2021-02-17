@@ -5,10 +5,10 @@ micronaut:
     host: "${SERVER_HOST:`localhost`}"
     port: "${SERVER_PORT:8081}"
 #    http-version: HTTP_2_0
-    dualProtocol : true
-  ssl:
-    enabled: true
-    build-self-signed: true
+#    dualProtocol : true
+#  ssl:
+#    enabled: true
+#    build-self-signed: true
   caches:
     elasticache:
       maximum-size: 10
@@ -53,6 +53,9 @@ endpoints:
     enabled: true
     sensitive: false
   health:
+    enabled: true
+    sensitive: false
+    details-visible: ANONYMOUS
     cassandra:
       enabled: true
     elasticsearch:
@@ -62,7 +65,7 @@ endpoints:
             enabled: false
 ---
 quasar:
-  ordinal: "${QUASAR_ORDINAL:0}"
+  nodeName: "${QUASAR_NODE_NAME:`quasar-0`}"
   clusterName: "${QUASAR_CLUSTER_NAME:`Quasar`}"
   defaultDatacenter: "${CASSANDRA_DATACENTER:`datacenter1`}"
   consumerThreads: "${QUASAR_CONSUMER_THREAD:4}"
@@ -78,6 +81,10 @@ cassandra:
      load-balancing-policy:
         local-datacenter: "${CASSANDRA_DATACENTER:`datacenter1`}"
     advanced:
+      reconnection-policy:
+        class: ExponentialReconnectionPolicy
+        base-delay: 1
+        max-delay: 60
       control-connection:
         schema-agreement:
           timeout: 30

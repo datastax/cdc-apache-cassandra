@@ -1,7 +1,11 @@
 package com.datastax.cassandra.cdc.consumer;
 
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.google.common.collect.Lists;
 import io.micronaut.context.annotation.ConfigurationProperties;
 import lombok.Getter;
+
+import java.util.List;
 
 
 @ConfigurationProperties("quasar")
@@ -13,9 +17,9 @@ public class QuasarConfiguration {
     String serviceName;
 
     /**
-     * Node ordinal, from 0 to N-1;
+     * Node name ending by the ordinal index.
      */
-    Integer ordinal;
+    String nodeName;
 
     /**
      * Quasar cluster name (Used as the PAXOS partition key).
@@ -32,7 +36,12 @@ public class QuasarConfiguration {
      */
     Integer consumerThreads = 4;
 
-    public String nodeName() {
-        return serviceName + "-" + ordinal;
+    /**
+     * Cassandra read before write consistency levels.
+     */
+    List<ConsistencyLevel> consistencies = Lists.newArrayList(ConsistencyLevel.ALL, ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE);
+
+    public int ordinal() {
+        return Integer.parseInt(nodeName.substring(nodeName.lastIndexOf("-") + 1));
     }
 }
