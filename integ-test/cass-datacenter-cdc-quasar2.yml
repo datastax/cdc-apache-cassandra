@@ -3,17 +3,9 @@ kind: CassandraDatacenter
 metadata:
   name: dc1
 spec:
-  podTemplateSpec:
-    spec:
-      containers:
-        - name: cassandra
-          imagePullPolicy: Always
-          imagePullSecrets:
-            - name: regcred
   clusterName: cl1
   serverType: cassandra
   serverVersion: 4.0.0
-  serverImage: datastax/cassandra-mgmtapi-4_0_0:v0.1.22
   managementApiAuth:
     insecure: {}
   size: 1
