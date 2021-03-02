@@ -3,24 +3,32 @@ package com.datastax.cassandra.cdc.consumer;
 import com.datastax.cassandra.cdc.*;
 import com.datastax.cassandra.cdc.pulsar.CDCSchema;
 import com.datastax.cassandra.cdc.pulsar.PulsarConfiguration;
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.runtime.Micronaut;
-import jdk.internal.joptsimple.internal.Strings;
 import org.apache.pulsar.client.api.*;
+import org.apache.pulsar.client.api.schema.GenericRecord;
 import org.apache.pulsar.common.schema.KeyValue;
+import org.apache.pulsar.common.schema.KeyValueEncodingType;
+import org.apache.pulsar.common.schema.SchemaInfo;
+import org.apache.pulsar.common.schema.SchemaType;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tech.allegro.schema.json2avro.converter.JsonAvroConverter;
 
 import javax.inject.Singleton;
-import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Pulsar consumer writing to Elasticsearch.
@@ -31,18 +39,22 @@ public class PulsarConsumer {
     private static final ObjectMapper mapper = new ObjectMapper();
 
     final PulsarConfiguration pulsarConfiguration;
-    final ElasticsearchService elasticsearchService;
     final CassandraService cassandraService;
     final MeterRegistry meterRegistry;
-
+    final MutationCache mutationCache;
+    final SchemaConverter schemaConverter;
+    final ObjectMapper objectMapper;
     public PulsarConsumer(PulsarConfiguration pulsarConfiguration,
-                          ElasticsearchService elasticsearchService,
                           CassandraService cassandraService,
-                          MeterRegistry meterRegistry) {
+                          MutationCache mutationCache,
+                          MeterRegistry meterRegistry,
+                          SchemaConverter schemaConverter) {
         this.pulsarConfiguration = pulsarConfiguration;
-        this.elasticsearchService = elasticsearchService;
         this.cassandraService = cassandraService;
+        this.mutationCache = mutationCache;
         this.meterRegistry = meterRegistry;
+        this.schemaConverter = schemaConverter;
+        this.objectMapper = new ObjectMapper();
     }
 
     void consume() {
@@ -70,65 +82,85 @@ public class PulsarConsumer {
                     // Wait for a message
                     msg = consumer.receive();
                     final KeyValue<MutationKey, MutationValue> kv = msg.getValue();
-                    final MutationKey pk = kv.getKey();
+                    final MutationKey mutationKey = kv.getKey();
+                    final MutationValue mutationValue = kv.getValue();
 
                     logger.debug("Message from producer={} msgId={} key={} value={}\n",
                             msg.getProducerName(), msg.getMessageId(), kv.getKey(), kv.getValue());
 
                     final Consumer<KeyValue<MutationKey, MutationValue>> consumerFinal = consumer;
                     final Message<KeyValue<MutationKey, MutationValue>> msgFinal = msg;
+                    final PulsarClient client2 = client;
 
-                    elasticsearchService.getWritetime(pk)
-                        .thenAcceptAsync(writetime -> {
-                            try {
-                                logger.debug("Document id={} last synced writetime={}", kv.getKey().id(), writetime);
-                                if (writetime == null) {
-                                    // Elasticsearch is not available, retry later
-                                    negativeAcknowledge(consumerFinal, msgFinal, pk.tags());
-                                } else {
-                                    if (kv.getValue().getWritetime() < writetime || kv.getValue().getWritetime() < -writetime) {
-                                        // update is obsolete, hidden by another doc or a tombstone
-                                        acknowledge(consumerFinal, msgFinal, pk.tags());
-                                    } else {
-                                        if (kv.getValue().getOperation().equals(Operation.DELETE)) {
-                                            // delete the doc and create a tombstone
-                                            elasticsearchService.delete(pk, kv.getValue().getWritetime())
-                                                    .thenAcceptAsync(acknowledgeConsumer(consumerFinal, msgFinal, pk.tags()));
-                                        } else {
-                                            CompletionStage<String> readFuture;
-                                            if (kv.getValue().getDocument() != null) {
-                                                // the payload contains the document source
-                                                readFuture = CompletableFuture.completedFuture(kv.getValue().getDocument());
-                                            } else {
-                                                // Read from cassandra if needed
-                                                readFuture = cassandraService.selectRowAsync(pk, kv.getValue().getNodeId());
-                                            }
-                                            readFuture.thenAcceptAsync(json -> {
-                                                // update Elasticsearch
-                                                try {
-                                                    if (Strings.isNullOrEmpty(json)) {
-                                                        // delete the document that does not more exists in Cassandra
-                                                        elasticsearchService.delete(pk, kv.getValue().getWritetime())
-                                                                .thenAcceptAsync(acknowledgeConsumer(consumerFinal, msgFinal, pk.tags()));
-                                                    } else {
-                                                        // index the cassandra document in elasticsearch
-                                                        Map<String, Object> source = mapper.readValue(json, new TypeReference<Map<String, Object>>() {});
-                                                        elasticsearchService.index(pk, kv.getValue().getWritetime(), source)
-                                                                .thenAcceptAsync(acknowledgeConsumer(consumerFinal, msgFinal, pk.tags()));
-                                                    }
-                                                } catch(IOException e) {
-                                                    logger.error("Elasticsearch indexing error", e);
-                                                    negativeAcknowledge(consumerFinal, msgFinal, pk.tags());
-                                                }
-                                            });
+                    if (mutationCache.isProcessed(mutationKey, mutationValue.getCrc()) == false) {
+                        cassandraService.selectRowAsync(mutationKey, kv.getValue().getNodeId(), Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE))
+                                .thenAcceptAsync(tuple -> {
+                                    // update the target topic
+                                    String json = tuple._1;
+                                    try {
+
+                                        JSONObject jo = new JSONObject();
+                                        int i = 0;
+                                        for(ColumnMetadata cm : tuple._3.getTable(mutationKey.getTable()).get().getPrimaryKey()) {
+                                            jo.put(cm.getName().toString(), mutationKey.getPkColumns()[i]);
                                         }
+                                        JSONArray ja = new JSONArray();
+                                        jo.toJSONArray(ja);
+
+                                        Map<String, String> props = new HashMap<>();
+                                        props.put("ID", ja.toString());
+                                        if (tuple._1 == null) {
+                                            // delete
+                                            props.put("ACTION", "DELETE");
+                                            // build a JSON object for PK
+                                            json = jo.toString();
+                                        } else {
+                                            // insert
+                                            props.put("ACTION", "UPSERT");
+                                        }
+
+                                        logger.debug("ACTION={} ID={} message={}", props.get("ACTION"), props.get("ID"), json);
+
+                                        // convert the JSON row to an AVRO message
+                                        /*
+                                        org.apache.avro.Schema avroSchema = schemaConverter.buildAvroSchema(tuple._3, mutationKey.getTable());
+                                        byte[] avroMessage = new JsonAvroConverter().convertToAvro(json.getBytes(), avroSchema);
+
+                                        SchemaInfo schemaInfo = SchemaInfo.builder()
+                                                .schema(avroSchema.toString().getBytes(StandardCharsets.UTF_8))
+                                                .type(SchemaType.AVRO)
+                                                .name(mutationKey.getKeyspace()+"."+mutationKey.getTable())
+                                                .properties(new HashMap<>())
+                                                .build();
+                                        Schema<GenericRecord> schema = Schema.generic(schemaInfo);
+                                        */
+
+                                        SchemaInfo  schemaInfo = schemaConverter
+                                                .buildSchema(tuple._3, mutationKey.getTable())
+                                                .build(SchemaType.JSON);
+                                        Schema<?> schema = Schema.getSchema(schemaInfo);
+
+
+                                        Producer<byte[]> producer = client2.newProducer(Schema.AUTO_PRODUCE_BYTES(schema))
+                                                .topic(pulsarConfiguration.getSinkTopic())
+                                                .batchingMaxPublishDelay(10, TimeUnit.MILLISECONDS)
+                                                .sendTimeout(10, TimeUnit.SECONDS)
+                                                .blockIfQueueFull(true)
+                                                .create();
+                                        producer.newMessage()
+                                                .properties(props)
+                                                .value(json.getBytes())
+                                                .sendAsync()
+                                                .thenAccept(acknowledgeConsumer(consumerFinal, msgFinal, mutationKey.tags()))
+                                                .get();
+                                    } catch(Exception e) {
+                                        logger.error("error", e);
+                                        negativeAcknowledge(consumerFinal, msgFinal, mutationKey.tags());
                                     }
-                                }
-                            } catch(Exception e) {
-                                logger.error("error", e);
-                                negativeAcknowledge(consumerFinal, msgFinal, pk.tags());
-                            }
-                        });
+                                });
+                    } else {
+                        acknowledge(consumerFinal, msgFinal, mutationKey.tags());
+                    }
                 } catch(Exception e) {
                     // Message failed to process, redeliver later
                     logger.warn("error:", e);

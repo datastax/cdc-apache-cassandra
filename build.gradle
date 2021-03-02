@@ -27,15 +27,6 @@ allprojects {
         maven { url "https://jcenter.bintray.com" }
         maven { url "https://oss.sonatype.org/content/repositories/snapshots" }
         jcenter() // or Maven central, required for Lombok dependency
-
-        maven {
-            name "strapdata-private"
-            url "https://nexus.repo.strapdata.com/repository/maven-releases"
-            credentials {
-                username = repoUsername
-                password = repoPassword
-            }
-        }
     }
 
     apply plugin: 'idea'

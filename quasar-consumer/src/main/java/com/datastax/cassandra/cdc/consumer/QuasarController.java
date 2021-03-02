@@ -3,7 +3,6 @@ package com.datastax.cassandra.cdc.consumer;
 import com.datastax.cassandra.cdc.quasar.Murmur3HashFunction;
 import com.datastax.cassandra.cdc.MutationKey;
 import com.datastax.cassandra.cdc.MutationValue;
-import com.datastax.cassandra.cdc.Operation;
 import com.datastax.cassandra.cdc.consumer.exceptions.HashNotManagedException;
 import com.datastax.cassandra.cdc.consumer.exceptions.ServiceNotRunningException;
 import com.datastax.cassandra.cdc.quasar.State;

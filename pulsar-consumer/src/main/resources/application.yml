@@ -61,21 +61,20 @@ pulsar:
   serviceUrl: "${PULSAR_SERVICE_URL:`pulsar://localhost:6650`}"
   topic: "${PULSAR_TOPIC:`persistent://public/default/topic1`}"
   subscription: "${PULSAR_SUBSCRIPTION:`sub1`}"
+  sinkTopic: "${PULSAR_SINK_TOPIC:`persistent://public/default/elasticsearch-ks1-sink`}"
 #---
-#cassandra:
-#  default:
-#    basic:
-#      contact-points:
-#        - "${CASSANDRA_CONTACTPOINT:`localhost:9042`}"
-#      load-balancing-policy:
-#        local-datacenter: "${CASSANDRA_DATACENTER:`DC1`}"
-#    advanced:
-#      control-connection:
-#        schema-agreement:
-#          timeout: 30
-#      metadata:
-#        schema:
-#         enabled: true
----
-elasticsearch:
-  httpHosts: "${ELASTICSEARCH_HOSTS:`http://localhost:9200`}"
+cassandra:
+  default:
+    basic:
+      contact-points:
+        - "${CASSANDRA_CONTACTPOINT:`localhost:9042`}"
+      load-balancing-policy:
+        local-datacenter: "${CASSANDRA_DATACENTER:`datacenter1`}"
+    advanced:
+      control-connection:
+        schema-agreement:
+          timeout: 30
+      metadata:
+        schema:
+         enabled: true
+

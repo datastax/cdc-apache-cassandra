@@ -65,9 +65,9 @@ public class QuasarMutationSender implements MutationSender<KeyValue<MutationKey
     }
 
     @Override
-    public CompletionStage<Void> sendMutationAsync(final Mutation mutation, String jsonDocument) {
+    public CompletionStage<Void> sendMutationAsync(final Mutation mutation) {
         MutationKey key = mutation.mutationKey();
-        MutationValue value = mutation.mutationValue(jsonDocument);
+        MutationValue value = mutation.mutationValue();
         int hash = key.hash();
         int ordinal = hash % state.getSize();
         CompletableFuture<Long> cf = new CompletableFuture<>();
@@ -76,10 +76,9 @@ public class QuasarMutationSender implements MutationSender<KeyValue<MutationKey
                     .replicate(key.getKeyspace(),
                             key.getTable(),
                             key.id(),
-                            value.getOperation(),
-                            value.getWritetime(),
+                            value.getCrc(),
                             value.getNodeId(),
-                            jsonDocument)
+                            null)
                     .subscribe(cf::complete, t -> {
                         logger.warn("error:", t);
                         if (t instanceof HttpClientResponseException) {

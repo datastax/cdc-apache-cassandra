@@ -15,7 +15,11 @@ public class Application {
         try(ApplicationContext context = Micronaut.run(PulsarMutationSender.class, args);
             CommitLogProcessor commitLogProcessor = context.getBean(CommitLogProcessor.class);
             CommitLogReaderProcessor commitLogReaderProcessor = context.getBean(CommitLogReaderProcessor.class);
+            PulsarMutationSender pulsarMutationSender = context.getBean(PulsarMutationSender.class);
         ) {
+            // init pulsar producer
+            pulsarMutationSender.initialize();
+
             // detect commitlogs file and submit new/modified files to the commitLogReader
             ExecutorService commitLogExecutor = Executors.newSingleThreadExecutor();
             commitLogExecutor.submit(() -> {

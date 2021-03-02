@@ -1,6 +1,5 @@
 package com.datastax.cassandra.cdc.quasar;
 
-import com.datastax.cassandra.cdc.Operation;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micronaut.core.annotation.AnnotationMetadataResolver;
 import io.micronaut.core.io.ResourceResolver;
@@ -79,13 +78,12 @@ public class HttpClient {
     public Single<Long> replicate(String keyspace,
                                   String table,
                                   String id,
-                                  Operation op,
-                                  Long writetime,
+                                  Long crc,
                                   UUID nodeId,
                                   String document) {
         return httpClient.retrieve(
-                POST(String.format(Locale.ROOT, "/replicate/%s/%s/%s/%s?writetime=%d&nodeId=%s",
-                        keyspace, table, id, op.toString(), writetime, nodeId.toString()),
+                POST(String.format(Locale.ROOT, "/replicate/%s/%s/%s/%s?crc=%d&nodeId=%s",
+                        keyspace, table, id, crc, nodeId.toString()),
                         document),
                 Long.class).singleOrError();
     }

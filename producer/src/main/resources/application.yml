@@ -41,11 +41,11 @@ endpoints:
     enabled: true
     sensitive: false
 ---
-#pulsar:
-#  serviceUrl: "${PULSAR_SERVICE_URL:`pulsar://localhost:6650`}"
-#  topic: "${PULSAR_TOPIC:`persistent://public/default/topic1`}"
-quasarcli:
-  dnsNamePrefix: "${QUASAR_DNS_NAME_PREFIX:`quasar-`}"
+pulsar:
+  serviceUrl: "${PULSAR_SERVICE_URL:`pulsar://localhost:6650`}"
+  topic: "${PULSAR_TOPIC:`persistent://public/default/topic1`}"
+#quasarcli:
+#  dnsNamePrefix: "${QUASAR_DNS_NAME_PREFIX:`quasar-`}"
 ---
 cassandra-cdc:
   clusterName: Test cluster

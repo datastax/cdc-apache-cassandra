@@ -7,6 +7,9 @@ import org.apache.pulsar.client.impl.schema.JSONSchema;
 import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.common.schema.KeyValueEncodingType;
 
+/**
+ * Cassandra "dirty-row" pulsar schema
+ */
 public class CDCSchema {
 
     public static final Schema<KeyValue<MutationKey, MutationValue>> kvSchema = Schema.KeyValue(

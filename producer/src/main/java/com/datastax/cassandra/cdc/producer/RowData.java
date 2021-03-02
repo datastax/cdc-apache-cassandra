@@ -51,7 +51,20 @@ public class RowData {
                 .filter(CellData::isPrimary)
                 .map(cell->cell.value)
                 .toArray(Object[]::new);
+    }
 
+    public String[] primaryKeyNames() {
+        return this.cellMap.values().stream()
+                .filter(CellData::isPrimary)
+                .map(cell->cell.name)
+                .toArray(String[]::new);
+    }
+
+    public String[] nonPrimaryKeyNames() {
+        return this.cellMap.values().stream()
+                .filter(cd -> !cd.isPrimary())
+                .map(cell->cell.name)
+                .toArray(String[]::new);
     }
 
     @Override

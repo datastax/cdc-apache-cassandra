@@ -7,7 +7,6 @@ package com.datastax.cassandra.cdc.producer;
 
 import com.datastax.cassandra.cdc.MutationKey;
 import com.datastax.cassandra.cdc.MutationValue;
-import com.datastax.cassandra.cdc.Operation;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -27,7 +26,6 @@ public class Mutation {
     private int position;
     private SourceInfo source;
     private RowData rowData;
-    private Operation op;
     private boolean shouldMarkOffset;
     private long ts;
 
@@ -38,7 +36,9 @@ public class Mutation {
                 rowData.primaryKeyValues());
     }
 
-    public MutationValue mutationValue(String jsonDocument) {
-        return new MutationValue(source.timestamp.toEpochMilli(), source.nodeId, op, jsonDocument);
+    public MutationValue mutationValue() {
+        // TODO: Unfortunately, computing the mutation CRC require to re-serialize it because we cannot get the byte[] from the commitlog reader.
+        // So, we use the timestamp here.
+        return new MutationValue(ts, source.nodeId, rowData.nonPrimaryKeyNames());
     }
 }

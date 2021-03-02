@@ -1,13 +1,9 @@
 package com.datastax.cassandra.cdc.consumer;
 
-import com.datastax.cassandra.cdc.ElasticsearchService;
 import com.datastax.cassandra.cdc.MutationKey;
 import com.datastax.cassandra.cdc.consumer.exceptions.HashNotManagedException;
 import com.datastax.cassandra.cdc.consumer.exceptions.ServiceNotRunningException;
-import com.datastax.cassandra.cdc.quasar.Murmur3HashFunction;
-import com.google.common.collect.ImmutableList;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Tag;
 import io.micronaut.http.MediaType;
 import io.micronaut.http.annotation.Controller;
 import io.micronaut.http.annotation.Get;
@@ -18,7 +14,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import javax.validation.constraints.NotBlank;
-import javax.annotation.Nullable;
 
 @Controller("/elasticsearch")
 public class ElasticsearchController {

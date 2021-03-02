@@ -51,6 +51,10 @@ dependencies {
 
     testAnnotationProcessor "io.micronaut:micronaut-inject-java"
     implementation("javax.annotation:javax.annotation-api")
+
+    implementation("io.micronaut.cache:micronaut-cache-caffeine")
+    implementation("tech.allegro.schema.json2avro:converter:0.2.2")
+
 }
 
 run {

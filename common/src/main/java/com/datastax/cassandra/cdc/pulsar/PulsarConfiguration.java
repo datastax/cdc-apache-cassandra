@@ -22,7 +22,7 @@ public class PulsarConfiguration {
     String serviceUrl;
 
     /**
-     * Pulsar topic
+     * Dirty cassandra row pulsar topic
      */
     String topic;
 
@@ -31,4 +31,10 @@ public class PulsarConfiguration {
      */
     @Nullable
     String subscription;
+
+    /**
+     * Pulsar sink topic
+     */
+    String sinkTopic;
+
 }

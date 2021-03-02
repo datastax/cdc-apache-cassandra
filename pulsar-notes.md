@@ -44,6 +44,11 @@ Set admin password:
 * enable schema auto-update
 
     bin/pulsar-admin namespaces set-is-allow-auto-update-schema --enable public/default
+    
+* schema management
+
+    bin/pulsar-admin schemas get "persistent://public/default/elasticsearch-ks1-sink"
+    bin/pulsar-admin schemas delete "persistent://public/default/elasticsearch-ks1-sink"
 
 
 * Enable message dedup at the broker level

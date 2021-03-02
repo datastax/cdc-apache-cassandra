@@ -11,8 +11,7 @@ import java.util.UUID;
 @ToString
 @EqualsAndHashCode
 public class MutationValue {
-    Long writetime;
+    Long crc;
     UUID nodeId;
-    Operation operation;
-    String document;
+    String[] columns;
 }

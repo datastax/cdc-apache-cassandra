@@ -17,5 +17,5 @@ public interface MutationSender<P> {
      */
     CommitLogPosition sentOffset();
 
-    CompletionStage<Void> sendMutationAsync(final Mutation mutation, String jsonDocument);
+    CompletionStage<Void> sendMutationAsync(final Mutation mutation);
 }

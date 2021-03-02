@@ -5,7 +5,6 @@ import java.util.TreeMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import org.elasticsearch.cluster.routing.Murmur3HashFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

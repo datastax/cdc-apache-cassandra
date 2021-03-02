@@ -18,9 +18,11 @@ dependencies {
     implementation "io.micronaut:micronaut-runtime"
     implementation "javax.inject:javax.inject:1"
 
-    implementation "io.micronaut.cache:micronaut-cache-caffeine"
+    //implementation "io.micronaut.cache:micronaut-cache-caffeine"
     implementation "io.micronaut.elasticsearch:micronaut-elasticsearch:2.1.0"
     implementation "io.micronaut:micronaut-http-client"
+    //implementation("org.apache.avro:avro:1.10.1")
+    implementation group: 'tech.allegro.schema.json2avro', name: 'converter', version: '0.2.10'
 }
 
 jar {

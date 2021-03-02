@@ -21,28 +21,16 @@ public class MutationKey {
     @EqualsAndHashCode.Exclude
     Object[] pkColumns;
 
-    @EqualsAndHashCode.Include
-    transient String id;
-
-    public MutationKey(String keyspace, String table, String id) {
-        this.keyspace = keyspace;
-        this.table = table;
-        this.pkColumns = null;
-        this.id = id;
-    }
-
     public MutationKey(String keyspace, String table, Object[] pkColumns) {
         this.keyspace = keyspace;
         this.table = table;
         this.pkColumns = pkColumns;
-        this.id = (pkColumns.length == 1)
-                ? pkColumns[0].toString()
-                : "[" + Arrays.stream(pkColumns).map(x -> x.toString()).collect(Collectors.joining(",")) + "]";
-
     }
 
     public String id() {
-        return this.id;
+        return (pkColumns.length == 1)
+                ? pkColumns[0].toString()
+                : "[" + Arrays.stream(pkColumns).map(x -> x.toString()).collect(Collectors.joining(",")) + "]";
     }
 
     public int hash() {
@@ -55,7 +43,7 @@ public class MutationKey {
 
     // TODO: parse compound key.
     public MutationKey parseId() {
-        this.pkColumns = new Object[] { id };
+        this.pkColumns = new Object[] { id() };
         return this;
     }
 }

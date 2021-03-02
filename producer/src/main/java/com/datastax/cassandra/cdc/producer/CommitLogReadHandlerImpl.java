@@ -8,6 +8,8 @@ package com.datastax.cassandra.cdc.producer;
 import com.datastax.cassandra.cdc.*;
 import com.datastax.cassandra.cdc.producer.exceptions.CassandraConnectorSchemaException;
 import com.datastax.cassandra.cdc.producer.exceptions.CassandraConnectorTaskException;
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.google.common.collect.Lists;
 import io.debezium.DebeziumException;
 import io.debezium.time.Conversions;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -23,6 +25,7 @@ import org.apache.cassandra.db.rows.Row;
 import org.apache.cassandra.db.rows.Unfiltered;
 import org.apache.cassandra.db.rows.UnfilteredRowIterator;
 import org.apache.cassandra.schema.ColumnMetadata;
+import org.apache.cassandra.schema.Schema;
 import org.apache.cassandra.schema.SchemaConstants;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.pulsar.client.api.*;
@@ -57,7 +60,6 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     private final OffsetFileWriter offsetWriter;
     private final MeterRegistry meterRegistry;
     private final CassandraCdcConfiguration config;
-    private final CassandraService cassandraService;
     private final MutationSender<KeyValue<MutationKey, MutationValue>> mutationSender;
 
     CommitLogReadHandlerImpl(CassandraCdcConfiguration config,
@@ -67,7 +69,6 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                              MutationSender<KeyValue<MutationKey, MutationValue>> mutationSender,
                              MeterRegistry meterRegistry) {
         this.config = config;
-        this.cassandraService = cassandraService;
         this.mutationSender = mutationSender;
 
         this.offsetWriter = offsetFileWriter;
@@ -217,6 +218,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     public void handleMutation(org.apache.cassandra.db.Mutation mutation, int size, int entryLocation, CommitLogDescriptor descriptor) {
         if (mutation.getKeyspaceName().equalsIgnoreCase(SchemaConstants.SCHEMA_KEYSPACE_NAME)) {
             logger.info("Schema update tables={}", mutation.getTableIds());
+            Schema.instance.mergeAndAnnounceVersion(Collections.singleton(mutation));
         }
 
         if (!mutation.trackedByCDC()) {
@@ -564,21 +566,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     }
 
     CompletionStage<Void> processMutation(final Mutation mutation) throws PulsarClientException {
-        if (cassandraService != null && !Operation.DELETE.equals(mutation.getOp())) {
-            // read the cassandra row from the local node, for insert/update operation
-            return cassandraService.selectRowAsync(mutation.mutationKey(), mutation.getSource().getNodeId())
-                    .thenComposeAsync(json -> {
-                        CompletableFuture<Void> future = new CompletableFuture<>();
-                        try {
-                            return this.mutationSender.sendMutationAsync(mutation, json);
-                        } catch(Exception ex) {
-                            future.completeExceptionally(ex);
-                        }
-                        return future;
-                    });
-        } else {
-            return this.mutationSender.sendMutationAsync(mutation, null);
-        }
+        return this.mutationSender.sendMutationAsync(mutation);
     }
 
 }

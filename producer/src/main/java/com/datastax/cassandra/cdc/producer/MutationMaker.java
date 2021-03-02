@@ -5,7 +5,6 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
-import com.datastax.cassandra.cdc.Operation;
 import com.datastax.cassandra.cdc.producer.exceptions.CassandraConnectorTaskException;
 import io.debezium.function.BlockingConsumer;
 import org.apache.cassandra.db.commitlog.CommitLogPosition;
@@ -33,7 +32,7 @@ public class MutationMaker {
                        Instant tsMicro, RowData data,
                        boolean markOffset, BlockingConsumer<Mutation> consumer) {
         createRecord(cluster, node, offsetPosition, keyspace, name, snapshot, tsMicro,
-                data, markOffset, consumer, Operation.INSERT);
+                data, markOffset, consumer);
     }
 
     public void update(String cluster, UUID node, CommitLogPosition offsetPosition,
@@ -41,7 +40,7 @@ public class MutationMaker {
                        Instant tsMicro, RowData data,
                        boolean markOffset, BlockingConsumer<Mutation> consumer) {
         createRecord(cluster, node, offsetPosition, keyspace, name, snapshot, tsMicro,
-                data, markOffset, consumer, Operation.UPDATE);
+                data, markOffset, consumer);
     }
 
     public void delete(String cluster, UUID node, CommitLogPosition offsetPosition,
@@ -49,28 +48,18 @@ public class MutationMaker {
                        Instant tsMicro, RowData data,
                        boolean markOffset, BlockingConsumer<Mutation> consumer) {
         createRecord(cluster, node, offsetPosition, keyspace, name, snapshot, tsMicro,
-                data, markOffset, consumer, Operation.DELETE);
+                data, markOffset, consumer);
     }
 
     private void createRecord(String cluster, UUID node, CommitLogPosition offsetPosition,
                               String keyspace, String name, boolean snapshot,
                               Instant tsMicro, RowData data,
-                              boolean markOffset, BlockingConsumer<Mutation> consumer, Operation operation) {
+                              boolean markOffset, BlockingConsumer<Mutation> consumer) {
         // TODO: filter columns
-        RowData filteredData;
-        switch (operation) {
-            case INSERT:
-            case UPDATE:
-                filteredData = data;
-                break;
-            case DELETE:
-            default:
-                filteredData = data;
-                break;
-        }
+        RowData filteredData = data;
 
         SourceInfo source = new SourceInfo(cluster, node, offsetPosition, keyspace, name, tsMicro);
-        Mutation record = new Mutation(offsetPosition.segmentId, offsetPosition.position, source, filteredData, operation, markOffset, tsMicro.toEpochMilli());
+        Mutation record = new Mutation(offsetPosition.segmentId, offsetPosition.position, source, filteredData, markOffset, tsMicro.toEpochMilli());
         try {
             consumer.accept(record);
         }

@@ -19,11 +19,11 @@ import io.micrometer.core.instrument.Tag;
 import io.micronaut.configuration.cassandra.CassandraConfiguration;
 import io.micronaut.configuration.cassandra.CassandraSessionFactory;
 import io.vavr.Tuple2;
+import io.vavr.Tuple3;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Singleton;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,6 +31,9 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
+/**
+ * Async read from Cassandra with downgrade consistency retry.
+ */
 //@Requires(configuration = "default")
 @Singleton
 public class CassandraService {
@@ -38,13 +41,16 @@ public class CassandraService {
 
     final CassandraSessionFactory cassandraSessionFactory;
     final CassandraConfiguration cassandraConfiguration;
+    final SchemaConverter schemaConverter;
     final MeterRegistry meterRegistry;
 
     public CassandraService(CassandraSessionFactory cassandraSessionFactory,
                             CassandraConfiguration cassandraConfiguration,
+                            SchemaConverter schemaConverter,
                             MeterRegistry meterRegistry) {
         this.cassandraSessionFactory = cassandraSessionFactory;
         this.cassandraConfiguration = cassandraConfiguration;
+        this.schemaConverter = schemaConverter;
         this.meterRegistry = meterRegistry;
     }
 
@@ -58,7 +64,7 @@ public class CassandraService {
                 .buildAsync();
     }
 
-    public Tuple2<String, ConsistencyLevel> selectRow(MutationKey pk, UUID nodeId, List<ConsistencyLevel> consistencyLevels) throws ExecutionException, InterruptedException {
+    public Tuple3<String, ConsistencyLevel, KeyspaceMetadata> selectRow(MutationKey pk, UUID nodeId, List<ConsistencyLevel> consistencyLevels) throws ExecutionException, InterruptedException {
         return selectRowAsync(pk, nodeId, consistencyLevels).toCompletableFuture().get();
     }
 
@@ -68,7 +74,7 @@ public class CassandraService {
      * @param nodeId
      * @return
      */
-    public CompletionStage<Tuple2<String, ConsistencyLevel>> selectRowAsync(MutationKey pk, UUID nodeId, List<ConsistencyLevel> consistencyLevels) {
+    public CompletionStage<Tuple3<String, ConsistencyLevel, KeyspaceMetadata>> selectRowAsync(MutationKey pk, UUID nodeId, List<ConsistencyLevel> consistencyLevels) {
         final Iterable<Tag> tags = ImmutableList.of(Tag.of("keyspace", pk.getKeyspace()), Tag.of("table", pk.getTable()));
         return getSession()
                 .thenComposeAsync(s -> {
@@ -103,16 +109,15 @@ public class CassandraService {
 
                     return executeWithDowngradeConsistencyRetry(s, query.build(pk.getPkColumns()), consistencyLevels)
                             .thenApply(tuple -> {
-                                Row row = tuple._1().one();
-                                if (row == null) {
-                                    logger.debug("Row cl={} id={} does not exist any more", tuple._2, pk.id);
-                                    return new Tuple2<>("", tuple._2);
-                                }
-                                String json = row.get(0, String.class);
-                                logger.debug("Row cl={} coordinator={} id={} source={}",
-                                        tuple._2, tuple._1.getExecutionInfo().getCoordinator().getHostId(), pk.id, json);
+                                logger.debug("Read cl={} coordinator={} pk={}",
+                                        tuple._2, tuple._1.getExecutionInfo().getCoordinator().getHostId(), pk, tuple._1);
                                 meterRegistry.counter("cassandraRead", tags).increment();
-                                return new Tuple2<>(json, tuple._2);
+                                KeyspaceMetadata keyspaceMetadata = s.getMetadata().getKeyspace(pk.keyspace).get();
+                                Row row = tuple._1.one();
+                                return new Tuple3<>(
+                                        row == null ? (String)null : row.getString(0),
+                                        tuple._2,
+                                        keyspaceMetadata);
                             })
                             .whenComplete((tuple, error) -> {
                                 if (error != null) {
