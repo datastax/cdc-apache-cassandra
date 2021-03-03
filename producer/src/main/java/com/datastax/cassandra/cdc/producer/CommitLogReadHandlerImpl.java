@@ -5,11 +5,11 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
-import com.datastax.cassandra.cdc.*;
+import com.datastax.cassandra.cdc.CassandraService;
+import com.datastax.cassandra.cdc.MutationKey;
+import com.datastax.cassandra.cdc.MutationValue;
 import com.datastax.cassandra.cdc.producer.exceptions.CassandraConnectorSchemaException;
 import com.datastax.cassandra.cdc.producer.exceptions.CassandraConnectorTaskException;
-import com.datastax.oss.driver.api.core.ConsistencyLevel;
-import com.google.common.collect.Lists;
 import io.debezium.DebeziumException;
 import io.debezium.time.Conversions;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -18,40 +18,41 @@ import org.apache.cassandra.cql3.ColumnSpecification;
 import org.apache.cassandra.db.LivenessInfo;
 import org.apache.cassandra.db.commitlog.CommitLogDescriptor;
 import org.apache.cassandra.db.commitlog.CommitLogPosition;
-import org.apache.cassandra.db.commitlog.CommitLogReadHandler;
+import org.apache.cassandra.db.commitlog.CommitLogReadHandlerForCdc;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.partitions.PartitionUpdate;
 import org.apache.cassandra.db.rows.Row;
 import org.apache.cassandra.db.rows.Unfiltered;
 import org.apache.cassandra.db.rows.UnfilteredRowIterator;
 import org.apache.cassandra.schema.ColumnMetadata;
-import org.apache.cassandra.schema.Schema;
 import org.apache.cassandra.schema.SchemaConstants;
+import org.apache.cassandra.schema.SchemaHelper;
 import org.apache.cassandra.utils.ByteBufferUtil;
-import org.apache.pulsar.client.api.*;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.common.schema.KeyValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import javax.inject.Singleton;
+import javax.ws.rs.NotSupportedException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
 import static com.datastax.cassandra.cdc.producer.CommitLogReadHandlerImpl.RowType.DELETE;
 
 /**
- * Handler that implements {@link CommitLogReadHandler} interface provided by Cassandra source code.
+ * Handler that implements {@link CommitLogReadHandlerForCdc} interface provided by Cassandra source code.
  *
  * This handler implementation processes each {@link org.apache.cassandra.db.Mutation} and invokes one of the registered partition handler
  * for each {@link PartitionUpdate} in the {@link org.apache.cassandra.db.Mutation} (a mutation could have multiple partitions if it is a batch update),
  * which in turn makes one or more record via the {@link MutationMaker}.
  */
 @Singleton
-public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
+public class CommitLogReadHandlerImpl implements CommitLogReadHandlerForCdc {
     private static final Logger logger = LoggerFactory.getLogger(CommitLogReadHandlerImpl.class);
 
     private static final boolean MARK_OFFSET = true;
@@ -216,9 +217,14 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
     @Override
     public void handleMutation(org.apache.cassandra.db.Mutation mutation, int size, int entryLocation, CommitLogDescriptor descriptor) {
+        throw new NotSupportedException();
+    }
+
+    @Override
+    public void handleMutation(org.apache.cassandra.db.Mutation mutation, int size, int entryLocation, CommitLogDescriptor descriptor, byte[] inputBuffer) {
         if (mutation.getKeyspaceName().equalsIgnoreCase(SchemaConstants.SCHEMA_KEYSPACE_NAME)) {
             logger.info("Schema update tables={}", mutation.getTableIds());
-            Schema.instance.mergeAndAnnounceVersion(Collections.singleton(mutation));
+            SchemaHelper.updateSchema(mutation);
         }
 
         if (!mutation.trackedByCDC()) {
@@ -235,7 +241,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
             }
 
             try {
-                process(pu, entryPosition);
+                process(pu, entryPosition, inputBuffer);
             }
             catch (Exception e) {
                 throw new DebeziumException(String.format("Failed to process PartitionUpdate %s at %s for table %s.%s.",
@@ -266,7 +272,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
      * deletion or a row-level modification) or throw an exception if it isn't. The valid partition
      * update is then converted into a {@link Mutation}.
      */
-    private void process(PartitionUpdate pu, CommitLogPosition position) {
+    private void process(PartitionUpdate pu, CommitLogPosition position, byte[] inputBuffer) {
         PartitionType partitionType = PartitionType.getPartitionType(pu);
 
         if (!PartitionType.isValid(partitionType)) {
@@ -274,9 +280,10 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
             return;
         }
 
+        String md5Digest = DigestUtils.md5Hex(inputBuffer);
         switch (partitionType) {
             case PARTITION_KEY_ROW_DELETION:
-                handlePartitionDeletion(pu, position);
+                handlePartitionDeletion(pu, position, md5Digest);
                 break;
 
             case ROW_LEVEL_MODIFICATION:
@@ -290,7 +297,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                     }
                     Row row = (Row) rowOrRangeTombstone;
 
-                    handleRowModifications(row, rowType, pu, position);
+                    handleRowModifications(row, rowType, pu, position, md5Digest);
                 }
                 break;
 
@@ -311,7 +318,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
      *          b. populate regular columns with null values
      *      (4) Assemble a {@link Mutation} object from the populated data and queue the record
      */
-    private void handlePartitionDeletion(PartitionUpdate pu, CommitLogPosition offsetPosition) {
+    private void handlePartitionDeletion(PartitionUpdate pu, CommitLogPosition offsetPosition, String md5Digest) {
         try {
 
             RowData after = new RowData();
@@ -341,7 +348,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
             recordMaker.delete(DatabaseDescriptor.getClusterName(), config.nodeId, offsetPosition,
                     pu.metadata().keyspace, pu.metadata().name, false,
                     Conversions.toInstantFromMicros(pu.maxTimestamp()), after,
-                    MARK_OFFSET, this::blockingSend);
+                    MARK_OFFSET, this::blockingSend, md5Digest);
         }
         catch (Exception e) {
             logger.error("Fail to send delete partition at {}. Reason: {}", offsetPosition, e);
@@ -362,7 +369,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
      *          d. for deletions, populate regular columns with null values
      *      (4) Assemble a {@link Mutation} object from the populated data and queue the record
      */
-    private void handleRowModifications(Row row, RowType rowType, PartitionUpdate pu, CommitLogPosition offsetPosition) {
+    private void handleRowModifications(Row row, RowType rowType, PartitionUpdate pu, CommitLogPosition offsetPosition, String md5Digest) {
 
         RowData after = new RowData();
         populatePartitionColumns(after, pu);
@@ -375,19 +382,19 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
             case INSERT:
                 recordMaker.insert(DatabaseDescriptor.getClusterName(), config.nodeId, offsetPosition,
                         pu.metadata().keyspace, pu.metadata().name, false,
-                        Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, this::blockingSend);
+                        Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, this::blockingSend, md5Digest);
                 break;
 
             case UPDATE:
                 recordMaker.update(DatabaseDescriptor.getClusterName(), config.nodeId, offsetPosition,
                         pu.metadata().keyspace, pu.metadata().name, false,
-                        Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, this::blockingSend);
+                        Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, this::blockingSend, md5Digest);
                 break;
 
             case DELETE:
                 recordMaker.delete(DatabaseDescriptor.getClusterName(), config.nodeId, offsetPosition,
                         pu.metadata().keyspace, pu.metadata().name, false,
-                        Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, this::blockingSend);
+                        Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, this::blockingSend, md5Digest);
                 break;
 
             default:

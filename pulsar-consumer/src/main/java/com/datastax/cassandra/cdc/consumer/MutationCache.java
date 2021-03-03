@@ -13,7 +13,9 @@ import io.micronaut.cache.annotation.CachePut;
 import io.micronaut.cache.annotation.Cacheable;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 
 @Singleton
@@ -30,26 +32,26 @@ public class MutationCache {
     }
 
     /**
-     * Get the processed mutation CRCs in the last 10min for the given mutationKey.
+     * Get the processed mutation MD5 digest in the last 10min for the given mutationKey.
      * @param mutationKey
      * @return
      */
     @Cacheable
-    public List<Long> getMutationCRCs(MutationKey mutationKey) {
+    public Set<String> getMutationCRCs(MutationKey mutationKey) {
         return null;
     }
 
     @CachePut(parameters = {"mutationKey"})
-    public List<Long> addMutationCRC(MutationKey mutationKey, Long crc) {
-        List<Long> crcs = getMutationCRCs(mutationKey);
+    public Set<String> addMutationMd5(MutationKey mutationKey, String md5Digest) {
+        Set<String> crcs = getMutationCRCs(mutationKey);
         if (crcs == null)
-            crcs = new ArrayList<>();
-        crcs.add(crc);
+            crcs = new HashSet<>();
+        crcs.add(md5Digest);
         return crcs;
     }
 
-    public boolean isProcessed(MutationKey mutationKey, Long crc) {
-        List<Long> crcs = getMutationCRCs(mutationKey);
-        return crcs != null && crcs.contains(crc);
+    public boolean isProcessed(MutationKey mutationKey, String md5Digest) {
+        Set<String> digests = getMutationCRCs(mutationKey);
+        return digests != null && digests.contains(md5Digest);
     }
 }

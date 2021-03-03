@@ -78,12 +78,12 @@ public class HttpClient {
     public Single<Long> replicate(String keyspace,
                                   String table,
                                   String id,
-                                  Long crc,
+                                  String md5,
                                   UUID nodeId,
                                   String document) {
         return httpClient.retrieve(
-                POST(String.format(Locale.ROOT, "/replicate/%s/%s/%s/%s?crc=%d&nodeId=%s",
-                        keyspace, table, id, crc, nodeId.toString()),
+                POST(String.format(Locale.ROOT, "/replicate/%s/%s/%s/%s?md5=%d&nodeId=%s",
+                        keyspace, table, id, md5, nodeId.toString()),
                         document),
                 Long.class).singleOrError();
     }

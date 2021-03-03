@@ -76,7 +76,7 @@ public class QuasarMutationSender implements MutationSender<KeyValue<MutationKey
                     .replicate(key.getKeyspace(),
                             key.getTable(),
                             key.id(),
-                            value.getCrc(),
+                            value.getMd5Digest(),
                             value.getNodeId(),
                             null)
                     .subscribe(cf::complete, t -> {

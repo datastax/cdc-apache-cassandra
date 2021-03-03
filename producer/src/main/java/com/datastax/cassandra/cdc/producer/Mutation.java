@@ -11,6 +11,7 @@ import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
+import org.apache.cassandra.utils.MD5Digest;
 
 
 /**
@@ -28,6 +29,7 @@ public class Mutation {
     private RowData rowData;
     private boolean shouldMarkOffset;
     private long ts;
+    private String md5Digest;
 
     public MutationKey mutationKey() {
         return new MutationKey(
@@ -39,6 +41,6 @@ public class Mutation {
     public MutationValue mutationValue() {
         // TODO: Unfortunately, computing the mutation CRC require to re-serialize it because we cannot get the byte[] from the commitlog reader.
         // So, we use the timestamp here.
-        return new MutationValue(ts, source.nodeId, rowData.nonPrimaryKeyNames());
+        return new MutationValue(md5Digest, source.nodeId, rowData.nonPrimaryKeyNames());
     }
 }

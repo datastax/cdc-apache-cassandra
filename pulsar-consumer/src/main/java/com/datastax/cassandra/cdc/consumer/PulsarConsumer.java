@@ -92,7 +92,7 @@ public class PulsarConsumer {
                     final Message<KeyValue<MutationKey, MutationValue>> msgFinal = msg;
                     final PulsarClient client2 = client;
 
-                    if (mutationCache.isProcessed(mutationKey, mutationValue.getCrc()) == false) {
+                    if (mutationCache.isProcessed(mutationKey, mutationValue.getMd5Digest()) == false) {
                         cassandraService.selectRowAsync(mutationKey, kv.getValue().getNodeId(), Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE))
                                 .thenAcceptAsync(tuple -> {
                                     // update the target topic

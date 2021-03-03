@@ -11,7 +11,7 @@ import java.util.UUID;
 @ToString
 @EqualsAndHashCode
 public class MutationValue {
-    Long crc;
+    String md5Digest;
     UUID nodeId;
     String[] columns;
 }

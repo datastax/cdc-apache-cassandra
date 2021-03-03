@@ -8,6 +8,7 @@ package com.datastax.cassandra.cdc.producer;
 import com.datastax.cassandra.cdc.producer.exceptions.CassandraConnectorTaskException;
 import io.debezium.function.BlockingConsumer;
 import org.apache.cassandra.db.commitlog.CommitLogPosition;
+import org.apache.cassandra.utils.MD5Digest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,36 +31,36 @@ public class MutationMaker {
     public void insert(String cluster, UUID node, CommitLogPosition offsetPosition,
                        String keyspace, String name, boolean snapshot,
                        Instant tsMicro, RowData data,
-                       boolean markOffset, BlockingConsumer<Mutation> consumer) {
+                       boolean markOffset, BlockingConsumer<Mutation> consumer, String md5Digest) {
         createRecord(cluster, node, offsetPosition, keyspace, name, snapshot, tsMicro,
-                data, markOffset, consumer);
+                data, markOffset, consumer, md5Digest);
     }
 
     public void update(String cluster, UUID node, CommitLogPosition offsetPosition,
                        String keyspace, String name, boolean snapshot,
                        Instant tsMicro, RowData data,
-                       boolean markOffset, BlockingConsumer<Mutation> consumer) {
+                       boolean markOffset, BlockingConsumer<Mutation> consumer, String md5Digest) {
         createRecord(cluster, node, offsetPosition, keyspace, name, snapshot, tsMicro,
-                data, markOffset, consumer);
+                data, markOffset, consumer, md5Digest);
     }
 
     public void delete(String cluster, UUID node, CommitLogPosition offsetPosition,
                        String keyspace, String name, boolean snapshot,
                        Instant tsMicro, RowData data,
-                       boolean markOffset, BlockingConsumer<Mutation> consumer) {
+                       boolean markOffset, BlockingConsumer<Mutation> consumer, String md5Digest) {
         createRecord(cluster, node, offsetPosition, keyspace, name, snapshot, tsMicro,
-                data, markOffset, consumer);
+                data, markOffset, consumer, md5Digest);
     }
 
     private void createRecord(String cluster, UUID node, CommitLogPosition offsetPosition,
                               String keyspace, String name, boolean snapshot,
                               Instant tsMicro, RowData data,
-                              boolean markOffset, BlockingConsumer<Mutation> consumer) {
+                              boolean markOffset, BlockingConsumer<Mutation> consumer, String md5Digest) {
         // TODO: filter columns
         RowData filteredData = data;
 
         SourceInfo source = new SourceInfo(cluster, node, offsetPosition, keyspace, name, tsMicro);
-        Mutation record = new Mutation(offsetPosition.segmentId, offsetPosition.position, source, filteredData, markOffset, tsMicro.toEpochMilli());
+        Mutation record = new Mutation(offsetPosition.segmentId, offsetPosition.position, source, filteredData, markOffset, tsMicro.toEpochMilli(), md5Digest);
         try {
             consumer.accept(record);
         }
