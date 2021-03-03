@@ -102,13 +102,10 @@ public class PulsarConsumer {
                                         JSONObject jo = new JSONObject();
                                         int i = 0;
                                         for(ColumnMetadata cm : tuple._3.getTable(mutationKey.getTable()).get().getPrimaryKey()) {
-                                            jo.put(cm.getName().toString(), mutationKey.getPkColumns()[i]);
+                                            jo.put(cm.getName().toString(), mutationKey.getPkColumns()[i++]);
                                         }
-                                        JSONArray ja = new JSONArray();
-                                        jo.toJSONArray(ja);
 
                                         Map<String, String> props = new HashMap<>();
-                                        props.put("ID", ja.toString());
                                         if (tuple._1 == null) {
                                             // delete
                                             props.put("ACTION", "DELETE");
@@ -116,10 +113,10 @@ public class PulsarConsumer {
                                             json = jo.toString();
                                         } else {
                                             // insert
-                                            props.put("ACTION", "UPSERT");
+                                            props.put("ACTION", "INSERT");
                                         }
 
-                                        logger.debug("ACTION={} ID={} message={}", props.get("ACTION"), props.get("ID"), json);
+                                        logger.debug("ACTION={} message={}", props.get("ACTION"), json);
 
                                         // convert the JSON row to an AVRO message
                                         /*
@@ -139,7 +136,6 @@ public class PulsarConsumer {
                                                 .buildSchema(tuple._3, mutationKey.getTable())
                                                 .build(SchemaType.JSON);
                                         Schema<?> schema = Schema.getSchema(schemaInfo);
-
 
                                         Producer<byte[]> producer = client2.newProducer(Schema.AUTO_PRODUCE_BYTES(schema))
                                                 .topic(pulsarConfiguration.getSinkTopic())
