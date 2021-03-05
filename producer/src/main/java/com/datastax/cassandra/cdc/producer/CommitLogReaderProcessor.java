@@ -1,19 +1,20 @@
 package com.datastax.cassandra.cdc.producer;
 
-import com.datastax.cassandra.cdc.*;
+import com.datastax.cassandra.cdc.MetricConstants;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.cassandra.db.commitlog.CommitLogPosition;
 import org.apache.cassandra.db.commitlog.CommitLogReader;
-import org.apache.cassandra.db.commitlog.CommitLogReaderForCdc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Singleton;
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.ToDoubleFunction;
 
@@ -128,7 +129,7 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
             logger.debug("processing file={} synced offset={}", file.getName(), this.syncedOffsetRef.get());
             assert seg <= this.syncedOffsetRef.get().segmentId: "reading a commitlog ahead the last synced offset";
 
-            CommitLogReaderForCdc commitLogReader = new CommitLogReaderForCdc();
+            CommitLogReader commitLogReader = new CommitLogReader();
             try {
                 // hack to use a dummy min position for segment ahead of the offetFile.
                 CommitLogPosition minPosition = (seg > offsetFileWriter.offset().segmentId)

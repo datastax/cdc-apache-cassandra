@@ -1,5 +1,6 @@
-package com.datastax.cassandra.cdc;
+package com.datastax.cassandra.cdc.consumer;
 
+import com.datastax.cassandra.cdc.MutationKey;
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.AsyncResultSet;
@@ -112,7 +113,7 @@ public class CassandraService {
                                 logger.debug("Read cl={} coordinator={} pk={}",
                                         tuple._2, tuple._1.getExecutionInfo().getCoordinator().getHostId(), pk, tuple._1);
                                 meterRegistry.counter("cassandraRead", tags).increment();
-                                KeyspaceMetadata keyspaceMetadata = s.getMetadata().getKeyspace(pk.keyspace).get();
+                                KeyspaceMetadata keyspaceMetadata = s.getMetadata().getKeyspace(pk.getKeyspace()).get();
                                 Row row = tuple._1.one();
                                 return new Tuple3<>(
                                         row == null ? (String)null : row.getString(0),

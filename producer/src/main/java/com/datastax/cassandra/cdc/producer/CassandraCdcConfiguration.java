@@ -5,7 +5,6 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
-import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import io.micronaut.context.annotation.ConfigurationProperties;
 
 import java.time.Duration;

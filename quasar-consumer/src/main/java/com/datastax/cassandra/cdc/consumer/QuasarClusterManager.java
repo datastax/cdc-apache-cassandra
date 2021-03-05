@@ -1,6 +1,5 @@
 package com.datastax.cassandra.cdc.consumer;
 
-import com.datastax.cassandra.cdc.CassandraService;
 import com.datastax.cassandra.cdc.consumer.exceptions.HashNotManagedException;
 import com.datastax.cassandra.cdc.consumer.exceptions.ServiceNotRunningException;
 import com.datastax.cassandra.cdc.quasar.ConsistentHashWithVirtualNodes;

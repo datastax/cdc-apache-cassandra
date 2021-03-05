@@ -78,10 +78,8 @@ subprojects {
     dependencies {
         implementation "org.apache.pulsar:pulsar-client:2.8.0-SNAPSHOT"
 
-        implementation("io.micronaut.cassandra:micronaut-cassandra:3.1.0")
         implementation("io.micronaut.micrometer:micronaut-micrometer-core")
 
-        implementation "com.github.ben-manes.caffeine:caffeine:2.8.5"
         implementation group: 'com.fasterxml.jackson.core', name: 'jackson-annotations', version: '2.11.1'
         implementation group: 'com.fasterxml.jackson.dataformat', name: 'jackson-dataformat-yaml', version: '2.11.1'
 

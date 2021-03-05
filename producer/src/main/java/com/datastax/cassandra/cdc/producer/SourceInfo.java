@@ -5,7 +5,6 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
-import io.debezium.connector.SnapshotRecord;
 import io.debezium.time.Conversions;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;

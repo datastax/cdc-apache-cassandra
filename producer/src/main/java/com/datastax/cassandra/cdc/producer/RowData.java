@@ -5,8 +5,6 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
-import org.apache.cassandra.db.DecoratedKey;
-
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;

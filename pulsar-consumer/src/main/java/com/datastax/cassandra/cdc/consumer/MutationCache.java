@@ -1,20 +1,15 @@
 package com.datastax.cassandra.cdc.consumer;
 
-import com.datastax.cassandra.cdc.CassandraService;
 import com.datastax.cassandra.cdc.MutationKey;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micronaut.cache.annotation.CacheConfig;
+import io.micronaut.cache.annotation.CachePut;
+import io.micronaut.cache.annotation.Cacheable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Singleton;
-
-import io.micronaut.cache.annotation.CacheConfig;
-import io.micronaut.cache.annotation.CachePut;
-import io.micronaut.cache.annotation.Cacheable;
-
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 

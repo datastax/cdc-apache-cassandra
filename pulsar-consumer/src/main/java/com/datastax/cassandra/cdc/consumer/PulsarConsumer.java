@@ -1,6 +1,8 @@
 package com.datastax.cassandra.cdc.consumer;
 
-import com.datastax.cassandra.cdc.*;
+import com.datastax.cassandra.cdc.MetricConstants;
+import com.datastax.cassandra.cdc.MutationKey;
+import com.datastax.cassandra.cdc.MutationValue;
 import com.datastax.cassandra.cdc.pulsar.CDCSchema;
 import com.datastax.cassandra.cdc.pulsar.PulsarConfiguration;
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
@@ -13,19 +15,14 @@ import io.micrometer.core.instrument.Tag;
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.runtime.Micronaut;
 import org.apache.pulsar.client.api.*;
-import org.apache.pulsar.client.api.schema.GenericRecord;
 import org.apache.pulsar.common.schema.KeyValue;
-import org.apache.pulsar.common.schema.KeyValueEncodingType;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
-import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tech.allegro.schema.json2avro.converter.JsonAvroConverter;
 
 import javax.inject.Singleton;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;

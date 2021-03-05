@@ -1,4 +1,4 @@
-package com.datastax.cassandra.cdc;
+package com.datastax.cassandra.cdc.consumer;
 
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
@@ -29,7 +29,7 @@ public class SchemaConverter {
         RecordSchemaBuilder recordSchemaBuilder = SchemaBuilder.record(ksm.getName().toString()+"."+tableName);
         List<CqlIdentifier> pkNames = tm.getPrimaryKey().stream().map(ColumnMetadata::getName).collect(Collectors.toList());
         for(ColumnMetadata cm : tm.getColumns().values()) {
-            FieldSchemaBuilder fieldSchemaBuilder = null;
+            FieldSchemaBuilder<?> fieldSchemaBuilder = null;
             switch(cm.getType().getProtocolCode()) {
                 case ProtocolConstants.DataType.ASCII:
                 case ProtocolConstants.DataType.VARCHAR:
