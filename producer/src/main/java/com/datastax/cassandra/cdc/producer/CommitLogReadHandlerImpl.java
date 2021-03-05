@@ -5,7 +5,6 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
-import com.datastax.cassandra.cdc.CassandraService;
 import com.datastax.cassandra.cdc.MutationKey;
 import com.datastax.cassandra.cdc.MutationValue;
 import com.datastax.cassandra.cdc.producer.exceptions.CassandraConnectorSchemaException;
@@ -18,15 +17,16 @@ import org.apache.cassandra.cql3.ColumnSpecification;
 import org.apache.cassandra.db.LivenessInfo;
 import org.apache.cassandra.db.commitlog.CommitLogDescriptor;
 import org.apache.cassandra.db.commitlog.CommitLogPosition;
-import org.apache.cassandra.db.commitlog.CommitLogReadHandlerForCdc;
+import org.apache.cassandra.db.commitlog.CommitLogReadHandler;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.partitions.PartitionUpdate;
 import org.apache.cassandra.db.rows.Row;
 import org.apache.cassandra.db.rows.Unfiltered;
 import org.apache.cassandra.db.rows.UnfilteredRowIterator;
+import org.apache.cassandra.io.util.DataOutputBuffer;
+import org.apache.cassandra.net.MessagingService;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.SchemaConstants;
-import org.apache.cassandra.schema.SchemaHelper;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.pulsar.client.api.PulsarClientException;
@@ -34,9 +34,7 @@ import org.apache.pulsar.common.schema.KeyValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nullable;
 import javax.inject.Singleton;
-import javax.ws.rs.NotSupportedException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.*;
@@ -45,14 +43,14 @@ import java.util.concurrent.CompletionStage;
 import static com.datastax.cassandra.cdc.producer.CommitLogReadHandlerImpl.RowType.DELETE;
 
 /**
- * Handler that implements {@link CommitLogReadHandlerForCdc} interface provided by Cassandra source code.
+ * Handler that implements {@link CommitLogReadHandler} interface provided by Cassandra source code.
  *
  * This handler implementation processes each {@link org.apache.cassandra.db.Mutation} and invokes one of the registered partition handler
  * for each {@link PartitionUpdate} in the {@link org.apache.cassandra.db.Mutation} (a mutation could have multiple partitions if it is a batch update),
  * which in turn makes one or more record via the {@link MutationMaker}.
  */
 @Singleton
-public class CommitLogReadHandlerImpl implements CommitLogReadHandlerForCdc {
+public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     private static final Logger logger = LoggerFactory.getLogger(CommitLogReadHandlerImpl.class);
 
     private static final boolean MARK_OFFSET = true;
@@ -66,12 +64,10 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandlerForCdc {
     CommitLogReadHandlerImpl(CassandraCdcConfiguration config,
                              OffsetFileWriter offsetFileWriter,
                              MutationMaker recordMaker,
-                             @Nullable CassandraService cassandraService,
                              MutationSender<KeyValue<MutationKey, MutationValue>> mutationSender,
                              MeterRegistry meterRegistry) {
         this.config = config;
         this.mutationSender = mutationSender;
-
         this.offsetWriter = offsetFileWriter;
         this.recordMaker = recordMaker;
         this.meterRegistry = meterRegistry;
@@ -217,14 +213,8 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandlerForCdc {
 
     @Override
     public void handleMutation(org.apache.cassandra.db.Mutation mutation, int size, int entryLocation, CommitLogDescriptor descriptor) {
-        throw new NotSupportedException();
-    }
-
-    @Override
-    public void handleMutation(org.apache.cassandra.db.Mutation mutation, int size, int entryLocation, CommitLogDescriptor descriptor, byte[] inputBuffer) {
         if (mutation.getKeyspaceName().equalsIgnoreCase(SchemaConstants.SCHEMA_KEYSPACE_NAME)) {
             logger.info("Schema update tables={}", mutation.getTableIds());
-            SchemaHelper.updateSchema(mutation);
         }
 
         if (!mutation.trackedByCDC()) {
@@ -241,7 +231,10 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandlerForCdc {
             }
 
             try {
-                process(pu, entryPosition, inputBuffer);
+                DataOutputBuffer dataOutputBuffer = new DataOutputBuffer();
+                org.apache.cassandra.db.Mutation.serializer.serialize(mutation, dataOutputBuffer, MessagingService.VERSION_40);
+                String md5Digest = DigestUtils.md5Hex(dataOutputBuffer.getData());
+                process(pu, entryPosition, md5Digest);
             }
             catch (Exception e) {
                 throw new DebeziumException(String.format("Failed to process PartitionUpdate %s at %s for table %s.%s.",
@@ -272,7 +265,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandlerForCdc {
      * deletion or a row-level modification) or throw an exception if it isn't. The valid partition
      * update is then converted into a {@link Mutation}.
      */
-    private void process(PartitionUpdate pu, CommitLogPosition position, byte[] inputBuffer) {
+    private void process(PartitionUpdate pu, CommitLogPosition position, String md5Digest) {
         PartitionType partitionType = PartitionType.getPartitionType(pu);
 
         if (!PartitionType.isValid(partitionType)) {
@@ -280,7 +273,6 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandlerForCdc {
             return;
         }
 
-        String md5Digest = DigestUtils.md5Hex(inputBuffer);
         switch (partitionType) {
             case PARTITION_KEY_ROW_DELETION:
                 handlePartitionDeletion(pu, position, md5Digest);
