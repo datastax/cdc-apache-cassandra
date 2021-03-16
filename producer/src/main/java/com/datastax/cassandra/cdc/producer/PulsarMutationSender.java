@@ -1,8 +1,10 @@
 package com.datastax.cassandra.cdc.producer;
 
-import com.datastax.cassandra.cdc.*;
+import com.datastax.cassandra.cdc.MetricConstants;
+import com.datastax.cassandra.cdc.MutationKey;
+import com.datastax.cassandra.cdc.MutationValue;
 import com.datastax.cassandra.cdc.pulsar.CDCSchema;
-import com.datastax.cassandra.cdc.pulsar.PulsarConfiguration;
+import com.google.common.collect.ImmutableList;
 import io.debezium.util.ObjectSizeCalculator;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
@@ -65,7 +67,7 @@ public class PulsarMutationSender implements MutationSender<KeyValue<MutationKey
         return messageBuilder.value(new KeyValue<>(mutationKey, mutation.mutationValue())).sendAsync()
                 .thenAccept(msgId -> {
                     this.sentOffset.set(mutation.getSource().commitLogPosition);
-                    List<Tag> tags = mutationKey.tags();
+                    List<Tag> tags = ImmutableList.of(Tag.of("keyspace", mutationKey.getKeyspace()), Tag.of("table", mutationKey.getTable()));
                     meterRegistry.counter(MetricConstants.METRICS_PREFIX + "sent", tags).increment();
                     meterRegistry.counter(MetricConstants.METRICS_PREFIX + "sent_in_bytes", tags).increment(ObjectSizeCalculator.getObjectSize(mutation));
                     offsetWriter.notCommittedEvents++;

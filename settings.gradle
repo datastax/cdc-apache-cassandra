@@ -1,6 +1,9 @@
-rootProject.name = 'cdcrep'
+rootProject.name = 'cassandra-source-connector'
 
 include 'common'
+include 'common-quasar'
+include 'common-pulsar'
 include 'producer'
 include 'pulsar-consumer'
+include 'pulsar-source'
 include 'quasar-consumer'

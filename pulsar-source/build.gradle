@@ -1,0 +1,44 @@
+plugins {
+    id 'java'
+    id 'java-library'
+    id 'de.fanero.gradle.plugin.nar'
+}
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs += '-Xlint:none'
+}
+
+dependencies {
+    implementation "org.projectlombok:lombok:${lombokVersion}"
+    annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+
+    implementation project(':common')
+    implementation project(':common-pulsar')
+
+    implementation "com.github.ben-manes.caffeine:caffeine:2.5.5"
+    implementation "com.datastax.oss:java-driver-core:${ossDriverVersion}"
+    implementation "com.datastax.oss:java-driver-query-builder:${ossDriverVersion}"
+    implementation("org.apache.pulsar:pulsar-io-common:${pulsarVersion}")
+    implementation("org.apache.pulsar:pulsar-io-core:${pulsarVersion}")
+
+    nar "org.apache.pulsar:pulsar-io:${pulsarVersion}"
+}
+
+jar {
+    zip64=true
+    from {
+        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+
+nar {
+    manifest {
+        attributes 'Nar-Group': 'org.apache.pulsar'
+        attributes 'Nar-Id': 'pulsar-io-cassandra-source-nar'
+    }
+    from("./src/main/resources") {
+        include("META-INF/services/pulsar-io.yaml")
+    }
+}
+
+

@@ -65,7 +65,7 @@ public class CassandraService {
                 .buildAsync();
     }
 
-    public Tuple3<String, ConsistencyLevel, KeyspaceMetadata> selectRow(MutationKey pk, UUID nodeId, List<ConsistencyLevel> consistencyLevels) throws ExecutionException, InterruptedException {
+    public Tuple3<Row, ConsistencyLevel, KeyspaceMetadata> selectRow(MutationKey pk, UUID nodeId, List<ConsistencyLevel> consistencyLevels) throws ExecutionException, InterruptedException {
         return selectRowAsync(pk, nodeId, consistencyLevels).toCompletableFuture().get();
     }
 
@@ -75,7 +75,7 @@ public class CassandraService {
      * @param nodeId
      * @return
      */
-    public CompletionStage<Tuple3<String, ConsistencyLevel, KeyspaceMetadata>> selectRowAsync(MutationKey pk, UUID nodeId, List<ConsistencyLevel> consistencyLevels) {
+    public CompletionStage<Tuple3<Row, ConsistencyLevel, KeyspaceMetadata>> selectRowAsync(MutationKey pk, UUID nodeId, List<ConsistencyLevel> consistencyLevels) {
         final Iterable<Tag> tags = ImmutableList.of(Tag.of("keyspace", pk.getKeyspace()), Tag.of("table", pk.getTable()));
         return getSession()
                 .thenComposeAsync(s -> {
@@ -116,7 +116,7 @@ public class CassandraService {
                                 KeyspaceMetadata keyspaceMetadata = s.getMetadata().getKeyspace(pk.getKeyspace()).get();
                                 Row row = tuple._1.one();
                                 return new Tuple3<>(
-                                        row == null ? (String)null : row.getString(0),
+                                        row,
                                         tuple._2,
                                         keyspaceMetadata);
                             })

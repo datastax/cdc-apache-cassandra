@@ -4,6 +4,7 @@ import com.datastax.cassandra.cdc.MutationKey;
 import com.datastax.cassandra.cdc.MutationValue;
 import com.datastax.cassandra.cdc.quasar.ClientConfiguration;
 import com.datastax.cassandra.cdc.quasar.HttpClientFactory;
+import com.datastax.cassandra.cdc.quasar.Murmur3HashFunction;
 import com.datastax.cassandra.cdc.quasar.State;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micronaut.context.annotation.Replaces;
@@ -68,7 +69,7 @@ public class QuasarMutationSender implements MutationSender<KeyValue<MutationKey
     public CompletionStage<Void> sendMutationAsync(final Mutation mutation) {
         MutationKey key = mutation.mutationKey();
         MutationValue value = mutation.mutationValue();
-        int hash = key.hash();
+        int hash = Murmur3HashFunction.hash(key.id());
         int ordinal = hash % state.getSize();
         CompletableFuture<Long> cf = new CompletableFuture<>();
         try {

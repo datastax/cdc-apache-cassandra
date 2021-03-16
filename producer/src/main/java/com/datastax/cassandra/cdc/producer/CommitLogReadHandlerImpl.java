@@ -19,14 +19,14 @@ import org.apache.cassandra.db.commitlog.CommitLogDescriptor;
 import org.apache.cassandra.db.commitlog.CommitLogPosition;
 import org.apache.cassandra.db.commitlog.CommitLogReadHandler;
 import org.apache.cassandra.db.marshal.AbstractType;
+import org.apache.cassandra.db.marshal.UTF8Type;
 import org.apache.cassandra.db.partitions.PartitionUpdate;
 import org.apache.cassandra.db.rows.Row;
 import org.apache.cassandra.db.rows.Unfiltered;
 import org.apache.cassandra.db.rows.UnfilteredRowIterator;
 import org.apache.cassandra.io.util.DataOutputBuffer;
 import org.apache.cassandra.net.MessagingService;
-import org.apache.cassandra.schema.ColumnMetadata;
-import org.apache.cassandra.schema.SchemaConstants;
+import org.apache.cassandra.schema.*;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.pulsar.client.api.PulsarClientException;
@@ -36,11 +36,16 @@ import org.slf4j.LoggerFactory;
 
 import javax.inject.Singleton;
 import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.CompletionStage;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 import static com.datastax.cassandra.cdc.producer.CommitLogReadHandlerImpl.RowType.DELETE;
+import static java.util.stream.Collectors.toSet;
 
 /**
  * Handler that implements {@link CommitLogReadHandler} interface provided by Cassandra source code.
@@ -211,10 +216,56 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         }
     }
 
+    /**
+     * Use reflexion to alter the cassandra schema without writing a CL.
+     * @param mutations
+     */
+    @SuppressWarnings("rawtypes")
+    synchronized void merge(Collection<org.apache.cassandra.db.Mutation> mutations)
+    {
+        try {
+            // only compare the keyspaces affected by this set of schema mutations
+            Set<String> affectedKeyspaces = mutations.stream()
+                    .map(m -> UTF8Type.instance.compose(m.key().getKey()))
+                    .collect(toSet());
+
+            // get declared method
+            Method filterMethod = Keyspaces.class.getDeclaredMethod("filter", new Class[]{ java.util.function.Predicate.class });
+            filterMethod.setAccessible(true);
+            Keyspaces before = (Keyspaces) filterMethod.invoke(Schema.instance.snapshot(), new Predicate<KeyspaceMetadata>() {
+                        @Override
+                        public boolean test(KeyspaceMetadata k) {
+                            return affectedKeyspaces.contains(k.name);
+                        }
+                    });
+
+            // apply the schema mutations
+            // SchemaKeyspace.applyChanges(mutations);
+            mutations.forEach(org.apache.cassandra.db.Mutation::applyUnsafe);
+
+            // apply the schema mutations and fetch the new versions of the altered keyspaces
+            Method fetchKeyspacesMethod = SchemaKeyspace.class.getDeclaredMethod("fetchKeyspaces", new Class[]{ Set.class });
+            fetchKeyspacesMethod.setAccessible(true);
+            Keyspaces after = (Keyspaces) fetchKeyspacesMethod.invoke(null, affectedKeyspaces);
+
+            //merge(Keyspaces.diff(before, after));
+            Method ksDiffMethod = Keyspaces.class.getDeclaredMethod("diff", new Class[]{ Keyspaces.class, Keyspaces.class });
+            ksDiffMethod.setAccessible(true);
+            Keyspaces.KeyspacesDiff ksDiff = (Keyspaces.KeyspacesDiff) ksDiffMethod.invoke(null, before, after);
+
+            Method mergeMethod = Schema.class.getDeclaredMethod("merge", new Class[]{ Keyspaces.KeyspacesDiff.class });
+            mergeMethod.setAccessible(true);
+            mergeMethod.invoke(Schema.instance, ksDiff);
+        } catch(Exception e) {
+            logger.error("Unexpected error for schema:", e);
+        }
+    }
+
     @Override
     public void handleMutation(org.apache.cassandra.db.Mutation mutation, int size, int entryLocation, CommitLogDescriptor descriptor) {
         if (mutation.getKeyspaceName().equalsIgnoreCase(SchemaConstants.SCHEMA_KEYSPACE_NAME)) {
             logger.info("Schema update tables={}", mutation.getTableIds());
+            //merge(Collections.singleton(mutation));
         }
 
         if (!mutation.trackedByCDC()) {

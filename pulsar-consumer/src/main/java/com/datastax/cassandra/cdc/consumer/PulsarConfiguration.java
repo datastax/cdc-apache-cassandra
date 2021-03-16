@@ -1,4 +1,4 @@
-package com.datastax.cassandra.cdc.pulsar;
+package com.datastax.cassandra.cdc.consumer;
 
 
 import io.micronaut.context.annotation.ConfigurationProperties;

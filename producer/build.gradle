@@ -42,6 +42,8 @@ dependencies {
     implementation "com.xebia:jackson-lombok:1.1"
 
     implementation project(':common')
+    implementation project(':common-pulsar')
+    implementation project(':common-quasar')
 
     implementation("io.micronaut:micronaut-validation")
     implementation("io.micronaut:micronaut-runtime")
@@ -60,7 +62,7 @@ dependencies {
     //implementation("org.apache.cassandra:cassandra-all:4.0-alpha2")
     //implementation("org.apache.cassandra:cassandra-all:4.0-beta3-SNAPSHOT")
     //implementation("com.strapdata.cassandra:cassandra-all:3.11.9")
-    implementation("org.apache.cassandra:cassandra-all:4.0-beta5-SNAPSHOT")
+    implementation("org.apache.cassandra:cassandra-all:4.0-beta4")
     implementation("io.debezium:debezium-core:1.4.0.Final")
     implementation("io.micronaut:micronaut-http-client-core")
 }
@@ -93,7 +95,9 @@ task runLocalPulsar(type: JavaExec) {
             '--add-opens', 'java.base/jdk.internal.math=ALL-UNNAMED',
             '--add-opens', 'java.base/jdk.internal.module=ALL-UNNAMED',
             '--add-opens', 'java.base/jdk.internal.util.jar=ALL-UNNAMED',
-            '--add-opens', 'jdk.management/com.sun.management.internal=ALL-UNNAMED']
+            '--add-opens', 'jdk.management/com.sun.management.internal=ALL-UNNAMED',
+            '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005'
+    ]
     mainClass = "$mainClassName"
 }
 

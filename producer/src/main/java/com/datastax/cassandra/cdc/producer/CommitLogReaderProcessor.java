@@ -78,21 +78,23 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
             if (seg >= this.syncedOffsetRef.get().segmentId) {
                 try {
                     List<String> lines = Files.readAllLines(file.toPath(), Charset.forName("UTF-8"));
-                    pos = Integer.parseInt(lines.get(0));
-                    boolean completed = false;
-                    try {
-                        if("COMPLETED".equals(lines.get(1))) {
-                            completed = true;
+                    if (lines.size() > 0) {
+                        pos = Integer.parseInt(lines.get(0));
+                        boolean completed = false;
+                        try {
+                            if("COMPLETED".equals(lines.get(1))) {
+                                completed = true;
+                            }
+                        } catch(Exception ex) {
                         }
-                    } catch(Exception ex) {
-                    }
-                    syncedOffsetRef.set(new CommitLogPosition(seg, pos));
-                    logger.debug("New synced position={} completed={}", syncedOffsetRef.get(), completed);
-                    assert seg > this.syncedOffsetRef.get().segmentId || pos > this.syncedOffsetRef.get().position : "Unexpected synced position " + seg + ":" +pos;
+                        syncedOffsetRef.set(new CommitLogPosition(seg, pos));
+                        logger.debug("New synced position={} completed={}", syncedOffsetRef.get(), completed);
+                        assert seg > this.syncedOffsetRef.get().segmentId || pos > this.syncedOffsetRef.get().position : "Unexpected synced position " + seg + ":" + pos;
 
-                    // unlock the processing of commitlogs
-                    if (syncedOffsetLatch.getCount() > 0)
-                        syncedOffsetLatch.countDown();
+                        // unlock the processing of commitlogs
+                        if(syncedOffsetLatch.getCount() > 0)
+                            syncedOffsetLatch.countDown();
+                    }
                 } catch(IOException ex) {
                     logger.warn("error while reading file=" + file.getName(), ex);
                 }

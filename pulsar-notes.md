@@ -67,3 +67,14 @@ In conf/functions_worker.yml:
 ## Producer test
 
     bin/pulsar-client produce persistent://public/default/topic1 -m "1610388451000" -k "1"
+
+
+## Debug connectors
+
+Enable Functions Worker Service in Broker in conf/broker.conf:
+
+    functionsWorkerEnabled=true
+
+Start pulsar connector with JVM options:
+
+    PULSAR_EXTRA_OPTS="-Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=8001"

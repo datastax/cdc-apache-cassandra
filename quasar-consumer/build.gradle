@@ -47,6 +47,8 @@ dependencies {
     implementation "com.xebia:jackson-lombok:1.1"
 
     implementation project(':common')
+    implementation project(':common-quasar')
+
 
     implementation("io.micronaut:micronaut-validation")
     implementation("io.micronaut:micronaut-runtime")

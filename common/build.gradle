@@ -10,15 +10,6 @@ tasks.withType(JavaCompile) {
 dependencies {
     implementation "org.projectlombok:lombok:${lombokVersion}"
     annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
-    implementation "com.xebia:jackson-lombok:1.1"
-
-    annotationProcessor "io.micronaut:micronaut-inject-java"
-    annotationProcessor "io.micronaut:micronaut-validation"
-    implementation "io.micronaut:micronaut-inject-java"
-    implementation "io.micronaut:micronaut-runtime"
-    implementation "javax.inject:javax.inject:1"
-
-    implementation "io.micronaut:micronaut-http-client"
 }
 
 jar {
@@ -28,28 +19,3 @@ artifacts {
     archives jar
 }
 
-publishing {
-    repositories {
-        maven {
-            name = 'strapdata'
-            credentials {
-                username = repoUsername
-                password = repoPassword
-            }
-            if (project.hasProperty("repoUrl")) {
-                url project.getProperty("repoUrl")
-            } else if(project.version.endsWith('-SNAPSHOT')) {
-                url "https://nexus.repo.strapdata.com/repository/maven-snapshots/"
-            } else {
-                url "https://nexus.repo.strapdata.com/repository/maven-releases/"
-            }
-        }
-    }
-    publications {
-        maven(MavenPublication) {
-            groupId 'com.datastax.cassandra.cdc'
-            artifactId 'common'
-            from components.java
-        }
-    }
-}

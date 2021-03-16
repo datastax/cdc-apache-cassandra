@@ -1,3 +1,15 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        maven {
+            url 'http://dl.bintray.com/sponiro/gradle-plugins'
+        }
+    }
+    dependencies {
+        classpath group: 'de.fanero.gradle.plugin.nar', name: 'gradle-nar-plugin', version: '0.4'
+    }
+}
+
 plugins {
     id 'java'
     id 'idea'
@@ -20,12 +32,15 @@ ext {
     repoPassword = project.hasProperty("repoPassword") ? project.getProperty("repoPassword") : System.getenv("NEXUS_PASSWORD")
 }
 
+
+
 allprojects {
     repositories {
         mavenLocal()
         mavenCentral()
         maven { url "https://jcenter.bintray.com" }
         maven { url "https://oss.sonatype.org/content/repositories/snapshots" }
+        maven { url 'http://dl.bintray.com/sponiro/gradle-plugins' }
         jcenter() // or Maven central, required for Lombok dependency
     }
 
@@ -39,13 +54,6 @@ allprojects {
     dependencyManagement {
         imports {
             mavenBom "io.micronaut:micronaut-bom:$micronautVersion"
-        }
-    }
-
-    buildscript {
-        repositories {
-            mavenCentral()
-            jcenter()
         }
     }
 
@@ -78,8 +86,6 @@ subprojects {
     dependencies {
         implementation "org.apache.pulsar:pulsar-client:2.8.0-SNAPSHOT"
 
-        implementation("io.micronaut.micrometer:micronaut-micrometer-core")
-
         implementation group: 'com.fasterxml.jackson.core', name: 'jackson-annotations', version: '2.11.1'
         implementation group: 'com.fasterxml.jackson.dataformat', name: 'jackson-dataformat-yaml', version: '2.11.1'
 
@@ -103,28 +109,13 @@ subprojects {
     }
     */
 
-
-    /*
     publishing {
         publications {
-            myLibrary(MavenPublication) {
+            maven(MavenPublication) {
                 from components.java
-                artifact sourcesJar
-            }
-        }
-
-        repositories {
-            maven {
-                name = 'Nexus'
-                url = "http://nexus.datapool.ml:8081/repository/ode/"
-                credentials {
-                    username = 'admin'
-                    password = 'admin123'
-                }
             }
         }
     }
-    */
 }
 
 idea {

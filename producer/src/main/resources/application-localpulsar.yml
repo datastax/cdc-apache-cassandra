@@ -43,12 +43,13 @@ endpoints:
 pulsar:
   serviceUrl: "${PULSAR_SERVICE_URL:`pulsar://localhost:6650`}"
   topic: "${PULSAR_TOPIC:`persistent://public/default/topic1`}"
+  sinkTopic: "${PULSAR_SINK_TOPIC:`persistent://public/default/elasticsearch-ks1-sink`}"
 ---
 cassandra-cdc:
   clusterName: Test cluster
   nodeId: 263a0473-6297-4c99-b70a-3b0632cfc03a
-  cassandraStorageDir: "${CASSANDRA_DATA:`/Users/vroyer/git/strapdata/cassandra-next/data`}"
-  cassandraConfDir: "${CASSANDRA_CONF:`/Users/vroyer/git/strapdata/cassandra-next/conf`}"
+  cassandraStorageDir: "${CASSANDRA_DATA:`/Users/vroyer/git/apache/cassandra/data`}"
+  cassandraConfDir: "${CASSANDRA_CONF:`/Users/vroyer/git/apache/cassandra/conf`}"
   cassandraConfigFile: "${CASSANDRA_CONFIG:`cassandra.yaml`}"
   cassandraSnitchFile: "${CASSANDRA_SNITCH:`cassandra-rackdc.properties`}"
   commitLogRelocationDir: cdc

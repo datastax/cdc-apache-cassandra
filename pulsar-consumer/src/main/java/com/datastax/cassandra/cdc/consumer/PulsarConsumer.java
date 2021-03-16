@@ -4,7 +4,6 @@ import com.datastax.cassandra.cdc.MetricConstants;
 import com.datastax.cassandra.cdc.MutationKey;
 import com.datastax.cassandra.cdc.MutationValue;
 import com.datastax.cassandra.cdc.pulsar.CDCSchema;
-import com.datastax.cassandra.cdc.pulsar.PulsarConfiguration;
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -16,15 +15,13 @@ import io.micronaut.context.ApplicationContext;
 import io.micronaut.runtime.Micronaut;
 import org.apache.pulsar.client.api.*;
 import org.apache.pulsar.common.schema.KeyValue;
-import org.apache.pulsar.common.schema.SchemaInfo;
-import org.apache.pulsar.common.schema.SchemaType;
-import org.json.JSONObject;
+import org.apache.pulsar.common.schema.KeyValueEncodingType;
+import org.json.JSONArray;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Singleton;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -88,32 +85,27 @@ public class PulsarConsumer {
                     final Consumer<KeyValue<MutationKey, MutationValue>> consumerFinal = consumer;
                     final Message<KeyValue<MutationKey, MutationValue>> msgFinal = msg;
                     final PulsarClient client2 = client;
+                    final List<Tag> tags = ImmutableList.of(Tag.of("keyspace", mutationKey.getKeyspace()), Tag.of("table", mutationKey.getTable()));
 
                     if (mutationCache.isProcessed(mutationKey, mutationValue.getMd5Digest()) == false) {
                         cassandraService.selectRowAsync(mutationKey, kv.getValue().getNodeId(), Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE))
                                 .thenAcceptAsync(tuple -> {
                                     // update the target topic
-                                    String json = tuple._1;
                                     try {
-
-                                        JSONObject jo = new JSONObject();
-                                        int i = 0;
-                                        for(ColumnMetadata cm : tuple._3.getTable(mutationKey.getTable()).get().getPrimaryKey()) {
-                                            jo.put(cm.getName().toString(), mutationKey.getPkColumns()[i++]);
-                                        }
-
-                                        Map<String, String> props = new HashMap<>();
-                                        if (tuple._1 == null) {
-                                            // delete
-                                            props.put("ACTION", "DELETE");
-                                            // build a JSON object for PK
-                                            json = jo.toString();
+                                        final String msgKey;
+                                        List<ColumnMetadata> pkColumns = tuple._3.getTable(mutationKey.getTable()).get().getPrimaryKey();
+                                        if (pkColumns.size() > 1) {
+                                            JSONArray ja = new JSONArray();
+                                            int i = 0;
+                                            for(ColumnMetadata cm : pkColumns)
+                                                ja.put(mutationKey.getPkColumns()[i++]);
+                                            msgKey = ja.toString();
                                         } else {
-                                            // insert
-                                            props.put("ACTION", "INSERT");
+                                            msgKey = mutationKey.getPkColumns()[0].toString();
                                         }
 
-                                        logger.debug("ACTION={} message={}", props.get("ACTION"), json);
+                                        String jsonString = tuple._1 == null ? null : tuple._1.getString(0);
+                                        logger.debug("key={} value={}", msgKey, jsonString);
 
                                         // convert the JSON row to an AVRO message
                                         /*
@@ -129,30 +121,47 @@ public class PulsarConsumer {
                                         Schema<GenericRecord> schema = Schema.generic(schemaInfo);
                                         */
 
-                                        SchemaInfo  schemaInfo = schemaConverter
+                                        /*
+                                        SchemaInfo  valueSchemaInfo = schemaConverter
                                                 .buildSchema(tuple._3, mutationKey.getTable())
                                                 .build(SchemaType.JSON);
-                                        Schema<?> schema = Schema.getSchema(schemaInfo);
+                                        SchemaDefinition<?> valueSchemaDefinition = SchemaDefinition.builder()
+                                                .withJsonDef(valueSchemaInfo.getSchemaDefinition())
+                                                .build();
+                                        Schema<GenericRecord> valueSchema = Schema.JSON(valueSchemaDefinition);
 
-                                        Producer<byte[]> producer = client2.newProducer(Schema.AUTO_PRODUCE_BYTES(schema))
+
+
+                                        GenericRecord genericRecord = null;
+                                        if (jsonString != null) {
+                                            try {
+                                                GenericJsonSchema genericJsonSchema = (GenericJsonSchema)GenericSchemaImpl.of(valueSchemaInfo);
+                                                genericRecord = new GenericJsonRecord(genericJsonSchema, jsonString);
+                                            } catch(Exception e) {
+                                                logger.warn("unexpected error", e);
+                                            }
+                                        }
+                                        */
+
+                                        Schema<KeyValue<String, String>> schema = Schema.KeyValue(Schema.STRING, Schema.STRING, KeyValueEncodingType.SEPARATED);
+                                        Producer<KeyValue<String, String>> producer = client2.newProducer(schema)
                                                 .topic(pulsarConfiguration.getSinkTopic())
                                                 .batchingMaxPublishDelay(10, TimeUnit.MILLISECONDS)
                                                 .sendTimeout(10, TimeUnit.SECONDS)
                                                 .blockIfQueueFull(true)
                                                 .create();
-                                        producer.newMessage()
-                                                .properties(props)
-                                                .value(json.getBytes())
+                                        producer.newMessage(schema)
+                                                .value(new KeyValue<String, String>(msgKey, jsonString))
                                                 .sendAsync()
-                                                .thenAccept(acknowledgeConsumer(consumerFinal, msgFinal, mutationKey.tags()))
+                                                .thenAccept(acknowledgeConsumer(consumerFinal, msgFinal, tags))
                                                 .get();
                                     } catch(Exception e) {
                                         logger.error("error", e);
-                                        negativeAcknowledge(consumerFinal, msgFinal, mutationKey.tags());
+                                        negativeAcknowledge(consumerFinal, msgFinal, tags);
                                     }
                                 });
                     } else {
-                        acknowledge(consumerFinal, msgFinal, mutationKey.tags());
+                        acknowledge(consumerFinal, msgFinal, tags);
                     }
                 } catch(Exception e) {
                     // Message failed to process, redeliver later
