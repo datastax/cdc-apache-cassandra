@@ -7,15 +7,16 @@ import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.common.schema.KeyValueEncodingType;
+import org.apache.pulsar.functions.api.Record;
 
 public class JsonConverter implements Converter {
-    @Override
+
     public Schema<KeyValue<String, Object>> getSchema() {
         return Schema.KeyValue(Schema.STRING, Schema.JSON(Object.class), KeyValueEncodingType.SEPARATED);
     }
 
     @Override
-    public KeyValue<String, Object> convert(MutationKey mutationKey, Row row, KeyspaceMetadata ksm) {
+    public Record convert(MutationKey mutationKey, Row row, KeyspaceMetadata ksm) {
         return null;
     }
 }

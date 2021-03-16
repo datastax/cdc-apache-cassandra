@@ -149,18 +149,7 @@ public class CassandraSource implements Source<Object> {
                     Tuple3<Row, ConsistencyLevel, KeyspaceMetadata> tuple =
                             cassandraClient.selectRow(mutationKey, kv.getValue().getNodeId(),
                                     Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE));
-                    final KeyValue<String, Object> keyValue = converter.convert(mutationKey, tuple._1, tuple._3);
-                    Record record = new Record<KeyValue<String, Object>>() {
-                        @Override
-                        public Optional<String> getKey() {
-                            return Optional.ofNullable(keyValue.getKey());
-                        }
-
-                        @Override
-                        public KeyValue<String, Object> getValue() {
-                            return keyValue;
-                        }
-                    };
+                    final Record record = converter.convert(mutationKey, tuple._1, tuple._3);
                     acknowledge(consumerFinal, msgFinal);
                     return record;
                 } catch(Exception e) {
