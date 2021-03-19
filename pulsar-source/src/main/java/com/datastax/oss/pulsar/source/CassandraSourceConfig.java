@@ -49,10 +49,22 @@ public class CassandraSourceConfig implements Serializable {
     private String localDc;
 
     @FieldDoc(
+            required = true,
+            defaultValue = "",
+            help = "Cassandra keyspace name")
+    private String keyspace;
+
+    @FieldDoc(
+            required = true,
+            defaultValue = "",
+            help = "Cassandra table name")
+    private String table;
+
+    @FieldDoc(
         required = true,
         defaultValue = "",
         help = "The pulsar dirty topic name.")
-    private String dirtyTopicName;
+    private String dirtyTopicPrefix;
 
     @FieldDoc(
             required = true,
@@ -67,10 +79,16 @@ public class CassandraSourceConfig implements Serializable {
     private String cleanTopicName;
 
     @FieldDoc(
-            required = false,
-            defaultValue = "com.datastax.oss.pulsar.source.JsonStringConverter",
-            help = "The converter class name used to convert a Cassandra row to a pulsar IO record.")
-    private String converter;
+            required = true,
+            defaultValue = "",
+            help = "The converter class name used to convert a Cassandra row key to a pulsar IO record.")
+    private String keyConverter;
+
+    @FieldDoc(
+            required = true,
+            defaultValue = "",
+            help = "The converter class name used to convert a Cassandra row value to a pulsar IO record.")
+    private String valueConverter;
 
     public static CassandraSourceConfig load(String yamlFile) throws IOException {
         ObjectMapper mapper = new ObjectMapper(new YAMLFactory());

@@ -3,7 +3,6 @@ package com.datastax.cassandra.cdc.consumer;
 import com.datastax.cassandra.cdc.MetricConstants;
 import com.datastax.cassandra.cdc.MutationKey;
 import com.datastax.cassandra.cdc.MutationValue;
-import com.datastax.cassandra.cdc.pulsar.CDCSchema;
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,6 +13,7 @@ import io.micrometer.core.instrument.Tag;
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.runtime.Micronaut;
 import org.apache.pulsar.client.api.*;
+import org.apache.pulsar.client.impl.schema.JSONSchema;
 import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.common.schema.KeyValueEncodingType;
 import org.json.JSONArray;
@@ -59,7 +59,7 @@ public class PulsarConsumer {
                     .serviceUrl(pulsarConfiguration.getServiceUrl())
                     .build();
 
-            consumer = client.newConsumer(CDCSchema.kvSchema)
+            consumer = client.newConsumer(Schema.KeyValue(JSONSchema.of(MutationKey.class), JSONSchema.of(MutationValue.class), KeyValueEncodingType.SEPARATED))
                     .consumerName("CDC Consumer")
                     .topic(pulsarConfiguration.getTopic())
                     .autoUpdatePartitions(true)

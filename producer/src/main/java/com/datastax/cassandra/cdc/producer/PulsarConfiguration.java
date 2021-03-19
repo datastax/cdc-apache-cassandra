@@ -22,13 +22,7 @@ public class PulsarConfiguration {
     String serviceUrl;
 
     /**
-     * Dirty cassandra row pulsar topic
+     * Dirty mutation pulsar topic
      */
-    String topic;
-
-    /**
-     * Pulsar sink topic
-     */
-    String sinkTopic;
-
+    String topicPrefix;
 }

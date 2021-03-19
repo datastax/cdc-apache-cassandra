@@ -5,6 +5,11 @@ read from Cassandra the updated row, and publish the Cassandra rows into a sinka
 
 ![Cassandra-source-connector](cassandra-source-connector.png)
 
+Because connector can only write messages to one output topic, we need a "dirty" and a "clean" topic for
+every replicated Cassandra tables.
+
+![Cassandra-source-connector](cassandra-source-connector.png)
+
 ## Build
 
     ./gradlew pulsar-source:nar
@@ -16,5 +21,5 @@ read from Cassandra the updated row, and publish the Cassandra rows into a sinka
            --tenant public \
            --namespace default \
            --name cassandra-source-1 \
-           --destination-topic-name elasticsearch-ks1-sink \
-           --source-config '{"contactPoints":"localhost:9042", "localDc":"datacenter1", "dirtyTopicName": "persistent://public/default/topic1", "dirtySubscriptionName":"sub1", "converter":"com.datastax.oss.pulsar.source.JsonStringConverter"}'
+           --destination-topic-name clean-ks1.table1 \
+           --source-config '{"contactPoints":"localhost:9042", "localDc":"datacenter1", "keyspace":"ks1", "table":"table1", "dirtyTopicPrefix": "persistent://public/default/dirty-", "dirtySubscriptionName":"sub1", "keyConverter":"com.datastax.oss.pulsar.source.converters.AvroConverter","valueConverter":"com.datastax.oss.pulsar.source.converters.AvroConverter"}'

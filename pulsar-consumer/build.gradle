@@ -38,7 +38,6 @@ compileTestJava {
 
 dependencies {
     implementation project(':common')
-    implementation project(':common-pulsar')
 
     implementation "org.projectlombok:lombok:${lombokVersion}"
     annotationProcessor "org.projectlombok:lombok:${lombokVersion}"

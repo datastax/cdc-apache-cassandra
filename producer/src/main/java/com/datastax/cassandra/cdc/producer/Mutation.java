@@ -11,7 +11,11 @@ import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
+import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.utils.MD5Digest;
+import org.apache.pulsar.client.api.schema.GenericRecord;
+
+import java.util.List;
 
 
 /**
@@ -30,12 +34,14 @@ public class Mutation {
     private boolean shouldMarkOffset;
     private long ts;
     private String md5Digest;
+    private TableMetadata tableMetadata;
+
+    public List<CellData> primaryKeyCells() {
+        return rowData.primaryKeyCells();
+    }
 
     public MutationKey mutationKey() {
-        return new MutationKey(
-                source.keyspace,
-                source.table,
-                rowData.primaryKeyValues());
+        return new MutationKey(tableMetadata.keyspace, tableMetadata.name, rowData.primaryKeyValues());
     }
 
     public MutationValue mutationValue() {

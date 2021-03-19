@@ -42,8 +42,7 @@ endpoints:
 ---
 pulsar:
   serviceUrl: "${PULSAR_SERVICE_URL:`pulsar://localhost:6650`}"
-  topic: "${PULSAR_TOPIC:`persistent://public/default/topic1`}"
-  sinkTopic: "${PULSAR_SINK_TOPIC:`persistent://public/default/elasticsearch-ks1-sink`}"
+  topicPrefix: "${PULSAR_TOPIC_PREFIX:`persistent://public/default/dirty`}"
 ---
 cassandra-cdc:
   clusterName: Test cluster

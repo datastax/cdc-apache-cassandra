@@ -34,12 +34,16 @@ Set admin password:
 * Create/Delete a partitioned topic
 
     bin/pulsar-admin topics list public/default
-    bin/pulsar-admin topics create-partitioned-topic persistent://public/default/topic1 --partitions 2
-    bin/pulsar-admin topics delete persistent://public/default/sub1 --force
+    bin/pulsar-admin topics create-partitioned-topic persistent://public/default/dirty-ks1.table1 --partitions 2
+    bin/pulsar-admin topics create-partitioned-topic persistent://public/default/clean-ks1.table1 --partitions 2
+    
+    bin/pulsar-admin topics delete-partitioned-topic persistent://public/default/dirty-ks1.table1 --force
+    bin/pulsar-admin topics delete-partitioned-topic persistent://public/default/clean-ks1.table1 --force
 
 * Create a subscription
 
-    bin/pulsar-admin topics create-subscription -s sub1 persistent://public/default/topic1
+    bin/pulsar-admin topics create-subscription -s sub1 persistent://public/default/dirty-ks1.table1
+    bin/pulsar-admin topics create-subscription -s sub1 persistent://public/default/clean-ks1.table1
 
 * enable schema auto-update
 
@@ -47,8 +51,8 @@ Set admin password:
     
 * schema management
 
-    bin/pulsar-admin schemas get "persistent://public/default/elasticsearch-ks1-sink"
-    bin/pulsar-admin schemas delete "persistent://public/default/elasticsearch-ks1-sink"
+    bin/pulsar-admin schemas get "persistent://public/default/dirty-ks1.table1"
+    bin/pulsar-admin schemas delete "persistent://public/default/dirty-ks1.table1"
 
 
 * Enable message dedup at the broker level

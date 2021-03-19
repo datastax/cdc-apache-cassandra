@@ -391,7 +391,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
             recordMaker.delete(DatabaseDescriptor.getClusterName(), config.nodeId, offsetPosition,
                     pu.metadata().keyspace, pu.metadata().name, false,
                     Conversions.toInstantFromMicros(pu.maxTimestamp()), after,
-                    MARK_OFFSET, this::blockingSend, md5Digest);
+                    MARK_OFFSET, this::blockingSend, md5Digest, pu.metadata());
         }
         catch (Exception e) {
             logger.error("Fail to send delete partition at {}. Reason: {}", offsetPosition, e);
@@ -425,19 +425,19 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
             case INSERT:
                 recordMaker.insert(DatabaseDescriptor.getClusterName(), config.nodeId, offsetPosition,
                         pu.metadata().keyspace, pu.metadata().name, false,
-                        Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, this::blockingSend, md5Digest);
+                        Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, this::blockingSend, md5Digest, pu.metadata());
                 break;
 
             case UPDATE:
                 recordMaker.update(DatabaseDescriptor.getClusterName(), config.nodeId, offsetPosition,
                         pu.metadata().keyspace, pu.metadata().name, false,
-                        Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, this::blockingSend, md5Digest);
+                        Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, this::blockingSend, md5Digest, pu.metadata());
                 break;
 
             case DELETE:
                 recordMaker.delete(DatabaseDescriptor.getClusterName(), config.nodeId, offsetPosition,
                         pu.metadata().keyspace, pu.metadata().name, false,
-                        Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, this::blockingSend, md5Digest);
+                        Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, this::blockingSend, md5Digest, pu.metadata());
                 break;
 
             default:
