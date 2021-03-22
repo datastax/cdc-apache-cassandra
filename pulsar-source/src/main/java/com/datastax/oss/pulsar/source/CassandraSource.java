@@ -19,6 +19,7 @@
 
 package com.datastax.oss.pulsar.source;
 
+import com.datastax.cassandra.cdc.MutationCache;
 import com.datastax.cassandra.cdc.MutationKey;
 import com.datastax.cassandra.cdc.MutationValue;
 import com.datastax.cassandra.cdc.converter.Converter;
@@ -53,6 +54,7 @@ import org.apache.tinkerpop.gremlin.structure.T;
 
 import java.lang.reflect.InvocationTargetException;
 import java.net.InetSocketAddress;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -77,10 +79,7 @@ public class CassandraSource implements Source<Object> {
     Converter keyConverter;
     Converter valueConverter;
 
-    Cache<String, Set<String>> mutationCache = Caffeine.newBuilder()
-            .expireAfterWrite(10, TimeUnit.MINUTES)
-            .maximumSize(1000)
-            .build();
+    MutationCache mutationCache = new MutationCache(3, 10, Duration.ofHours(1));
 
     @Override
     public void open(Map<String, Object> config, SourceContext sourceContext) throws Exception {
@@ -115,7 +114,7 @@ public class CassandraSource implements Source<Object> {
                         .collect(Collectors.toSet()));
 
         Schema<KeyValue<Object, MutationValue>> schema = Schema.KeyValue(
-                Schema.AUTO_CONSUME(),
+                Schema.OBJECT(),
                 JSONSchema.of(MutationValue.class),
                 KeyValueEncodingType.SEPARATED);
         this.dirtyTopicName = cassandraSourceConfig.getDirtyTopicPrefix() + cassandraSourceConfig.getKeyspace() + "." + cassandraSourceConfig.getTable();
@@ -138,23 +137,7 @@ public class CassandraSource implements Source<Object> {
         this.cassandraClient.close();
     }
 
-    public Set<String> getMutationCRCs(String mutationKey) {
-        return mutationCache.getIfPresent(mutationKey);
-    }
 
-    public Set<String> addMutationMd5(String mutationKey, String md5Digest) {
-        Set<String> crcs = getMutationCRCs(mutationKey);
-        if(crcs == null)
-            crcs = new HashSet<>();
-        crcs.add(md5Digest);
-        mutationCache.put(mutationKey, crcs);
-        return crcs;
-    }
-
-    public boolean isMutationProcessed(String mutationKey, String md5Digest) {
-        Set<String> digests = getMutationCRCs(mutationKey);
-        return digests != null && digests.contains(md5Digest);
-    }
 
     @SuppressWarnings("unchecked")
     Converter<?, Row, Object[]> getConverter(TableMetadata tableMetadata, Set<String> columns, String converterClassName)
@@ -201,7 +184,7 @@ public class CassandraSource implements Source<Object> {
                     msg.getProducerName(), msg.getMessageId(), kv.getKey(), kv.getValue());
 
             final Message<KeyValue<Object, MutationValue>> msgFinal = msg;
-            if(isMutationProcessed(msg.getKey(), mutationValue.getMd5Digest()) == false) {
+            if (mutationCache.isMutationProcessed(msg.getKey(), mutationValue.getMd5Digest()) == false) {
                 try {
                     Object[] pkColumns = (Object[]) keyConverter.fromConnectData(mutationKey);
                     Tuple3<Row, ConsistencyLevel, KeyspaceMetadata> tuple =
@@ -228,6 +211,7 @@ public class CassandraSource implements Source<Object> {
                         }
                     };
                     acknowledge(consumerFinal, msgFinal);
+                    mutationCache.addMutationMd5(msg.getKey(), mutationValue.getMd5Digest());
                     return record;
                 } catch(Exception e) {
                     log.error("error", e);

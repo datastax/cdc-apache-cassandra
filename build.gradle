@@ -45,7 +45,7 @@ allprojects {
     }
 
     apply plugin: 'idea'
-    apply plugin: "jacoco"
+    apply plugin: 'jacoco'
     apply plugin: 'java-library'
     apply plugin: 'maven-publish'
     apply plugin: 'io.spring.dependency-management'
@@ -57,9 +57,11 @@ allprojects {
         }
     }
 
-    jacoco {
-        toolVersion = "0.8.1"
+    dependencies {
+        testImplementation 'org.junit.jupiter:junit-jupiter-api:5.1.1'
+        testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.1.1'
     }
+
 
     // use JUnit 5 platform
     test {
@@ -67,6 +69,10 @@ allprojects {
         testLogging {
             exceptionFormat = 'full'
         }
+    }
+
+    jacoco {
+        toolVersion = "0.8.6"
     }
 
     compileJava {
@@ -83,6 +89,12 @@ allprojects {
 
 subprojects {
 
+    configurations {
+        testAgent {
+            transitive = false
+        }
+    }
+
     dependencies {
         implementation "org.apache.pulsar:pulsar-client:2.8.0-SNAPSHOT"
 
@@ -90,24 +102,23 @@ subprojects {
         implementation group: 'com.fasterxml.jackson.dataformat', name: 'jackson-dataformat-yaml', version: '2.11.1'
 
         implementation "io.vavr:vavr:0.10.3"
-
-        testImplementation "org.junit.jupiter:junit-jupiter-api"
-        testImplementation "io.micronaut.test:micronaut-test-junit5"
-        testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine"
     }
 
-    /*
     jacocoTestReport {
-        additionalSourceDirs = files(sourceSets.main.allSource.srcDirs)
-        sourceDirectories = files(sourceSets.main.allSource.srcDirs)
-        classDirectories = files(sourceSets.main.output)
         reports {
             html.enabled = true
             xml.enabled = true
             csv.enabled = false
         }
     }
-    */
+
+    test {
+        finalizedBy jacocoTestReport // report is always generated after tests run
+    }
+
+    jacocoTestReport {
+        dependsOn test // tests are required to run before generating the report
+    }
 
     publishing {
         publications {
