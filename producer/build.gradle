@@ -99,14 +99,6 @@ task runLocalPulsar(type: JavaExec) {
     mainClass = "$mainClassName"
 }
 
-task runLocalQuasar(type: JavaExec) {
-    classpath = sourceSets.main.runtimeClasspath
-    main = mainClassName
-    //jvmArgs = [ "-Djavax.net.debug=all" ]
-    jvmArgs '-Dmicronaut.environments=localquasar'
-    mainClass = "$mainClassName"
-}
-
 jib {
     from {
         image = 'openjdk:alpine'
