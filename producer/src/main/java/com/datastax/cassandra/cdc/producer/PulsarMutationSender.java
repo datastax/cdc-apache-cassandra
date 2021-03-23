@@ -71,7 +71,7 @@ public class PulsarMutationSender implements MutationSender<KeyValue<MutationKey
 
     @SuppressWarnings("rawtypes")
     public Producer getProducer(final TableMetadata tm) {
-        String key = tm.keyspace + "." + tm.name;
+        String key = pulsarConfiguration.getTopicPrefix() + tm.keyspace + "." + tm.name;
         return producers.computeIfAbsent(key, k -> {
             try {
                 Converter<?, List<CellData>, Object[]> keyConverter = getConverter(tm);

@@ -27,6 +27,7 @@ import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
 import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import com.datastax.oss.pulsar.source.converters.AvroConverter;
@@ -79,7 +80,12 @@ public class CassandraSource implements Source<Object> {
     Converter keyConverter;
     Converter valueConverter;
 
-    MutationCache mutationCache = new MutationCache(3, 10, Duration.ofHours(1));
+    MutationCache mutationCache;
+
+    Schema<KeyValue<Object, MutationValue>> dirtySchema = Schema.KeyValue(
+            Schema.OBJECT(),
+            JSONSchema.of(MutationValue.class),
+            KeyValueEncodingType.SEPARATED);
 
     @Override
     public void open(Map<String, Object> config, SourceContext sourceContext) throws Exception {
@@ -88,6 +94,10 @@ public class CassandraSource implements Source<Object> {
             throw new IllegalArgumentException("Cassandra contactPoints not set.");
         }
         this.cassandraClient = createClient(cassandraSourceConfig.getContactPoints());
+
+        if (Strings.isNullOrEmpty(cassandraSourceConfig.getDirtyTopicPrefix())) {
+            throw new IllegalArgumentException("Dirty topic prefix not set.");
+        }
 
         TableMetadata tableMetadata = cassandraClient.getTableMetadata(cassandraSourceConfig.getKeyspace(), cassandraSourceConfig.getTable());
         if (tableMetadata == null) {
@@ -98,35 +108,34 @@ public class CassandraSource implements Source<Object> {
             throw new IllegalArgumentException("Key converter not set.");
         }
         this.keyConverter = (Converter) Class.forName(cassandraSourceConfig.getKeyConverter())
-                .getDeclaredConstructor(TableMetadata.class, Set.class)
-                .newInstance(tableMetadata, tableMetadata.getPrimaryKey().stream()
-                        .map(c->c.getName().toString())
-                        .collect(Collectors.toSet()));
+                .getDeclaredConstructor(List.class)
+                .newInstance(tableMetadata.getPrimaryKey());
 
         if(Strings.isNullOrEmpty(cassandraSourceConfig.getValueConverter())) {
             throw new IllegalArgumentException("Value converter not set.");
         }
         this.valueConverter = (Converter) Class.forName(cassandraSourceConfig.getValueConverter())
-                .getDeclaredConstructor(TableMetadata.class, Set.class)
-                .newInstance(tableMetadata, tableMetadata.getColumns().values().stream()
+                .getDeclaredConstructor(List.class)
+                .newInstance(tableMetadata.getColumns().values().stream()
                         .filter(c -> !tableMetadata.getPrimaryKey().contains(c))
-                        .map(c->c.getName().toString())
-                        .collect(Collectors.toSet()));
+                        .collect(Collectors.toList()));
 
-        Schema<KeyValue<Object, MutationValue>> schema = Schema.KeyValue(
-                Schema.OBJECT(),
-                JSONSchema.of(MutationValue.class),
-                KeyValueEncodingType.SEPARATED);
+
         this.dirtyTopicName = cassandraSourceConfig.getDirtyTopicPrefix() + cassandraSourceConfig.getKeyspace() + "." + cassandraSourceConfig.getTable();
-        this.consumer = sourceContext.newConsumerBuilder(schema)
+        ConsumerBuilder<KeyValue<Object, MutationValue>> consumerBuilder = sourceContext.newConsumerBuilder(dirtySchema)
                 .consumerName("CDC Consumer")
                 .topic(dirtyTopicName)
-                .autoUpdatePartitions(true)
-                .subscriptionName(cassandraSourceConfig.getDirtySubscriptionName())
-                .subscriptionType(SubscriptionType.Key_Shared)
-                .subscriptionMode(SubscriptionMode.Durable)
-                .keySharedPolicy(KeySharedPolicy.autoSplitHashRange())
-                .subscribe();
+                .autoUpdatePartitions(true);
+
+        if(cassandraSourceConfig.getDirtySubscriptionName() != null) {
+            consumerBuilder = consumerBuilder.subscriptionName(cassandraSourceConfig.getDirtySubscriptionName())
+                    .subscriptionType(SubscriptionType.Key_Shared)
+                    .subscriptionMode(SubscriptionMode.Durable)
+                    .keySharedPolicy(KeySharedPolicy.autoSplitHashRange());
+        }
+
+        this.consumer = consumerBuilder.subscribe();
+        this.mutationCache = new MutationCache(3, 10, Duration.ofHours(1));
         log.debug("Starting source connector topic={} subscription={}",
                 dirtyTopicName,
                 cassandraSourceConfig.getDirtySubscriptionName());
@@ -135,29 +144,28 @@ public class CassandraSource implements Source<Object> {
     @Override
     public void close() throws Exception {
         this.cassandraClient.close();
+        this.mutationCache = null;
     }
 
-
-
     @SuppressWarnings("unchecked")
-    Converter<?, Row, Object[]> getConverter(TableMetadata tableMetadata, Set<String> columns, String converterClassName)
+    Converter<?, Row, Object[]> getConverter(List<ColumnMetadata> columns, String converterClassName)
             throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException,
             InvocationTargetException, InstantiationException {
         Class<? extends Converter<?, Row, Object[]>> converterClazz =
                 (Class<? extends Converter<?, Row, Object[]>>) Class.forName(converterClassName);
-        return converterClazz.getDeclaredConstructor(TableMetadata.class, Set.class).newInstance(tableMetadata, columns);
+        return converterClazz.getDeclaredConstructor(List.class).newInstance(columns);
     }
 
-    Converter<?, Row, Object[]> getConverter(TableMetadata tableMetadata, Set<String> columns, SchemaType schemaType) {
+    Converter<?, Row, Object[]> getConverter(List<ColumnMetadata> columns, SchemaType schemaType) {
         switch(schemaType) {
             case AVRO:
-                return new AvroConverter(tableMetadata, columns);
+                return new AvroConverter(columns);
             case JSON:
-                return new JsonConverter(tableMetadata, columns);
+                return new JsonConverter(columns);
             case PROTOBUF:
-                return new ProtobufConverter(tableMetadata, columns);
+                return new ProtobufConverter(columns);
             case STRING:
-                return new StringConverter(tableMetadata, columns);
+                return new StringConverter(columns);
             default:
                 throw new UnsupportedOperationException();
         }
@@ -172,10 +180,9 @@ public class CassandraSource implements Source<Object> {
      */
     @SuppressWarnings("unchecked")
     public Record<Object> read() throws Exception {
-        final Consumer<KeyValue<Object, MutationValue>> consumerFinal = consumer;
         log.debug("reading from topic={}", dirtyTopicName);
         while(true) {
-            Message<KeyValue<Object, MutationValue>> msg = consumer.receive();
+            final Message<KeyValue<Object, MutationValue>> msg = consumer.receive();
             final KeyValue<Object, MutationValue> kv = msg.getValue();
             final Object mutationKey = kv.getKey();
             final MutationValue mutationValue = kv.getValue();
@@ -183,15 +190,14 @@ public class CassandraSource implements Source<Object> {
             log.debug("Message from producer={} msgId={} key={} value={}\n",
                     msg.getProducerName(), msg.getMessageId(), kv.getKey(), kv.getValue());
 
-            final Message<KeyValue<Object, MutationValue>> msgFinal = msg;
             if (mutationCache.isMutationProcessed(msg.getKey(), mutationValue.getMd5Digest()) == false) {
                 try {
                     Object[] pkColumns = (Object[]) keyConverter.fromConnectData(mutationKey);
                     Tuple3<Row, ConsistencyLevel, KeyspaceMetadata> tuple =
-                            cassandraClient.selectRow(cassandraSourceConfig, pkColumns, kv.getValue().getNodeId(),
+                            cassandraClient.selectRow(cassandraSourceConfig, pkColumns, mutationValue.getNodeId(),
                                     Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE));
 
-                    Object value = valueConverter.toConnectData(tuple._1);
+                    Object value = tuple._1 == null ? null : valueConverter.toConnectData(tuple._1);
                     KeyValue<Object, Object> keyValue = new KeyValue(mutationKey, value);
                     final Record record = new Record() {
                         @Override
@@ -210,16 +216,16 @@ public class CassandraSource implements Source<Object> {
                             return keyValue;
                         }
                     };
-                    acknowledge(consumerFinal, msgFinal);
+                    acknowledge(consumer, msg);
                     mutationCache.addMutationMd5(msg.getKey(), mutationValue.getMd5Digest());
                     return record;
                 } catch(Exception e) {
                     log.error("error", e);
-                    negativeAcknowledge(consumerFinal, msgFinal);
+                    negativeAcknowledge(consumer, msg);
                     throw e;
                 }
             } else {
-                acknowledge(consumerFinal, msgFinal);
+                acknowledge(consumer, msg);
             }
         }
     }

@@ -14,7 +14,6 @@ dependencies {
 
     implementation project(':common')
 
-
     implementation "com.datastax.oss:java-driver-core:${ossDriverVersion}"
     implementation "com.datastax.oss:java-driver-query-builder:${ossDriverVersion}"
     implementation("org.apache.pulsar:pulsar-io-common:${pulsarVersion}")
@@ -22,16 +21,14 @@ dependencies {
 
     implementation("com.datastax.oss:messaging-connectors-commons-core:1.0.12-SNAPSHOT")
 
-    testCompile("com.google.code.gson:gson:2.8.6") // required by pulsar
-
+    testCompile "org.testcontainers:testcontainers:1.15.2"
+    testCompile "org.testcontainers:database-commons:1.15.2"
     testCompile "org.testcontainers:cassandra:1.15.2"
+
     testCompile "net.andreinc.mockneat:mockneat:0.2.2"
-    testCompile "com.google.code.gson:gson:test"
-    testCompile "org.testng:testng:7.3.0"
     testCompile "org.mockito:mockito-core:3.0.0"
     testCompile "org.powermock:powermock-api-mockito2:2.0.9"
     testCompile "org.powermock:powermock-module-testng:2.0.9"
-    testCompile "org.assertj:assertj-core:3.18.1"
 
     nar "org.apache.pulsar:pulsar-io:${pulsarVersion}"
 }

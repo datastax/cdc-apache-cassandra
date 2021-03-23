@@ -13,6 +13,10 @@ every replicated Cassandra tables.
 ## Build
 
     ./gradlew pulsar-source:nar
+
+## Test
+
+    ./gradlew clean  pulsar-source:test --tests com.datastax.oss.pulsar.source.CassandraSourceTests
     
 ## Run
 

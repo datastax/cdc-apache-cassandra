@@ -18,98 +18,147 @@
  */
 package com.datastax.oss.pulsar.source;
 
+import com.datastax.cassandra.cdc.MutationValue;
+import com.datastax.driver.core.Session;
+import com.datastax.oss.driver.api.core.CqlIdentifier;
+import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
+import com.datastax.oss.driver.internal.core.type.PrimitiveType;
+import com.datastax.oss.protocol.internal.ProtocolConstants;
+import com.datastax.oss.pulsar.source.converters.JsonConverter;
+import com.google.common.collect.Lists;
 import net.andreinc.mockneat.MockNeat;
+import org.apache.pulsar.client.api.Consumer;
+import org.apache.pulsar.client.api.ConsumerBuilder;
+import org.apache.pulsar.client.api.Message;
+import org.apache.pulsar.client.api.schema.GenericRecord;
+import org.apache.pulsar.client.impl.schema.generic.GenericJsonSchema;
+import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.functions.api.Record;
 import org.apache.pulsar.io.core.SourceContext;
+import org.junit.jupiter.api.*;
 import org.mockito.Mock;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.testcontainers.containers.CassandraContainer;
+import org.testcontainers.lifecycle.Startables;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class CassandraSourceTests {
 
-    protected static MockNeat mockNeat;
+    public final static String CASSANDRA_IMAGE = "cassandra:3.11.2";
+
+    static MockNeat mockNeat;
+
+    static CassandraContainer cassandraContainer = new CassandraContainer(CASSANDRA_IMAGE);
 
     @Mock
-    protected Record<byte[]> mockRecord;
+    SourceContext mockSourceContext;
 
     @Mock
-    protected SourceContext mockSourceContext;
-    protected Map<String, Object> map;
+    protected ConsumerBuilder mockConsumerBuilder;
+
+    @Mock
+    protected Consumer mockConsumer;
+
+    @Mock
+    protected Message<KeyValue<Object, MutationValue>> mockMessage;
+
     protected CassandraSource source;
 
-    @BeforeClass
-    public static final void init() {
+    protected Map<String, Object> map;
+
+    @BeforeAll
+    public static final void initBeforeClass() throws InterruptedException {
         mockNeat = MockNeat.threadLocal();
+        cassandraContainer.start();
+        Thread.sleep(15000);
+        try(Session session = cassandraContainer.getCluster().newSession()) {
+            session.execute("CREATE KEYSPACE IF NOT EXISTS ks1 WITH replication = \n" +
+                    "{'class':'SimpleStrategy','replication_factor':'1'};");
+            session.execute("CREATE TABLE IF NOT EXISTS ks1.table1 (id text PRIMARY KEY, a int)");
+            session.execute("INSERT INTO ks1.table1 (id, a) VALUES('1',1)");
+        }
+    }
+
+    @AfterAll
+    public static void closeAfterClass() {
+        cassandraContainer.stop();
+        cassandraContainer.close();
     }
 
     @SuppressWarnings("unchecked")
-    @BeforeMethod
+    @BeforeEach
     public final void setUp() throws Exception {
+
         map = new HashMap<String, Object> ();
-        map.put("elasticSearchUrl", "http://localhost:9200");
+        map.put("contactPoints", cassandraContainer.getHost() + ":" + cassandraContainer.getMappedPort(CassandraContainer.CQL_PORT));
+        map.put("localDc", "datacenter1");
+        map.put("keyspace", "ks1");
+        map.put("table", "table1");
+        map.put("keyConverter", "com.datastax.oss.pulsar.source.converters.JsonConverter");
+        map.put("valueConverter", "com.datastax.oss.pulsar.source.converters.AvroConverter");
+        map.put("dirtyTopicPrefix", "dirty-");
         source = new CassandraSource();
-
-        mockRecord = mock(Record.class);
         mockSourceContext = mock(SourceContext.class);
+        mockConsumerBuilder = mock(ConsumerBuilder.class);
+        mockConsumer = mock(Consumer.class);
+        mockMessage = mock(Message.class);
 
-        when(mockRecord.getKey()).thenAnswer(new Answer<Optional<String>>() {
-            long sequenceCounter = 0;
-            public Optional<String> answer(InvocationOnMock invocation) throws Throwable {
-               return Optional.of( "key-" + sequenceCounter++);
-            }});
+        ColumnMetadata idColumn = new ColumnMetadataImpl(
+                CqlIdentifier.fromInternal("ks1"),
+                CqlIdentifier.fromInternal("table1"),
+                CqlIdentifier.fromInternal("id"),
+                new PrimitiveType(ProtocolConstants.DataType.ASCII),
+                false);
+        JsonConverter jsonConverter = new JsonConverter(Lists.newArrayList(idColumn));
+        GenericRecord genericRecord = new GenericJsonSchema(jsonConverter.schemaInfo).newRecordBuilder()
+                .set("id", "1")
+                .build();
+        MutationValue mutationValue = new MutationValue("digest1", null, null);
 
-        when(mockRecord.getValue()).thenAnswer(new Answer<byte[]>() {
-            public byte[] answer(InvocationOnMock invocation) throws Throwable {
-                 return null;
-            }});
+        when(mockSourceContext.newConsumerBuilder(source.dirtySchema)).thenReturn(mockConsumerBuilder);
+
+        when(mockConsumerBuilder.topic("dirty-ks1.table1")).thenReturn(mockConsumerBuilder);
+        when(mockConsumerBuilder.consumerName("CDC Consumer")).thenReturn(mockConsumerBuilder);
+        when(mockConsumerBuilder.autoUpdatePartitions(true)).thenReturn(mockConsumerBuilder);
+        when(mockConsumerBuilder.subscribe()).thenReturn(mockConsumer);
+
+        when(mockConsumer.receive()).thenReturn(mockMessage);
+
+        when(mockMessage.getValue()).then(new Answer<KeyValue<GenericRecord, MutationValue>>() {
+            @Override
+            public KeyValue<GenericRecord, MutationValue> answer(InvocationOnMock invocationOnMock) throws Throwable {
+                return new KeyValue(genericRecord, mutationValue);
+            }
+        });
+        when(mockMessage.getKey()).then(new Answer<String>() {
+            @Override
+            public String answer(InvocationOnMock invocationOnMock) throws Throwable {
+                return "1";
+            }
+        });
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public final void tearDown() throws Exception {
         source.close();
     }
 
-    @Test(enabled = false, expectedExceptions = IllegalArgumentException.class)
-    public final void invalidIndexNameTest() throws Exception {
-        map.put("indexName", "myIndex");
-        source.open(map, mockSourceContext);
-    }
-
-    @Test(enabled = false)
-    public final void createIndexTest() throws Exception {
-        map.put("indexName", "test-index");
-        source.open(map, mockSourceContext);
-    }
-
-    @Test(enabled = false)
+    @Test
     public final void singleRecordTest() throws Exception {
-        map.put("indexName", "test-index");
         source.open(map, mockSourceContext);
-        read(1);
-        verify(mockRecord, times(1)).ack();
-    }
-
-    @Test(enabled = false)
-    public final void read100Test() throws Exception {
-        map.put("indexName", "test-index");
-        source.open(map, mockSourceContext);
-        read(100);
-        verify(mockRecord, times(100)).ack();
-    }
-
-    protected final void read(int numRecords) throws Exception {
-        for (int idx = 0; idx < numRecords; idx++) {
-            source.read();
-        }
+        Record<Object> record = source.read();
+        KeyValue<GenericRecord, GenericRecord> keyValue = (KeyValue<GenericRecord, GenericRecord>) record.getValue();
+        GenericRecord key = keyValue.getKey();
+        GenericRecord val = keyValue.getValue();
+        assertEquals("1", key.getField("id"));
+        assertEquals(1, val.getField("a"));
     }
 }
