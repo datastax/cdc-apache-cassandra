@@ -1,8 +1,6 @@
 rootProject.name = 'cassandra-source-connector'
 
 include 'common'
-include 'common-quasar'
 include 'producer'
 include 'pulsar-consumer'
 include 'pulsar-source'
-include 'quasar-consumer'
