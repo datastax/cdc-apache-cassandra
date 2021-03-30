@@ -61,3 +61,10 @@ Run as javaagent with debug:
 ## Monitoring
 
 The consumer and producer JVM expose the [default micronaut endpoints](https://docs.micronaut.io/latest/guide/index.html#management), including metrics.
+
+
+## Pulsar requirements
+
+* PR #10034 eolivelli impl/sink-object
+* PR #10052 vroyer json_generic_record_builder
+* PR #10089 vroyer fix/AutoConsumeSchema_KeyValueEncodingType
