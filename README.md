@@ -50,6 +50,14 @@ See the **resources/application.yml** files.
 
 ## Run
 
+Run as javagent
+
+    export JVM_EXTRA_OPTS="-javaagent:$PROJECT_HOME/producer/build/libs/producer-0.1-SNAPSHOT-all.jar"
+
+Run as javaagent with debug:
+
+    export JVM_EXTRA_OPTS="-javaagent:$PROJECT_HOME/producer/build/libs/producer-0.1-SNAPSHOT-all.jar -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005"
+
 ## Monitoring
 
 The consumer and producer JVM expose the [default micronaut endpoints](https://docs.micronaut.io/latest/guide/index.html#management), including metrics.

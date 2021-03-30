@@ -25,8 +25,8 @@ public class MutationMaker {
     private static final Logger LOGGER = LoggerFactory.getLogger(MutationMaker.class);
     private final boolean emitTombstoneOnDelete;
 
-    public MutationMaker(CassandraCdcConfiguration config) {
-        this.emitTombstoneOnDelete = config.tombstonesOnDelete;
+    public MutationMaker() {
+        this.emitTombstoneOnDelete = PropertyConfig.emitTombstoneOnDelete;
     }
 
     public void insert(String cluster, UUID node, CommitLogPosition offsetPosition,

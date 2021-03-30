@@ -26,4 +26,4 @@ every replicated Cassandra tables.
            --namespace default \
            --name cassandra-source-1 \
            --destination-topic-name clean-ks1.table1 \
-           --source-config '{"contactPoints":"localhost:9042", "localDc":"datacenter1", "keyspace":"ks1", "table":"table1", "dirtyTopicPrefix": "persistent://public/default/dirty-", "dirtySubscriptionName":"sub1", "keyConverter":"com.datastax.oss.pulsar.source.converters.AvroConverter","valueConverter":"com.datastax.oss.pulsar.source.converters.AvroConverter"}'
+           --source-config '{"contactPoints":"localhost:9042", "localDc":"datacenter1", "keyspace":"ks1", "table":"table1", "dirtyTopicPrefix": "persistent://public/default/dirty-", "dirtySubscriptionName":"sub1", "keyConverter":"com.datastax.oss.pulsar.source.converters.JsonConverter","valueConverter":"com.datastax.oss.pulsar.source.converters.AvroConverter"}'

@@ -27,14 +27,13 @@ import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Wrapper class around WatchService to make WatchService re-usable and avoid code repetition
  */
+@Slf4j
 public abstract class AbstractDirectoryWatcher {
-    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractDirectoryWatcher.class);
 
     private final WatchService watchService;
     private final Duration pollInterval;
@@ -63,7 +62,7 @@ public abstract class AbstractDirectoryWatcher {
                 Path absolutePath = directory.resolve(relativePath);
 
                 if (kinds.contains(event.kind())) {
-                    LOGGER.trace("Detected new commitlog file={}", absolutePath);
+                    log.trace("Detected new commitlog file={}", absolutePath);
                     handleEvent(event, absolutePath);
                 }
             }

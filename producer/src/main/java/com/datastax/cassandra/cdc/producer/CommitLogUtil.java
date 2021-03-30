@@ -14,15 +14,15 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.datastax.cassandra.cdc.producer.exceptions.CassandraConnectorDataException;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Utility class used by the {@link CommitLogProcessor} to compare/delete commit log files.
  */
+@Slf4j
 public final class CommitLogUtil {
-    private static final Logger LOGGER = LoggerFactory.getLogger(CommitLogUtil.class);
-
     public static final Pattern FILENAME_REGEX_PATTERN = Pattern.compile("CommitLog-\\d+-(\\d+)(\\.log|_cdc\\.idx)");
 
     private CommitLogUtil() {
@@ -42,7 +42,7 @@ public final class CommitLogUtil {
             Files.move(file.toPath(), toDir.resolve(file.getName()), REPLACE_EXISTING);
         }
         catch (Exception e) {
-            LOGGER.error("Failed to move the file {} from {}", file.getName(), toDir.getFileName(), e);
+            log.error("Failed to move the file {} from {}", file.getName(), toDir.getFileName(), e);
         }
     }
 
@@ -57,10 +57,10 @@ public final class CommitLogUtil {
             }
 
             Files.delete(file.toPath());
-            LOGGER.debug("Deleted commit log {} in cdc directory", file.getName());
+            log.debug("Deleted commit log {} in cdc directory", file.getName());
         }
         catch (Exception e) {
-            LOGGER.error("Failed to delete the file {} from cdc directory: ", file.getName(), e);
+            log.error("Failed to delete the file {} from cdc directory: ", file.getName(), e);
         }
     }
 

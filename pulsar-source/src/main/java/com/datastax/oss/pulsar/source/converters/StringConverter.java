@@ -3,6 +3,7 @@ package com.datastax.oss.pulsar.source.converters;
 import com.datastax.cassandra.cdc.converter.Converter;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
+import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import org.apache.pulsar.client.api.Schema;
 
@@ -11,7 +12,7 @@ import java.util.Set;
 
 public class StringConverter implements Converter<String, Row, Object[]> {
 
-    public StringConverter(List<ColumnMetadata> columns) {
+    public StringConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
     }
 
     /**

@@ -5,44 +5,30 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
-import com.datastax.cassandra.cdc.MetricConstants;
-import com.datastax.cassandra.cdc.producer.exceptions.CassandraConnectorConfigException;
-import io.micrometer.core.instrument.MeterRegistry;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.commitlog.CommitLogPosition;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import javax.inject.Singleton;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.ToDoubleFunction;
 
-@Singleton
+@Slf4j
 public class OffsetFileWriter implements AutoCloseable {
-    private static final Logger logger = LoggerFactory.getLogger(OffsetFileWriter.class);
-
     public static final String COMMITLOG_OFFSET_FILE = "commitlog_offset.dat";
 
     private final File offsetFile;
-    private final CassandraCdcConfiguration config;
-    private final MeterRegistry meterRegistry;
     private AtomicReference<CommitLogPosition> fileOffsetRef = new AtomicReference<>(new CommitLogPosition(0,0));
 
     private final OffsetFlushPolicy offsetFlushPolicy;
     volatile long timeOfLastFlush = System.currentTimeMillis();
     volatile Long notCommittedEvents = 0L;
 
-    public OffsetFileWriter(CassandraCdcConfiguration config,
-                            MeterRegistry meterRegistry) throws IOException {
-        if (config.offsetBackingStoreDir == null) {
-            throw new CassandraConnectorConfigException("Offset file directory must be configured at the start");
-        }
-        this.config = config;
+    public OffsetFileWriter() throws IOException {
         this.offsetFlushPolicy = new OffsetFlushPolicy.AlwaysFlushOffsetPolicy();
-        this.meterRegistry = meterRegistry;
+        /*
         this.meterRegistry.gauge("committed_segment", fileOffsetRef, new ToDoubleFunction<AtomicReference<CommitLogPosition>>() {
             @Override
             public double applyAsDouble(AtomicReference<CommitLogPosition> offsetPositionRef) {
@@ -55,13 +41,9 @@ public class OffsetFileWriter implements AutoCloseable {
                 return offsetPositionRef.get().position;
             }
         });
-        String storageDir = config.cassandraStorageDir.endsWith(File.separator)
-                ? config.cassandraStorageDir
-                : config.cassandraStorageDir + File.separator;
-        String backingStoreDir = config.offsetBackingStoreDir.startsWith(File.separator)
-                ? config.offsetBackingStoreDir
-                : storageDir + config.offsetBackingStoreDir;
-        this.offsetFile = new File(backingStoreDir, COMMITLOG_OFFSET_FILE);
+         */
+
+        this.offsetFile = new File(DatabaseDescriptor.getCDCLogLocation(), COMMITLOG_OFFSET_FILE);
         init();
     }
 
@@ -95,7 +77,7 @@ public class OffsetFileWriter implements AutoCloseable {
         try(FileWriter out = new FileWriter(this.offsetFile)) {
             out.write(serializePosition(fileOffsetRef.get()));
         } catch (IOException e) {
-            logger.error("Failed to save offset for file " + offsetFile.getName(), e);
+            log.error("Failed to save offset for file " + offsetFile.getName(), e);
             throw e;
         }
     }
@@ -104,9 +86,9 @@ public class OffsetFileWriter implements AutoCloseable {
         try(BufferedReader br = new BufferedReader(new FileReader(offsetFile)))
         {
             fileOffsetRef.set(deserializePosition(br.readLine()));
-            logger.debug("file offset={}", fileOffsetRef.get());
+            log.debug("file offset={}", fileOffsetRef.get());
         } catch (IOException e) {
-            logger.error("Failed to load offset for file " + offsetFile.getName(), e);
+            log.error("Failed to load offset for file " + offsetFile.getName(), e);
             throw e;
         }
     }
@@ -130,14 +112,14 @@ public class OffsetFileWriter implements AutoCloseable {
                 SourceInfo source = record.getSource();
                 markOffset(source.commitLogPosition);
                 flush();
-                this.meterRegistry.counter(MetricConstants.METRICS_PREFIX + "commit").increment();
-                this.meterRegistry.counter(MetricConstants.METRICS_PREFIX + "committed").increment(notCommittedEvents);
+                //this.meterRegistry.counter(MetricConstants.METRICS_PREFIX + "commit").increment();
+                //this.meterRegistry.counter(MetricConstants.METRICS_PREFIX + "committed").increment(notCommittedEvents);
                 notCommittedEvents = 0L;
                 timeOfLastFlush = now;
-                logger.debug("Offset flushed source=" + source);
+                log.debug("Offset flushed source=" + source);
             }
         } catch(IOException e) {
-            logger.warn("error:", e);
+            log.warn("error:", e);
         }
     }
 }

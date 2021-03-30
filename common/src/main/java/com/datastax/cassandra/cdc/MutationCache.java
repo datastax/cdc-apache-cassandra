@@ -2,7 +2,6 @@ package com.datastax.cassandra.cdc;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.google.common.annotations.VisibleForTesting;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -14,7 +13,6 @@ import java.util.concurrent.TimeUnit;
  */
 public class MutationCache {
 
-    @VisibleForTesting
     Cache<String, List<String>> mutationCache;
 
     /**

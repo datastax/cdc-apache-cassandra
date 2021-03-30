@@ -48,12 +48,19 @@ Set admin password:
 * enable schema auto-update
 
     bin/pulsar-admin namespaces set-is-allow-auto-update-schema --enable public/default
-    
+
+* schema compatibility strategy
+
+    bin/pulsar-admin namespaces get-schema-compatibility-strategy public/default
+    bin/pulsar-admin namespaces set-schema-compatibility-strategy --compatibility BACKWARD_TRANSITIVE public/default    
+
 * schema management
 
     bin/pulsar-admin schemas get "persistent://public/default/dirty-ks1.table1"
     bin/pulsar-admin schemas delete "persistent://public/default/dirty-ks1.table1"
 
+    bin/pulsar-admin schemas get "persistent://public/default/clean-ks1.table1"
+    bin/pulsar-admin schemas delete "persistent://public/default/clean-ks1.table1"
 
 * Enable message dedup at the broker level
 

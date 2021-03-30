@@ -65,7 +65,7 @@ public class CassandraClient implements AutoCloseable {
         return selectRowAsync(config, pkColumns, nodeId, consistencyLevels).toCompletableFuture().get();
     }
 
-    public TableMetadata getTableMetadata(String keyspace, String table) {
+    public Tuple2<KeyspaceMetadata, TableMetadata> getTableMetadata(String keyspace, String table) {
         Metadata metadata = cqlSession.getMetadata();
         Optional<KeyspaceMetadata> keyspaceMetadataOptional = metadata.getKeyspace(keyspace);
         if(!keyspaceMetadataOptional.isPresent()) {
@@ -75,7 +75,7 @@ public class CassandraClient implements AutoCloseable {
         if(!tableMetadataOptional.isPresent()) {
             throw new IllegalArgumentException("No metadata for table " + keyspace + "." + table);
         }
-        return tableMetadataOptional.get();
+        return new Tuple2<>(keyspaceMetadataOptional.get(), tableMetadataOptional.get());
     }
 
     /**
@@ -86,7 +86,7 @@ public class CassandraClient implements AutoCloseable {
                                                                                            Object[] pkColumns,
                                                                                            UUID nodeId,
                                                                                            List<ConsistencyLevel> consistencyLevels) {
-        TableMetadata tableMetadata = getTableMetadata(config.getKeyspace(), config.getTable());
+        TableMetadata tableMetadata = getTableMetadata(config.getKeyspace(), config.getTable())._2;
         Select query = selectFrom(config.getKeyspace(), config.getTable()).all();
         for(ColumnMetadata cm : tableMetadata.getPrimaryKey())
             query = query.whereColumn(cm.getName()).isEqualTo(QueryBuilder.bindMarker());

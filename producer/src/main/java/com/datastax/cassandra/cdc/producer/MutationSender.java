@@ -3,6 +3,7 @@ package com.datastax.cassandra.cdc.producer;
 import io.micronaut.context.annotation.DefaultImplementation;
 import org.apache.cassandra.db.commitlog.CommitLog;
 import org.apache.cassandra.db.commitlog.CommitLogPosition;
+import org.apache.pulsar.client.api.PulsarClientException;
 
 import java.util.concurrent.CompletionStage;
 
@@ -17,5 +18,5 @@ public interface MutationSender<P> {
      */
     CommitLogPosition sentOffset();
 
-    CompletionStage<Void> sendMutationAsync(final Mutation mutation);
+    CompletionStage<Void> sendMutationAsync(final Mutation mutation) throws PulsarClientException;
 }

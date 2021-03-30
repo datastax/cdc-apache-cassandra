@@ -1,14 +1,9 @@
 package com.datastax.cassandra.cdc.producer;
 
-import com.datastax.cassandra.cdc.MetricConstants;
 import com.datastax.cassandra.cdc.MutationKey;
 import com.datastax.cassandra.cdc.MutationValue;
 import com.datastax.cassandra.cdc.converter.Converter;
 import com.datastax.cassandra.cdc.producer.converters.JsonConverter;
-import com.google.common.collect.ImmutableList;
-import io.debezium.util.ObjectSizeCalculator;
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.cassandra.db.commitlog.CommitLogPosition;
 import org.apache.cassandra.schema.TableMetadata;
@@ -33,9 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
 @Slf4j
 public class PulsarMutationSender implements MutationSender<KeyValue<MutationKey, MutationValue>> , AutoCloseable {
 
-    final PulsarConfiguration pulsarConfiguration;
     final OffsetFileWriter offsetWriter;
-    final MeterRegistry meterRegistry;
 
     PulsarClient client;
     Map<String, Converter<?,List<CellData>,Object[]>> converters = new HashMap<>();
@@ -43,12 +36,8 @@ public class PulsarMutationSender implements MutationSender<KeyValue<MutationKey
 
     AtomicReference<CommitLogPosition> sentOffset = new AtomicReference<>(new CommitLogPosition(0,0));
 
-    PulsarMutationSender(PulsarConfiguration pulsarConfiguration,
-                         OffsetFileWriter offsetFileWriter,
-                         MeterRegistry meterRegistry) {
-        this.pulsarConfiguration = pulsarConfiguration;
+    PulsarMutationSender(OffsetFileWriter offsetFileWriter) {
         this.offsetWriter = offsetFileWriter;
-        this.meterRegistry = meterRegistry;
     }
 
     @SuppressWarnings("rawtypes")
@@ -71,14 +60,14 @@ public class PulsarMutationSender implements MutationSender<KeyValue<MutationKey
 
     @SuppressWarnings("rawtypes")
     public Producer getProducer(final TableMetadata tm) {
-        String key = pulsarConfiguration.getTopicPrefix() + tm.keyspace + "." + tm.name;
-        return producers.computeIfAbsent(key, k -> {
+        String topicName = PropertyConfig.pulsarTopicPrefix + tm.keyspace + "." + tm.name;
+        return producers.computeIfAbsent(topicName, k -> {
             try {
                 Converter<?, List<CellData>, Object[]> keyConverter = getConverter(tm);
                 Schema<?> keyValueSchema = Schema.KeyValue(keyConverter.getSchema(), JSONSchema.of(MutationValue.class), KeyValueEncodingType.SEPARATED);
                 return client.newProducer(keyValueSchema)
-                        .producerName("pulsar-producer-" + pulsarConfiguration.getName() + "-" + key)
-                        .topic(pulsarConfiguration.getTopicPrefix() + "-" + key)
+                        .producerName("pulsar-producer-" + topicName)
+                        .topic(topicName)
                         .sendTimeout(15, TimeUnit.SECONDS)
                         .maxPendingMessages(3)
                         .hashingScheme(HashingScheme.Murmur3_32Hash)
@@ -92,12 +81,15 @@ public class PulsarMutationSender implements MutationSender<KeyValue<MutationKey
     }
 
     @Override
-    public void initialize() throws Exception {
-        if (pulsarConfiguration.getServiceUrl() != null) {
+    public void initialize() throws PulsarClientException {
+        try {
             this.client = PulsarClient.builder()
-                    .serviceUrl(pulsarConfiguration.getServiceUrl())
+                    .serviceUrl(PropertyConfig.pulsarServiceUrl)
                     .build();
-
+            log.info("Pulsar client connected");
+        } catch(Exception e) {
+            log.warn("Cannot connect to Pulsar:", e);
+            throw e;
         }
     }
 
@@ -108,7 +100,10 @@ public class PulsarMutationSender implements MutationSender<KeyValue<MutationKey
 
     @Override
     @SuppressWarnings({"rawtypes","unchecked"})
-    public CompletionStage<Void> sendMutationAsync(final Mutation mutation) {
+    public CompletionStage<Void> sendMutationAsync(final Mutation mutation) throws PulsarClientException {
+        if (this.client == null) {
+            initialize();
+        }
         Producer<?> producer = getProducer(mutation.getTableMetadata());
         Converter<?, List<CellData>, Object[]> converter = getConverter(mutation.getTableMetadata());
         TypedMessageBuilder messageBuilder = producer.newMessage();
@@ -118,9 +113,6 @@ public class PulsarMutationSender implements MutationSender<KeyValue<MutationKey
                 .sendAsync()
                 .thenAccept(msgId -> {
                     this.sentOffset.set(mutation.getSource().commitLogPosition);
-                    List<Tag> tags = ImmutableList.of(Tag.of("keyspace", mutation.getTableMetadata().keyspace), Tag.of("table", mutation.getTableMetadata().name));
-                    meterRegistry.counter(MetricConstants.METRICS_PREFIX + "sent", tags).increment();
-                    meterRegistry.counter(MetricConstants.METRICS_PREFIX + "sent_in_bytes", tags).increment(ObjectSizeCalculator.getObjectSize(mutation));
                     offsetWriter.notCommittedEvents++;
                     offsetWriter.maybeCommitOffset(mutation);
                 });

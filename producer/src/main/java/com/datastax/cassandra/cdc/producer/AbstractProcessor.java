@@ -7,6 +7,7 @@ package com.datastax.cassandra.cdc.producer;
 
 import java.io.IOException;
 
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,8 +15,8 @@ import org.slf4j.LoggerFactory;
  * An abstract processor designed to be a convenient superclass for all concrete processors for Cassandra
  * connector task. The class handles concurrency control for starting and stopping the processor.
  */
+@Slf4j
 public abstract class AbstractProcessor {
-    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractProcessor.class);
 
     private final String name;
     private final long delay;
@@ -45,22 +46,27 @@ public abstract class AbstractProcessor {
 
     public final void start() throws Exception {
         if (running) {
-            LOGGER.warn("Ignoring start signal for {} because it is already started", name);
+            log.warn("Ignoring start signal for {} because it is already started", name);
             return;
         }
 
-        LOGGER.info("Started {}", name);
+        log.info("Started {}", name);
         running = true;
         while (isRunning()) {
-            process();
-            Thread.sleep(delay);
+            try {
+                process();
+                Thread.sleep(delay);
+            } catch(Throwable t) {
+                log.error("error:", t);
+                throw t;
+            }
         }
-        LOGGER.info("Stopped {}", name);
+        log.info("Stopped {}", name);
     }
 
     public final void stop() {
         if (isRunning()) {
-            LOGGER.info("Stopping {}", name);
+            log.info("Stopping {}", name);
             running = false;
         }
     }
