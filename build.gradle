@@ -53,17 +53,9 @@ allprojects {
     apply plugin: 'io.spring.dependency-management'
     apply plugin: 'com.google.osdetector'
 
-    dependencyManagement {
-        imports {
-            mavenBom "io.micronaut:micronaut-bom:$micronautVersion"
-        }
-    }
-
     dependencies {
         testImplementation 'org.junit.jupiter:junit-jupiter-api:5.1.1'
         testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.1.1'
-
-        implementation "org.apache.pulsar:pulsar-client:${pulsarVersion}"
     }
 
 

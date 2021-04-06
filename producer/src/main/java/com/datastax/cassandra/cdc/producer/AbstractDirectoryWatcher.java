@@ -17,6 +17,8 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
@@ -26,8 +28,6 @@ import java.nio.file.WatchService;
 import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-
-import lombok.extern.slf4j.Slf4j;
 
 /**
  * Wrapper class around WatchService to make WatchService re-usable and avoid code repetition
@@ -62,7 +62,7 @@ public abstract class AbstractDirectoryWatcher {
                 Path absolutePath = directory.resolve(relativePath);
 
                 if (kinds.contains(event.kind())) {
-                    log.trace("Detected new commitlog file={}", absolutePath);
+                    log.debug("Detected new commitlog file={}", absolutePath);
                     handleEvent(event, absolutePath);
                 }
             }

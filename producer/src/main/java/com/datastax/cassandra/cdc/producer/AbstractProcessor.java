@@ -8,8 +8,6 @@ package com.datastax.cassandra.cdc.producer;
 import java.io.IOException;
 
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * An abstract processor designed to be a convenient superclass for all concrete processors for Cassandra

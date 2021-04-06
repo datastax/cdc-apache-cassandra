@@ -1,0 +1,39 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'com.google.cloud.tools.jib'
+    id "com.gorylenko.gradle-git-properties"
+    id "com.github.johnrengelman.shadow"
+}
+
+application {
+    mainClassName = "$mainClassName"
+}
+
+jar {
+    manifest {
+        attributes 'Premain-Class': "$mainClassName"
+    }
+    zip64=true
+    from {
+        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+
+tasks.jar.dependsOn project(':producer').jar
+
+compileTestJava {
+    options.compilerArgs += '-parameters'
+}
+
+
+dependencies {
+    implementation "org.projectlombok:lombok:${lombokVersion}"
+    annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+
+    implementation project(':common')
+    implementation project(':producer')
+    implementation("io.debezium:debezium-core:1.4.0.Final")
+    compileOnly("org.apache.cassandra:cassandra-all:3.11.10")
+
+}

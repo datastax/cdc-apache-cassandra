@@ -6,8 +6,6 @@
 package com.datastax.cassandra.cdc.producer;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.cassandra.config.DatabaseDescriptor;
-import org.apache.cassandra.db.commitlog.CommitLogPosition;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -26,7 +24,7 @@ public class OffsetFileWriter implements AutoCloseable {
     volatile long timeOfLastFlush = System.currentTimeMillis();
     volatile Long notCommittedEvents = 0L;
 
-    public OffsetFileWriter() throws IOException {
+    public OffsetFileWriter(String cdcLogDir) throws IOException {
         this.offsetFlushPolicy = new OffsetFlushPolicy.AlwaysFlushOffsetPolicy();
         /*
         this.meterRegistry.gauge("committed_segment", fileOffsetRef, new ToDoubleFunction<AtomicReference<CommitLogPosition>>() {
@@ -43,7 +41,7 @@ public class OffsetFileWriter implements AutoCloseable {
         });
          */
 
-        this.offsetFile = new File(DatabaseDescriptor.getCDCLogLocation(), COMMITLOG_OFFSET_FILE);
+        this.offsetFile = new File(cdcLogDir, COMMITLOG_OFFSET_FILE);
         init();
     }
 
@@ -104,7 +102,7 @@ public class OffsetFileWriter implements AutoCloseable {
         }
     }
 
-    void maybeCommitOffset(Mutation record) {
+    void maybeCommitOffset(Mutation<?> record) {
         try {
             long now = System.currentTimeMillis();
             long timeSinceLastFlush = now - timeOfLastFlush;
@@ -112,8 +110,6 @@ public class OffsetFileWriter implements AutoCloseable {
                 SourceInfo source = record.getSource();
                 markOffset(source.commitLogPosition);
                 flush();
-                //this.meterRegistry.counter(MetricConstants.METRICS_PREFIX + "commit").increment();
-                //this.meterRegistry.counter(MetricConstants.METRICS_PREFIX + "committed").increment(notCommittedEvents);
                 notCommittedEvents = 0L;
                 timeOfLastFlush = now;
                 log.debug("Offset flushed source=" + source);

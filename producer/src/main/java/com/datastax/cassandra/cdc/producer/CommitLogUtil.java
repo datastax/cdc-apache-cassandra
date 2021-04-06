@@ -15,11 +15,9 @@ import java.util.regex.Pattern;
 
 import com.datastax.cassandra.cdc.producer.exceptions.CassandraConnectorDataException;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
- * Utility class used by the {@link CommitLogProcessor} to compare/delete commit log files.
+ * Utility class for commit log files.
  */
 @Slf4j
 public final class CommitLogUtil {

@@ -1,124 +1,19 @@
 plugins {
     id 'java'
-    id 'application'
-    id 'com.google.cloud.tools.jib'
     id "com.gorylenko.gradle-git-properties"
     id "com.github.johnrengelman.shadow"
-    id "io.micronaut.application" version "1.2.0"
 }
-
-application {
-    mainClassName = "$mainClassName"
-}
-
-jar {
-    manifest {
-        attributes 'Premain-Class': "$mainClassName"
-    }
-    zip64=true
-    from {
-        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
-    }
-}
-
-tasks.jar.dependsOn project(':common').jar
 
 compileTestJava {
     options.compilerArgs += '-parameters'
 }
 
-shadowJar {
-    manifest {
-        inheritFrom project.tasks.jar.manifest
-    }
-    mergeServiceFiles {
-        include 'application.yml'
-    }
-}
-
-micronaut {
-    //runtime("netty")
-    testRuntime("junit5")
-    processing {
-        incremental(true)
-        annotations("com.datastax.cassandra.cdc.producer.*")
-    }
-}
-
 dependencies {
     implementation "org.projectlombok:lombok:${lombokVersion}"
     annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
-
-    implementation project(':common')
-
-    implementation("javax.annotation:javax.annotation-api")
-
-    //implementation("io.micronaut:micronaut-http-client-core")
     implementation("io.debezium:debezium-core:1.4.0.Final")
-
-    //implementation("org.apache.cassandra:cassandra-all:4.0-alpha2")
-    //implementation("org.apache.cassandra:cassandra-all:4.0-beta3-SNAPSHOT")
-    //implementation("com.strapdata.cassandra:cassandra-all:3.11.9")
-    compileOnly("org.apache.cassandra:cassandra-all:4.0-beta4")
-
-    compileOnly group: 'com.fasterxml.jackson.core', name: 'jackson-annotations', version: '2.11.1'
-    compileOnly group: 'com.fasterxml.jackson.dataformat', name: 'jackson-dataformat-yaml', version: '2.11.1'
-
-    //implementation "io.vavr:vavr:0.10.3"
-    implementation 'net.jodah:failsafe:2.4.0'
+    implementation project(':common')
 }
 
-run {
-    if ( project.hasProperty('args') ) {
-        args project.args.split('\\s+')
-    }
-    //jvmArgs = [ "-Djavax.net.debug=all" ]
-    mainClass = "$mainClassName"
-}
 
-task runLocalPulsar(type: JavaExec) {
-    classpath = sourceSets.main.runtimeClasspath
-    main = mainClassName
-    //jvmArgs = [ "-Djavax.net.debug=all" ]
-    jvmArgs = ['-Dmicronaut.environments=localpulsar',
-            '-Djdk.attach.allowAttachSelf=true',
-            '--add-exports', 'java.base/jdk.internal.misc=ALL-UNNAMED',
-            '--add-exports', 'java.base/jdk.internal.ref=ALL-UNNAMED',
-            '--add-exports', 'java.base/sun.nio.ch=ALL-UNNAMED',
-            '--add-exports', 'java.management.rmi/com.sun.jmx.remote.internal.rmi=ALL-UNNAMED',
-            '--add-exports', 'java.rmi/sun.rmi.registry=ALL-UNNAMED',
-            '--add-exports', 'java.rmi/sun.rmi.server=ALL-UNNAMED',
-            '--add-exports', 'java.sql/java.sql=ALL-UNNAMED',
-            '--add-opens', 'java.base/java.lang.module=ALL-UNNAMED',
-            '--add-opens', 'java.base/jdk.internal.loader=ALL-UNNAMED',
-            '--add-opens', 'java.base/jdk.internal.ref=ALL-UNNAMED',
-            '--add-opens', 'java.base/jdk.internal.reflect=ALL-UNNAMED',
-            '--add-opens', 'java.base/jdk.internal.math=ALL-UNNAMED',
-            '--add-opens', 'java.base/jdk.internal.module=ALL-UNNAMED',
-            '--add-opens', 'java.base/jdk.internal.util.jar=ALL-UNNAMED',
-            '--add-opens', 'jdk.management/com.sun.management.internal=ALL-UNNAMED',
-            '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005'
-    ]
-    mainClass = "$mainClassName"
-}
 
-jib {
-    from {
-        image = 'openjdk:alpine'
-    }
-    to {
-        image = project.image
-        credHelper = 'osxkeychain'
-        tags = [ project.version, 'latest' ]
-    }
-    container {
-        jvmFlags = ['-Xmx300m',
-                    '-XX:+UnlockExperimentalVMOptions', '-XX:+UseCGroupMemoryLimitForHeap', '-XX:MaxRAMFraction=2',
-                    '-XX:+ExitOnOutOfMemoryError',
-                    '-Xdebug', '-Xnoagent', '-Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=5005'
-        ]
-        mainClass = mainClassName
-        ports = ['8080', '8081']
-        labels = [ description:'Cassandra CDC producer']
-    }
-}

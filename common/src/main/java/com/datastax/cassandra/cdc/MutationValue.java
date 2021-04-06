@@ -1,8 +1,8 @@
 package com.datastax.cassandra.cdc;
 
 import lombok.*;
+import lombok.ToString;
 
-import java.time.Instant;
 import java.util.UUID;
 
 @Getter

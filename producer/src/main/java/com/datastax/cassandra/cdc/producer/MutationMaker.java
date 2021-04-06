@@ -7,22 +7,16 @@ package com.datastax.cassandra.cdc.producer;
 
 import com.datastax.cassandra.cdc.producer.exceptions.CassandraConnectorTaskException;
 import io.debezium.function.BlockingConsumer;
-import org.apache.cassandra.db.commitlog.CommitLogPosition;
-import org.apache.cassandra.schema.TableMetadata;
-import org.apache.cassandra.utils.MD5Digest;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
-import javax.inject.Singleton;
 import java.time.Instant;
 import java.util.UUID;
 
 /**
  * Responsible for generating ChangeRecord and/or TombstoneRecord for create/update/delete events, as well as EOF events.
  */
-@Singleton
-public class MutationMaker {
-    private static final Logger LOGGER = LoggerFactory.getLogger(MutationMaker.class);
+@Slf4j
+public class MutationMaker<T> {
     private final boolean emitTombstoneOnDelete;
 
     public MutationMaker() {
@@ -32,46 +26,45 @@ public class MutationMaker {
     public void insert(String cluster, UUID node, CommitLogPosition offsetPosition,
                        String keyspace, String name, boolean snapshot,
                        Instant tsMicro, RowData data,
-                       boolean markOffset, BlockingConsumer<Mutation> consumer,
-                       String md5Digest, TableMetadata tableMetadata) {
+                       boolean markOffset, BlockingConsumer<Mutation<T>> consumer,
+                       String md5Digest, CommitLogPosition commitLogPosition, T t) {
         createRecord(cluster, node, offsetPosition, keyspace, name, snapshot, tsMicro,
-                data, markOffset, consumer, md5Digest, tableMetadata);
+                data, markOffset, consumer, md5Digest, commitLogPosition, t);
     }
 
     public void update(String cluster, UUID node, CommitLogPosition offsetPosition,
                        String keyspace, String name, boolean snapshot,
                        Instant tsMicro, RowData data,
-                       boolean markOffset, BlockingConsumer<Mutation> consumer,
-                       String md5Digest, TableMetadata tableMetadata) {
+                       boolean markOffset, BlockingConsumer<Mutation<T>> consumer,
+                       String md5Digest, CommitLogPosition commitLogPosition, T t) {
         createRecord(cluster, node, offsetPosition, keyspace, name, snapshot, tsMicro,
-                data, markOffset, consumer, md5Digest, tableMetadata);
+                data, markOffset, consumer, md5Digest, commitLogPosition, t);
     }
 
     public void delete(String cluster, UUID node, CommitLogPosition offsetPosition,
                        String keyspace, String name, boolean snapshot,
                        Instant tsMicro, RowData data,
-                       boolean markOffset, BlockingConsumer<Mutation> consumer,
-                       String md5Digest, TableMetadata tableMetadata) {
+                       boolean markOffset, BlockingConsumer<Mutation<T>> consumer,
+                       String md5Digest, CommitLogPosition commitLogPosition, T t) {
         createRecord(cluster, node, offsetPosition, keyspace, name, snapshot, tsMicro,
-                data, markOffset, consumer, md5Digest, tableMetadata);
+                data, markOffset, consumer, md5Digest, commitLogPosition, t);
     }
 
     private void createRecord(String cluster, UUID node, CommitLogPosition offsetPosition,
                               String keyspace, String name, boolean snapshot,
                               Instant tsMicro, RowData data,
-                              boolean markOffset, BlockingConsumer<Mutation> consumer,
-                              String md5Digest, TableMetadata tableMetadata) {
+                              boolean markOffset, BlockingConsumer<Mutation<T>> consumer,
+                              String md5Digest, CommitLogPosition commitLogPosition, T t) {
         // TODO: filter columns
         RowData filteredData = data;
 
         SourceInfo source = new SourceInfo(cluster, node, offsetPosition, keyspace, name, tsMicro);
-        Mutation record = new Mutation(offsetPosition.segmentId, offsetPosition.position, source, filteredData,
-                markOffset, tsMicro.toEpochMilli(), md5Digest, tableMetadata);
+        Mutation<T> record = new Mutation<T>(commitLogPosition, source, filteredData, markOffset, tsMicro.toEpochMilli(), md5Digest, t);
         try {
             consumer.accept(record);
         }
         catch (InterruptedException e) {
-            LOGGER.error("Interruption while enqueuing Change Event {}", record.toString());
+            log.error("Interruption while enqueuing Change Event {}", record.toString());
             throw new CassandraConnectorTaskException("Enqueuing has been interrupted: ", e);
         }
     }

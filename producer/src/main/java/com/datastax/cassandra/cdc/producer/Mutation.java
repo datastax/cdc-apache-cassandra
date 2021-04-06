@@ -5,15 +5,11 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
-import com.datastax.cassandra.cdc.MutationKey;
 import com.datastax.cassandra.cdc.MutationValue;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
-import org.apache.cassandra.schema.TableMetadata;
-import org.apache.cassandra.utils.MD5Digest;
-import org.apache.pulsar.client.api.schema.GenericRecord;
 
 import java.util.List;
 
@@ -26,22 +22,17 @@ import java.util.List;
 @AllArgsConstructor
 @ToString
 @EqualsAndHashCode
-public class Mutation {
-    private long segment;
-    private int position;
+public class Mutation<T> {
+    private CommitLogPosition commitLogPosition;
     private SourceInfo source;
     private RowData rowData;
     private boolean shouldMarkOffset;
     private long ts;
     private String md5Digest;
-    private TableMetadata tableMetadata;
+    private T metadata;
 
     public List<CellData> primaryKeyCells() {
         return rowData.primaryKeyCells();
-    }
-
-    public MutationKey mutationKey() {
-        return new MutationKey(tableMetadata.keyspace, tableMetadata.name, rowData.primaryKeyValues());
     }
 
     public MutationValue mutationValue() {
