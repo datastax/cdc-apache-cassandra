@@ -7,9 +7,8 @@
 
 ## Test
 
-    ./gradlew clean source-kafka:test --tests com.datastax.oss.pulsar.source.CassandraSourceTests
 
-## Start Kafkaps 
+## Start Kafka 
 
     docker-compose up -d
 

@@ -10,6 +10,16 @@ every replicated Cassandra tables.
 
 ![Cassandra-source-connector](cassandra-source-connector.png)
 
+
+A Pulsar key-shared subscription ensure all mutations for a given primary key are processeed sequentially.
+
+![subscription](docs/images/subscription-key-shared.png)
+
+## Pulsar requirements
+
+* PR #10052 vroyer json_generic_record_builder
+* Branch https://github.com/vroyer/pulsar/tree/fix/es-sink2
+
 ## Build
 
     ./gradlew source-pulsar:nar
