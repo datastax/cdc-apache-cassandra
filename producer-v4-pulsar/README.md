@@ -2,7 +2,7 @@
 
 ## Build
 
-    ./gradlew producer-v4-pulsar
+    ./gradlew producer-v4-pulsar:shadowJar
 
 ## Run
 

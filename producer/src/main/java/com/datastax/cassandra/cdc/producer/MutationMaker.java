@@ -27,39 +27,39 @@ public class MutationMaker<T> {
                        String keyspace, String name, boolean snapshot,
                        Instant tsMicro, RowData data,
                        boolean markOffset, BlockingConsumer<Mutation<T>> consumer,
-                       String md5Digest, CommitLogPosition commitLogPosition, T t) {
+                       String md5Digest, T t) {
         createRecord(cluster, node, offsetPosition, keyspace, name, snapshot, tsMicro,
-                data, markOffset, consumer, md5Digest, commitLogPosition, t);
+                data, markOffset, consumer, md5Digest, t);
     }
 
     public void update(String cluster, UUID node, CommitLogPosition offsetPosition,
                        String keyspace, String name, boolean snapshot,
                        Instant tsMicro, RowData data,
                        boolean markOffset, BlockingConsumer<Mutation<T>> consumer,
-                       String md5Digest, CommitLogPosition commitLogPosition, T t) {
+                       String md5Digest, T t) {
         createRecord(cluster, node, offsetPosition, keyspace, name, snapshot, tsMicro,
-                data, markOffset, consumer, md5Digest, commitLogPosition, t);
+                data, markOffset, consumer, md5Digest, t);
     }
 
     public void delete(String cluster, UUID node, CommitLogPosition offsetPosition,
                        String keyspace, String name, boolean snapshot,
                        Instant tsMicro, RowData data,
                        boolean markOffset, BlockingConsumer<Mutation<T>> consumer,
-                       String md5Digest, CommitLogPosition commitLogPosition, T t) {
+                       String md5Digest, T t) {
         createRecord(cluster, node, offsetPosition, keyspace, name, snapshot, tsMicro,
-                data, markOffset, consumer, md5Digest, commitLogPosition, t);
+                data, markOffset, consumer, md5Digest, t);
     }
 
     private void createRecord(String cluster, UUID node, CommitLogPosition offsetPosition,
                               String keyspace, String name, boolean snapshot,
                               Instant tsMicro, RowData data,
                               boolean markOffset, BlockingConsumer<Mutation<T>> consumer,
-                              String md5Digest, CommitLogPosition commitLogPosition, T t) {
+                              String md5Digest, T t) {
         // TODO: filter columns
         RowData filteredData = data;
 
         SourceInfo source = new SourceInfo(cluster, node, offsetPosition, keyspace, name, tsMicro);
-        Mutation<T> record = new Mutation<T>(commitLogPosition, source, filteredData, markOffset, tsMicro.toEpochMilli(), md5Digest, t);
+        Mutation<T> record = new Mutation<T>(offsetPosition, source, filteredData, markOffset, tsMicro.toEpochMilli(), md5Digest, t);
         try {
             consumer.accept(record);
         }

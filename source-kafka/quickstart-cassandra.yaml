@@ -1,0 +1,21 @@
+{
+  "name": "cassandra-source",
+  "config": {
+    "connector.class": "com.datastax.oss.kafka.source.CassandraSourceConnector",
+    "tasks.max": "1",
+    "bootstrap.servers": "broker:29092",
+    "schema.registry.url": "http://schema-registry:8081",
+    "errors.log.enable": true,
+    "errors.log.include.messages": true,
+    "events.topic": "events-ks1.table1",
+    "data.topic": "data-ks1.table1",
+    "keyspace": "ks1",
+    "table": "table1",
+    "contactPoints": "host.docker.internal",
+    "loadBalancing.localDc": "datacenter1",
+    "key.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "key.converter.schema.registry.url": "http://schema-registry:8081",
+    "value.converter.schema.registry.url": "http://schema-registry:8081"
+  }
+}

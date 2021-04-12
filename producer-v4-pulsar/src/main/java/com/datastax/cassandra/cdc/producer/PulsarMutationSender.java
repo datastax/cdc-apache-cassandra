@@ -3,8 +3,8 @@ package com.datastax.cassandra.cdc.producer;
 import com.datastax.cassandra.cdc.MutationValue;
 import com.datastax.cassandra.cdc.producer.converters.JsonConverter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.cassandra.db.commitlog.CommitLogPosition;
 import org.apache.cassandra.schema.TableMetadata;
+import org.apache.cassandra.service.StorageService;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.FBUtilities;
 import org.apache.pulsar.client.api.*;
@@ -55,11 +55,10 @@ public class PulsarMutationSender implements MutationSender<TableMetadata> , Aut
         });
     }
 
-    static int topicCount = 0;
     @SuppressWarnings("rawtypes")
     public Producer getProducer(final TableMetadata tm) {
-        String topicName = PropertyConfig.pulsarTopicPrefix + tm.keyspace + "." + tm.name;
-        String producerName = "pulsar-producer-" + topicName + topicCount++;
+        String topicName = PropertyConfig.topicPrefix + tm.keyspace + "." + tm.name;
+        String producerName = "pulsar-producer-" + StorageService.instance.getLocalHostId() + topicName;
         return producers.compute(topicName, (k, v) -> {
                 if (v == null) {
                     try {
@@ -73,7 +72,7 @@ public class PulsarMutationSender implements MutationSender<TableMetadata> , Aut
                                 .hashingScheme(HashingScheme.Murmur3_32Hash)
                                 .batcherBuilder(BatcherBuilder.KEY_BASED)
                                 .create();
-                        log.info("producer name={} created", producerName);
+                        log.info("Pulsar producer name={} created", producerName);
                         return producer;
                     } catch (Exception e) {
                         log.error("unexpected error", e);
@@ -97,11 +96,6 @@ public class PulsarMutationSender implements MutationSender<TableMetadata> , Aut
     }
 
     @Override
-    public com.datastax.cassandra.cdc.producer.CommitLogPosition sentOffset() {
-        return this.sentOffset.get();
-    }
-
-    @Override
     @SuppressWarnings({"rawtypes","unchecked"})
     public CompletionStage<Void> sendMutationAsync(final Mutation<TableMetadata> mutation) throws PulsarClientException {
         if (this.client == null) {
@@ -110,15 +104,9 @@ public class PulsarMutationSender implements MutationSender<TableMetadata> , Aut
         Producer<?> producer = getProducer(mutation.getMetadata());
         Converter<?, List<CellData>, Object[]> converter = getConverter(mutation.getMetadata());
         TypedMessageBuilder messageBuilder = producer.newMessage();
-
         return messageBuilder
                 .value(new KeyValue(converter.toConnectData(mutation.primaryKeyCells()), mutation.mutationValue()))
-                .sendAsync()
-                .thenAccept(msgId -> {
-                    this.sentOffset.set(mutation.getSource().commitLogPosition);
-                    offsetWriter.notCommittedEvents++;
-                    offsetWriter.maybeCommitOffset(mutation);
-                });
+                .sendAsync();
     }
 
     /**

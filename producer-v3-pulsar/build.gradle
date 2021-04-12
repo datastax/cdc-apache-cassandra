@@ -1,0 +1,44 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'com.google.cloud.tools.jib'
+    id "com.gorylenko.gradle-git-properties"
+    id "com.github.johnrengelman.shadow"
+}
+
+application {
+    mainClassName = "$mainClassName"
+}
+
+jar {
+    manifest {
+        attributes 'Premain-Class': "$mainClassName"
+    }
+    zip64=true
+    from {
+        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+
+compileTestJava {
+    options.compilerArgs += '-parameters'
+}
+
+shadowJar {
+    manifest {
+        inheritFrom project.tasks.jar.manifest
+    }
+}
+
+dependencies {
+    implementation "org.projectlombok:lombok:${lombokVersion}"
+    annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+    implementation project(':common')
+    implementation project(':producer')
+    implementation project(':producer-v3')
+    implementation("org.apache.pulsar:pulsar-client:${pulsarVersion}")
+    compileOnly("org.apache.cassandra:cassandra-all:${cassandra3Version}")
+}
+
+
+

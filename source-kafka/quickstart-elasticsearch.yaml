@@ -1,0 +1,11 @@
+{
+  "name": "elasticsearch-sink",
+  "config": {
+    "connector.class": "io.confluent.connect.elasticsearch.ElasticsearchSinkConnector",
+    "type.name": "_doc",
+    "tasks.max": 1,
+    "key.ignore": false,
+    "topics": "data-ks1.table1",
+    "connection.url": "http://host.docker.internal:9200"
+  }
+}

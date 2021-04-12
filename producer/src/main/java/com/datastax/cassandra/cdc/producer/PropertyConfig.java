@@ -17,6 +17,10 @@ public class PropertyConfig {
     public static final boolean emitTombstoneOnDelete = true;
 
 
-    public static final String pulsarTopicPrefix = System.getProperty("pulsarTopicPrefix", "dirty-");
+    public static final String topicPrefix = System.getProperty("topicPrefix", "events-");
+
     public static final String pulsarServiceUrl = System.getProperty("pulsarServiceUrl", "pulsar://localhost:6650");
+
+    public static final String kafkaBrokers = System.getProperty("kafkaBrokers", "localhost:9092");
+    public static final String kafkaRegistryUrl = System.getProperty("schemaRegistryUrl", "http://localhost:8081");
 }

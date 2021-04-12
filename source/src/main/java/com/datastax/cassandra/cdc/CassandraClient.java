@@ -1,7 +1,6 @@
-package com.datastax.oss.pulsar.source;
+package com.datastax.cassandra.cdc;
 
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
-import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.AsyncResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
@@ -12,22 +11,11 @@ import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import com.datastax.oss.driver.api.core.servererrors.UnavailableException;
-import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
 import com.datastax.oss.driver.api.querybuilder.select.Select;
-import com.datastax.oss.protocol.internal.ProtocolConstants;
-import com.google.common.collect.ImmutableList;
-import groovy.lang.Singleton;
 import io.vavr.Tuple2;
 import io.vavr.Tuple3;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.avro.Schema;
-import org.apache.pulsar.client.api.schema.FieldSchemaBuilder;
-import org.apache.pulsar.client.api.schema.GenericRecord;
-import org.apache.pulsar.client.api.schema.RecordSchemaBuilder;
-import org.apache.pulsar.client.api.schema.SchemaBuilder;
-import org.apache.pulsar.common.schema.SchemaType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.List;
@@ -36,14 +24,16 @@ import java.util.UUID;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
-import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.*;
+import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.bindMarker;
+import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.selectFrom;
 
 /**
  * Async read from Cassandra with downgrade consistency retry.
  */
 @Slf4j
+@Getter
+@SuppressWarnings("try")
 public class CassandraClient implements AutoCloseable {
 
     final CqlSession cqlSession;
@@ -52,16 +42,20 @@ public class CassandraClient implements AutoCloseable {
         this.cqlSession = session;
     }
 
+    @Override
     public void close() throws Exception {
         this.cqlSession.close();
     }
 
-    public Tuple3<Row, ConsistencyLevel, KeyspaceMetadata> selectRow(CassandraSourceConfig config,
-                                                                     Object[] pkColumns,
+    public Tuple3<Row, ConsistencyLevel, KeyspaceMetadata> selectRow(String keyspaceName,
+                                                                     String tableName,
+                                                                     List<String> pkColumns,
+                                                                     Object[] pkValues,
                                                                      UUID nodeId,
                                                                      List<ConsistencyLevel> consistencyLevels)
             throws ExecutionException, InterruptedException {
-        return selectRowAsync(config, pkColumns, nodeId, consistencyLevels).toCompletableFuture().get();
+        return selectRowAsync(keyspaceName, tableName, pkColumns, pkValues, nodeId, consistencyLevels)
+                .toCompletableFuture().get();
     }
 
     public Tuple2<KeyspaceMetadata, TableMetadata> getTableMetadata(String keyspace, String table) {
@@ -81,15 +75,17 @@ public class CassandraClient implements AutoCloseable {
      * Try to read CL=ALL (could be LOCAL_ALL), retry LOCAL_QUORUM, retry LOCAL_ONE.
      *
      */
-    public CompletionStage<Tuple3<Row, ConsistencyLevel, KeyspaceMetadata>> selectRowAsync(CassandraSourceConfig config,
-                                                                                           Object[] pkColumns,
+    public CompletionStage<Tuple3<Row, ConsistencyLevel, KeyspaceMetadata>> selectRowAsync(String keyspaceName,
+                                                                                           String tableName,
+                                                                                           List<String> pkColumns,
+                                                                                           Object[] pkValues,
                                                                                            UUID nodeId,
                                                                                            List<ConsistencyLevel> consistencyLevels) {
-        TableMetadata tableMetadata = getTableMetadata(config.getKeyspace(), config.getTable())._2;
-        Select query = selectFrom(config.getKeyspace(), config.getTable()).all();
-        for(ColumnMetadata cm : tableMetadata.getPrimaryKey())
-            query = query.whereColumn(cm.getName()).isEqualTo(QueryBuilder.bindMarker());
-        SimpleStatement statement = query.build(pkColumns);
+        TableMetadata tableMetadata = getTableMetadata(keyspaceName, tableName)._2;
+        Select query = selectFrom(keyspaceName, tableName).all();
+        for(String pkColumn : pkColumns)
+            query = query.whereColumn(pkColumn).isEqualTo(bindMarker());
+        SimpleStatement statement = query.build(pkValues);
 
         // set the coordinator node
         if(nodeId != null) {
@@ -98,17 +94,17 @@ public class CassandraClient implements AutoCloseable {
                 log.debug("node={} query={}", node.getHostId(), query.toString());
                 statement.setNode(node);
             } else {
-                log.warn("Cannot get row pk={} from node={}", Arrays.asList(pkColumns), nodeId);
+                log.warn("Cannot get row {}}={} from node={}", pkColumns, Arrays.asList(pkValues), nodeId);
             }
         } else {
             log.debug("node=any query={}", query.toString());
         }
 
-        return executeWithDowngradeConsistencyRetry(cqlSession, query.build(pkColumns), consistencyLevels)
+        return executeWithDowngradeConsistencyRetry(cqlSession, keyspaceName, query.build(pkColumns), consistencyLevels)
                 .thenApply(tuple -> {
                     log.debug("Read cl={} coordinator={} pk={}",
                             tuple._2, tuple._1.getExecutionInfo().getCoordinator().getHostId(), Arrays.asList(pkColumns));
-                    KeyspaceMetadata keyspaceMetadata = cqlSession.getMetadata().getKeyspace(config.getKeyspace()).get();
+                    KeyspaceMetadata keyspaceMetadata = cqlSession.getMetadata().getKeyspace(keyspaceName).get();
                     Row row = tuple._1.one();
                     return new Tuple3<>(
                             row,
@@ -123,6 +119,7 @@ public class CassandraClient implements AutoCloseable {
 
     CompletionStage<Tuple2<AsyncResultSet, ConsistencyLevel>> executeWithDowngradeConsistencyRetry(
             CqlSession cqlSession,
+            String keyspaceName,
             SimpleStatement statement,
             List<ConsistencyLevel> consistencyLevels) {
         final ConsistencyLevel cl = consistencyLevels.remove(0);
@@ -138,7 +135,7 @@ public class CassandraClient implements AutoCloseable {
                     }
                     return completionStage
                             .handleAsync((r1, ex1) ->
-                                    executeWithDowngradeConsistencyRetry(cqlSession, statement, consistencyLevels))
+                                    executeWithDowngradeConsistencyRetry(cqlSession, keyspaceName, statement, consistencyLevels))
                             .thenCompose(Function.identity());
                 })
                 .thenCompose(Function.identity());

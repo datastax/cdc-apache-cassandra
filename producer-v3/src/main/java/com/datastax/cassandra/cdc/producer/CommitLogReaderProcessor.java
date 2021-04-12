@@ -28,8 +28,6 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
     // synced position
     private AtomicReference<CommitLogPosition> syncedOffsetRef = new AtomicReference<>(new CommitLogPosition(0,0));
 
-    private CountDownLatch syncedOffsetLatch = new CountDownLatch(1);
-
     private final PriorityBlockingQueue<File> commitLogQueue = new PriorityBlockingQueue<>(128, CommitLogUtil::compareCommitLogs);
 
     private final CommitLogReadHandlerImpl commitLogReadHandler;
@@ -63,42 +61,7 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
 
     public void submitCommitLog(File file)  {
         log.debug("submitCommitLog file={}", file.getAbsolutePath());
-        if (file.getName().endsWith("_cdc.idx")) {
-            // you can have old _cdc.idx file, ignore it
-            long seg = CommitLogUtil.extractTimestamp(file.getName());
-            int pos = 0;
-            if (seg >= this.syncedOffsetRef.get().segmentId) {
-                try {
-                    List<String> lines = Files.readAllLines(file.toPath(), Charset.forName("UTF-8"));
-                    if (lines.size() > 0) {
-                        pos = Integer.parseInt(lines.get(0));
-                        boolean completed = false;
-                        try {
-                            if("COMPLETED".equals(lines.get(1))) {
-                                completed = true;
-                            }
-                        } catch(Exception ex) {
-                        }
-                        syncedOffsetRef.set(new CommitLogPosition(seg, pos));
-                        log.debug("New synced position={} completed={}", syncedOffsetRef.get(), completed);
-
-                        // unlock the processing of commitlogs
-                        if(syncedOffsetLatch.getCount() > 0)
-                            syncedOffsetLatch.countDown();
-                    }
-                } catch(IOException ex) {
-                    log.warn("error while reading file=" + file.getName(), ex);
-                }
-            } else {
-                log.debug("Ignoring old synced position from file={} pos={}", file.getName(), pos);
-            }
-        } else {
-            this.commitLogQueue.add(file);
-        }
-    }
-
-    public void awaitSyncedPosition() throws InterruptedException {
-        syncedOffsetLatch.await();
+        this.commitLogQueue.add(file);
     }
 
     @Override
@@ -129,7 +92,7 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
                         ? new CommitLogPosition(seg, 0)
                         : new CommitLogPosition(offsetFileWriter.offset().getSegmentId(), offsetFileWriter.offset().getPosition());
 
-                commitLogReader.readCommitLogSegment(commitLogReadHandler, file, minPosition, false);
+                commitLogReader.readCommitLogSegment(commitLogReadHandler, file, minPosition.position, false);
                 log.debug("Successfully processed commitlog immutable={} minPosition={} file={}",
                         seg < this.syncedOffsetRef.get().segmentId, minPosition, file.getName());
                 if (seg < this.syncedOffsetRef.get().segmentId) {

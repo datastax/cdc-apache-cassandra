@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.datastax.cassandra.cdc.producer.CommitLogReadHandlerImpl.RowType.DELETE;
 
@@ -49,6 +50,9 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     private final MutationMaker<TableMetadata> mutationMaker;
     private final MutationSender<TableMetadata> mutationSender;
     private final OffsetFileWriter offsetWriter;
+
+    AtomicReference<CommitLogPosition> sentOffset =
+            new AtomicReference<>(new com.datastax.cassandra.cdc.producer.CommitLogPosition(0,0));
 
     CommitLogReadHandlerImpl(OffsetFileWriter offsetFileWriter,
                              MutationSender<TableMetadata> mutationSender) {
@@ -321,7 +325,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
             mutationMaker.delete(DatabaseDescriptor.getClusterName(), StorageService.instance.getLocalHostUUID(), offsetPosition,
                     pu.metadata().keyspace, pu.metadata().name, false,
                     Conversions.toInstantFromMicros(pu.maxTimestamp()), after,
-                    MARK_OFFSET, this::blockingSend, md5Digest, offsetPosition, pu.metadata());
+                    MARK_OFFSET, this::blockingSend, md5Digest, pu.metadata());
         }
         catch (Exception e) {
             log.error("Fail to send delete partition at {}. Reason: {}", offsetPosition, e);
@@ -356,19 +360,19 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
             case INSERT:
                 mutationMaker.insert(DatabaseDescriptor.getClusterName(), StorageService.instance.getLocalHostUUID(), offsetPosition,
                         pu.metadata().keyspace, pu.metadata().name, false,
-                        Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, this::blockingSend, md5Digest, offsetPosition, pu.metadata());
+                        Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, this::blockingSend, md5Digest, pu.metadata());
                 break;
 
             case UPDATE:
                 mutationMaker.update(DatabaseDescriptor.getClusterName(), StorageService.instance.getLocalHostUUID(), offsetPosition,
                         pu.metadata().keyspace, pu.metadata().name, false,
-                        Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, this::blockingSend, md5Digest, offsetPosition, pu.metadata());
+                        Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, this::blockingSend, md5Digest, pu.metadata());
                 break;
 
             case DELETE:
                 mutationMaker.delete(DatabaseDescriptor.getClusterName(), StorageService.instance.getLocalHostUUID(), offsetPosition,
                         pu.metadata().keyspace, pu.metadata().name, false,
-                        Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, this::blockingSend, md5Digest, offsetPosition, pu.metadata());
+                        Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, this::blockingSend, md5Digest, pu.metadata());
                 break;
 
             default:
@@ -520,7 +524,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     }
 
     public void blockingSend(Mutation<TableMetadata> mutation) {
-        com.datastax.cassandra.cdc.producer.CommitLogPosition sentOffset = this.mutationSender.sentOffset();
+        com.datastax.cassandra.cdc.producer.CommitLogPosition sentOffset = offsetWriter.offset();
         long seg = sentOffset.segmentId;
         int pos = sentOffset.position;
 
@@ -548,7 +552,13 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
     // TODO: add exponential retry
     CompletionStage<Void> processMutation(final Mutation<TableMetadata> mutation) throws Exception {
-        return this.mutationSender.sendMutationAsync(mutation);
+        return this.mutationSender.sendMutationAsync(mutation)
+                .thenAccept(msgId -> {
+                    sentOffset.set(mutation.getSource().commitLogPosition);
+                    offsetWriter.markOffset(mutation.getSource().commitLogPosition);
+                    offsetWriter.notCommittedEvents++;
+                    offsetWriter.maybeCommitOffset(mutation);
+                });
     }
 
 }

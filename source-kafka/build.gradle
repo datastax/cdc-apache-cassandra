@@ -1,0 +1,54 @@
+plugins {
+    id 'java'
+    id 'java-library'
+    id "com.gorylenko.gradle-git-properties"
+    id "com.github.johnrengelman.shadow"
+}
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs += '-Xlint:none'
+}
+
+dependencies {
+    implementation "org.projectlombok:lombok:${lombokVersion}"
+    annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+
+    implementation project(':common')
+    implementation project(':source')
+
+    implementation "com.datastax.oss:java-driver-core:${ossDriverVersion}"
+    implementation "com.datastax.oss:java-driver-query-builder:${ossDriverVersion}"
+
+    implementation("com.datastax.oss:messaging-connectors-commons-core:1.0.12-SNAPSHOT")
+    implementation("io.vavr:vavr:0.10.3")
+
+    compileOnly("org.apache.kafka:connect-api:${kafkaVersion}")
+    compileOnly("org.apache.kafka:connect-json:${kafkaVersion}")
+    compileOnly("io.confluent:kafka-connect-avro-converter:${confluentVersion}")
+
+    testCompile "org.testcontainers:testcontainers:1.15.2"
+    testCompile "org.testcontainers:database-commons:1.15.2"
+    testCompile "org.testcontainers:cassandra:1.15.3-SNAPSHOT"
+
+    testCompile "net.andreinc.mockneat:mockneat:0.2.2"
+    testCompile "org.mockito:mockito-core:3.0.0"
+    testCompile "org.powermock:powermock-api-mockito2:2.0.9"
+    testCompile "org.powermock:powermock-module-testng:2.0.9"
+}
+
+jar {
+    manifest {
+    }
+    zip64=true
+    from {
+        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+
+shadowJar {
+    manifest {
+        inheritFrom project.tasks.jar.manifest
+    }
+}
+
+

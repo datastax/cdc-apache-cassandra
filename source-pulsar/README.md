@@ -1,4 +1,4 @@
-# Cassandra source connector
+# Cassandra source connector for Pulsar
 
 This Cassandra source connector reads update events from a pulsar "dirty" topic, 
 read from Cassandra the updated row, and publish the Cassandra rows into a sinkable pulsar "clean" topic.
@@ -12,11 +12,11 @@ every replicated Cassandra tables.
 
 ## Build
 
-    ./gradlew pulsar-source:nar
+    ./gradlew source-pulsar:nar
 
 ## Test
 
-    ./gradlew clean  pulsar-source:test --tests com.datastax.oss.pulsar.source.CassandraSourceTests
+    ./gradlew clean  source-pulsar:test --tests com.datastax.oss.pulsar.source.CassandraSourceTests
     
 ## Run
 

@@ -33,7 +33,7 @@ dependencies {
 
     implementation project(':common')
     implementation project(':producer')
-    implementation("io.debezium:debezium-core:1.4.0.Final")
+    implementation("io.debezium:debezium-core:${debeziumVersion}")
     compileOnly("org.apache.cassandra:cassandra-all:3.11.10")
 
 }

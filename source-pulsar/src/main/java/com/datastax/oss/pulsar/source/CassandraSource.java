@@ -19,9 +19,9 @@
 
 package com.datastax.oss.pulsar.source;
 
+import com.datastax.cassandra.cdc.CassandraClient;
 import com.datastax.cassandra.cdc.MutationCache;
 import com.datastax.cassandra.cdc.MutationValue;
-import com.datastax.oss.pulsar.source.Converter;
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
@@ -35,7 +35,6 @@ import com.datastax.oss.pulsar.source.converters.StringConverter;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import edu.umd.cs.findbugs.annotations.NonNull;
-import groovy.lang.Tuple;
 import io.vavr.Tuple2;
 import io.vavr.Tuple3;
 import lombok.SneakyThrows;
@@ -55,7 +54,6 @@ import org.apache.pulsar.io.core.annotations.IOType;
 
 import java.lang.reflect.InvocationTargetException;
 import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -79,8 +77,9 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     String dirtyTopicName;
     Converter keyConverter;
     Converter valueConverter;
+    List<String> pkColumns;
 
-    MutationCache mutationCache;
+    MutationCache<String> mutationCache;
 
     Schema<KeyValue<GenericRecord, MutationValue>> dirtySchema = Schema.KeyValue(
             Schema.AUTO_CONSUME(),
@@ -105,6 +104,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Table %s.%s does not exist.",
                     cassandraSourceConfig.getKeyspace(), cassandraSourceConfig.getTable()));
         }
+        pkColumns = tuple._2.getPrimaryKey().stream().map(c -> c.getName().asCql(true)).collect(Collectors.toList());
         if(Strings.isNullOrEmpty(cassandraSourceConfig.getKeyConverter())) {
             throw new IllegalArgumentException("Key converter not set.");
         }
@@ -133,7 +133,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         }
 
         this.consumer = consumerBuilder.subscribe();
-        this.mutationCache = new MutationCache(3, 10, Duration.ofHours(1));
+        this.mutationCache = new MutationCache<>(3, 10, Duration.ofHours(1));
         log.debug("Starting source connector topic={} subscription={}",
                 dirtyTopicName,
                 cassandraSourceConfig.getDirtySubscriptionName());
@@ -208,9 +208,13 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
             if (mutationCache.isMutationProcessed(msg.getKey(), mutationValue.getMd5Digest()) == false) {
                 try {
-                    Object[] pkColumns = (Object[]) keyConverter.fromConnectData(mutationKey);
+                    Object[] pkValues = (Object[]) keyConverter.fromConnectData(mutationKey);
                     Tuple3<Row, ConsistencyLevel, KeyspaceMetadata> tuple =
-                            cassandraClient.selectRow(cassandraSourceConfig, pkColumns, mutationValue.getNodeId(),
+                            cassandraClient.selectRow(cassandraSourceConfig.getKeyspace(),
+                                    cassandraSourceConfig.getTable(),
+                                    pkColumns,
+                                    pkValues,
+                                    mutationValue.getNodeId(),
                                     Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE));
 
                     Object value = tuple._1 == null ? null : valueConverter.toConnectData(tuple._1);
@@ -327,13 +331,20 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     @SneakyThrows
     @Override
     public void onTableUpdated(@NonNull TableMetadata current, @NonNull TableMetadata previous) {
-        setValueConverter(cassandraClient.cqlSession.getMetadata().getKeyspace(current.getKeyspace()).get(),
-                current);
+        if (current.getKeyspace().asCql(true).equals(cassandraSourceConfig.getKeyspace())
+            && current.getName().asCql(true).equals(cassandraSourceConfig.getTable())) {
+            KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(cassandraSourceConfig.getKeyspace()).get();
+            setValueConverter(ksm, current);
+        }
     }
 
+    @SneakyThrows
     @Override
     public void onUserDefinedTypeCreated(@NonNull UserDefinedType type) {
-
+        if (type.getKeyspace().asCql(true).equals(cassandraSourceConfig.getKeyspace())) {
+            KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(cassandraSourceConfig.getKeyspace()).get();
+            setValueConverter(ksm, ksm.getTable(cassandraSourceConfig.getTable()).get());
+        }
     }
 
     @Override

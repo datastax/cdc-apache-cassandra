@@ -11,9 +11,9 @@ import java.util.concurrent.TimeUnit;
 /**
  * Keep MD5 digests to deduplicate Cassandra mutations
  */
-public class MutationCache {
+public class MutationCache<K> {
 
-    Cache<String, List<String>> mutationCache;
+    Cache<K, List<String>> mutationCache;
 
     /**
      * Max number of cached digest per cached entry.
@@ -28,11 +28,11 @@ public class MutationCache {
                 .build();
     }
 
-    public List<String> getMutationCRCs(String mutationKey) {
+    public List<String> getMutationCRCs(K mutationKey) {
         return mutationCache.getIfPresent(mutationKey);
     }
 
-    public List<String> addMutationMd5(String mutationKey, String md5Digest) {
+    public List<String> addMutationMd5(K mutationKey, String md5Digest) {
         List<String> crcs = getMutationCRCs(mutationKey);
         if(crcs == null) {
             crcs = new ArrayList<>(1);
@@ -50,7 +50,7 @@ public class MutationCache {
         return crcs;
     }
 
-    public boolean isMutationProcessed(String mutationKey, String md5Digest) {
+    public boolean isMutationProcessed(K mutationKey, String md5Digest) {
         List<String> digests = getMutationCRCs(mutationKey);
         return digests != null && digests.contains(md5Digest);
     }
