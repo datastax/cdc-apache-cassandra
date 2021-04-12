@@ -17,10 +17,7 @@ import io.vavr.Tuple3;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
@@ -49,12 +46,11 @@ public class CassandraClient implements AutoCloseable {
 
     public Tuple3<Row, ConsistencyLevel, KeyspaceMetadata> selectRow(String keyspaceName,
                                                                      String tableName,
-                                                                     List<String> pkColumns,
-                                                                     Object[] pkValues,
+                                                                     Map<String, Object> pk,
                                                                      UUID nodeId,
                                                                      List<ConsistencyLevel> consistencyLevels)
             throws ExecutionException, InterruptedException {
-        return selectRowAsync(keyspaceName, tableName, pkColumns, pkValues, nodeId, consistencyLevels)
+        return selectRowAsync(keyspaceName, tableName, pk, nodeId, consistencyLevels)
                 .toCompletableFuture().get();
     }
 
@@ -77,33 +73,31 @@ public class CassandraClient implements AutoCloseable {
      */
     public CompletionStage<Tuple3<Row, ConsistencyLevel, KeyspaceMetadata>> selectRowAsync(String keyspaceName,
                                                                                            String tableName,
-                                                                                           List<String> pkColumns,
-                                                                                           Object[] pkValues,
+                                                                                           Map<String, Object> pk,
                                                                                            UUID nodeId,
                                                                                            List<ConsistencyLevel> consistencyLevels) {
-        TableMetadata tableMetadata = getTableMetadata(keyspaceName, tableName)._2;
         Select query = selectFrom(keyspaceName, tableName).all();
-        for(String pkColumn : pkColumns)
-            query = query.whereColumn(pkColumn).isEqualTo(bindMarker());
-        SimpleStatement statement = query.build(pkValues);
+        List<Object> values = new ArrayList<>(pk.size());
+        for(Map.Entry<String, Object> entry : pk.entrySet()) {
+            values.add(entry.getValue());
+            query = query.whereColumn(entry.getKey()).isEqualTo(bindMarker());
+        }
+        SimpleStatement statement = query.build(pk);
 
         // set the coordinator node
+        Node node = null;
         if(nodeId != null) {
-            Node node = cqlSession.getMetadata().getNodes().get(nodeId);
+            node = cqlSession.getMetadata().getNodes().get(nodeId);
             if(node != null) {
-                log.debug("node={} query={}", node.getHostId(), query.toString());
                 statement.setNode(node);
-            } else {
-                log.warn("Cannot get row {}}={} from node={}", pkColumns, Arrays.asList(pkValues), nodeId);
             }
-        } else {
-            log.debug("node=any query={}", query.toString());
         }
+        log.debug("Executing query={} pk={} coordinator={}", query.toString(), pk, node);
 
-        return executeWithDowngradeConsistencyRetry(cqlSession, keyspaceName, query.build(pkColumns), consistencyLevels)
+        return executeWithDowngradeConsistencyRetry(cqlSession, keyspaceName, statement, consistencyLevels)
                 .thenApply(tuple -> {
                     log.debug("Read cl={} coordinator={} pk={}",
-                            tuple._2, tuple._1.getExecutionInfo().getCoordinator().getHostId(), Arrays.asList(pkColumns));
+                            tuple._2, tuple._1.getExecutionInfo().getCoordinator().getHostId(), pk);
                     KeyspaceMetadata keyspaceMetadata = cqlSession.getMetadata().getKeyspace(keyspaceName).get();
                     Row row = tuple._1.one();
                     return new Tuple3<>(

@@ -5,6 +5,7 @@
     "type.name": "_doc",
     "tasks.max": 1,
     "key.ignore": false,
+    "behavior.on.null.values": "delete",
     "topics": "data-ks1.table1",
     "connection.url": "http://host.docker.internal:9200"
   }

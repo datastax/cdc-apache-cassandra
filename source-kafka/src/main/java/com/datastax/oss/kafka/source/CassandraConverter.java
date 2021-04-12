@@ -15,6 +15,7 @@ import org.apache.kafka.connect.data.*;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -22,6 +23,7 @@ public class CassandraConverter {
 
     final Schema schema;
     final Collection<ColumnMetadata> columns;
+    final List<ColumnMetadata> primaryKeyColumns;
     final Map<String, Schema> udtSchemas = new HashMap<>();
 
     public CassandraConverter(KeyspaceMetadata ksm, TableMetadata tm, Collection<ColumnMetadata> columns) {
@@ -34,7 +36,42 @@ public class CassandraConverter {
         }
         this.schema = schemaBuilder.build();
         this.columns = columns;
-        log.info("schema={}", this.schema);
+        this.primaryKeyColumns = tm.getPrimaryKey();
+        if (log.isDebugEnabled()) {
+            log.debug("schema={}", schemaToString(this.schema));
+            for(Map.Entry<String, Schema> entry : udtSchemas.entrySet()) {
+                log.debug("type={} schema={}", entry.getKey(), schemaToString(entry.getValue()));
+            }
+        }
+    }
+
+    public static String schemaToString(Schema schema) {
+        StringBuffer sb = new StringBuffer((schema.name() != null)
+                ? "Schema{" + schema.name() + ":" + schema.type()
+                : "Schema{" + schema.type());
+        sb.append(",optional=").append(schema.isOptional());
+        sb.append(",defaultValue=").append(schema.defaultValue());
+        if (Schema.Type.STRUCT.equals(schema.type())) {
+            sb.append(",fields={");
+            boolean first = true;
+            for (Field field : schema.fields()) {
+                if (!first)
+                    sb.append(",");
+                sb.append(field.name()).append("={").append(schemaToString(field.schema())).append("}");
+                first = false;
+            }
+            sb.append("}");
+        }
+        sb.append("}");
+        return sb.toString();
+    }
+
+    List<ColumnMetadata> getPrimaryKeyColumns() {
+        return this.primaryKeyColumns;
+    }
+
+    Schema getSchema() {
+        return this.schema;
     }
 
     private SchemaBuilder addFieldSchema(SchemaBuilder schemaBuilder,
@@ -95,133 +132,137 @@ public class CassandraConverter {
     }
 
     private Schema buildUDTSchema(KeyspaceMetadata ksm, String typeName) {
-        UserDefinedType userDefinedType = ksm.getUserDefinedType(CqlIdentifier.fromCql(typeName.substring(typeName.indexOf(".") + 1))).get();
+        log.debug("typeName={}", typeName);
+        UserDefinedType userDefinedType = ksm.getUserDefinedType(CqlIdentifier.fromInternal(typeName.substring(typeName.indexOf(".") + 1))).get();
         if (userDefinedType == null) {
             throw new IllegalStateException("UDT " + typeName + " not found");
         }
         SchemaBuilder udtSchemaBuilder = SchemaBuilder.struct()
-                .name(ksm.getName()+ "." + typeName)
-                .doc("Cassandra type " + ksm.getName()+ "." + typeName);
+                .optional()
+                .name(typeName)
+                .doc("Cassandra type " + typeName);
         int i = 0;
         for(CqlIdentifier field : userDefinedType.getFieldNames()) {
             addFieldSchema(udtSchemaBuilder, ksm, field.toString(), userDefinedType.getFieldTypes().get(i++));
         }
         Schema udtSchema = udtSchemaBuilder.build();
         udtSchemas.put(typeName, udtSchema);
-        return udtSchemaBuilder;
-    }
-
-    Schema getSchema() {
-        return this.schema;
+        return udtSchema;
     }
 
     Struct buildStruct(Row row) {
         Struct struct = new Struct(this.schema);
         for(ColumnDefinition cm : row.getColumnDefinitions()) {
-            switch(cm.getType().getProtocolCode()) {
-                case ProtocolConstants.DataType.UUID:
-                case ProtocolConstants.DataType.TIMEUUID:
-                    struct.put(cm.getName().toString(), row.getUuid(cm.getName()).toString());
-                    break;
-                case ProtocolConstants.DataType.ASCII:
-                case ProtocolConstants.DataType.VARCHAR:
-                    struct.put(cm.getName().toString(), row.getString(cm.getName()));
-                    break;
-                case ProtocolConstants.DataType.TINYINT:
-                    struct.put(cm.getName().toString(), row.getByte(cm.getName()));
-                    break;
-                case ProtocolConstants.DataType.SMALLINT:
-                    struct.put(cm.getName().toString(), row.getShort(cm.getName()));
-                    break;
-                case ProtocolConstants.DataType.INT:
-                    struct.put(cm.getName().toString(), row.getInt(cm.getName()));
-                    break;
-                case ProtocolConstants.DataType.INET:
-                case ProtocolConstants.DataType.BIGINT:
-                    struct.put(cm.getName().toString(), row.getLong(cm.getName()));
-                    break;
-                case ProtocolConstants.DataType.DOUBLE:
-                    struct.put(cm.getName().toString(), row.getDouble(cm.getName()));
-                    break;
-                case ProtocolConstants.DataType.FLOAT:
-                    struct.put(cm.getName().toString(), row.getFloat(cm.getName()));
-                    break;
-                case ProtocolConstants.DataType.BOOLEAN:
-                    struct.put(cm.getName().toString(), row.getBoolean(cm.getName()));
-                    break;
-                case ProtocolConstants.DataType.DATE:
-                    struct.put(cm.getName().toString(), row.getLocalDate(cm.getName()));
-                    break;
-                case ProtocolConstants.DataType.DURATION:
-                    struct.put(cm.getName().toString(), row.getCqlDuration(cm.getName()));
-                    break;
-                case ProtocolConstants.DataType.TIME:
-                    struct.put(cm.getName().toString(), row.getLocalTime(cm.getName()));
-                    break;
-                case ProtocolConstants.DataType.UDT:
-                    struct.put(cm.getName().toString(), buildUDTValue(row.getUdtValue(cm.getName())));
-                    break;
-                default:
-                    throw new UnsupportedOperationException("Unsupported DataType=" + cm.getType().getProtocolCode());
+            if (!row.isNull(cm.getName())) {
+                switch (cm.getType().getProtocolCode()) {
+                    case ProtocolConstants.DataType.UUID:
+                    case ProtocolConstants.DataType.TIMEUUID:
+                        struct.put(cm.getName().toString(), row.getUuid(cm.getName()).toString());
+                        break;
+                    case ProtocolConstants.DataType.ASCII:
+                    case ProtocolConstants.DataType.VARCHAR:
+                        struct.put(cm.getName().toString(), row.getString(cm.getName()));
+                        break;
+                    case ProtocolConstants.DataType.TINYINT:
+                        struct.put(cm.getName().toString(), row.getByte(cm.getName()));
+                        break;
+                    case ProtocolConstants.DataType.SMALLINT:
+                        struct.put(cm.getName().toString(), row.getShort(cm.getName()));
+                        break;
+                    case ProtocolConstants.DataType.INT:
+                        struct.put(cm.getName().toString(), row.getInt(cm.getName()));
+                        break;
+                    case ProtocolConstants.DataType.INET:
+                    case ProtocolConstants.DataType.BIGINT:
+                        struct.put(cm.getName().toString(), row.getLong(cm.getName()));
+                        break;
+                    case ProtocolConstants.DataType.DOUBLE:
+                        struct.put(cm.getName().toString(), row.getDouble(cm.getName()));
+                        break;
+                    case ProtocolConstants.DataType.FLOAT:
+                        struct.put(cm.getName().toString(), row.getFloat(cm.getName()));
+                        break;
+                    case ProtocolConstants.DataType.BOOLEAN:
+                        struct.put(cm.getName().toString(), row.getBoolean(cm.getName()));
+                        break;
+                    case ProtocolConstants.DataType.DATE:
+                        struct.put(cm.getName().toString(), row.getLocalDate(cm.getName()));
+                        break;
+                    case ProtocolConstants.DataType.DURATION:
+                        struct.put(cm.getName().toString(), row.getCqlDuration(cm.getName()));
+                        break;
+                    case ProtocolConstants.DataType.TIME:
+                        struct.put(cm.getName().toString(), row.getLocalTime(cm.getName()));
+                        break;
+                    case ProtocolConstants.DataType.UDT:
+                        struct.put(cm.getName().toString(), buildUDTValue(row.getUdtValue(cm.getName())));
+                        break;
+                    default:
+                        throw new UnsupportedOperationException("Unsupported DataType=" + cm.getType().getProtocolCode());
+                }
             }
         }
+        log.debug("struct={}", struct);
         return struct;
     }
 
     Struct buildUDTValue(UdtValue udtValue) {
-        String typeName = udtValue.getType().getKeyspace() + "." + udtValue.getType().getName().asCql(true);
-        Schema schema = udtSchemas.get(typeName);
-        assert schema != null : "Schema not found for UDT=" + typeName;
-        Struct struct = new Struct(schema);
+        String typeName = udtValue.getType().getKeyspace() + "." + udtValue.getType().getName().toString();
+        Schema udtSchema = udtSchemas.get(typeName);
+        assert udtSchema != null : "Schema not found for UDT=" + typeName;
+        Struct struct = new Struct(udtSchema);
         for(CqlIdentifier field : udtValue.getType().getFieldNames()) {
-            DataType dataType = udtValue.getType(field);
-            switch(dataType.getProtocolCode()) {
-                case ProtocolConstants.DataType.UUID:
-                case ProtocolConstants.DataType.TIMEUUID:
-                    struct.put(field.toString(), udtValue.getUuid(field).toString());
-                    break;
-                case ProtocolConstants.DataType.ASCII:
-                case ProtocolConstants.DataType.VARCHAR:
-                    struct.put(field.toString(), udtValue.getString(field));
-                    break;
-                case ProtocolConstants.DataType.TINYINT:
-                    struct.put(field.toString(), udtValue.getByte(field));
-                    break;
-                case ProtocolConstants.DataType.SMALLINT:
-                    struct.put(field.toString(), udtValue.getShort(field));
-                    break;
-                case ProtocolConstants.DataType.INT:
-                    struct.put(field.toString(), udtValue.getInt(field));
-                    break;
-                case ProtocolConstants.DataType.INET:
-                case ProtocolConstants.DataType.BIGINT:
-                    struct.put(field.toString(), udtValue.getLong(field));
-                    break;
-                case ProtocolConstants.DataType.DOUBLE:
-                    struct.put(field.toString(), udtValue.getDouble(field));
-                    break;
-                case ProtocolConstants.DataType.FLOAT:
-                    struct.put(field.toString(), udtValue.getFloat(field));
-                    break;
-                case ProtocolConstants.DataType.BOOLEAN:
-                    struct.put(field.toString(), udtValue.getBoolean(field));
-                    break;
-                case ProtocolConstants.DataType.DATE:
-                    struct.put(field.toString(), udtValue.getLocalDate(field));
-                    break;
-                case ProtocolConstants.DataType.DURATION:
-                    struct.put(field.toString(), udtValue.getCqlDuration(field));
-                    break;
-                case ProtocolConstants.DataType.TIME:
-                    struct.put(field.toString(), udtValue.getLocalTime(field));
-                    break;
-                case ProtocolConstants.DataType.UDT:
-                    struct.put(field.toString(), buildUDTValue(udtValue.getUdtValue(field)));
-                    break;
-                default:
-                    throw new UnsupportedOperationException("Unsupported field="+field.toString() + " DataType=" + dataType.getProtocolCode());
+            if (!udtValue.isNull(field)) {
+                DataType dataType = udtValue.getType(field);
+                switch (dataType.getProtocolCode()) {
+                    case ProtocolConstants.DataType.UUID:
+                    case ProtocolConstants.DataType.TIMEUUID:
+                        struct.put(field.toString(), udtValue.getUuid(field).toString());
+                        break;
+                    case ProtocolConstants.DataType.ASCII:
+                    case ProtocolConstants.DataType.VARCHAR:
+                        struct.put(field.toString(), udtValue.getString(field));
+                        break;
+                    case ProtocolConstants.DataType.TINYINT:
+                        struct.put(field.toString(), udtValue.getByte(field));
+                        break;
+                    case ProtocolConstants.DataType.SMALLINT:
+                        struct.put(field.toString(), udtValue.getShort(field));
+                        break;
+                    case ProtocolConstants.DataType.INT:
+                        struct.put(field.toString(), udtValue.getInt(field));
+                        break;
+                    case ProtocolConstants.DataType.INET:
+                    case ProtocolConstants.DataType.BIGINT:
+                        struct.put(field.toString(), udtValue.getLong(field));
+                        break;
+                    case ProtocolConstants.DataType.DOUBLE:
+                        struct.put(field.toString(), udtValue.getDouble(field));
+                        break;
+                    case ProtocolConstants.DataType.FLOAT:
+                        struct.put(field.toString(), udtValue.getFloat(field));
+                        break;
+                    case ProtocolConstants.DataType.BOOLEAN:
+                        struct.put(field.toString(), udtValue.getBoolean(field));
+                        break;
+                    case ProtocolConstants.DataType.DATE:
+                        struct.put(field.toString(), udtValue.getLocalDate(field));
+                        break;
+                    case ProtocolConstants.DataType.DURATION:
+                        struct.put(field.toString(), udtValue.getCqlDuration(field));
+                        break;
+                    case ProtocolConstants.DataType.TIME:
+                        struct.put(field.toString(), udtValue.getLocalTime(field));
+                        break;
+                    case ProtocolConstants.DataType.UDT:
+                        struct.put(field.toString(), buildUDTValue(udtValue.getUdtValue(field)));
+                        break;
+                    default:
+                        throw new UnsupportedOperationException("Unsupported field=" + field.toString() + " DataType=" + dataType.getProtocolCode());
+                }
             }
         }
+        log.debug("typeName={} udtSchema={} struct={}", typeName, schemaToString(udtSchema), struct);
         return struct;
     }
 }

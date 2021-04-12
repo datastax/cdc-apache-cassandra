@@ -78,6 +78,7 @@ services:
       - broker
     ports:
       - '8083:8083'
+      - '5005:5005'
     environment:
       CONNECT_BOOTSTRAP_SERVERS: 'broker:29092'
       CONNECT_REST_ADVERTISED_HOST_NAME: target-connect
@@ -98,7 +99,7 @@ services:
       CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       CONNECT_INTERNAL_KEY_CONVERTER_SCHEMAS_ENABLE: 'false'
       CONNECT_INTERNAL_VALUE_CONVERTER_SCHEMAS_ENABLE: 'false'
-      CONNECT_LOG4J_LOGGERS: 'org.reflections=ERROR'
+      CONNECT_LOG4J_LOGGERS: 'org.apache.kafka.connect=DEBUG'
       # enable worker debug on 5005/tcp
       CONNECT_DEBUG: y
       DEBUG_SUSPEND_FLAG: y;

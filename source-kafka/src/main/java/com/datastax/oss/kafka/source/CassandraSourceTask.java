@@ -49,6 +49,7 @@ public class CassandraSourceTask extends SourceTask implements SchemaChangeListe
     List<String> pkColumns;
 
     CassandraClient cassandraClient;
+    final List<ConsistencyLevel> consistencyLevels = Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE);
     MutationCache<Object> mutationCache;
     volatile CassandraConverter cassandraConverter;
 
@@ -160,20 +161,22 @@ public class CassandraSourceTask extends SourceTask implements SchemaChangeListe
     }
 
     private CassandraClient createClient(List<String> contactPoints, String localDc) {
-        if(contactPoints.size() <= 0) {
+        if (contactPoints.size() <= 0) {
             throw new RuntimeException("Empty cassandra contact points");
         }
         CqlSessionBuilder cqlSessionBuilder = CqlSession.builder()
                 .withLocalDatacenter(localDc)
                 .withSchemaChangeListener(this);
         log.info("Cassandra contact points={}", contactPoints);
-        for(String contactPoint : contactPoints) {
+        for (String contactPoint : contactPoints) {
             String[] hostPort = contactPoint.split(":");
             int port = hostPort.length > 1 ? Integer.valueOf(hostPort[1]) : 9042;
             InetSocketAddress endpoint = new InetSocketAddress(hostPort[0], port);
             cqlSessionBuilder.addContactPoint(endpoint);
         }
-        return new CassandraClient(cqlSessionBuilder.build());
+        CqlSession cqlSession = cqlSessionBuilder.build();
+        cqlSession.setSchemaMetadataEnabled(true);
+        return new CassandraClient(cqlSession);
     }
 
     void setCassandraConverter(KeyspaceMetadata ksm, TableMetadata tableMetadata) {
@@ -198,74 +201,66 @@ public class CassandraSourceTask extends SourceTask implements SchemaChangeListe
      */
     @Override
     public List<SourceRecord> poll() throws InterruptedException {
+        final ConsumerRecords<byte[], byte[]> consumerRecords = consumer.poll(Duration.ofMillis(1000));
+        List<SourceRecord> sourceRecords = new ArrayList<>(consumerRecords.count());
+        // TODO: set the kafka partition
+        int partition = 0;
+        for (ConsumerRecord<byte[], byte[]> consumerRecord : consumerRecords) {
+            log.debug("Message from producer={} msgId={} key={} value={}\n",
+                    consumerRecord.partition(), consumerRecord.offset(), consumerRecord.key(), consumerRecord.value());
 
-        if (this.consumer != null) {
-            final ConsumerRecords<byte[], byte[]> consumerRecords = consumer.poll(Duration.ofMillis(1000));
-            List<SourceRecord> sourceRecords = new ArrayList<>(consumerRecords.count());
-            // TODO: set the kafka partition
-            int partition = 0;
-            for(ConsumerRecord<byte[], byte[]> consumerRecord : consumerRecords) {
-                log.debug("Message from producer={} msgId={} key={} value={}\n",
-                        consumerRecord.partition(), consumerRecord.offset(), consumerRecord.key(), consumerRecord.value());
+            SchemaAndValue keySchemaAndValue = mutationKeyConverter.toConnectData(this.eventsTopic, consumerRecord.key());
+            Schema mutationKeySchema = keySchemaAndValue.schema();
+            Object mutationKey = keySchemaAndValue.value();
 
-                SchemaAndValue keySchemaAndValue = mutationKeyConverter.toConnectData(this.eventsTopic, consumerRecord.key());
-                Schema mutationKeySchema = keySchemaAndValue.schema();
-                Object mutationKey = keySchemaAndValue.value();
-
-                SchemaAndValue mutationSchemaAndValue = mutationValueConverter.toConnectData(this.eventsTopic, consumerRecord.value());
-                Struct mutationStruct = (Struct) mutationSchemaAndValue.value();
-                String md5Digest = mutationStruct.getString("md5Digest");
-                String nodeId = mutationStruct.getString("nodeId");
-                if (mutationCache.isMutationProcessed(mutationKey, md5Digest) == false) {
-                    try {
-                        Object[] pkValues;
-                        if (mutationKeySchema.type().equals(Schema.Type.STRUCT)) {
-                            List<Field> fields = mutationKeySchema.fields();
-                            pkValues = new Object[fields.size()];
-                            Struct struct = (Struct) keySchemaAndValue.value();
-                            int i = 0;
-                            for(Field field : fields) {
-                                pkValues[i++] = struct.get(field.name());
-                            }
-                        } else {
-                            pkValues = new Object[] { keySchemaAndValue.value() };
+            SchemaAndValue mutationSchemaAndValue = mutationValueConverter.toConnectData(this.eventsTopic, consumerRecord.value());
+            Struct mutationStruct = (Struct) mutationSchemaAndValue.value();
+            String md5Digest = mutationStruct.getString("md5Digest");
+            String nodeId = mutationStruct.getString("nodeId");
+            if (mutationCache.isMutationProcessed(mutationKey, md5Digest) == false) {
+                try {
+                    // ensure the schema is the one used when building the struct.
+                    final CassandraConverter cassandraConverterFinal = this.cassandraConverter;
+                    Map<String, Object> pk = new HashMap<>();
+                    if (cassandraConverterFinal.getPrimaryKeyColumns().size() > 1) {
+                        Struct struct = (Struct) keySchemaAndValue.value();
+                        for (ColumnMetadata column : cassandraConverterFinal.getPrimaryKeyColumns()) {
+                            String colName = column.getName().asCql(true);
+                            pk.put(colName, struct.get(colName));
                         }
-                        Tuple3<Row, ConsistencyLevel, KeyspaceMetadata> tuple =
-                                cassandraClient.selectRow(keyspaceName,
-                                        tableName,
-                                        pkColumns,
-                                        pkValues,
-                                        UUID.fromString(nodeId),
-                                        Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE));
-
-                        Object value = null;
-                        // ensure the schema is the one used when building the struct.
-                        final CassandraConverter cassandraConverterFinal = this.cassandraConverter;
-                        if (tuple._1 != null) {
-                            value = cassandraConverterFinal.buildStruct(tuple._1);
-                        }
-
-                        SourceRecord sourceRecord = new SourceRecord(
-                                ImmutableMap.of(),
-                                ImmutableMap.of(),
-                                dataTopic,
-                                partition,
-                                mutationKeySchema,
-                                mutationKey,
-                                cassandraConverterFinal.getSchema(),
-                                value);
-                        sourceRecords.add(sourceRecord);
-                        mutationCache.addMutationMd5(mutationKey, md5Digest);
-                    } catch(Exception e) {
-                        log.error("error", e);
+                    } else {
+                        String colName = cassandraConverterFinal.getPrimaryKeyColumns().get(0).getName().asCql(true);
+                        pk.put(colName, keySchemaAndValue.value());
                     }
+                    Tuple3<Row, ConsistencyLevel, KeyspaceMetadata> tuple = cassandraClient.selectRow(
+                            keyspaceName,
+                            tableName,
+                            pk,
+                            UUID.fromString(nodeId),
+                            new ArrayList<ConsistencyLevel>(consistencyLevels));
+                    Object value = null;
+                    if (tuple._1 != null) {
+                        value = cassandraConverterFinal.buildStruct(tuple._1);
+                    }
+                    log.debug("key={} value={}", mutationKey, value);
+                    SourceRecord sourceRecord = new SourceRecord(
+                            ImmutableMap.of(),
+                            ImmutableMap.of(),
+                            dataTopic,
+                            partition,
+                            mutationKeySchema,
+                            mutationKey,
+                            cassandraConverterFinal.getSchema(),
+                            value);
+                    sourceRecords.add(sourceRecord);
+                    mutationCache.addMutationMd5(mutationKey, md5Digest);
+                } catch (Exception e) {
+                    log.error("error", e);
                 }
             }
-            return sourceRecords;
         }
-        return Collections.emptyList();
+        return sourceRecords;
     }
-
 
 
     /**

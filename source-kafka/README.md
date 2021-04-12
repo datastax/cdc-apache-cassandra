@@ -9,7 +9,7 @@
 
     ./gradlew clean source-kafka:test --tests com.datastax.oss.pulsar.source.CassandraSourceTests
 
-## Start Kafka
+## Start Kafkaps 
 
     docker-compose up -d
 
@@ -48,12 +48,26 @@ Uninstall connectors:
 
 ## Connector logging
 
+See [kafka connect logging](https://docs.confluent.io/platform/current/connect/logging.html)
+
 Get logging levels:
 
     curl -Ss http://localhost:8083/admin/loggers | jq
 
-Set looging level:
+Enable debug logging on Cassandra source connector:
 
-    curl -s -XPUT -H "Content-Type:application/json" \
-        http://localhost:8083/admin/loggers/com.datastax.oss.kafka.source \
-        -d '{"level": "DEBUG"}' | jq '.'
+    curl -s -X PUT -H "Content-Type:application/json" \
+    http://localhost:8083/admin/loggers/com.datastax.oss.kafka.source \
+    -d '{"level": "TRACE"}' | jq
+
+    curl -s -X PUT -H "Content-Type:application/json" \
+    http://localhost:8083/admin/loggers/com.datastax.cassandra.cdc \
+    -d '{"level": "TRACE"}' | jq
+
+Enable logging on Elasticsearch sin connector:
+
+    curl -s -X PUT -H "Content-Type:application/json" \
+    http://localhost:8083/admin/loggers/io.confluent.connect.elasticsearch \
+    -d '{"level": "TRACE"}' | jq
+
+
