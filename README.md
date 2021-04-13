@@ -9,3 +9,9 @@ The Cassandra replication requires:
 | Apache Pulsar      | [producer-v3-pulsar](producer-v3-pulsar) | [producer-v4-pulsar](producer-v4-pulsar) | [source-pulsar](source-pulsar) |
 | Apache Kafka       | [producer-v3-kafka](producer-v3-kafka)   | [producer-v4-kafka](producer-v4-kafka)   | [source-kafka](source-kafka)   |
 
+
+The following diagram describes the general architecture. 
+The CDC replication ensures the most recent state of the Cassandra table is replicated into the data topic,
+and the schema in the schema-registry reflects the Cassandra table schema.
+
+![Cassandra-source-connector](doc/images/cassandra-source-connector.png)

@@ -53,7 +53,7 @@ Get logging levels:
 
     curl -Ss http://localhost:8083/admin/loggers | jq
 
-Enable debug logging on Cassandra source connector:
+Enable debug logging on the Cassandra source connector:
 
     curl -s -X PUT -H "Content-Type:application/json" \
     http://localhost:8083/admin/loggers/com.datastax.oss.kafka.source \
@@ -63,7 +63,7 @@ Enable debug logging on Cassandra source connector:
     http://localhost:8083/admin/loggers/com.datastax.cassandra.cdc \
     -d '{"level": "TRACE"}' | jq
 
-Enable logging on Elasticsearch sin connector:
+Enable logging on the Elasticsearch sink connector:
 
     curl -s -X PUT -H "Content-Type:application/json" \
     http://localhost:8083/admin/loggers/io.confluent.connect.elasticsearch \
