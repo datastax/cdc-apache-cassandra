@@ -27,7 +27,7 @@ dependencies {
 
     testCompile "org.testcontainers:testcontainers:1.15.2"
     testCompile "org.testcontainers:database-commons:1.15.2"
-    testCompile "org.testcontainers:cassandra:1.15.3-SNAPSHOT"
+    testCompile "org.testcontainers:cassandra:${testContainersVersion}"
 
     testCompile "net.andreinc.mockneat:mockneat:0.2.2"
     testCompile "org.mockito:mockito-core:3.0.0"
