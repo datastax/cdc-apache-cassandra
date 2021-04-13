@@ -100,9 +100,6 @@ services:
       CONNECT_INTERNAL_KEY_CONVERTER_SCHEMAS_ENABLE: 'false'
       CONNECT_INTERNAL_VALUE_CONVERTER_SCHEMAS_ENABLE: 'false'
       CONNECT_LOG4J_LOGGERS: 'org.apache.kafka.connect=DEBUG'
-      # enable worker debug on 5005/tcp
-      CONNECT_DEBUG: y
-      DEBUG_SUSPEND_FLAG: y;
     volumes:
       - $PWD/build/libs:/connect-plugins
     # In the command section, $ are replaced with $$ to avoid the error 'Invalid interpolation format for "command" option'
