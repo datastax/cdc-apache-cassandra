@@ -31,9 +31,9 @@ A Pulsar key-shared subscription ensure all mutations for a given primary key ar
 ## Run
 
     /Users/vroyer/git/apache/pulsar/bin/pulsar-admin source localrun \
-           --archive /Users/vroyer/git/datastax/cassandra-source-connector/pulsar-source/build/libs/pulsar-source-0.1-SNAPSHOT.nar \
+           --archive /Users/vroyer/git/datastax/cassandra-source-connector/source-pulsar/build/libs/source-pulsar-0.1-SNAPSHOT.nar \
            --tenant public \
            --namespace default \
            --name cassandra-source-1 \
-           --destination-topic-name clean-ks1.table1 \
-           --source-config '{"contactPoints":"localhost:9042", "localDc":"datacenter1", "keyspace":"ks1", "table":"table1", "dirtyTopicPrefix": "persistent://public/default/dirty-", "dirtySubscriptionName":"sub1", "keyConverter":"com.datastax.oss.pulsar.source.converters.JsonConverter","valueConverter":"com.datastax.oss.pulsar.source.converters.JsonConverter"}'
+           --destination-topic-name data-ks1.table1 \
+           --source-config '{"contactPoints":"localhost:9042", "localDc":"datacenter1", "keyspace":"ks1", "table":"table1", "eventsTopicPrefix": "persistent://public/default/events-", "eventsSubscriptionName":"sub1", "keyConverter":"com.datastax.oss.pulsar.source.converters.JsonConverter","valueConverter":"com.datastax.oss.pulsar.source.converters.JsonConverter"}'

@@ -97,7 +97,7 @@ public class PulsarMutationSender implements MutationSender<TableMetadata> , Aut
 
     @Override
     @SuppressWarnings({"rawtypes","unchecked"})
-    public CompletionStage<Void> sendMutationAsync(final Mutation<TableMetadata> mutation) throws PulsarClientException {
+    public CompletionStage<MessageId> sendMutationAsync(final Mutation<TableMetadata> mutation) throws PulsarClientException {
         if (this.client == null) {
             initialize();
         }

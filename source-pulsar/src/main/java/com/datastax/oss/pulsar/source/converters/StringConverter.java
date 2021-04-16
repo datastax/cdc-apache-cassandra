@@ -6,13 +6,21 @@ import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import com.datastax.oss.pulsar.source.Converter;
+import com.google.common.collect.ImmutableMap;
 import org.apache.pulsar.client.api.Schema;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
-public class StringConverter implements Converter<String, Row, Object[]> {
+public class StringConverter implements Converter<String, Row, Map<String, Object>> {
+
+    List<String> pkColumns;
 
     public StringConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
+        this.pkColumns = tm.getPrimaryKey().stream()
+                .map(c -> c.getName().toString())
+                .collect(Collectors.toList());
     }
 
     /**
@@ -43,7 +51,7 @@ public class StringConverter implements Converter<String, Row, Object[]> {
      * @return
      */
     @Override
-    public Object[] fromConnectData(String value) {
-        return new Object[] { value };
+    public Map<String, Object> fromConnectData(String value) {
+        return ImmutableMap.of(pkColumns.get(0), value);
     }
 }

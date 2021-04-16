@@ -10,7 +10,7 @@ public class PropertyConfig {
     public static final String cdcRelocationDir = System.getProperty(PROPERTY_PREFIX + "cdcRelocationDir",
             storageDir + File.separator + "cdc_backup");
 
-    public static final Long cdcDirPollIntervalMs = Long.getLong(PROPERTY_PREFIX + "cdcPoolIntervalMs", 10000L);
+    public static final Long cdcDirPollIntervalMs = Long.getLong(PROPERTY_PREFIX + "cdcPoolIntervalMs", 50000L);
 
     public static final boolean errorCommitLogReprocessEnabled = Boolean.getBoolean(PROPERTY_PREFIX + "errorCommitLogReprocessEnabled");
 

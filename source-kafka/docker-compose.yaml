@@ -78,7 +78,6 @@ services:
       - broker
     ports:
       - '8083:8083'
-      - '5005:5005'
     environment:
       CONNECT_BOOTSTRAP_SERVERS: 'broker:29092'
       CONNECT_REST_ADVERTISED_HOST_NAME: target-connect

@@ -44,10 +44,6 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
         this.commitLogReaderProcessor = commitLogReaderProcessor;
         this.commitLogTransfer = commitLogTransfer;
         this.offsetFileWriter = offsetFileWriter;
-
-        // disable if running as a javaagent
-        //loadDdlFromDisk();
-
         this.cdcDir = new File(cdcLogDir);
         this.newCommitLogWatcher = new AbstractDirectoryWatcher(cdcDir.toPath(),
                 Duration.ofMillis(PropertyConfig.cdcDirPollIntervalMs),
@@ -112,34 +108,4 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
         // collect new segment files
         newCommitLogWatcher.poll();
     }
-
-    /**
-     * Initialize database using cassandra.yml config file. If initialization is successful,
-     * load up non-system keyspace schema definitions from Cassandra.
-     */
-    /*
-    public void loadDdlFromDisk() {
-        String confDir = config.cassandraConfDir;
-        if (!confDir.endsWith(File.separator))
-            confDir += File.separator;
-
-        String configFile = config.cassandraConfigFile.startsWith(File.separator)
-                ? config.cassandraConfigFile
-                : confDir + config.cassandraConfigFile;
-
-        String snitchFile = config.cassandraSnitchFile.startsWith(File.separator)
-                ? config.cassandraSnitchFile
-                : confDir + config.cassandraSnitchFile;
-
-        System.setProperty("tests.maven","true");
-        System.setProperty("cassandra.storagedir", config.cassandraStorageDir);
-        System.setProperty("cassandra.config", "file:///" + configFile);
-
-        System.setProperty(SnitchProperties.RACKDC_PROPERTY_FILENAME, "file:///" + snitchFile);
-        if (!DatabaseDescriptor.isDaemonInitialized() && !DatabaseDescriptor.isToolInitialized()) {
-            DatabaseDescriptor.toolInitialization();
-            Schema.instance.loadFromDisk(false);
-        }
-    }
-     */
 }

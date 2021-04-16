@@ -1,17 +1,20 @@
-# Cassandra CDC Replication using Apache Pulsar or Apache Kafka.
+# Project Lombok
 
-The Cassandra replication requires:
-* A message producer deployed as a JVM agent on each Cassandra data node.
-* A Cassandra source connector deployed in the streaming platform.
+Project Lombok is a java library that automatically plugs into your editor and build tools, spicing up your java.
+Never write another getter or equals method again, with one annotation your class has a fully featured builder, automate your logging variables, and much more.
 
-| Streaming platform | Cassandra v3.x producer | Cassandra v4.x producer  | Source connector |
-| ---                | ---                     | ---                      | ---              |
-| Apache Pulsar      | [producer-v3-pulsar](producer-v3-pulsar) | [producer-v4-pulsar](producer-v4-pulsar) | [source-pulsar](source-pulsar) |
-| Apache Kafka       | [producer-v3-kafka](producer-v3-kafka)   | [producer-v4-kafka](producer-v4-kafka)   | [source-kafka](source-kafka)   |
+See [LICENSE] for the Project Lombok license.
 
+Looking for professional support of Project Lombok? Lombok is now part of a [tidelift subscription]!
 
-The following diagram describes the general architecture. 
-The CDC replication ensures the most recent state of the Cassandra table is replicated into the data topic,
-and the schema in the schema-registry reflects the Cassandra table schema.
+For a list of all authors, see the [AUTHORS] file. 
 
-![Cassandra-source-connector](docs/images/cassandra-source-connector.png)
+For complete project information, see [projectlombok.org]
+
+You can review our security policy via [SECURITY.md]
+
+[LICENSE]: https://github.com/rzwitserloot/lombok/blob/master/LICENSE
+[AUTHORS]: https://github.com/rzwitserloot/lombok/blob/master/AUTHORS
+[SECURITY.md]: https://github.com/rzwitserloot/lombok/blob/master/SECURITY.md
+[projectlombok.org]: https://projectlombok.org/
+[tidelift subscription]: https://tidelift.com/subscription/pkg/maven-org-projectlombok-lombok?utm_source=maven-org-projectlombok-lombok&utm_medium=referral&campaign=website

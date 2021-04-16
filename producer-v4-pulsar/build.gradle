@@ -20,14 +20,14 @@ jar {
     }
 }
 
-compileTestJava {
-    options.compilerArgs += '-parameters'
-}
-
 shadowJar {
     manifest {
         inheritFrom project.tasks.jar.manifest
     }
+}
+
+compileTestJava {
+    options.compilerArgs += '-parameters'
 }
 
 dependencies {

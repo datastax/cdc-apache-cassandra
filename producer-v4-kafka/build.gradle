@@ -10,10 +10,6 @@ application {
     mainClassName = "$mainClassName"
 }
 
-compileTestJava {
-    options.compilerArgs += '-parameters'
-}
-
 jar {
     manifest {
         attributes 'Premain-Class': "$mainClassName"
@@ -28,6 +24,10 @@ shadowJar {
     manifest {
         inheritFrom project.tasks.jar.manifest
     }
+}
+
+compileTestJava {
+    options.compilerArgs += '-parameters'
 }
 
 dependencies {
@@ -45,6 +45,33 @@ dependencies {
 
     implementation("io.debezium:debezium-core:${debeziumVersion}")
     compileOnly("org.apache.cassandra:cassandra-all:${cassandra4Version}")
+
+    testCompile "org.projectlombok:lombok:${lombokVersion}"
+    testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+
+    testCompile "com.datastax.oss:java-driver-core:${ossDriverVersion}"
+    testCompile "com.datastax.oss:java-driver-query-builder:${ossDriverVersion}"
+    testCompile "org.testcontainers:testcontainers:${testContainersVersion}"
+    testCompile "org.testcontainers:database-commons:${testContainersVersion}"
+    testCompile "org.testcontainers:cassandra:${testContainersVersion}"
+    testCompile "org.testcontainers:kafka:${testContainersVersion}"
+    testCompile project(':common-kafka')
+
+    testRuntime "org.slf4j:slf4j-api:1.7.30"
+    testRuntime "org.slf4j:slf4j-simple:1.7.30"
+}
+
+test {
+    // Add dependency on jar task, since it will be main target for testing
+    dependsOn shadowJar
+
+    // Rearrange test classpath, add compiled JAR instead of main classes
+    classpath = project.sourceSets.test.output + configurations.testRuntimeClasspath + files(shadowJar.archiveFile)
+
+    useJUnitPlatform()
+
+    systemProperty "buildDir", buildDir
+    systemProperty "projectVersion", project.version
 }
 
 

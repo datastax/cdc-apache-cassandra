@@ -63,20 +63,14 @@ public class CassandraSourceConfig implements Serializable {
     @FieldDoc(
         required = true,
         defaultValue = "",
-        help = "The pulsar dirty topic name.")
-    private String dirtyTopicPrefix;
+        help = "The pulsar events topic name.")
+    private String eventsTopicPrefix;
 
     @FieldDoc(
             required = true,
             defaultValue = "",
-            help = "The pulsar dirty topic subscription name.")
-    private String dirtySubscriptionName;
-
-    @FieldDoc(
-            required = true,
-            defaultValue = "",
-            help = "The pulsar clean topic name.")
-    private String cleanTopicName;
+            help = "The pulsar events topic subscription name.")
+    private String eventsSubscriptionName;
 
     @FieldDoc(
             required = true,

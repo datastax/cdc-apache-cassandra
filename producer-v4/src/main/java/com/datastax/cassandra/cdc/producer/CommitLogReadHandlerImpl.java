@@ -542,6 +542,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                 break;
             } catch(Exception e) {
                 log.error("failed to send message to pulsar:", e);
+                CdcMetrics.sentErrors.inc();
                 try {
                     Thread.sleep(10000);
                 } catch(InterruptedException interruptedException) {
@@ -554,6 +555,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     CompletionStage<Void> processMutation(final Mutation<TableMetadata> mutation) throws Exception {
         return this.mutationSender.sendMutationAsync(mutation)
                 .thenAccept(msgId -> {
+                    CdcMetrics.sentMutations.inc();
                     sentOffset.set(mutation.getSource().commitLogPosition);
                     offsetWriter.markOffset(mutation.getSource().commitLogPosition);
                     offsetWriter.notCommittedEvents++;

@@ -59,8 +59,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Cassandra source that treats incoming cassandra updates on the input mutation topic
- * and publish rows on the output topic.
+ * Cassandra source that treats incoming cassandra updates on the input events topic
+ * and publish rows on the data topic.
  */
 @Connector(
         name = "cassandra",
@@ -94,8 +94,8 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         }
         this.cassandraClient = createClient(cassandraSourceConfig.getContactPoints());
 
-        if (Strings.isNullOrEmpty(cassandraSourceConfig.getDirtyTopicPrefix())) {
-            throw new IllegalArgumentException("Dirty topic prefix not set.");
+        if (Strings.isNullOrEmpty(cassandraSourceConfig.getEventsTopicPrefix())) {
+            throw new IllegalArgumentException("Events topic prefix not set.");
         }
 
         Tuple2<KeyspaceMetadata, TableMetadata> tuple =
@@ -119,14 +119,14 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         setValueConverter(tuple._1, tuple._2);
 
 
-        this.dirtyTopicName = cassandraSourceConfig.getDirtyTopicPrefix() + cassandraSourceConfig.getKeyspace() + "." + cassandraSourceConfig.getTable();
+        this.dirtyTopicName = cassandraSourceConfig.getEventsTopicPrefix() + cassandraSourceConfig.getKeyspace() + "." + cassandraSourceConfig.getTable();
         ConsumerBuilder<KeyValue<GenericRecord, MutationValue>> consumerBuilder = sourceContext.newConsumerBuilder(dirtySchema)
                 .consumerName("CDC Consumer")
                 .topic(dirtyTopicName)
                 .autoUpdatePartitions(true);
 
-        if(cassandraSourceConfig.getDirtySubscriptionName() != null) {
-            consumerBuilder = consumerBuilder.subscriptionName(cassandraSourceConfig.getDirtySubscriptionName())
+        if(cassandraSourceConfig.getEventsTopicPrefix() != null) {
+            consumerBuilder = consumerBuilder.subscriptionName(cassandraSourceConfig.getEventsSubscriptionName())
                     .subscriptionType(SubscriptionType.Key_Shared)
                     .subscriptionMode(SubscriptionMode.Durable)
                     .keySharedPolicy(KeySharedPolicy.autoSplitHashRange());
@@ -136,7 +136,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         this.mutationCache = new MutationCache<>(3, 10, Duration.ofHours(1));
         log.debug("Starting source connector topic={} subscription={}",
                 dirtyTopicName,
-                cassandraSourceConfig.getDirtySubscriptionName());
+                cassandraSourceConfig.getEventsTopicPrefix());
     }
 
     void setValueConverter(KeyspaceMetadata ksm, TableMetadata tableMetadata)
@@ -172,7 +172,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         return converterClazz.getDeclaredConstructor(KeyspaceMetadata.class, TableMetadata.class, List.class).newInstance(ksm, columns);
     }
 
-    Converter<?, Row, Object[]> getConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns, SchemaType schemaType) {
+    Converter<?, Row, Map<String, Object>> getConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns, SchemaType schemaType) {
         switch(schemaType) {
             case AVRO:
                 return new AvroConverter(ksm, tm, columns);
@@ -208,12 +208,11 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
             if (mutationCache.isMutationProcessed(msg.getKey(), mutationValue.getMd5Digest()) == false) {
                 try {
-                    Object[] pkValues = (Object[]) keyConverter.fromConnectData(mutationKey);
+                    Map<String, Object> pk =  (Map<String, Object>) keyConverter.fromConnectData(mutationKey);
                     Tuple3<Row, ConsistencyLevel, KeyspaceMetadata> tuple =
                             cassandraClient.selectRow(cassandraSourceConfig.getKeyspace(),
                                     cassandraSourceConfig.getTable(),
-                                    pkColumns,
-                                    pkValues,
+                                    pk,
                                     mutationValue.getNodeId(),
                                     Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE));
 

@@ -25,8 +25,8 @@ dependencies {
 
     implementation("io.vavr:vavr:0.10.3")
 
-    testCompile "org.testcontainers:testcontainers:1.15.2"
-    testCompile "org.testcontainers:database-commons:1.15.2"
+    testCompile "org.testcontainers:testcontainers:${testContainersVersion}"
+    testCompile "org.testcontainers:database-commons:${testContainersVersion}"
     testCompile "org.testcontainers:cassandra:${testContainersVersion}"
 
     testCompile "net.andreinc.mockneat:mockneat:0.2.2"

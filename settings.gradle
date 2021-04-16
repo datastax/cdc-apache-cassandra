@@ -1,6 +1,19 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        maven { url 'http://dl.bintray.com/sponiro/gradle-plugins' }
+        jcenter()
+    }
+    dependencies {
+        classpath 'de.fanero.gradle.plugin.nar:gradle-nar-plugin:0.4'
+        classpath 'com.github.jengelman.gradle.plugins:shadow:6.1.0'
+    }
+}
+
 rootProject.name = 'cassandra-source-connector'
 
 include 'common'
+include 'common-kafka'
 include 'producer'
 include 'source'
 include 'producer-v3'

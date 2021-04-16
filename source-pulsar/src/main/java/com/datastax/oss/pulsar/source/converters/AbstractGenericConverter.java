@@ -21,18 +21,18 @@ import org.apache.pulsar.client.impl.schema.generic.GenericSchemaImpl;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
 
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
-public abstract class AbstractGenericConverter implements Converter<GenericRecord, Row, Object[]> {
+
+public abstract class AbstractGenericConverter implements Converter<GenericRecord, Row, Map<String, Object>> {
 
     public final GenericSchema<GenericRecord> schema;
     public final List<ColumnMetadata> columns;
     public final SchemaInfo schemaInfo;
 
-    public final Map<String, GenericSchema> udtSchemas = new ConcurrentHashMap<>();
+    public final Map<String, GenericSchema> udtSchemas = new HashMap<>();
 
     public AbstractGenericConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns, SchemaType schemaType) {
         RecordSchemaBuilder recordSchemaBuilder = SchemaBuilder.record(ksm.getName() + "." + tm.getName().toString());
@@ -105,10 +105,8 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
     }
 
     GenericSchema buildUDTSchema(KeyspaceMetadata ksm, String typeName, SchemaType schemaType) {
-        UserDefinedType userDefinedType = ksm.getUserDefinedType(CqlIdentifier.fromCql(typeName.substring(typeName.indexOf(".") + 1))).get();
-        if (userDefinedType == null) {
-            throw new IllegalStateException("UDT " + typeName + " not found");
-        }
+        UserDefinedType userDefinedType = ksm.getUserDefinedType(CqlIdentifier.fromCql(typeName.substring(typeName.indexOf(".") + 1)))
+                .orElseThrow(() -> new IllegalStateException("UDT " + typeName + " not found"));
         RecordSchemaBuilder udtSchemaBuilder = SchemaBuilder.record(typeName);
         int i = 0;
         for(CqlIdentifier field : userDefinedType.getFieldNames()) {
@@ -129,108 +127,112 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
     public GenericRecord toConnectData(Row row) {
         GenericRecordBuilder genericRecordBuilder = schema.newRecordBuilder();
         for(ColumnMetadata cm : columns) {
-            switch(cm.getType().getProtocolCode()) {
-                case ProtocolConstants.DataType.UUID:
-                case ProtocolConstants.DataType.TIMEUUID:
-                    genericRecordBuilder.set(cm.getName().toString(), row.getUuid(cm.getName()).toString());
-                    break;
-                case ProtocolConstants.DataType.ASCII:
-                case ProtocolConstants.DataType.VARCHAR:
-                    genericRecordBuilder.set(cm.getName().toString(), row.getString(cm.getName()));
-                    break;
-                case ProtocolConstants.DataType.TINYINT:
-                    genericRecordBuilder.set(cm.getName().toString(), row.getByte(cm.getName()));
-                    break;
-                case ProtocolConstants.DataType.SMALLINT:
-                    genericRecordBuilder.set(cm.getName().toString(), row.getShort(cm.getName()));
-                    break;
-                case ProtocolConstants.DataType.INT:
-                    genericRecordBuilder.set(cm.getName().toString(), row.getInt(cm.getName()));
-                    break;
-                case ProtocolConstants.DataType.INET:
-                case ProtocolConstants.DataType.BIGINT:
-                    genericRecordBuilder.set(cm.getName().toString(), row.getLong(cm.getName()));
-                    break;
-                case ProtocolConstants.DataType.DOUBLE:
-                    genericRecordBuilder.set(cm.getName().toString(), row.getDouble(cm.getName()));
-                    break;
-                case ProtocolConstants.DataType.FLOAT:
-                    genericRecordBuilder.set(cm.getName().toString(), row.getFloat(cm.getName()));
-                    break;
-                case ProtocolConstants.DataType.BOOLEAN:
-                    genericRecordBuilder.set(cm.getName().toString(), row.getBoolean(cm.getName()));
-                    break;
-                case ProtocolConstants.DataType.DATE:
-                    genericRecordBuilder.set(cm.getName().toString(), row.getLocalDate(cm.getName()));
-                    break;
-                case ProtocolConstants.DataType.DURATION:
-                    genericRecordBuilder.set(cm.getName().toString(), row.getCqlDuration(cm.getName()));
-                    break;
-                case ProtocolConstants.DataType.TIME:
-                    genericRecordBuilder.set(cm.getName().toString(), row.getLocalTime(cm.getName()));
-                    break;
-                case ProtocolConstants.DataType.UDT:
-                    genericRecordBuilder.set(cm.getName().toString(), buildUDTValue(row.getUdtValue(cm.getName())));
-                    break;
-                default:
-                    throw new UnsupportedOperationException("Unsupported DataType=" + cm.getType().getProtocolCode());
+            if (!row.isNull(cm.getName())) {
+                switch (cm.getType().getProtocolCode()) {
+                    case ProtocolConstants.DataType.UUID:
+                    case ProtocolConstants.DataType.TIMEUUID:
+                        genericRecordBuilder.set(cm.getName().toString(), row.getUuid(cm.getName()).toString());
+                        break;
+                    case ProtocolConstants.DataType.ASCII:
+                    case ProtocolConstants.DataType.VARCHAR:
+                        genericRecordBuilder.set(cm.getName().toString(), row.getString(cm.getName()));
+                        break;
+                    case ProtocolConstants.DataType.TINYINT:
+                        genericRecordBuilder.set(cm.getName().toString(), row.getByte(cm.getName()));
+                        break;
+                    case ProtocolConstants.DataType.SMALLINT:
+                        genericRecordBuilder.set(cm.getName().toString(), row.getShort(cm.getName()));
+                        break;
+                    case ProtocolConstants.DataType.INT:
+                        genericRecordBuilder.set(cm.getName().toString(), row.getInt(cm.getName()));
+                        break;
+                    case ProtocolConstants.DataType.INET:
+                    case ProtocolConstants.DataType.BIGINT:
+                        genericRecordBuilder.set(cm.getName().toString(), row.getLong(cm.getName()));
+                        break;
+                    case ProtocolConstants.DataType.DOUBLE:
+                        genericRecordBuilder.set(cm.getName().toString(), row.getDouble(cm.getName()));
+                        break;
+                    case ProtocolConstants.DataType.FLOAT:
+                        genericRecordBuilder.set(cm.getName().toString(), row.getFloat(cm.getName()));
+                        break;
+                    case ProtocolConstants.DataType.BOOLEAN:
+                        genericRecordBuilder.set(cm.getName().toString(), row.getBoolean(cm.getName()));
+                        break;
+                    case ProtocolConstants.DataType.DATE:
+                        genericRecordBuilder.set(cm.getName().toString(), row.getLocalDate(cm.getName()));
+                        break;
+                    case ProtocolConstants.DataType.DURATION:
+                        genericRecordBuilder.set(cm.getName().toString(), row.getCqlDuration(cm.getName()));
+                        break;
+                    case ProtocolConstants.DataType.TIME:
+                        genericRecordBuilder.set(cm.getName().toString(), row.getLocalTime(cm.getName()));
+                        break;
+                    case ProtocolConstants.DataType.UDT:
+                        genericRecordBuilder.set(cm.getName().toString(), buildUDTValue(row.getUdtValue(cm.getName())));
+                        break;
+                    default:
+                        throw new UnsupportedOperationException("Unsupported DataType=" + cm.getType().getProtocolCode());
+                }
             }
         }
         return genericRecordBuilder.build();
     }
 
     GenericRecord buildUDTValue(UdtValue udtValue) {
-        String typeName = udtValue.getType().getKeyspace() + "." + udtValue.getType().getName().asCql(true);
+        String typeName = udtValue.getType().getKeyspace() + "." + udtValue.getType().getName().toString();
         GenericSchema genericSchema = udtSchemas.get(typeName);
         assert genericSchema != null : "Generic schema not found for UDT=" + typeName;
         GenericRecordBuilder genericRecordBuilder = genericSchema.newRecordBuilder();
         for(CqlIdentifier field : udtValue.getType().getFieldNames()) {
-            DataType dataType = udtValue.getType(field);
-            switch(dataType.getProtocolCode()) {
-                case ProtocolConstants.DataType.UUID:
-                case ProtocolConstants.DataType.TIMEUUID:
-                    genericRecordBuilder.set(field.toString(), udtValue.getUuid(field).toString());
-                    break;
-                case ProtocolConstants.DataType.ASCII:
-                case ProtocolConstants.DataType.VARCHAR:
-                    genericRecordBuilder.set(field.toString(), udtValue.getString(field));
-                    break;
-                case ProtocolConstants.DataType.TINYINT:
-                    genericRecordBuilder.set(field.toString(), udtValue.getByte(field));
-                    break;
-                case ProtocolConstants.DataType.SMALLINT:
-                    genericRecordBuilder.set(field.toString(), udtValue.getShort(field));
-                    break;
-                case ProtocolConstants.DataType.INT:
-                    genericRecordBuilder.set(field.toString(), udtValue.getInt(field));
-                    break;
-                case ProtocolConstants.DataType.INET:
-                case ProtocolConstants.DataType.BIGINT:
-                    genericRecordBuilder.set(field.toString(), udtValue.getLong(field));
-                    break;
-                case ProtocolConstants.DataType.DOUBLE:
-                    genericRecordBuilder.set(field.toString(), udtValue.getDouble(field));
-                    break;
-                case ProtocolConstants.DataType.FLOAT:
-                    genericRecordBuilder.set(field.toString(), udtValue.getFloat(field));
-                    break;
-                case ProtocolConstants.DataType.BOOLEAN:
-                    genericRecordBuilder.set(field.toString(), udtValue.getBoolean(field));
-                    break;
-                case ProtocolConstants.DataType.DATE:
-                    genericRecordBuilder.set(field.toString(), udtValue.getLocalDate(field));
-                    break;
-                case ProtocolConstants.DataType.DURATION:
-                    genericRecordBuilder.set(field.toString(), udtValue.getCqlDuration(field));
-                    break;
-                case ProtocolConstants.DataType.TIME:
-                    genericRecordBuilder.set(field.toString(), udtValue.getLocalTime(field));
-                    break;
-                case ProtocolConstants.DataType.UDT:
-                    genericRecordBuilder.set(field.toString(), buildUDTValue(udtValue.getUdtValue(field)));
-                    break;
-                default:
-                    throw new UnsupportedOperationException("Unsupported field="+field.toString() + " DataType=" + dataType.getProtocolCode());
+            if (!udtValue.isNull(field)) {
+                DataType dataType = udtValue.getType(field);
+                switch (dataType.getProtocolCode()) {
+                    case ProtocolConstants.DataType.UUID:
+                    case ProtocolConstants.DataType.TIMEUUID:
+                        genericRecordBuilder.set(field.toString(), udtValue.getUuid(field).toString());
+                        break;
+                    case ProtocolConstants.DataType.ASCII:
+                    case ProtocolConstants.DataType.VARCHAR:
+                        genericRecordBuilder.set(field.toString(), udtValue.getString(field));
+                        break;
+                    case ProtocolConstants.DataType.TINYINT:
+                        genericRecordBuilder.set(field.toString(), udtValue.getByte(field));
+                        break;
+                    case ProtocolConstants.DataType.SMALLINT:
+                        genericRecordBuilder.set(field.toString(), udtValue.getShort(field));
+                        break;
+                    case ProtocolConstants.DataType.INT:
+                        genericRecordBuilder.set(field.toString(), udtValue.getInt(field));
+                        break;
+                    case ProtocolConstants.DataType.INET:
+                    case ProtocolConstants.DataType.BIGINT:
+                        genericRecordBuilder.set(field.toString(), udtValue.getLong(field));
+                        break;
+                    case ProtocolConstants.DataType.DOUBLE:
+                        genericRecordBuilder.set(field.toString(), udtValue.getDouble(field));
+                        break;
+                    case ProtocolConstants.DataType.FLOAT:
+                        genericRecordBuilder.set(field.toString(), udtValue.getFloat(field));
+                        break;
+                    case ProtocolConstants.DataType.BOOLEAN:
+                        genericRecordBuilder.set(field.toString(), udtValue.getBoolean(field));
+                        break;
+                    case ProtocolConstants.DataType.DATE:
+                        genericRecordBuilder.set(field.toString(), udtValue.getLocalDate(field));
+                        break;
+                    case ProtocolConstants.DataType.DURATION:
+                        genericRecordBuilder.set(field.toString(), udtValue.getCqlDuration(field));
+                        break;
+                    case ProtocolConstants.DataType.TIME:
+                        genericRecordBuilder.set(field.toString(), udtValue.getLocalTime(field));
+                        break;
+                    case ProtocolConstants.DataType.UDT:
+                        genericRecordBuilder.set(field.toString(), buildUDTValue(udtValue.getUdtValue(field)));
+                        break;
+                    default:
+                        throw new UnsupportedOperationException("Unsupported field=" + field.toString() + " DataType=" + dataType.getProtocolCode());
+                }
             }
         }
         return genericRecordBuilder.build();
@@ -243,11 +245,11 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
      * @return
      */
     @Override
-    public Object[] fromConnectData(GenericRecord genericRecord) {
-        List<Object> pk = new ArrayList<>();
+    public Map<String, Object> fromConnectData(GenericRecord genericRecord) {
+        Map<String, Object> pk = new HashMap<>();
         for(Field field : genericRecord.getFields()) {
-            pk.add(genericRecord.getField(field.getName()));
+            pk.put(field.getName(), genericRecord.getField(field.getName()));
         }
-        return pk.toArray(new Object[pk.size()]);
+        return pk;
     }
 }

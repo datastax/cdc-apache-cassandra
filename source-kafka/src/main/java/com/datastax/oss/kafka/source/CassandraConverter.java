@@ -133,10 +133,8 @@ public class CassandraConverter {
 
     private Schema buildUDTSchema(KeyspaceMetadata ksm, String typeName) {
         log.debug("typeName={}", typeName);
-        UserDefinedType userDefinedType = ksm.getUserDefinedType(CqlIdentifier.fromInternal(typeName.substring(typeName.indexOf(".") + 1))).get();
-        if (userDefinedType == null) {
-            throw new IllegalStateException("UDT " + typeName + " not found");
-        }
+        UserDefinedType userDefinedType = ksm.getUserDefinedType(CqlIdentifier.fromInternal(typeName.substring(typeName.indexOf(".") + 1)))
+                .orElseThrow(() -> new IllegalStateException("UDT " + typeName + " not found"));
         SchemaBuilder udtSchemaBuilder = SchemaBuilder.struct()
                 .optional()
                 .name(typeName)

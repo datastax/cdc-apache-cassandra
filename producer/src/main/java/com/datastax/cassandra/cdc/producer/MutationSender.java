@@ -7,5 +7,5 @@ public interface MutationSender<T> {
     default void initialize() throws Exception {
     }
 
-    CompletionStage<Void> sendMutationAsync(final Mutation<T> mutation) throws Exception;
+    CompletionStage<?> sendMutationAsync(final Mutation<T> mutation) throws Exception;
 }
