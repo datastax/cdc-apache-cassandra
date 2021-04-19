@@ -30,7 +30,7 @@ A Pulsar key-shared subscription ensure all mutations for a given primary key ar
     
 ## Run
 
-    /Users/vroyer/git/apache/pulsar/bin/pulsar-admin source localrun \
+    $PULSAR_HOME/bin/pulsar-admin source localrun \
            --archive /Users/vroyer/git/datastax/cassandra-source-connector/source-pulsar/build/libs/source-pulsar-0.1-SNAPSHOT.nar \
            --tenant public \
            --namespace default \

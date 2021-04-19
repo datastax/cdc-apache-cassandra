@@ -10,8 +10,8 @@ public class KafkaConnectContainer extends GenericContainer<KafkaConnectContaine
     public static final int KAFKA_CONNECT_INTERNAL_PORT = 8083;
     public static final String kafkaConnectContainerName = "connect";
 
-    private KafkaConnectContainer(String boostrapServers, String zookeeperUrl) {
-        super("confluentinc/cp-kafka-connect-base:" + EnhancedKafkaContainer.CONFLUENT_PLATFORM_VERSION);
+    private KafkaConnectContainer(String image, String boostrapServers, String zookeeperUrl) {
+        super(image);
 
         addEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", boostrapServers);
         addEnv("SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL", zookeeperUrl);
@@ -32,8 +32,8 @@ public class KafkaConnectContainer extends GenericContainer<KafkaConnectContaine
         return "http://"+kafkaConnectContainerName + ":" + KAFKA_CONNECT_INTERNAL_PORT;
     }
 
-    public static KafkaConnectContainer create(String boostrapServers, String zookeeperUrl) {
-        return (KafkaConnectContainer) new KafkaConnectContainer(boostrapServers, zookeeperUrl)
+    public static KafkaConnectContainer create(String image, String boostrapServers, String zookeeperUrl) {
+        return (KafkaConnectContainer) new KafkaConnectContainer(image, boostrapServers, zookeeperUrl)
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd
                         .withName(kafkaConnectContainerName)
                 );

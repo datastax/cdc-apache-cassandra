@@ -11,8 +11,8 @@ public class SchemaRegistryContainer extends GenericContainer<SchemaRegistryCont
     public static final int SCHEMA_REGISTRY_INTERNAL_PORT = 8081;
     public static final String schemaRegistryContainerName = "schemaregistry";
 
-    private SchemaRegistryContainer(String boostrapServers) {
-        super("confluentinc/cp-schema-registry:" + EnhancedKafkaContainer.CONFLUENT_PLATFORM_VERSION);
+    private SchemaRegistryContainer(String image, String boostrapServers) {
+        super(image);
 
         addEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", boostrapServers);
         addEnv("SCHEMA_REGISTRY_HOST_NAME", schemaRegistryContainerName);
@@ -24,16 +24,16 @@ public class SchemaRegistryContainer extends GenericContainer<SchemaRegistryCont
         waitingFor(Wait.forHttp("/subjects"));
     }
 
-    public int getPort() {
-        return SCHEMA_REGISTRY_INTERNAL_PORT;
+    public String getRegistryUrl() {
+        return "http://localhost:" + getMappedPort(SCHEMA_REGISTRY_INTERNAL_PORT);
     }
 
-    public String getRegistryAddressInDockerNetwork() {
+    public String getRegistryUrlInDockerNetwork() {
         return "http://" + schemaRegistryContainerName + ":" + SCHEMA_REGISTRY_INTERNAL_PORT;
     }
 
-    public static SchemaRegistryContainer create(String boostrapServers) {
-        return (SchemaRegistryContainer) new SchemaRegistryContainer(boostrapServers)
+    public static SchemaRegistryContainer create(String image, String boostrapServers) {
+        return (SchemaRegistryContainer) new SchemaRegistryContainer(image, boostrapServers)
                 .withCreateContainerCmdModifier(c -> c.withName(schemaRegistryContainerName));
     }
 }
