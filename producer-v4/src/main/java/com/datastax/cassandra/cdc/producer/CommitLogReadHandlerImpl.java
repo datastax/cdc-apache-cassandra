@@ -16,6 +16,7 @@ import org.apache.cassandra.db.LivenessInfo;
 import org.apache.cassandra.db.commitlog.CommitLogDescriptor;
 import org.apache.cassandra.db.commitlog.CommitLogReadHandler;
 import org.apache.cassandra.db.marshal.AbstractType;
+import org.apache.cassandra.db.marshal.ValueAccessor;
 import org.apache.cassandra.db.partitions.PartitionUpdate;
 import org.apache.cassandra.db.rows.Row;
 import org.apache.cassandra.db.rows.Unfiltered;
@@ -396,11 +397,13 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         }
     }
 
+    @SuppressWarnings({"unchecked","rawtypes"})
     private void populateClusteringColumns(RowData after, Row row, PartitionUpdate pu) {
         for (ColumnMetadata cd : pu.metadata().clusteringColumns()) {
             try {
                 String name = cd.name.toString();
-                Object value = row.clustering().get(cd.position());
+                ValueAccessor valueAccessor = row.clustering().accessor();
+                Object value = cd.type.compose(valueAccessor.toBuffer(row.clustering().get(cd.position())));
                 CellData cellData = new CellData(name, value, null, CellData.ColumnType.CLUSTERING);
                 after.addCell(cellData);
             }

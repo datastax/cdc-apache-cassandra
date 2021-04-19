@@ -6,7 +6,7 @@
 
 ## Run
 
-    export JVM_EXTRA_OPTS=\"-javaagent:"$CDC_HOME/producer-v4-kafka/build/libs/producer-v4-kafka-0.1-SNAPSHOT-all.jar\" -DschemaRegistryUrl=http://localhost:8081"
+    export JVM_EXTRA_OPTS="-javaagent:$CDC_HOME/producer-v4-kafka/build/libs/producer-v4-kafka-0.1-SNAPSHOT-all.jar -DschemaRegistryUrl=http://localhost:8081"
 
 ## Tests
 

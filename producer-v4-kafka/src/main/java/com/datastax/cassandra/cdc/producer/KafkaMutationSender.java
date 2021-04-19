@@ -39,6 +39,8 @@ import java.util.concurrent.*;
 @Slf4j
 public class KafkaMutationSender implements MutationSender<TableMetadata> , AutoCloseable {
 
+    public static final String SCHEMA_DOC_PREFIX = "Primary key schema for table";
+
     final Map<String, Converter> converters = new ConcurrentHashMap<>();
     final Map<String, Schema> keySchemas = new ConcurrentHashMap<>();
 
@@ -104,9 +106,10 @@ public class KafkaMutationSender implements MutationSender<TableMetadata> , Auto
                 SchemaBuilder schemaBuilder = SchemaBuilder.struct()
                         .name(key)
                         .version(1)
-                        .doc("Primary key schema for table "+key);
+                        .doc(SCHEMA_DOC_PREFIX + key);
+                int i = 0;
                 for(ColumnMetadata cm : primaryKeyColumns) {
-                    schemaBuilder.field(cm.name.toString(), keySchemas.get(primaryKeyColumns.get(0).type.asCQL3Type().toString()));
+                    schemaBuilder.field(cm.name.toString(), keySchemas.get(primaryKeyColumns.get(i++).type.asCQL3Type().toString()));
                 }
                 schema = schemaBuilder.build();
             }
@@ -124,18 +127,20 @@ public class KafkaMutationSender implements MutationSender<TableMetadata> , Auto
                     String converterClazz = ByteBufferUtil.string(bb);
                     Class<Converter> converterClass = FBUtilities.classForName(converterClazz, "cdc key converter");
                     converter = converterClass.getDeclaredConstructor().newInstance();
-                    // TODO: configure converter
                 } catch(Exception e) {
                     log.error("unexpected error", e);
                 }
-            } else {
+            }
+            if (converter == null) {
                 converter = new AvroConverter();   // default key converter
             }
+            log.info("CDC for table={}.{} key converter={}", tm.keyspace, tm.name, converter.getClass().getName());
             if (PropertyConfig.kafkaRegistryUrl != null) {
                 converter.configure(ImmutableMap.of(
-                        JsonConverterConfig.SCHEMAS_ENABLE_CONFIG, true,
+                        JsonConverterConfig.SCHEMAS_ENABLE_CONFIG, false,
                         AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, PropertyConfig.kafkaRegistryUrl
-                        ), true);
+                        ),
+                        true);
             }
             return converter;
         });
