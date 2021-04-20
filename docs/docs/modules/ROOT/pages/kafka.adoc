@@ -1,0 +1,13 @@
+Cassandra CDC to Kafka
+======================
+
+Running the CDC Kafka producer require a schema registry service.
+
+The First Section
+-----------------
+
+
+By default, the CDC Kafka producer does not create Kafka topics, but you can enable it by settings the
+property auto.create.topics.enable=true in your server.properties file or KAFKA_AUTO_CREATE_TOPICS_ENABLE=true if you run under docker.
+
+
