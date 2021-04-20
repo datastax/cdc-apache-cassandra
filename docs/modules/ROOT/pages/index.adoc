@@ -1,0 +1,52 @@
+= About DataStax Cassandra Data Connector
+
+DataStax Cassandra® Data Connector is open-source software (OSS) that synchronizes records from a supported database table to an Apache&reg; Pulsar topic, which in turn can write the data to platforms such as Elastic or Snowflake. 
+
+== Key Features
+
+* Flexibility in mapping Astra, Cassandra, or DataStax Enterprise (DSE0 database tables to Apache® Pulsar topics.
+* Enterprise grade security support including built-in SSL, and LDAP integration.
+* Supports all Apache Pulsar primitives including primitives, JSON and Avro formats.
+* Flexible time/date formatting.
+* Configurable consistency level.
+* Row-level Time-to-Live (TTL).
+* Distributed mode, high availability (HA) support.
+* Standalone mode support for development.
+
+[#supported-databases]
+== Supported databases
+
+* https://docs.datastax.com/en/astra/docs/[DataStax Astra] cloud databases
+* DataStax Enterprise (DSE) 5.1 and later databases
+* Open source Apache® Cassandra® 2.1 and later databases
+
+== Supported Pulsar data structures
+
+Ingest data from Pulsar topics with records in the following data structures:
+
+* Primitive string values
+* Complex field values in record types:
+ ** Avro
+ ** JSON formatted string with JSON schema
+ ** JSON formatted string inside a schemaless topic
+
+== Getting started
+
+* xref:quickstart.adoc[] A quick introduction connecting a DSE or a Cassandra table to a Pulsar topic, sending simple key/value messages using the client utility.
+
+== Advanced message mapping topics
+
+If you're already familiar with Apache® Pulsar and DSE/Astra/Cassandra® see the following advanced message mapping topics:
+
+* ( decide which topics from DataStax Pulsar or Kafka docs the we want to include )
+
+
+== Where to go next
+
+If you've got an existing Kubernetes environment:: To deploy Cassandra Data Connector in your existing Kubernetes environment, see xref::quickstart-helm-installs.adoc[].
+
+If you've got bare metal or a cloud environment:: To deploy Cassandra Data Connector from scratch on bare metal or in a cloud environment, see xref::quickstart-server-installs.adoc[].
+
+If you'd like to learn about Pulsar Heartbeat:: See xref::pulsar-monitor.adoc[].
+
+If you've got more questions...:: For additional information about Cassandra Data Connector, see xref::faqs.adoc[].
