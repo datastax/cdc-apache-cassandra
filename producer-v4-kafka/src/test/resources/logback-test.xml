@@ -11,5 +11,5 @@
 
     <logger name="org.testcontainers" level="DEBUG"/>
     <logger name="com.github.dockerjava" level="WARN"/>
-    <logger name="com.datastax.cassandra.producer" level="DEBUG"/>
+    <logger name="com.datastax.cassandra.cdc.producer" level="DEBUG"/>
 </configuration>

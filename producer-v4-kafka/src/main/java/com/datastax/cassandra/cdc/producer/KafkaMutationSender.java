@@ -41,46 +41,52 @@ public class KafkaMutationSender implements MutationSender<TableMetadata> , Auto
 
     public static final String SCHEMA_DOC_PREFIX = "Primary key schema for table";
 
-    final Map<String, Converter> converters = new ConcurrentHashMap<>();
-    final Map<String, Schema> keySchemas = new ConcurrentHashMap<>();
+    final Map<String, Schema> schemas = new ConcurrentHashMap<>();
 
     final Schema valueSchema;
     final Converter valueConverter;
+    final Converter keyConverter;
 
-    KafkaProducer<?, ?> kafkaProducer;
+    KafkaProducer<?, ?> kafkaProducer; // lazy init
 
     final Executor executor = Executors.newFixedThreadPool(1);
 
     KafkaMutationSender() {
         // Map Cassandra native types to Kafka schemas
-        keySchemas.put(UTF8Type.instance.asCQL3Type().toString(), SchemaBuilder.string().optional().build());
-        keySchemas.put(AsciiType.instance.asCQL3Type().toString(), SchemaBuilder.string().optional().build());
-        keySchemas.put(BooleanType.instance.asCQL3Type().toString(), SchemaBuilder.bool().optional().build());
-        keySchemas.put(BytesType.instance.asCQL3Type().toString(), SchemaBuilder.bytes().optional().build());
-        keySchemas.put(ByteType.instance.asCQL3Type().toString(), SchemaBuilder.int8().optional().build());
-        keySchemas.put(ShortType.instance.asCQL3Type().toString(), SchemaBuilder.int16().optional().build());
-        keySchemas.put(Int32Type.instance.asCQL3Type().toString(), SchemaBuilder.int32().optional().build());
-        keySchemas.put(IntegerType.instance.asCQL3Type().toString(), SchemaBuilder.int64().optional().build());
-        keySchemas.put(LongType.instance.asCQL3Type().toString(), SchemaBuilder.int64().optional().build());
+        schemas.put(UTF8Type.instance.asCQL3Type().toString(), SchemaBuilder.string().optional().build());
+        schemas.put(AsciiType.instance.asCQL3Type().toString(), SchemaBuilder.string().optional().build());
+        schemas.put(BooleanType.instance.asCQL3Type().toString(), SchemaBuilder.bool().optional().build());
+        schemas.put(BytesType.instance.asCQL3Type().toString(), SchemaBuilder.bytes().optional().build());
+        schemas.put(ByteType.instance.asCQL3Type().toString(), SchemaBuilder.int8().optional().build());
+        schemas.put(ShortType.instance.asCQL3Type().toString(), SchemaBuilder.int16().optional().build());
+        schemas.put(Int32Type.instance.asCQL3Type().toString(), SchemaBuilder.int32().optional().build());
+        schemas.put(IntegerType.instance.asCQL3Type().toString(), SchemaBuilder.int64().optional().build());
+        schemas.put(LongType.instance.asCQL3Type().toString(), SchemaBuilder.int64().optional().build());
 
-        keySchemas.put(FloatType.instance.asCQL3Type().toString(), SchemaBuilder.float32().optional().build());
-        keySchemas.put(DoubleType.instance.asCQL3Type().toString(), SchemaBuilder.float64().optional().build());
+        schemas.put(FloatType.instance.asCQL3Type().toString(), SchemaBuilder.float32().optional().build());
+        schemas.put(DoubleType.instance.asCQL3Type().toString(), SchemaBuilder.float64().optional().build());
 
-        keySchemas.put(InetAddressType.instance.asCQL3Type().toString(), SchemaBuilder.int64().optional().build());
+        schemas.put(InetAddressType.instance.asCQL3Type().toString(), SchemaBuilder.int64().optional().build());
 
-        keySchemas.put(TimestampType.instance.asCQL3Type().toString(), Timestamp.builder().optional());
-        keySchemas.put(SimpleDateType.instance.asCQL3Type().toString(), Date.builder().optional());
-        keySchemas.put(TimeType.instance.asCQL3Type().toString(), Time.builder().optional());
-        keySchemas.put(DurationType.instance.asCQL3Type().toString(), NanoDuration.builder().optional());
+        schemas.put(TimestampType.instance.asCQL3Type().toString(), Timestamp.builder().optional());
+        schemas.put(SimpleDateType.instance.asCQL3Type().toString(), Date.builder().optional());
+        schemas.put(TimeType.instance.asCQL3Type().toString(), Time.builder().optional());
+        schemas.put(DurationType.instance.asCQL3Type().toString(), NanoDuration.builder().optional());
 
-        keySchemas.put(UUIDType.instance.asCQL3Type().toString(), Uuid.builder().optional());
-        keySchemas.put(TimeUUIDType.instance.asCQL3Type().toString(), Uuid.builder().optional());
+        schemas.put(UUIDType.instance.asCQL3Type().toString(), Uuid.builder().optional());
+        schemas.put(TimeUUIDType.instance.asCQL3Type().toString(), Uuid.builder().optional());
+
+        Map<String, String> converterConfig = ImmutableMap.of(
+                AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, PropertyConfig.kafkaRegistryUrl
+        );
+
+        // Kafka Converter for the Mutation key
+        keyConverter = new AvroConverter();
+        keyConverter.configure(converterConfig, true);
 
         // Kafka Converter for the MutationValue
         valueConverter = new AvroConverter();
-        valueConverter.configure(ImmutableMap.of(
-                AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, PropertyConfig.kafkaRegistryUrl
-        ), false);
+        valueConverter.configure(converterConfig, false);
 
         // Kafka Schema for MutationValue
         valueSchema = SchemaBuilder.struct()
@@ -96,53 +102,24 @@ public class KafkaMutationSender implements MutationSender<TableMetadata> , Auto
     @SuppressWarnings("rawtypes")
     public Schema getKeySchema(final TableMetadata tm) {
         String key = tm.keyspace+"." + tm.name;
-        return keySchemas.computeIfAbsent(key, k -> {
+        return schemas.computeIfAbsent(key, k -> {
             Schema schema;
             List<ColumnMetadata> primaryKeyColumns = new ArrayList<>();
             tm.primaryKeyColumns().forEach(primaryKeyColumns::add);
             if (primaryKeyColumns.size() == 1) {
-                schema = keySchemas.get(primaryKeyColumns.get(0).type.asCQL3Type().toString());
+                schema = schemas.get(primaryKeyColumns.get(0).type.asCQL3Type().toString());
             } else {
                 SchemaBuilder schemaBuilder = SchemaBuilder.struct()
                         .name(key)
                         .version(1)
-                        .doc(SCHEMA_DOC_PREFIX + key);
+                        .doc(SCHEMA_DOC_PREFIX + k);
                 int i = 0;
                 for(ColumnMetadata cm : primaryKeyColumns) {
-                    schemaBuilder.field(cm.name.toString(), keySchemas.get(primaryKeyColumns.get(i++).type.asCQL3Type().toString()));
+                    schemaBuilder.field(cm.name.toString(), schemas.get(primaryKeyColumns.get(i++).type.asCQL3Type().toString()));
                 }
                 schema = schemaBuilder.build();
             }
             return schema;
-        });
-    }
-
-    public Converter getConverter(final TableMetadata tm) {
-        String key = tm.keyspace+"." + tm.name;
-        return converters.computeIfAbsent(key, k -> {
-            Converter converter = null;
-            ByteBuffer bb = tm.params.extensions.get("cdc.keyConverter");
-            if (bb != null) {
-                try {
-                    String converterClazz = ByteBufferUtil.string(bb);
-                    Class<Converter> converterClass = FBUtilities.classForName(converterClazz, "cdc key converter");
-                    converter = converterClass.getDeclaredConstructor().newInstance();
-                } catch(Exception e) {
-                    log.error("unexpected error", e);
-                }
-            }
-            if (converter == null) {
-                converter = new AvroConverter();   // default key converter
-            }
-            log.info("CDC for table={}.{} key converter={}", tm.keyspace, tm.name, converter.getClass().getName());
-            if (PropertyConfig.kafkaRegistryUrl != null) {
-                converter.configure(ImmutableMap.of(
-                        JsonConverterConfig.SCHEMAS_ENABLE_CONFIG, false,
-                        AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, PropertyConfig.kafkaRegistryUrl
-                        ),
-                        true);
-            }
-            return converter;
         });
     }
 
@@ -184,7 +161,6 @@ public class KafkaMutationSender implements MutationSender<TableMetadata> , Auto
     @Override
     @SuppressWarnings({"rawtypes","unchecked"})
     public CompletionStage<Void> sendMutationAsync(final Mutation<TableMetadata> mutation) throws Exception {
-        Converter keyConverter = getConverter(mutation.getMetadata());
         Schema keySchema = getKeySchema(mutation.getMetadata());
         String topicName = PropertyConfig.topicPrefix + mutation.getMetadata().keyspace + "." + mutation.getMetadata().name;
         byte[] serializedKey = keyConverter.fromConnectData(topicName, keySchema, buildKey(keySchema, mutation.primaryKeyCells()));
