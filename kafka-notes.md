@@ -13,3 +13,7 @@
 
     kafkacat -L -b localhost:55147 -t events-ks1.table1 -J
     kafkacat -C -b localhost:55147 -t events-ks1.table1 -J
+
+Message count:
+
+    kafkacat -C -b localhost:9092 -t events-ks1.table1 -e -q
