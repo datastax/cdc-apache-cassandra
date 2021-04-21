@@ -17,6 +17,9 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.json.JsonConverter;
+import org.apache.kafka.connect.json.JsonConverterConfig;
+import org.apache.kafka.connect.storage.Converter;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -123,7 +126,13 @@ public class KafkaSourceTests {
     }
 
     @Test
-    public void testAvroConverters() throws InterruptedException, IOException {
+    public void testConverters() throws InterruptedException, IOException {
+        // sequential testing because source connectors have the same name
+        testSourceConnector("avro", new AvroConverter(), new AvroConverter(), false);
+        testSourceConnector("json", new JsonConverter(), new JsonConverter(), true);
+    }
+
+    public void testSourceConnector(String config, Converter keyConverter, Converter valueConverter, boolean schemaWithNullValue) throws InterruptedException, IOException {
         try(CqlSession cqlSession = cassandraContainer.getCqlSession()) {
             cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS ks1 WITH replication = \n" +
                     "{'class':'SimpleStrategy','replication_factor':'1'};");
@@ -141,8 +150,10 @@ public class KafkaSourceTests {
         kafkaConnectContainer.setLogging("com.datastax","DEBUG");
 
         // source connector must be deployed after the creation of the cassandra table.
-        assertEquals(201, kafkaConnectContainer.deployConnector("source-cassandra-table1.yaml"));
-        assertEquals(201, kafkaConnectContainer.deployConnector("source-cassandra-table2.yaml"));
+        assertEquals(201, kafkaConnectContainer.deployConnector(
+                String.format(Locale.ROOT, "source-cassandra-%s-table1.yaml", config)));
+        assertEquals(201, kafkaConnectContainer.deployConnector(
+                String.format(Locale.ROOT, "source-cassandra-%s-table2.yaml", config)));
 
         // wait commitlogs sync on disk
         Thread.sleep(11000);
@@ -152,9 +163,10 @@ public class KafkaSourceTests {
         int mutationTable1 = 1;
         int mutationTable2 = 1;
 
-        AvroConverter keyConverter = new AvroConverter();
         keyConverter.configure(
-                ImmutableMap.of(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryContainer.getRegistryUrl()),
+                ImmutableMap.of(
+                        AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryContainer.getRegistryUrl(),
+                        "key.converter.schemas.enable", "true"),
                 true);
         Schema expectedKeySchema1 = SchemaBuilder.string().optional().build();
         Schema expectedKeySchema2 = SchemaBuilder.struct()
@@ -165,9 +177,10 @@ public class KafkaSourceTests {
                 .field("b", SchemaBuilder.int32().optional().build())
                 .build();
 
-        AvroConverter valueConverter = new AvroConverter();
         valueConverter.configure(
-                ImmutableMap.of(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryContainer.getRegistryUrl()),
+                ImmutableMap.of(
+                        AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryContainer.getRegistryUrl(),
+                        "value.converter.schemas.enable", "true"),
                 false);
         Schema expectedValueSchema1 = SchemaBuilder.struct()
                 .name("ks1.table1")
@@ -342,7 +355,11 @@ public class KafkaSourceTests {
                     assertEquals("1", keySchemaAndValue.value());
                     assertEquals(expectedKeySchema1, keySchemaAndValue.schema());
                     assertEquals(null, valueSchemaAndValue.value());
-                    assertEquals(null, valueSchemaAndValue.schema());
+                    if (schemaWithNullValue) {
+                        assertEquals(expectedValueSchema1v2, valueSchemaAndValue.schema());
+                    } else {
+                        assertEquals(null, valueSchemaAndValue.schema());
+                    }
                     mutationTable1++;
                 } else if (topicName.endsWith("table2")) {
                     Struct expectedKey = new Struct(keySchemaAndValue.schema())
@@ -351,7 +368,11 @@ public class KafkaSourceTests {
                     assertEquals(expectedKey, keySchemaAndValue.value());
                     assertEquals(expectedKeySchema2, keySchemaAndValue.schema());
                     assertEquals(null, valueSchemaAndValue.value());
-                    assertEquals(null, valueSchemaAndValue.schema());
+                    if (schemaWithNullValue) {
+                        assertEquals(expectedValueSchema2v2, valueSchemaAndValue.schema());
+                    } else {
+                        assertEquals(null, valueSchemaAndValue.schema());
+                    }
                     mutationTable2++;
                 }
             }
