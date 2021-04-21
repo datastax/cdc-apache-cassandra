@@ -18,7 +18,7 @@ before_install:
 install:
   - cd ${TRAVIS_BUILD_DIR}
 before_script:
-  - ./gradlew test
+  - ./gradlew pulsar-source:test
 script:
   - ./gradlew assemble
 before_deploy:
