@@ -1,5 +1,5 @@
 {
-  "name": "cassandra-source-table2",
+  "name": "cassandra-source-ks1-table1",
   "config": {
     "connector.class": "com.datastax.oss.kafka.source.CassandraSourceConnector",
     "tasks.max": "1",
@@ -7,10 +7,10 @@
     "schema.registry.url": "http://schemaregistry:8081",
     "errors.log.enable": true,
     "errors.log.include.messages": true,
-    "events.topic": "events-ks1.table2",
-    "data.topic": "data-ks1.table2",
+    "events.topic": "events-ks1.table1",
+    "data.topic": "data-ks1.table1",
     "keyspace": "ks1",
-    "table": "table2",
+    "table": "table1",
     "contactPoints": "cassandra",
     "loadBalancing.localDc": "datacenter1",
     "key.converter": "io.confluent.connect.avro.AvroConverter",

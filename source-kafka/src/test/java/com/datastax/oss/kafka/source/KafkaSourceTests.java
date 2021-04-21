@@ -92,7 +92,7 @@ public class KafkaSourceTests {
                         producerJarFile,
                         internalBootstrapServers,
                         schemaRegistryContainer.getRegistryUrlInDockerNetwork()))
-                .withStartupTimeout(Duration.ofSeconds(70));
+                .withStartupTimeout(Duration.ofSeconds(90));
         cassandraContainer.start();
 
         kafkaConnectContainer = KafkaConnectContainer
@@ -101,7 +101,7 @@ public class KafkaSourceTests {
                 .withFileSystemBind(
                         String.format(Locale.ROOT, "%s/libs/%s", sourceBuildDir, sourceJarFile),
                         String.format(Locale.ROOT, "/connect-plugins/%s", sourceJarFile))
-                .withStartupTimeout(Duration.ofSeconds(60));
+                .withStartupTimeout(Duration.ofSeconds(120));
         kafkaConnectContainer.start();
     }
 
@@ -126,39 +126,40 @@ public class KafkaSourceTests {
     }
 
     @Test
-    public void testConverters() throws InterruptedException, IOException {
-        // sequential testing because source connectors have the same name
-        testSourceConnector("avro", new AvroConverter(), new AvroConverter(), false);
-        testSourceConnector("json", new JsonConverter(), new JsonConverter(), true);
+    public void testAvroConverters() throws InterruptedException, IOException {
+        testSourceConnector("ks1", new AvroConverter(), new AvroConverter(), false);
     }
 
-    public void testSourceConnector(String config, Converter keyConverter, Converter valueConverter, boolean schemaWithNullValue) throws InterruptedException, IOException {
-        try(CqlSession cqlSession = cassandraContainer.getCqlSession()) {
-            cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS ks1 WITH replication = \n" +
-                    "{'class':'SimpleStrategy','replication_factor':'1'};");
-            cqlSession.execute("CREATE TABLE IF NOT EXISTS ks1.table1 (id text PRIMARY KEY, a int) WITH cdc=true");
-            cqlSession.execute("INSERT INTO ks1.table1 (id, a) VALUES('1',1)");
-            cqlSession.execute("INSERT INTO ks1.table1 (id, a) VALUES('2',1)");
-            cqlSession.execute("INSERT INTO ks1.table1 (id, a) VALUES('3',1)");
+    @Test
+    public void testJsonConverters() throws InterruptedException, IOException {
+        testSourceConnector("ks2", new JsonConverter(), new JsonConverter(), true);
+    }
 
-            cqlSession.execute("CREATE TABLE IF NOT EXISTS ks1.table2 (a text, b int, c int, PRIMARY KEY(a,b)) WITH cdc=true");
-            cqlSession.execute("INSERT INTO ks1.table2 (a,b,c) VALUES('1',1,1)");
-            cqlSession.execute("INSERT INTO ks1.table2 (a,b,c) VALUES('2',1,1)");
-            cqlSession.execute("INSERT INTO ks1.table2 (a,b,c) VALUES('3',1,1)");
+    public void testSourceConnector(String ksName, Converter keyConverter, Converter valueConverter, boolean schemaWithNullValue) throws InterruptedException, IOException {
+        try(CqlSession cqlSession = cassandraContainer.getCqlSession()) {
+            cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName +
+                    " WITH replication = {'class':'SimpleStrategy','replication_factor':'1'};");
+            cqlSession.execute("CREATE TABLE IF NOT EXISTS "+ksName+".table1 (id text PRIMARY KEY, a int) WITH cdc=true");
+            cqlSession.execute("INSERT INTO "+ksName+".table1 (id, a) VALUES('1',1)");
+            cqlSession.execute("INSERT INTO "+ksName+".table1 (id, a) VALUES('2',1)");
+            cqlSession.execute("INSERT INTO "+ksName+".table1 (id, a) VALUES('3',1)");
+
+            cqlSession.execute("CREATE TABLE IF NOT EXISTS "+ksName+".table2 (a text, b int, c int, PRIMARY KEY(a,b)) WITH cdc=true");
+            cqlSession.execute("INSERT INTO "+ksName+".table2 (a,b,c) VALUES('1',1,1)");
+            cqlSession.execute("INSERT INTO "+ksName+".table2 (a,b,c) VALUES('2',1,1)");
+            cqlSession.execute("INSERT INTO "+ksName+".table2 (a,b,c) VALUES('3',1,1)");
         }
 
         kafkaConnectContainer.setLogging("com.datastax","DEBUG");
 
         // source connector must be deployed after the creation of the cassandra table.
-        assertEquals(201, kafkaConnectContainer.deployConnector(
-                String.format(Locale.ROOT, "source-cassandra-%s-table1.yaml", config)));
-        assertEquals(201, kafkaConnectContainer.deployConnector(
-                String.format(Locale.ROOT, "source-cassandra-%s-table2.yaml", config)));
+        assertEquals(201, kafkaConnectContainer.deployConnector("source-cassandra-"+ksName+"-table1.yaml"));
+        assertEquals(201, kafkaConnectContainer.deployConnector("source-cassandra-"+ksName+"-table2.yaml"));
 
         // wait commitlogs sync on disk
         Thread.sleep(11000);
-        KafkaConsumer<byte[], byte[]> consumer = createConsumer("test-consumer-data-group");
-        consumer.subscribe(ImmutableList.of("data-ks1.table1", "data-ks1.table2"));
+        KafkaConsumer<byte[], byte[]> consumer = createConsumer("test-consumer-data-group-"+ksName);
+        consumer.subscribe(ImmutableList.of("events-"+ksName+".table1", "data-"+ksName+".table2"));
         int noRecordsCount = 0;
         int mutationTable1 = 1;
         int mutationTable2 = 1;
@@ -170,9 +171,9 @@ public class KafkaSourceTests {
                 true);
         Schema expectedKeySchema1 = SchemaBuilder.string().optional().build();
         Schema expectedKeySchema2 = SchemaBuilder.struct()
-                .name("ks1.table2")
+                .name(ksName+".table2")
                 .version(1)
-                .doc(KafkaMutationSender.SCHEMA_DOC_PREFIX + "ks1.table2")
+                .doc(KafkaMutationSender.SCHEMA_DOC_PREFIX + ksName+".table2")
                 .field("a", SchemaBuilder.string().optional().build())
                 .field("b", SchemaBuilder.int32().optional().build())
                 .build();
@@ -183,15 +184,15 @@ public class KafkaSourceTests {
                         "value.converter.schemas.enable", "true"),
                 false);
         Schema expectedValueSchema1 = SchemaBuilder.struct()
-                .name("ks1.table1")
-                .doc(CassandraConverter.TABLE_SCHEMA_DOC_PREFIX + "ks1.table1")
+                .name(ksName + ".table1")
+                .doc(CassandraConverter.TABLE_SCHEMA_DOC_PREFIX + ksName+".table1")
                 .optional()
                 .field("id", SchemaBuilder.string().optional().build())
                 .field("a", SchemaBuilder.int32().optional().build())
                 .build();
         Schema expectedValueSchema2 = SchemaBuilder.struct()
-                .name("ks1.table2")
-                .doc(CassandraConverter.TABLE_SCHEMA_DOC_PREFIX + "ks1.table2")
+                .name(ksName + ".table2")
+                .doc(CassandraConverter.TABLE_SCHEMA_DOC_PREFIX + ksName+".table2")
                 .optional()
                 .field("a", SchemaBuilder.string().optional().build())
                 .field("b", SchemaBuilder.int32().optional().build())
@@ -244,34 +245,34 @@ public class KafkaSourceTests {
 
         // trigger a schema update
         try(CqlSession cqlSession = cassandraContainer.getCqlSession()) {
-            cqlSession.execute("ALTER TABLE ks1.table1 ADD b double");
-            cqlSession.execute("INSERT INTO ks1.table1 (id,a,b) VALUES('1',1,1.0)");
+            cqlSession.execute("ALTER TABLE "+ksName+".table1 ADD b double");
+            cqlSession.execute("INSERT INTO "+ksName+".table1 (id,a,b) VALUES('1',1,1.0)");
 
-            cqlSession.execute("CREATE TYPE ks1.type2 (a bigint, b smallint);");
-            cqlSession.execute("ALTER TABLE ks1.table2 ADD d type2");
-            cqlSession.execute("INSERT INTO ks1.table2 (a,b,c,d) VALUES('1',1,1,{a:1,b:1})");
+            cqlSession.execute("CREATE TYPE "+ksName+".type2 (a bigint, b smallint);");
+            cqlSession.execute("ALTER TABLE "+ksName+".table2 ADD d type2");
+            cqlSession.execute("INSERT INTO "+ksName+".table2 (a,b,c,d) VALUES('1',1,1,{a:1,b:1})");
         }
         // wait commitlogs sync on disk
         Thread.sleep(11000);
 
         Schema expectedValueSchema1v2 = SchemaBuilder.struct()
-                .name("ks1.table1")
-                .doc(CassandraConverter.TABLE_SCHEMA_DOC_PREFIX + "ks1.table1")
+                .name(ksName+".table1")
+                .doc(CassandraConverter.TABLE_SCHEMA_DOC_PREFIX + ksName+".table1")
                 .optional()
                 .field("id", SchemaBuilder.string().optional().build())
                 .field("a", SchemaBuilder.int32().optional().build())
                 .field("b", SchemaBuilder.float64().optional().build())
                 .build();
         Schema type2Schema = SchemaBuilder.struct()
-                .name("ks1.type2")
-                .doc(CassandraConverter.TYPE_SCHEMA_DOC_PREFIX+"ks1.type2")
+                .name(ksName+".type2")
+                .doc(CassandraConverter.TYPE_SCHEMA_DOC_PREFIX + ksName+".type2")
                 .optional()
                 .field("a", SchemaBuilder.int64().optional().build())
                 .field("b", SchemaBuilder.int16().optional().build())
                 .build();
         Schema expectedValueSchema2v2 = SchemaBuilder.struct()
-                .name("ks1.table2")
-                .doc(CassandraConverter.TABLE_SCHEMA_DOC_PREFIX + "ks1.table2")
+                .name(ksName+".table2")
+                .doc(CassandraConverter.TABLE_SCHEMA_DOC_PREFIX + ksName+".table2")
                 .optional()
                 .field("a", SchemaBuilder.string().optional().build())
                 .field("b", SchemaBuilder.int32().optional().build())
@@ -329,8 +330,8 @@ public class KafkaSourceTests {
 
         // delete rows
         try(CqlSession cqlSession = cassandraContainer.getCqlSession()) {
-            cqlSession.execute("DELETE FROM ks1.table1 WHERE id = '1'");
-            cqlSession.execute("DELETE FROM ks1.table2 WHERE a = '1' AND b = 1");
+            cqlSession.execute("DELETE FROM "+ksName+".table1 WHERE id = '1'");
+            cqlSession.execute("DELETE FROM "+ksName+".table2 WHERE a = '1' AND b = 1");
         }
         // wait commitlogs sync on disk
         Thread.sleep(11000);
@@ -382,7 +383,7 @@ public class KafkaSourceTests {
         assertEquals(6, mutationTable2);
 
         consumer.close();
-        assertEquals(204, kafkaConnectContainer.undeployConnector("cassandra-source-table1"));
-        assertEquals(204, kafkaConnectContainer.undeployConnector("cassandra-source-table2"));
+        assertEquals(204, kafkaConnectContainer.undeployConnector("cassandra-source-"+ksName+"-table1"));
+        assertEquals(204, kafkaConnectContainer.undeployConnector("cassandra-source-"+ksName+"-table2"));
     }
 }
