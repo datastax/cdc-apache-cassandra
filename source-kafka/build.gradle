@@ -9,31 +9,44 @@ tasks.withType(JavaCompile) {
     options.compilerArgs += '-Xlint:none'
 }
 
+configurations {
+    producerV4Kafka
+}
+
 dependencies {
     implementation "org.projectlombok:lombok:${lombokVersion}"
     annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
 
     implementation project(':common')
-    implementation project(':source')
+    api project(':source')
 
-    implementation "com.datastax.oss:java-driver-core:${ossDriverVersion}"
-    implementation "com.datastax.oss:java-driver-query-builder:${ossDriverVersion}"
+    implementation("org.apache.kafka:connect-api:${kafkaVersion}")
+    implementation("org.apache.kafka:connect-json:${kafkaVersion}")
+    implementation("io.confluent:kafka-connect-avro-converter:${confluentVersion}")
+    implementation("io.confluent:kafka-avro-serializer:${confluentVersion}")
 
-    implementation("com.datastax.oss:messaging-connectors-commons-core:1.0.12-SNAPSHOT")
-    implementation("io.vavr:vavr:0.10.3")
+    testImplementation "org.projectlombok:lombok:${lombokVersion}"
+    testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
 
-    compileOnly("org.apache.kafka:connect-api:${kafkaVersion}")
-    compileOnly("org.apache.kafka:connect-json:${kafkaVersion}")
-    compileOnly("io.confluent:kafka-connect-avro-converter:${confluentVersion}")
+    testImplementation "com.google.guava:guava:30.1-jre"
+    testImplementation "com.datastax.oss:java-driver-core:${ossDriverVersion}"
+    testImplementation "com.datastax.oss:java-driver-query-builder:${ossDriverVersion}"
+    testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
+    testImplementation "org.testcontainers:database-commons:${testContainersVersion}"
+    testImplementation "org.testcontainers:cassandra:${testContainersVersion}"
+    testImplementation "org.testcontainers:kafka:${testContainersVersion}"
+    testImplementation project(':common-kafka')
+    testImplementation project(':producer-v4-kafka')
 
-    testCompile "org.testcontainers:testcontainers:1.15.2"
-    testCompile "org.testcontainers:database-commons:1.15.2"
-    testCompile "org.testcontainers:cassandra:1.15.3-SNAPSHOT"
+    testRuntime "org.slf4j:slf4j-api:1.7.30"
+    testRuntime "org.slf4j:slf4j-simple:1.7.30"
 
     testCompile "net.andreinc.mockneat:mockneat:0.2.2"
     testCompile "org.mockito:mockito-core:3.0.0"
     testCompile "org.powermock:powermock-api-mockito2:2.0.9"
     testCompile "org.powermock:powermock-module-testng:2.0.9"
+
+    producerV4Kafka project(':producer-v4-kafka')
 }
 
 jar {
@@ -51,4 +64,21 @@ shadowJar {
     }
 }
 
+jar.enabled = false
+assemble.dependsOn(shadowJar)
+
+test {
+    // Add dependency on jar task, since it will be main target for testing
+    dependsOn project(':producer-v4-kafka').shadowJar
+    dependsOn shadowJar
+
+    // Rearrange test classpath, add compiled JAR instead of main classes
+    classpath = project.sourceSets.test.output + configurations.testRuntimeClasspath + files(shadowJar.archiveFile)
+
+    useJUnitPlatform()
+
+    systemProperty "sourceBuildDir", buildDir
+    systemProperty "producerBuildDir", project(':producer-v4-kafka').buildDir
+    systemProperty "projectVersion", project.version
+}
 

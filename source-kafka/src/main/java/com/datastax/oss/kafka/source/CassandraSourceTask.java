@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class CassandraSourceTask extends SourceTask implements SchemaChangeListener {
 
-    public static final String DEFAULT_CONSUMER_GROUP_ID = "CassandraSourceConsumers";
+    public static final String DEFAULT_CONSUMER_GROUP_ID_PREFIX = "connector-group-";
 
     CassandraSourceConnectorConfig config;
 
@@ -48,13 +48,15 @@ public class CassandraSourceTask extends SourceTask implements SchemaChangeListe
     List<String> pkColumns;
 
     CassandraClient cassandraClient;
-    final List<ConsistencyLevel> consistencyLevels = Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE);
+    final List<ConsistencyLevel> consistencyLevels = Collections.unmodifiableList(
+            Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE));
     MutationCache<Object> mutationCache;
     volatile CassandraConverter cassandraConverter;
 
     Converter mutationKeyConverter, mutationValueConverter;
     Converter keyConverter, valueConverter;
 
+    // the consumer is not thread-safe
     Consumer<byte[], byte[]> consumer = null;
 
     public CassandraSourceTask() {
@@ -147,16 +149,21 @@ public class CassandraSourceTask extends SourceTask implements SchemaChangeListe
         this.valueConverter.configure(converterProps, false);
 
         // Kafka consumer
+        String consumerGroupId = DEFAULT_CONSUMER_GROUP_ID_PREFIX + config.getInstanceName();
         final Properties consumerProps = new Properties();
         consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getBootstrapServers());
-        consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, DEFAULT_CONSUMER_GROUP_ID);
+        consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, consumerGroupId);
+        consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, org.apache.kafka.common.serialization.ByteArrayDeserializer.class.getName());
         consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, org.apache.kafka.common.serialization.ByteArrayDeserializer.class.getName());
-        this.consumer = new KafkaConsumer<>(consumerProps);
 
-        // Subscribe to the topic.
-        consumer.subscribe(Collections.singletonList(eventsTopic));
-        log.debug("Starting source connector eventTopic={} group={}}", eventsTopic, DEFAULT_CONSUMER_GROUP_ID);
+        synchronized(this) {
+            this.consumer = new KafkaConsumer<>(consumerProps);
+            consumer.subscribe(Collections.singletonList(eventsTopic));
+        }
+
+        log.info("Starting source connector name={} eventsTopic={} consumerGroupId={}}",
+                config.getInstanceName(), eventsTopic, consumerGroupId);
     }
 
     private CassandraClient createClient(List<String> contactPoints, String localDc) {
@@ -199,8 +206,8 @@ public class CassandraSourceTask extends SourceTask implements SchemaChangeListe
      * @return a list of source records
      */
     @Override
-    public List<SourceRecord> poll() throws InterruptedException {
-        final ConsumerRecords<byte[], byte[]> consumerRecords = consumer.poll(Duration.ofMillis(1000));
+    public List<SourceRecord> poll() {
+        ConsumerRecords<byte[], byte[]> consumerRecords = consumer.poll(Duration.ofMillis(1000));
         List<SourceRecord> sourceRecords = new ArrayList<>(consumerRecords.count());
         // TODO: set the kafka partition
         int partition = 0;
@@ -275,7 +282,12 @@ public class CassandraSourceTask extends SourceTask implements SchemaChangeListe
     @Override
     public void stop() {
         if (this.consumer != null) {
-            this.consumer.close();
+            synchronized(this) {
+                if (this.consumer != null) {
+                    this.consumer.close();
+                    this.consumer = null;
+                }
+            }
         }
     }
 

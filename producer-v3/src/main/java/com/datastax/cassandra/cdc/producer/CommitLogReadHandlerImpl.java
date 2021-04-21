@@ -33,10 +33,8 @@ import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Predicate;
 
 import static com.datastax.cassandra.cdc.producer.CommitLogReadHandlerImpl.RowType.DELETE;
-import static java.util.stream.Collectors.toSet;
 
 /**
  * Handler that implements {@link CommitLogReadHandler} interface provided by Cassandra source code.
@@ -398,6 +396,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         }
     }
 
+    @SuppressWarnings({"unchecked","rawtypes"})
     private void populateClusteringColumns(RowData after, Row row, PartitionUpdate pu) {
         for (ColumnDefinition cd : pu.metadata().clusteringColumns()) {
             try {
@@ -480,8 +479,6 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                 throw new DebeziumException(String.format("Failed to deserialize Column %s with Type %s in Table %s and KeySpace %s.",
                         cs.name.toString(), cs.type.toString(), cs.cfName, cs.ksName), e);
             }
-
-            // composite partition key
         }
         else {
             ByteBuffer keyBytes = pu.partitionKey().getKey().duplicate();
@@ -525,9 +522,10 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         return values;
     }
 
-    public void blockingSend(Mutation mutation) {
-        long seg = sentOffset.get().segmentId;
-        int pos = sentOffset.get().position;
+    public void blockingSend(Mutation<CFMetaData> mutation) {
+        com.datastax.cassandra.cdc.producer.CommitLogPosition sentOffset = offsetWriter.offset();
+        long seg = sentOffset.segmentId;
+        int pos = sentOffset.position;
 
         assert mutation != null : "Unexpected null mutation";
         assert mutation.getCommitLogPosition().getSegmentId() >= seg : "Unexpected mutation segment";
@@ -539,7 +537,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
         while(true) {
             try {
-                processMutation(mutation).toCompletableFuture();
+                processMutation(mutation).toCompletableFuture().get();
                 break;
             } catch(Exception e) {
                 log.error("failed to send message to pulsar:", e);
@@ -552,7 +550,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     }
 
     // TODO: add exponential retry
-    CompletionStage<Void> processMutation(final Mutation mutation) throws Exception {
+    CompletionStage<Void> processMutation(final Mutation<CFMetaData> mutation) throws Exception {
         return this.mutationSender.sendMutationAsync(mutation)
                 .thenAccept(msgId -> {
                     sentOffset.set(mutation.getSource().commitLogPosition);

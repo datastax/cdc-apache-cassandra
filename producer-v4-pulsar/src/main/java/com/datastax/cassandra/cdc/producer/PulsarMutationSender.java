@@ -1,84 +1,143 @@
 package com.datastax.cassandra.cdc.producer;
 
 import com.datastax.cassandra.cdc.MutationValue;
-import com.datastax.cassandra.cdc.producer.converters.JsonConverter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.cassandra.db.marshal.*;
+import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.service.StorageService;
-import org.apache.cassandra.utils.ByteBufferUtil;
-import org.apache.cassandra.utils.FBUtilities;
 import org.apache.pulsar.client.api.*;
-import org.apache.pulsar.client.impl.schema.JSONSchema;
+import org.apache.pulsar.client.api.schema.*;
+import org.apache.pulsar.client.impl.schema.AvroSchema;
+import org.apache.pulsar.client.impl.schema.generic.GenericAvroSchema;
+import org.apache.pulsar.client.impl.schema.generic.GenericSchemaImpl;
 import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.common.schema.KeyValueEncodingType;
+import org.apache.pulsar.common.schema.SchemaInfo;
+import org.apache.pulsar.common.schema.SchemaType;
 
 import java.io.Closeable;
-import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
-public class PulsarMutationSender implements MutationSender<TableMetadata> , AutoCloseable {
+public class PulsarMutationSender implements MutationSender<TableMetadata>, AutoCloseable {
 
-    final OffsetFileWriter offsetWriter;
+    public static final String SCHEMA_DOC_PREFIX = "Primary key schema for table ";
 
     PulsarClient client;
-    Map<String, Converter<?,List<CellData>,Object[]>> converters = new ConcurrentHashMap<>();
-    Map<String, Producer<?>> producers = new ConcurrentHashMap<>();
+    final Map<String, Producer<?>> producers = new ConcurrentHashMap<>();
+    final Map<String, Schema<?>> schemas = new HashMap<>();
+    final Map<String, SchemaType> schemaTypes = new HashMap<>();
+    final GenericAvroSchema mutationValueSchema;
 
-    AtomicReference<com.datastax.cassandra.cdc.producer.CommitLogPosition> sentOffset =
-            new AtomicReference<>(new com.datastax.cassandra.cdc.producer.CommitLogPosition(0,0));
+    public PulsarMutationSender() {
+        // Map Cassandra native types to Pulsar schemas
+        schemas.put(UTF8Type.instance.asCQL3Type().toString(), Schema.STRING);
+        schemas.put(AsciiType.instance.asCQL3Type().toString(), Schema.STRING);
+        schemas.put(BooleanType.instance.asCQL3Type().toString(), Schema.BOOL);
+        schemas.put(BytesType.instance.asCQL3Type().toString(), Schema.BYTES);
+        schemas.put(ByteType.instance.asCQL3Type().toString(), Schema.INT8);
+        schemas.put(ShortType.instance.asCQL3Type().toString(), Schema.INT16);
+        schemas.put(Int32Type.instance.asCQL3Type().toString(), Schema.INT32);
+        schemas.put(IntegerType.instance.asCQL3Type().toString(), Schema.INT64);
+        schemas.put(LongType.instance.asCQL3Type().toString(), Schema.INT64);
 
-    PulsarMutationSender(OffsetFileWriter offsetFileWriter) {
-        this.offsetWriter = offsetFileWriter;
+        schemas.put(FloatType.instance.asCQL3Type().toString(), Schema.FLOAT);
+        schemas.put(DoubleType.instance.asCQL3Type().toString(), Schema.DOUBLE);
+
+        schemas.put(InetAddressType.instance.asCQL3Type().toString(), Schema.INT64);
+
+        schemas.put(TimestampType.instance.asCQL3Type().toString(), Schema.TIMESTAMP);
+        schemas.put(SimpleDateType.instance.asCQL3Type().toString(), Schema.DATE);
+        schemas.put(TimeType.instance.asCQL3Type().toString(), Schema.TIME);
+        //schemas.put(DurationType.instance.asCQL3Type().toString(), NanoDuration.builder().optional());
+
+        schemas.put(UUIDType.instance.asCQL3Type().toString(), Schema.STRING);
+        schemas.put(TimeUUIDType.instance.asCQL3Type().toString(), Schema.STRING);
+
+        // Map Cassandra native types to Pulsar schema types
+        schemaTypes.put(UTF8Type.instance.asCQL3Type().toString(), SchemaType.STRING);
+        schemaTypes.put(AsciiType.instance.asCQL3Type().toString(), SchemaType.STRING);
+        schemaTypes.put(BooleanType.instance.asCQL3Type().toString(), SchemaType.BOOLEAN);
+        schemaTypes.put(BytesType.instance.asCQL3Type().toString(), SchemaType.BYTES);
+        schemaTypes.put(ByteType.instance.asCQL3Type().toString(), SchemaType.INT8);
+        schemaTypes.put(ShortType.instance.asCQL3Type().toString(), SchemaType.INT16);
+        schemaTypes.put(Int32Type.instance.asCQL3Type().toString(), SchemaType.INT32);
+        schemaTypes.put(IntegerType.instance.asCQL3Type().toString(), SchemaType.INT64);
+        schemaTypes.put(LongType.instance.asCQL3Type().toString(), SchemaType.INT64);
+
+        schemaTypes.put(FloatType.instance.asCQL3Type().toString(), SchemaType.FLOAT);
+        schemaTypes.put(DoubleType.instance.asCQL3Type().toString(), SchemaType.DOUBLE);
+
+        schemaTypes.put(InetAddressType.instance.asCQL3Type().toString(), SchemaType.INT64);
+
+        schemaTypes.put(TimestampType.instance.asCQL3Type().toString(), SchemaType.TIMESTAMP);
+        schemaTypes.put(SimpleDateType.instance.asCQL3Type().toString(), SchemaType.DATE);
+        schemaTypes.put(TimeType.instance.asCQL3Type().toString(), SchemaType.TIME);
+        //schemas.put(DurationType.instance.asCQL3Type().toString(), NanoDuration.builder().optional());
+
+        schemaTypes.put(UUIDType.instance.asCQL3Type().toString(), SchemaType.STRING);
+        schemaTypes.put(TimeUUIDType.instance.asCQL3Type().toString(), SchemaType.STRING);
+
+        this.mutationValueSchema = new GenericAvroSchema(AvroSchema.of(MutationValue.class).getSchemaInfo());
     }
 
     @SuppressWarnings("rawtypes")
-    public Converter<?, List<CellData>, Object[]> getConverter(final TableMetadata tm) {
-        String key = tm.keyspace+"." + tm.name;
-        return converters.computeIfAbsent(key, k -> {
-            ByteBuffer bb = tm.params.extensions.get("cdc.keyConverter");
-            if (bb != null) {
-                try {
-                    String converterClazz = ByteBufferUtil.string(bb);
-                    Class<Converter<?,List<CellData>,Object[]>> converterClass = FBUtilities.classForName(converterClazz, "cdc key converter");
-                    return converterClass.getDeclaredConstructor(TableMetadata.class).newInstance(tm);
-                } catch(Exception e) {
-                    log.error("unexpected error", e);
+    public Schema getKeySchema(final TableMetadata tm) {
+        String key = tm.keyspace + "." + tm.name;
+        return schemas.computeIfAbsent(key, k -> {
+            List<ColumnMetadata> primaryKeyColumns = new ArrayList<>();
+            tm.primaryKeyColumns().forEach(primaryKeyColumns::add);
+            if (primaryKeyColumns.size() == 1) {
+                return schemas.get(primaryKeyColumns.get(0).type.asCQL3Type().toString());
+            } else {
+                RecordSchemaBuilder schemaBuilder = SchemaBuilder
+                        .record(tm.keyspace + "." + tm.name)
+                        .doc(SCHEMA_DOC_PREFIX + k);
+                int i = 0;
+                for (ColumnMetadata cm : primaryKeyColumns) {
+                    schemaBuilder
+                            .field(cm.name.toString())
+                            .type(schemaTypes.get(primaryKeyColumns.get(i++).type.asCQL3Type().toString()));
                 }
+                SchemaInfo schemaInfo = schemaBuilder.build(SchemaType.AVRO);
+                return GenericSchemaImpl.of(schemaInfo);
             }
-            return new JsonConverter(tm);   // default converter when not provided
         });
     }
 
-    @SuppressWarnings("rawtypes")
+    @SuppressWarnings({"rawtypes", "unchecked"})
     public Producer getProducer(final TableMetadata tm) {
         String topicName = PropertyConfig.topicPrefix + tm.keyspace + "." + tm.name;
         String producerName = "pulsar-producer-" + StorageService.instance.getLocalHostId() + topicName;
         return producers.compute(topicName, (k, v) -> {
-                if (v == null) {
-                    try {
-                        Converter<?, List<CellData>, Object[]> keyConverter = getConverter(tm);
-                        Schema<?> keyValueSchema = Schema.KeyValue(keyConverter.getSchema(), JSONSchema.of(MutationValue.class), KeyValueEncodingType.SEPARATED);
-                        Producer producer = client.newProducer(keyValueSchema)
-                                .producerName(producerName)
-                                .topic(topicName)
-                                .sendTimeout(15, TimeUnit.SECONDS)
-                                .maxPendingMessages(3)
-                                .hashingScheme(HashingScheme.Murmur3_32Hash)
-                                .batcherBuilder(BatcherBuilder.KEY_BASED)
-                                .create();
-                        log.info("Pulsar producer name={} created", producerName);
-                        return producer;
-                    } catch (Exception e) {
-                        log.error("unexpected error", e);
-                    }
+            if (v == null) {
+                try {
+                    Schema<?> keyValueSchema = Schema.KeyValue(
+                            getKeySchema(tm),
+                            mutationValueSchema,
+                            KeyValueEncodingType.SEPARATED);
+                    Producer producer = client.newProducer(keyValueSchema)
+                            .producerName(producerName)
+                            .topic(topicName)
+                            .sendTimeout(15, TimeUnit.SECONDS)
+                            .maxPendingMessages(3)
+                            .hashingScheme(HashingScheme.Murmur3_32Hash)
+                            .batcherBuilder(BatcherBuilder.KEY_BASED)
+                            .create();
+                    log.info("Pulsar producer name={} created", producerName);
+                    return producer;
+                } catch (Exception e) {
+                    log.error("unexpected error", e);
                 }
-                return v;
+            }
+            return v;
         });
     }
 
@@ -89,23 +148,48 @@ public class PulsarMutationSender implements MutationSender<TableMetadata> , Aut
                     .serviceUrl(PropertyConfig.pulsarServiceUrl)
                     .build();
             log.info("Pulsar client connected");
-        } catch(Exception e) {
+        } catch (Exception e) {
             log.warn("Cannot connect to Pulsar:", e);
             throw e;
         }
     }
 
+    @SuppressWarnings("rawtypes")
+    Object buildKey(Schema keySchema, List<CellData> primaryKey) {
+        if (primaryKey.size() == 1) {
+            return primaryKey.get(0).value;
+        } else {
+            GenericRecordBuilder genericRecordBuilder = ((GenericSchema) keySchema).newRecordBuilder();
+            for (CellData cell : primaryKey) {
+                genericRecordBuilder.set(cell.name, cell.value);
+            }
+            return genericRecordBuilder.build();
+        }
+    }
+
+    GenericRecord buildValue(final MutationValue mutationValue) {
+        GenericRecordBuilder genericRecordBuilder = this.mutationValueSchema.newRecordBuilder();
+        genericRecordBuilder.set("md5Digest", mutationValue.getMd5Digest());
+        genericRecordBuilder.set("nodeId", mutationValue.getNodeId());
+        if (mutationValue.getColumns() != null && mutationValue.getColumns().length > 0) {
+            genericRecordBuilder.set("columns", mutationValue.getColumns());
+        }
+        return genericRecordBuilder.build();
+    }
+
     @Override
-    @SuppressWarnings({"rawtypes","unchecked"})
+    @SuppressWarnings({"rawtypes", "unchecked"})
     public CompletionStage<MessageId> sendMutationAsync(final Mutation<TableMetadata> mutation) throws PulsarClientException {
         if (this.client == null) {
             initialize();
         }
         Producer<?> producer = getProducer(mutation.getMetadata());
-        Converter<?, List<CellData>, Object[]> converter = getConverter(mutation.getMetadata());
+        Schema keySchema = getKeySchema(mutation.getMetadata());
         TypedMessageBuilder messageBuilder = producer.newMessage();
         return messageBuilder
-                .value(new KeyValue(converter.toConnectData(mutation.primaryKeyCells()), mutation.mutationValue()))
+                .value(new KeyValue(
+                        buildKey(keySchema, mutation.primaryKeyCells()),
+                        buildValue(mutation.mutationValue())))
                 .sendAsync();
     }
 
@@ -158,7 +242,7 @@ public class PulsarMutationSender implements MutationSender<TableMetadata> , Aut
     public void close() {
         try {
             this.client.close();
-        } catch(PulsarClientException e) {
+        } catch (PulsarClientException e) {
             e.printStackTrace();
         }
     }

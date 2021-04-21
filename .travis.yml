@@ -1,78 +1,36 @@
 sudo: required
 env:
   global:
-  - PULL_SECRET=nexus-registry
-  - MEMORY_REQUEST=2048Mi
-  - MEMORY_LIMIT=2048Mi
-  - HELM_URL=https://get.helm.sh
-  - HELM_TGZ=helm-v3.5.1-linux-amd64.tar.gz
-  - K8S_FLAVOR=kind
-  - REGISTRY_URL=localhost:5000
 language:
   - java
-  - bash
-  - python
-python: 3
-addons:
-  apt:
-    update: true
-    packages:
-      - jq
-      - bash
-      - python3-pip
 jdk:
   - openjdk8
 services:
   - docker
+before_cache:
+  - rm -f  $HOME/.gradle/caches/modules-2/modules-2.lock
+  - rm -fr $HOME/.gradle/caches/*/plugin-resolution/
 cache:
   directories:
     - "$HOME/.gradle/caches/"
     - "$HOME/.gradle/wrapper/"
 before_install:
-  # Enable swap
-  - sudo fallocate -l 6G /swapfile
-  - sudo chmod 600 /swapfile
-  - sudo mkswap /swapfile
-  - sudo swapon /swapfile
-  - sudo sysctl vm.swappiness=10
-  # log to remote registry
-  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-  - echo "$NEXUS_PASSWORD"  | docker login -u "$NEXUS_USERNAME"  --password-stdin https://docker.repo.strapdata.com
-  - echo "$ACR_PASSWORD" | docker login -u "$ACR_USERNAME" --password-stdin https://strapdata.azurecr.io
-  # Install kubectl
-  - curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.16.0/bin/linux/amd64/kubectl
-  - chmod +x ./kubectl
-  - sudo mv ./kubectl /usr/local/bin/
-  # Installing Kind
-  - curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.8.1/kind-$(uname)-amd64
-  - chmod +x ./kind
-  - sudo mv kind /usr/local/bin/
-  - kind version
-  # Installing Helm
-  - wget -q ${HELM_URL}/${HELM_TGZ}
-  - tar xzfv ${HELM_TGZ}
-  - export PATH=$PATH:$PWD/linux-amd64/
 install:
   - cd ${TRAVIS_BUILD_DIR}
-  - ./gradlew --version
-  # Create Kind cluster and a local registry
-  - helm init --client-only
-  - integ-test/setup-cluster.sh
-  - kind get clusters
-  - docker ps -a
 before_script:
-  - ./gradlew dockerPush -PregistryUrl=${REGISTRY_URL}
-  - curl http://${REGISTRY_URL}/v2/_catalog
-  - integ-test/install_cass_operator.sh
-  - sleep 5 && kubectl get crd
+  - ./gradlew test
 script:
-  - integ-test/test-cdc.sh
+  - ./gradlew assemble
+before_deploy:
+  - export SOURCE_KAFKA=$(ls source-kafka/build/lib/*.jar)
+  - export SOURCE_PULSAR=$(ls source-pulsar/build/lib/*.nar)
 deploy:
-  # publish docker images, and license report
-  - provider: script
+  - provider: releases
+    overwrite: true
     skip_cleanup: true
-    script: >-
-      ./gradlew dockerPush -PregistryUsername=$DOCKER_USERNAME -PregistryPassword=$DOCKER_PASSWORD -PregistryUrl=docker.io
+    file:
+      - "$SOURCE_KAFKA"
+      - "$SOURCE_PULSAR"
     on:
       tags: true
       branch:

@@ -481,8 +481,6 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                 throw new DebeziumException(String.format("Failed to deserialize Column %s with Type %s in Table %s and KeySpace %s.",
                         cs.name.toString(), cs.type.toString(), cs.cfName, cs.ksName), e);
             }
-
-            // composite partition key
         }
         else {
             ByteBuffer keyBytes = pu.partitionKey().getKey().duplicate();

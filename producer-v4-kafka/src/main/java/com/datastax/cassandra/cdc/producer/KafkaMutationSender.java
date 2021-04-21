@@ -39,9 +39,9 @@ import java.util.concurrent.*;
 @Slf4j
 public class KafkaMutationSender implements MutationSender<TableMetadata> , AutoCloseable {
 
-    public static final String SCHEMA_DOC_PREFIX = "Primary key schema for table";
+    public static final String SCHEMA_DOC_PREFIX = "Primary key schema for table ";
 
-    final Map<String, Schema> schemas = new ConcurrentHashMap<>();
+    final Map<String, Schema> schemas = new HashMap<>();
 
     final Schema valueSchema;
     final Converter valueConverter;
@@ -91,7 +91,7 @@ public class KafkaMutationSender implements MutationSender<TableMetadata> , Auto
         // Kafka Schema for MutationValue
         valueSchema = SchemaBuilder.struct()
                 .name("com.datastax.cassandra.cdc.MutationValue")
-                .doc("Dirty mutation info")
+                .doc("Dirty cassandra mutation info")
                 .field("md5Digest", Schema.STRING_SCHEMA)
                 .field("nodeId", Schema.STRING_SCHEMA)
                 .field("columns", SchemaBuilder.array(Schema.STRING_SCHEMA).optional().build())
@@ -101,13 +101,12 @@ public class KafkaMutationSender implements MutationSender<TableMetadata> , Auto
 
     @SuppressWarnings("rawtypes")
     public Schema getKeySchema(final TableMetadata tm) {
-        String key = tm.keyspace+"." + tm.name;
+        String key = tm.keyspace + "." + tm.name;
         return schemas.computeIfAbsent(key, k -> {
-            Schema schema;
             List<ColumnMetadata> primaryKeyColumns = new ArrayList<>();
             tm.primaryKeyColumns().forEach(primaryKeyColumns::add);
             if (primaryKeyColumns.size() == 1) {
-                schema = schemas.get(primaryKeyColumns.get(0).type.asCQL3Type().toString());
+                return schemas.get(primaryKeyColumns.get(0).type.asCQL3Type().toString());
             } else {
                 SchemaBuilder schemaBuilder = SchemaBuilder.struct()
                         .name(key)
@@ -117,9 +116,8 @@ public class KafkaMutationSender implements MutationSender<TableMetadata> , Auto
                 for(ColumnMetadata cm : primaryKeyColumns) {
                     schemaBuilder.field(cm.name.toString(), schemas.get(primaryKeyColumns.get(i++).type.asCQL3Type().toString()));
                 }
-                schema = schemaBuilder.build();
+                return schemaBuilder.build();
             }
-            return schema;
         });
     }
 

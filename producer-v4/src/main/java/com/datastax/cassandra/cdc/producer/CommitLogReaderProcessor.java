@@ -80,7 +80,9 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
                         } catch(Exception ex) {
                         }
                         syncedOffsetRef.set(new CommitLogPosition(seg, pos));
-                        log.debug("New synced position={} completed={}", syncedOffsetRef.get(), completed);
+                        String commitlogName = file.getName().substring(0, file.getName().length() - 8) + ".log";
+                        log.debug("New synced position={} completed={} adding file={}", syncedOffsetRef.get(), completed, commitlogName);
+                        this.commitLogQueue.add(new File(file.getParentFile(), commitlogName));
 
                         // unlock the processing of commitlogs
                         if(syncedOffsetLatch.getCount() > 0)
@@ -124,7 +126,7 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
 
             CommitLogReader commitLogReader = new CommitLogReader();
             try {
-                // hack to use a dummy min position for segment ahead of the offetFile.
+                // hack to use a dummy min position for segment ahead of the offsetFile.
                 CommitLogPosition minPosition = (seg > offsetFileWriter.offset().segmentId)
                         ? new CommitLogPosition(seg, 0)
                         : new CommitLogPosition(offsetFileWriter.offset().getSegmentId(), offsetFileWriter.offset().getPosition());

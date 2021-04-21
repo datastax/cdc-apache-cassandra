@@ -36,6 +36,7 @@ import org.apache.pulsar.client.api.schema.GenericRecord;
 import org.apache.pulsar.client.impl.schema.generic.GenericJsonSchema;
 import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.functions.api.Record;
+
 import org.apache.pulsar.io.core.SourceContext;
 import org.junit.jupiter.api.*;
 import org.mockito.Mock;

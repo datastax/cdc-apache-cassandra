@@ -11,8 +11,9 @@ compileTestJava {
 dependencies {
     implementation "org.projectlombok:lombok:${lombokVersion}"
     annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+
     implementation("io.debezium:debezium-core:1.4.0.Final")
-    implementation project(':common')
+    api project(':common')
 }
 
 

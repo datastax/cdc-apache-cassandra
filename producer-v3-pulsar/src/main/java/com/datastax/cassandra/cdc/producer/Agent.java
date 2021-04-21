@@ -3,6 +3,7 @@ package com.datastax.cassandra.cdc.producer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.cassandra.config.DatabaseDescriptor;
 
+import java.io.IOException;
 import java.lang.instrument.Instrumentation;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -30,11 +31,21 @@ public class Agent {
     }
 
     static void main(String agentArgs, Instrumentation inst) throws Exception {
-        log.info("Starting CDC producer agent");
         DatabaseDescriptor.daemonInitialization();
+        if (DatabaseDescriptor.isCDCEnabled() == false) {
+            log.error("cdc_enabled=false in your cassandra configuration, CDC agent not started.");
+        } else if (DatabaseDescriptor.getCDCLogLocation() == null) {
+            log.error("cdc_raw_directory=null in your cassandra configuration, CDC agent not started.");
+        } else {
+            startCdcProducer();
+        }
+    }
+
+    static void startCdcProducer() throws IOException {
+        log.info("Starting CDC producer agent");
 
         OffsetFileWriter offsetFileWriter = new OffsetFileWriter(DatabaseDescriptor.getCDCLogLocation());
-        PulsarMutationSender pulsarMutationSender = new PulsarMutationSender(offsetFileWriter);
+        PulsarMutationSender pulsarMutationSender = new PulsarMutationSender();
         CommitLogReadHandlerImpl commitLogReadHandler = new CommitLogReadHandlerImpl(offsetFileWriter, pulsarMutationSender);
         CommitLogTransfer commitLogTransfer = new BlackHoleCommitLogTransfer();
         CommitLogReaderProcessor commitLogReaderProcessor = new CommitLogReaderProcessor(commitLogReadHandler, offsetFileWriter, commitLogTransfer);

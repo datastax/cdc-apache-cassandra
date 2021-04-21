@@ -26,6 +26,9 @@ shadowJar {
     }
 }
 
+jar.enabled = false
+assemble.dependsOn(shadowJar)
+
 compileTestJava {
     options.compilerArgs += '-parameters'
 }
@@ -33,9 +36,8 @@ compileTestJava {
 dependencies {
     implementation "org.projectlombok:lombok:${lombokVersion}"
     annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
-    implementation project(':common')
-    implementation project(':producer')
-    implementation project(':producer-v4')
+
+    api project(':producer-v4')
 
     // see https://docs.confluent.io/platform/current/installation/versions-interoperability.html
     implementation "org.apache.kafka:connect-api:${kafkaVersion}"
@@ -46,16 +48,16 @@ dependencies {
     implementation("io.debezium:debezium-core:${debeziumVersion}")
     compileOnly("org.apache.cassandra:cassandra-all:${cassandra4Version}")
 
-    testCompile "org.projectlombok:lombok:${lombokVersion}"
+    testImplementation "org.projectlombok:lombok:${lombokVersion}"
     testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
 
-    testCompile "com.datastax.oss:java-driver-core:${ossDriverVersion}"
-    testCompile "com.datastax.oss:java-driver-query-builder:${ossDriverVersion}"
-    testCompile "org.testcontainers:testcontainers:${testContainersVersion}"
-    testCompile "org.testcontainers:database-commons:${testContainersVersion}"
-    testCompile "org.testcontainers:cassandra:${testContainersVersion}"
-    testCompile "org.testcontainers:kafka:${testContainersVersion}"
-    testCompile project(':common-kafka')
+    testImplementation "com.datastax.oss:java-driver-core:${ossDriverVersion}"
+    testImplementation "com.datastax.oss:java-driver-query-builder:${ossDriverVersion}"
+    testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
+    testImplementation "org.testcontainers:database-commons:${testContainersVersion}"
+    testImplementation "org.testcontainers:cassandra:${testContainersVersion}"
+    testImplementation "org.testcontainers:kafka:${testContainersVersion}"
+    testImplementation project(':common-kafka')
 
     testRuntime "org.slf4j:slf4j-api:1.7.30"
     testRuntime "org.slf4j:slf4j-simple:1.7.30"

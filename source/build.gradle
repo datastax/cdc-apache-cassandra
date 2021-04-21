@@ -1,5 +1,5 @@
 plugins {
-    id 'java'
+    id 'java-library'
     id "com.gorylenko.gradle-git-properties"
     id "com.github.johnrengelman.shadow"
 }
@@ -11,12 +11,12 @@ compileTestJava {
 dependencies {
     implementation "org.projectlombok:lombok:${lombokVersion}"
     annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
-    implementation("io.vavr:vavr:${vavrVersion}")
 
-    implementation("com.datastax.oss:java-driver-core:${ossDriverVersion}")
-    implementation("com.datastax.oss:java-driver-query-builder:${ossDriverVersion}")
-
-    implementation("com.datastax.oss:messaging-connectors-commons-core:1.0.12-SNAPSHOT")
+    api("com.github.ben-manes.caffeine:caffeine:2.5.5")
+    api("io.vavr:vavr:${vavrVersion}")
+    api("com.datastax.oss:java-driver-core:${ossDriverVersion}")
+    api("com.datastax.oss:java-driver-query-builder:${ossDriverVersion}")
+    api("com.datastax.oss:messaging-connectors-commons-core:1.0.12-SNAPSHOT")
 }
 
 

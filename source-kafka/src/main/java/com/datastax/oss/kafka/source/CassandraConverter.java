@@ -21,6 +21,9 @@ import java.util.Map;
 @Slf4j
 public class CassandraConverter {
 
+    public static final String TABLE_SCHEMA_DOC_PREFIX = "Cassandra table ";
+    public static final String TYPE_SCHEMA_DOC_PREFIX = "Cassandra type ";
+
     final Schema schema;
     final Collection<ColumnMetadata> columns;
     final List<ColumnMetadata> primaryKeyColumns;
@@ -29,7 +32,7 @@ public class CassandraConverter {
     public CassandraConverter(KeyspaceMetadata ksm, TableMetadata tm, Collection<ColumnMetadata> columns) {
         SchemaBuilder schemaBuilder = SchemaBuilder.struct()
                 .name(ksm.getName()+ "." + tm.getName())
-                .doc("Cassandra table " + ksm.getName()+ "." + tm.getName())
+                .doc(TABLE_SCHEMA_DOC_PREFIX + ksm.getName()+ "." + tm.getName())
                 .optional();
         for(ColumnMetadata cm : columns) {
             addFieldSchema(schemaBuilder, ksm, cm.getName().toString(), cm.getType());
@@ -99,6 +102,7 @@ public class CassandraConverter {
                 break;
             case ProtocolConstants.DataType.INET:
             case ProtocolConstants.DataType.DURATION:
+            case ProtocolConstants.DataType.VARINT:
             case ProtocolConstants.DataType.BIGINT:
                 schemaBuilder.field(fieldName, Schema.OPTIONAL_INT64_SCHEMA);
                 break;
@@ -108,6 +112,7 @@ public class CassandraConverter {
             case ProtocolConstants.DataType.FLOAT:
                 schemaBuilder.field(fieldName, Schema.OPTIONAL_FLOAT32_SCHEMA);
                 break;
+            case ProtocolConstants.DataType.DECIMAL:
             case ProtocolConstants.DataType.DOUBLE:
                 schemaBuilder.field(fieldName, Schema.OPTIONAL_FLOAT64_SCHEMA);
                 break;
@@ -138,7 +143,7 @@ public class CassandraConverter {
         SchemaBuilder udtSchemaBuilder = SchemaBuilder.struct()
                 .optional()
                 .name(typeName)
-                .doc("Cassandra type " + typeName);
+                .doc(TYPE_SCHEMA_DOC_PREFIX + typeName);
         int i = 0;
         for(CqlIdentifier field : userDefinedType.getFieldNames()) {
             addFieldSchema(udtSchemaBuilder, ksm, field.toString(), userDefinedType.getFieldTypes().get(i++));

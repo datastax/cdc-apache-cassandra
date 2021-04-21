@@ -1,5 +1,4 @@
 plugins {
-    id 'java'
     id 'java-library'
 }
 
@@ -10,17 +9,8 @@ tasks.withType(JavaCompile) {
 dependencies {
     implementation "org.projectlombok:lombok:${lombokVersion}"
     annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
-
-    implementation "com.github.ben-manes.caffeine:caffeine:2.5.5"
-
-    testCompile "org.testng:testng:7.3.0"
-    testCompile "org.assertj:assertj-core:3.18.1"
 }
 
 jar {
-}
-
-artifacts {
-    archives jar
 }
 

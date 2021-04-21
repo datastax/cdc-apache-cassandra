@@ -29,7 +29,6 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.time.Duration;
-import java.util.Collections;
 import java.util.Locale;
 import java.util.Properties;
 
@@ -59,32 +58,36 @@ public class KafkaProducerTests {
                 .withNetwork(testNetwork)
                 .withEmbeddedZookeeper()
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withName("kafka"))
-                .withEnv("KAFKA_NUM_PARTITIONS","1");
-
+                .withEnv("KAFKA_NUM_PARTITIONS", "1")
+                .withStartupTimeout(Duration.ofSeconds(30));
         kafkaContainer.start();
-        kafkaContainer.withStartupTimeout(Duration.ofSeconds(15));
 
         String internalBootstrapServers = String.format("PLAINTEXT://%s:%s", kafkaContainer.getContainerName(), 9092);
         schemaRegistryContainer = SchemaRegistryContainer
                 .create(KAFKA_SCHEMA_REGISTRY_IMAGE, internalBootstrapServers)
-                .withNetwork(testNetwork);
+                .withNetwork(testNetwork)
+                .withStartupTimeout(Duration.ofSeconds(30));
         schemaRegistryContainer.start();
-        schemaRegistryContainer.withStartupTimeout(Duration.ofSeconds(15));
 
         String buildDir = System.getProperty("buildDir");
+        String projectVersion = System.getProperty("projectVersion");
+        String jarFile = String.format(Locale.ROOT, "producer-v4-kafka-%s-all.jar", projectVersion);
         cassandraContainer = new CassandraContainer(CASSANDRA_IMAGE)
                 .withCreateContainerCmdModifier(c -> c.withName("cassandra"))
                 .withLogConsumer(new Slf4jLogConsumer(log))
                 .withNetwork(testNetwork)
                 .withConfigurationOverride("cassandra-cdc")
-                .withFileSystemBind(buildDir + "/libs/producer-v4-kafka-0.1-SNAPSHOT-all.jar","/producer-v4-kafka-0.1-SNAPSHOT-all.jar")
+                .withFileSystemBind(
+                        String.format(Locale.ROOT, "%s/libs/%s", buildDir, jarFile),
+                        String.format(Locale.ROOT, "/%s", jarFile))
                 .withEnv("JVM_EXTRA_OPTS", String.format(
                         Locale.ROOT,
-                        "-javaagent:/producer-v4-kafka-0.1-SNAPSHOT-all.jar -DkafkaBrokers=%s -DschemaRegistryUrl=%s",
+                        "-javaagent:/%s -DkafkaBrokers=%s -DschemaRegistryUrl=%s",
+                        jarFile,
                         internalBootstrapServers,
-                        schemaRegistryContainer.getRegistryUrlInDockerNetwork()));
+                        schemaRegistryContainer.getRegistryUrlInDockerNetwork()))
+                .withStartupTimeout(Duration.ofSeconds(70));
         cassandraContainer.start();
-        cassandraContainer.withStartupTimeout(Duration.ofSeconds(70));
     }
 
     @AfterAll
@@ -106,7 +109,7 @@ public class KafkaProducerTests {
     }
 
     @Test
-    public void testAvroPk() throws InterruptedException {
+    public void testProducer() throws InterruptedException {
         try(CqlSession cqlSession = cassandraContainer.getCqlSession()) {
             cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS ks1 WITH replication = \n" +
                     "{'class':'SimpleStrategy','replication_factor':'1'};");

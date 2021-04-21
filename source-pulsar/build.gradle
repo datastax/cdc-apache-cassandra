@@ -9,21 +9,25 @@ tasks.withType(JavaCompile) {
     options.compilerArgs += '-Xlint:none'
 }
 
+sourceSets {
+    // Make the compileOnly dependencies available when compiling/running tests
+    test.compileClasspath += configurations.compileOnly
+    test.runtimeClasspath += configurations.compileOnly
+}
+
 dependencies {
     implementation "org.projectlombok:lombok:${lombokVersion}"
     annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
 
     implementation project(':common')
-    implementation project(':source')
+    api project(':source')
 
     implementation("org.apache.pulsar:pulsar-client:${pulsarVersion}")
     compileOnly("org.apache.pulsar:pulsar-io-common:${pulsarVersion}")
     compileOnly("org.apache.pulsar:pulsar-io-core:${pulsarVersion}")
 
-    implementation("com.datastax.oss:java-driver-core:${ossDriverVersion}")
-    implementation("com.datastax.oss:java-driver-query-builder:${ossDriverVersion}")
-
-    implementation("io.vavr:vavr:0.10.3")
+    testImplementation "org.projectlombok:lombok:${lombokVersion}"
+    testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
 
     testCompile "org.testcontainers:testcontainers:${testContainersVersion}"
     testCompile "org.testcontainers:database-commons:${testContainersVersion}"
@@ -54,4 +58,6 @@ nar {
     }
 }
 
+jar.enabled = false
+assemble.dependsOn(nar)
 

@@ -30,11 +30,22 @@ public class Agent {
     }
 
     static void main(String agentArgs, Instrumentation inst) throws Exception {
+        DatabaseDescriptor.daemonInitialization();
+        if (DatabaseDescriptor.isCDCEnabled() == false) {
+            log.error("cdc_enabled=false in your cassandra configuration, CDC agent not started.");
+        } else if (DatabaseDescriptor.getCDCLogLocation() == null) {
+            log.error("cdc_raw_directory=null in your cassandra configuration, CDC agent not started.");
+        } else {
+            startCdcProducer();
+        }
+    }
+
+    static void startCdcProducer() throws Exception {
         log.info("Starting CDC producer agent");
         DatabaseDescriptor.daemonInitialization();
 
         OffsetFileWriter offsetFileWriter = new OffsetFileWriter(DatabaseDescriptor.getCDCLogLocation());
-        PulsarMutationSender pulsarMutationSender = new PulsarMutationSender(offsetFileWriter);
+        PulsarMutationSender pulsarMutationSender = new PulsarMutationSender();
         CommitLogReadHandlerImpl commitLogReadHandler = new CommitLogReadHandlerImpl(offsetFileWriter, pulsarMutationSender);
         CommitLogTransfer commitLogTransfer = new BlackHoleCommitLogTransfer();
         CommitLogReaderProcessor commitLogReaderProcessor = new CommitLogReaderProcessor(commitLogReadHandler, offsetFileWriter, commitLogTransfer);
