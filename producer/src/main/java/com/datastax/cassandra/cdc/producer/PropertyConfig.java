@@ -23,4 +23,12 @@ public class PropertyConfig {
 
     public static final String kafkaBrokers = System.getProperty("kafkaBrokers", "localhost:9092");
     public static final String kafkaRegistryUrl = System.getProperty("schemaRegistryUrl", "http://localhost:8081");
+
+    /**
+     * Override the system properties with agent parameters.
+     * @param agentParameters
+     */
+    public static void configure(String agentParameters) {
+
+    }
 }

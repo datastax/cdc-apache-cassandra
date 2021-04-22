@@ -51,7 +51,7 @@ dependencies {
     testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
     testImplementation "org.testcontainers:database-commons:${testContainersVersion}"
     testImplementation "org.testcontainers:cassandra:${testContainersVersion}"
-    testImplementation "org.testcontainers:kafka:${testContainersVersion}"
+    testImplementation "org.testcontainers:pulsar:${testContainersVersion}"
     testImplementation project(':common-kafka')
 
     testRuntime "org.slf4j:slf4j-api:1.7.30"
