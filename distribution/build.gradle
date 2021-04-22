@@ -1,0 +1,39 @@
+plugins {
+    id 'java'
+    id 'distribution'
+    id 'de.fanero.gradle.plugin.nar'
+}
+
+configurations {
+    release
+}
+
+dependencies {
+    //release project(path: ':producer-v3-kafka', configuration: 'shadow')
+    release project(path: ':producer-v3-pulsar', configuration: 'shadow')
+    release project(path: ':producer-v4-kafka', configuration: 'shadow')
+    release project(path: ':producer-v4-pulsar', configuration: 'shadow')
+    release project(path: ':source-kafka', configuration: 'shadow')
+    release project(path: ':source-pulsar', configuration: 'nar')
+}
+
+import de.fanero.gradle.plugin.nar.Nar;
+project(':source-pulsar').tasks.withType(Nar) { narTask ->
+    distTar.dependsOn narTask
+    distZip.dependsOn narTask
+}
+
+distributions {
+    main {
+        distributionBaseName = 'cassandra-source-connectors'
+        contents {
+            from('src/main') {
+                include '**'
+            }
+            from configurations.release
+            from("../source-pulsar/build/libs") {
+                include '*.nar'
+            }
+        }
+    }
+}
