@@ -13,7 +13,7 @@ every replicated Cassandra tables.
 
 A Pulsar key-shared subscription ensure all mutations for a given primary key are processeed sequentially.
 
-![subscription](docs/images/subscription-key-shared.png)
+![subscription](../docs/images/subscription-key-shared.png)
 
 ## Pulsar requirements
 
