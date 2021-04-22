@@ -92,7 +92,7 @@ public class KafkaSourceTests {
                         producerJarFile,
                         internalBootstrapServers,
                         schemaRegistryContainer.getRegistryUrlInDockerNetwork()))
-                .withStartupTimeout(Duration.ofSeconds(90));
+                .withStartupTimeout(Duration.ofSeconds(120));
         cassandraContainer.start();
 
         kafkaConnectContainer = KafkaConnectContainer
@@ -101,7 +101,7 @@ public class KafkaSourceTests {
                 .withFileSystemBind(
                         String.format(Locale.ROOT, "%s/libs/%s", sourceBuildDir, sourceJarFile),
                         String.format(Locale.ROOT, "/connect-plugins/%s", sourceJarFile))
-                .withStartupTimeout(Duration.ofSeconds(120));
+                .withStartupTimeout(Duration.ofSeconds(180));
         kafkaConnectContainer.start();
     }
 
@@ -127,13 +127,36 @@ public class KafkaSourceTests {
 
     @Test
     public void testAvroConverters() throws InterruptedException, IOException {
-        testSourceConnector("ks1", new AvroConverter(), new AvroConverter(), false);
+        Converter keyConverter = new AvroConverter();
+        keyConverter.configure(
+                ImmutableMap.of(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryContainer.getRegistryUrl()),
+                true);
+        Converter valueConverter = new AvroConverter();
+        valueConverter.configure(
+                ImmutableMap.of(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryContainer.getRegistryUrl()),
+                false);
+        testSourceConnector("ks1", keyConverter, valueConverter, false);
     }
 
+    /*
     @Test
     public void testJsonConverters() throws InterruptedException, IOException {
-        testSourceConnector("ks2", new JsonConverter(), new JsonConverter(), true);
+        Converter keyConverter = new AvroConverter();
+        keyConverter.configure(
+                ImmutableMap.of(
+                        AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryContainer.getRegistryUrl(),
+                        "key.converter.schemas.enable", "true"),
+                true);
+        Converter valueConverter = new AvroConverter();
+        valueConverter.configure(
+                ImmutableMap.of(
+                        AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryContainer.getRegistryUrl(),
+                        "value.converter.schemas.enable", "true"),
+                false);
+        testSourceConnector("ks2", keyConverter, valueConverter, true);
     }
+
+     */
 
     public void testSourceConnector(String ksName, Converter keyConverter, Converter valueConverter, boolean schemaWithNullValue) throws InterruptedException, IOException {
         try(CqlSession cqlSession = cassandraContainer.getCqlSession()) {
@@ -164,11 +187,7 @@ public class KafkaSourceTests {
         int mutationTable1 = 1;
         int mutationTable2 = 1;
 
-        keyConverter.configure(
-                ImmutableMap.of(
-                        AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryContainer.getRegistryUrl(),
-                        "key.converter.schemas.enable", "true"),
-                true);
+
         Schema expectedKeySchema1 = SchemaBuilder.string().optional().build();
         Schema expectedKeySchema2 = SchemaBuilder.struct()
                 .name(ksName+".table2")
@@ -178,11 +197,6 @@ public class KafkaSourceTests {
                 .field("b", SchemaBuilder.int32().optional().build())
                 .build();
 
-        valueConverter.configure(
-                ImmutableMap.of(
-                        AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryContainer.getRegistryUrl(),
-                        "value.converter.schemas.enable", "true"),
-                false);
         Schema expectedValueSchema1 = SchemaBuilder.struct()
                 .name(ksName + ".table1")
                 .doc(CassandraConverter.TABLE_SCHEMA_DOC_PREFIX + ksName+".table1")
@@ -214,6 +228,8 @@ public class KafkaSourceTests {
                         " offset=" +record.offset() +
                         " key=" + keySchemaAndValue.value() +
                         " value="+ valueSchemaAndValue.value());
+                System.out.println("key schema: " + CassandraConverter.schemaToString(keySchemaAndValue.schema()));
+                System.out.println("value schema: " + CassandraConverter.schemaToString(valueSchemaAndValue.schema()));
                 if (topicName.endsWith("table1")) {
                     assertEquals(Integer.toString(mutationTable1), keySchemaAndValue.value());
                     assertEquals(expectedKeySchema1, keySchemaAndValue.schema());
@@ -295,6 +311,8 @@ public class KafkaSourceTests {
                         " offset=" +record.offset() +
                         " key=" + keySchemaAndValue.value() +
                         " value="+ valueSchemaAndValue.value());
+                System.out.println("key schema: " + CassandraConverter.schemaToString(keySchemaAndValue.schema()));
+                System.out.println("value schema: " + CassandraConverter.schemaToString(valueSchemaAndValue.schema()));
                 if (topicName.endsWith("table1")) {
                     assertEquals("1", keySchemaAndValue.value());
                     assertEquals(expectedKeySchema1, keySchemaAndValue.schema());
@@ -352,6 +370,8 @@ public class KafkaSourceTests {
                         " offset=" +record.offset() +
                         " key=" + keySchemaAndValue.value() +
                         " value="+ valueSchemaAndValue.value());
+                System.out.println("key schema: " + CassandraConverter.schemaToString(keySchemaAndValue.schema()));
+                System.out.println("value schema: " + CassandraConverter.schemaToString(valueSchemaAndValue.schema()));
                 if (topicName.endsWith("table1")) {
                     assertEquals("1", keySchemaAndValue.value());
                     assertEquals(expectedKeySchema1, keySchemaAndValue.schema());
