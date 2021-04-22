@@ -13,8 +13,12 @@ jobs:
         with:
           java-version: '11'
           distribution: 'adopt'
+      - name: Test with Gradle
+        run: ./gradlew producer-v4-kafka:test
+
       - name: Build with Gradle
         run: ./gradlew assemble
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -25,6 +29,7 @@ jobs:
           release_name: Release ${{ github.ref }}
           draft: true
           prerelease: false
+
       - name: Upload Release Asset
         id: upload-release-asset
         uses: actions/upload-release-asset@v1
