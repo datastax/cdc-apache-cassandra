@@ -57,7 +57,7 @@ def buildAndExecuteTests() {
       mavenArgs="$mavenArgs -Dmaven.javadoc.skip=true"
     fi
 
-    ./gradew source-kafka:test
+    ./gradlew source-kafka:test
 
     exit $?
   '''
