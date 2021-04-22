@@ -57,15 +57,7 @@ def buildAndExecuteTests() {
       mavenArgs="$mavenArgs -Dmaven.javadoc.skip=true"
     fi
 
-    mvn verify $mavenArgs -B \
-      -Ddsbulk.ccm.CCM_VERSION=${CCM_VERSION} \
-      -Ddsbulk.ccm.CCM_IS_DSE=${CCM_IS_DSE} \
-      -Ddsbulk.ccm.JAVA_HOME=${CCM_JAVA_HOME} \
-      -Ddsbulk.ccm.PATH=${CCM_JAVA_HOME}/bin \
-      -Ddsbulk.cloud.PROXY_PATH=${HOME}/proxy \
-      -Dmaven.test.failure.ignore=true \
-      -Dmax.simulacron.clusters=2 \
-      -Dmax.ccm.clusters=1
+    ./gradew source-kafka:test
 
     exit $?
   '''
@@ -77,18 +69,22 @@ def recordTestResults() {
 }
 
 def recordCodeCoverage() {
+  /*
   if (env.CASSANDRA_VERSION.startsWith("3.11")) {
     jacoco(
             execPattern: '**/target/**.exec',
             exclusionPattern: '**/generated/**'
     )
   }
+  */
 }
 
 def recordArtifacts() {
+  /*
   if (params.GENERATE_DISTRO && env.CASSANDRA_VERSION.startsWith("3.11")) {
     archiveArtifacts artifacts: 'distribution/target/dsbulk-*.tar.gz', fingerprint: true
   }
+  */
 }
 
 def notifySlack(status = 'started') {
@@ -152,7 +148,7 @@ def notifySlack(status = 'started') {
     color = 'danger' // Red
   }
 
-  slackSend channel: "#dsbulk-dev",
+  slackSend channel: "#cassandra-source-connector",
             message: "${message}",
             color: "${color}"
 }

@@ -14,4 +14,4 @@ jobs:
           java-version: '11'
           distribution: 'adopt'
       - name: Test with Gradle
-        run: ./gradlew producer-v4-kaflka:test
+        run: ./gradlew producer-v4-kafka:test
