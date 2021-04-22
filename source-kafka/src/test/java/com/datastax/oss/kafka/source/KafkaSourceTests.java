@@ -1,9 +1,10 @@
 package com.datastax.oss.kafka.source;
 
-import com.datastax.cassandra.cdc.KafkaConnectContainer;
-import com.datastax.cassandra.cdc.SchemaRegistryContainer;
 import com.datastax.cassandra.cdc.producer.KafkaMutationSender;
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.testcontainers.cassandra.CassandraContainer;
+import com.datastax.testcontainers.kafka.KafkaConnectContainer;
+import com.datastax.testcontainers.kafka.SchemaRegistryContainer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.confluent.connect.avro.AvroConverter;
@@ -17,13 +18,10 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
-import org.apache.kafka.connect.json.JsonConverter;
-import org.apache.kafka.connect.json.JsonConverterConfig;
 import org.apache.kafka.connect.storage.Converter;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.cassandra.CassandraContainer;
 import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -47,7 +45,7 @@ public class KafkaSourceTests {
     static final String KAFKA_CONNECT_IMAGE = "confluentinc/cp-kafka-connect-base:" + CONFLUENT_PLATFORM_VERSION;
 
     private static Network testNetwork;
-    private static CassandraContainer cassandraContainer;
+    private static CassandraContainer<?> cassandraContainer;
     private static KafkaContainer kafkaContainer;
     private static SchemaRegistryContainer schemaRegistryContainer;
     private static KafkaConnectContainer kafkaConnectContainer;
@@ -78,7 +76,7 @@ public class KafkaSourceTests {
         String projectVersion = System.getProperty("projectVersion");
         String producerJarFile = String.format(Locale.ROOT, "producer-v4-kafka-%s-all.jar", projectVersion);
         String sourceJarFile = String.format(Locale.ROOT, "source-kafka-%s-all.jar", projectVersion);
-        cassandraContainer = new CassandraContainer(CASSANDRA_IMAGE)
+        cassandraContainer = new CassandraContainer<>(CASSANDRA_IMAGE)
                 .withCreateContainerCmdModifier(c -> c.withName("cassandra"))
                 .withLogConsumer(new Slf4jLogConsumer(log))
                 .withNetwork(testNetwork)

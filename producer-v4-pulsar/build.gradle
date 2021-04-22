@@ -48,11 +48,11 @@ dependencies {
 
     testImplementation "com.datastax.oss:java-driver-core:${ossDriverVersion}"
     testImplementation "com.datastax.oss:java-driver-query-builder:${ossDriverVersion}"
+
     testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
-    testImplementation "org.testcontainers:database-commons:${testContainersVersion}"
-    testImplementation "org.testcontainers:cassandra:${testContainersVersion}"
     testImplementation "org.testcontainers:pulsar:${testContainersVersion}"
-    testImplementation project(':common-kafka')
+
+    testImplementation project(':testcontainers')
 
     testRuntime "org.slf4j:slf4j-api:1.7.30"
     testRuntime "org.slf4j:slf4j-simple:1.7.30"

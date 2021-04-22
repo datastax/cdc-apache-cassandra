@@ -13,7 +13,7 @@ buildscript {
 rootProject.name = 'cassandra-source-connector'
 
 include 'common'
-include 'common-kafka'
+include 'testcontainers'
 include 'producer'
 include 'source'
 include 'producer-v3'
@@ -26,3 +26,5 @@ include 'source-pulsar'
 include 'producer-v3-kafka'
 include 'producer-v4-kafka'
 include 'source-kafka'
+include 'distribution'
+

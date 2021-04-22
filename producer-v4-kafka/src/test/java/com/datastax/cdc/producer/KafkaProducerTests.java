@@ -1,10 +1,12 @@
 package com.datastax.cdc.producer;
 
 import com.datastax.cassandra.cdc.MutationValue;
-import com.datastax.cassandra.cdc.SchemaRegistryContainer;
+
 import com.datastax.cassandra.cdc.producer.KafkaMutationSender;
 import com.datastax.cassandra.cdc.producer.PropertyConfig;
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.testcontainers.cassandra.CassandraContainer;
+import com.datastax.testcontainers.kafka.SchemaRegistryContainer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.confluent.connect.avro.AvroConverter;
@@ -22,7 +24,7 @@ import org.apache.kafka.connect.data.Struct;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.cassandra.CassandraContainer;
+
 import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -44,7 +46,7 @@ public class KafkaProducerTests {
     static final String KAFKA_SCHEMA_REGISTRY_IMAGE = "confluentinc/cp-schema-registry:" + CONFLUENT_PLATFORM_VERSION;
 
     private static Network testNetwork;
-    private static CassandraContainer cassandraContainer;
+    private static CassandraContainer<?> cassandraContainer;
     private static KafkaContainer kafkaContainer;
     private static SchemaRegistryContainer schemaRegistryContainer;
 
@@ -72,11 +74,11 @@ public class KafkaProducerTests {
         String buildDir = System.getProperty("buildDir");
         String projectVersion = System.getProperty("projectVersion");
         String jarFile = String.format(Locale.ROOT, "producer-v4-kafka-%s-all.jar", projectVersion);
-        cassandraContainer = new CassandraContainer(CASSANDRA_IMAGE)
+        cassandraContainer = new CassandraContainer<>(CASSANDRA_IMAGE)
+                .withConfigurationOverride("cassandra-cdc")
                 .withCreateContainerCmdModifier(c -> c.withName("cassandra"))
                 .withLogConsumer(new Slf4jLogConsumer(log))
                 .withNetwork(testNetwork)
-                .withConfigurationOverride("cassandra-cdc")
                 .withFileSystemBind(
                         String.format(Locale.ROOT, "%s/libs/%s", buildDir, jarFile),
                         String.format(Locale.ROOT, "/%s", jarFile))
