@@ -16,7 +16,7 @@ dependencies {
     api("io.vavr:vavr:${vavrVersion}")
     api("com.datastax.oss:java-driver-core:${ossDriverVersion}")
     api("com.datastax.oss:java-driver-query-builder:${ossDriverVersion}")
-    api("com.datastax.oss:messaging-connectors-commons-core:1.0.12-SNAPSHOT")
+    //api("com.datastax.oss:messaging-connectors-commons-core:1.0.12-SNAPSHOT")
 }
 
 

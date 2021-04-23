@@ -20,6 +20,7 @@ dependencies {
     implementation project(':common')
     api project(':source')
 
+    implementation("com.google.guava:guava:30.1-jre")
     implementation("org.apache.kafka:connect-api:${kafkaVersion}")
     implementation("org.apache.kafka:connect-json:${kafkaVersion}")
     implementation("io.confluent:kafka-connect-avro-converter:${confluentVersion}")
@@ -28,7 +29,6 @@ dependencies {
     testImplementation "org.projectlombok:lombok:${lombokVersion}"
     testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
 
-    testImplementation "com.google.guava:guava:30.1-jre"
     testImplementation "com.datastax.oss:java-driver-core:${ossDriverVersion}"
     testImplementation "com.datastax.oss:java-driver-query-builder:${ossDriverVersion}"
     testImplementation project(':testcontainers')
