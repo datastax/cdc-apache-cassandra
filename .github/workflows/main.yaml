@@ -13,8 +13,17 @@ jobs:
         with:
           java-version: '11'
           distribution: 'adopt'
+
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
       - name: Test with Gradle
-        run: ./gradlew producer-v4-kafka:test
+        run: ./gradlew test
 
       - name: Build with Gradle
         run: ./gradlew assemble

@@ -41,6 +41,7 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.api.*;
 import org.apache.pulsar.client.api.schema.GenericRecord;
+import org.apache.pulsar.client.impl.schema.AvroSchema;
 import org.apache.pulsar.client.impl.schema.JSONSchema;
 import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.common.schema.KeyValueEncodingType;
@@ -83,7 +84,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
     Schema<KeyValue<GenericRecord, MutationValue>> dirtySchema = Schema.KeyValue(
             Schema.AUTO_CONSUME(),
-            JSONSchema.of(MutationValue.class),
+            AvroSchema.of(MutationValue.class),
             KeyValueEncodingType.SEPARATED);
 
     @Override
@@ -123,17 +124,13 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         ConsumerBuilder<KeyValue<GenericRecord, MutationValue>> consumerBuilder = sourceContext.newConsumerBuilder(dirtySchema)
                 .consumerName("CDC Consumer")
                 .topic(dirtyTopicName)
-                .autoUpdatePartitions(true);
-
-        if(cassandraSourceConfig.getEventsTopicPrefix() != null) {
-            consumerBuilder = consumerBuilder.subscriptionName(cassandraSourceConfig.getEventsSubscriptionName())
-                    .subscriptionType(SubscriptionType.Key_Shared)
-                    .subscriptionMode(SubscriptionMode.Durable)
-                    .keySharedPolicy(KeySharedPolicy.autoSplitHashRange());
-        }
-
+                .autoUpdatePartitions(true)
+                .subscriptionName(cassandraSourceConfig.getEventsSubscriptionName())
+                .subscriptionType(SubscriptionType.Key_Shared)
+                .subscriptionMode(SubscriptionMode.Durable)
+                .keySharedPolicy(KeySharedPolicy.autoSplitHashRange());
         this.consumer = consumerBuilder.subscribe();
-        this.mutationCache = new MutationCache<>(3, 10, Duration.ofHours(1));
+        this.mutationCache = new MutationCache<>(3, 1024, Duration.ofHours(1));
         log.debug("Starting source connector topic={} subscription={}",
                 dirtyTopicName,
                 cassandraSourceConfig.getEventsTopicPrefix());

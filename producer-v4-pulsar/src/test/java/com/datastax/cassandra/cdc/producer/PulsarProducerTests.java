@@ -3,22 +3,29 @@ package com.datastax.cassandra.cdc.producer;
 import com.datastax.cassandra.cdc.MutationValue;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
-import com.github.dockerjava.api.command.CreateContainerCmd;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.datastax.testcontainers.pulsar.PulsarContainer;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.pulsar.client.api.*;
+import org.apache.pulsar.client.api.schema.GenericRecord;
+import org.apache.pulsar.client.api.schema.RecordSchemaBuilder;
+import org.apache.pulsar.client.api.schema.SchemaBuilder;
+import org.apache.pulsar.client.impl.schema.AvroSchema;
+import org.apache.pulsar.client.impl.schema.KeyValueSchema;
+import org.apache.pulsar.client.impl.schema.generic.GenericAvroSchema;
+import org.apache.pulsar.client.impl.schema.generic.GenericSchemaImpl;
+import org.apache.pulsar.common.schema.KeyValue;
+import org.apache.pulsar.common.schema.KeyValueEncodingType;
+import org.apache.pulsar.common.schema.SchemaInfo;
+import org.apache.pulsar.common.schema.SchemaType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Network;
-import org.testcontainers.containers.PulsarContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.time.Duration;
 import java.util.Locale;
-import java.util.Properties;
-import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -31,16 +38,14 @@ public class PulsarProducerTests {
     static final String PULSAR_IMAGE = "harbor.sjc.dsinternal.org/pulsar/pulsar-all:" + PULSAR_VERSION;
 
     private static Network testNetwork;
-    private static CassandraContainer cassandraContainer;
-    private static PulsarContainer pulsarContainer;
-
-    static final int GIVE_UP = 100;
+    private static CassandraContainer<?> cassandraContainer;
+    private static PulsarContainer<?> pulsarContainer;
 
     @BeforeAll
     public static final void initBeforeClass() throws Exception {
         testNetwork = Network.newNetwork();
 
-        pulsarContainer = new PulsarContainer(DockerImageName.parse(PULSAR_IMAGE))
+        pulsarContainer = new PulsarContainer<>(DockerImageName.parse(PULSAR_IMAGE))
                 .withNetwork(testNetwork)
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withName("pulsar"))
                 .withStartupTimeout(Duration.ofSeconds(30));
@@ -49,13 +54,8 @@ public class PulsarProducerTests {
         String buildDir = System.getProperty("buildDir");
         String projectVersion = System.getProperty("projectVersion");
         String jarFile = String.format(Locale.ROOT, "producer-v4-pulsar-%s-all.jar", projectVersion);
-        cassandraContainer = new CassandraContainer(CASSANDRA_IMAGE)
-                .withCreateContainerCmdModifier(new Consumer<CreateContainerCmd>() {
-                    @Override
-                    public void accept(CreateContainerCmd createContainerCmd) {
-                        createContainerCmd.withName("cassandra");
-                    }
-                })
+        cassandraContainer = new CassandraContainer<>(CASSANDRA_IMAGE)
+                .withCreateContainerCmdModifier(c -> c.withName("cassandra"))
                 .withLogConsumer(new Slf4jLogConsumer(log))
                 .withNetwork(testNetwork)
                 .withConfigurationOverride("cassandra-cdc")
@@ -64,7 +64,7 @@ public class PulsarProducerTests {
                         String.format(Locale.ROOT, "/%s", jarFile))
                 .withEnv("JVM_EXTRA_OPTS", String.format(
                         Locale.ROOT,
-                        "-javaagent:/%s -pulsarServiceUrl=%s",
+                        "-javaagent:/%s -DpulsarServiceUrl=%s",
                         jarFile,
                         "http://pulsar:" + pulsarContainer.BROKER_PORT))
                 .withStartupTimeout(Duration.ofSeconds(70));
@@ -78,7 +78,7 @@ public class PulsarProducerTests {
     }
 
     @Test
-    public void testProducer() throws InterruptedException {
+    public void testProducer() throws InterruptedException, PulsarClientException {
         try(CqlSession cqlSession = cassandraContainer.getCqlSession()) {
             cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS ks1 WITH replication = \n" +
                     "{'class':'SimpleStrategy','replication_factor':'1'};");
@@ -92,63 +92,66 @@ public class PulsarProducerTests {
             cqlSession.execute("INSERT INTO ks1.table2 (a,b,c) VALUES('2',1,1)");
             cqlSession.execute("INSERT INTO ks1.table2 (a,b,c) VALUES('3',1,1)");
         }
-        /*
+
         Thread.sleep(15000);
-        KafkaConsumer<byte[], MutationValue> consumer = createConsumer("test-consumer-avro-group");
-        consumer.subscribe(ImmutableList.of(PropertyConfig.topicPrefix + "ks1.table1", PropertyConfig.topicPrefix + "ks1.table2"));
-        int noRecordsCount = 0;
         int mutationTable1= 1;
         int mutationTable2= 1;
 
-        AvroConverter keyConverter = new AvroConverter();
-        keyConverter.configure(
-                ImmutableMap.of(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryContainer.getRegistryUrl()),
-                true);
-        Schema expectedKeySchema1 = SchemaBuilder.string().optional().build();
-        Schema expectedKeySchema2 = SchemaBuilder.struct()
-                .name("ks1.table2")
-                .version(1)
-                .doc(PulsarMutationSender.SCHEMA_DOC_PREFIX + "ks1.table2")
-                .field("a", SchemaBuilder.string().optional().build())
-                .field("b", SchemaBuilder.int32().optional().build())
-                .build();
+        try(PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(PropertyConfig.pulsarServiceUrl).build()) {
+            Schema<KeyValue<String, MutationValue>> schema1 = KeyValueSchema.of(
+                    Schema.STRING,
+                    AvroSchema.of(MutationValue.class),
+                    KeyValueEncodingType.SEPARATED);
 
-        while(true) {
-            final ConsumerRecords<byte[], MutationValue> consumerRecords = consumer.poll(Duration.ofMillis(100));
-
-            if (consumerRecords.count()==0) {
-                noRecordsCount++;
-                if (noRecordsCount > GIVE_UP) break;
+            try (Consumer<KeyValue<String, MutationValue>> consumer = pulsarClient.newConsumer(schema1)
+                    .topic("events-ks1.table1")
+                    .subscriptionName("sub1")
+                    .subscriptionType(SubscriptionType.Key_Shared)
+                    .subscriptionMode(SubscriptionMode.Durable)
+                    .subscribe()) {
+                Message<KeyValue<String, MutationValue>> msg = consumer.receive();
+                KeyValue<String, MutationValue> kv = msg.getValue();
+                String key = kv.getKey();
+                MutationValue val = kv.getValue();
+                System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
+                        " key=" + key +
+                        " value=" + val);
+                assertEquals(Integer.toString(mutationTable1), key);
+                mutationTable1++;
             }
+            assertEquals(4, mutationTable1);
 
-            for (ConsumerRecord<byte[], MutationValue> record : consumerRecords) {
-                String topicName = record.topic();
-                SchemaAndValue keySchemaAndValue = keyConverter.toConnectData(topicName, record.key());
-                System.out.println("Consumer Record: topicName=" + topicName+
-                        " partition=" + record.partition() +
-                        " offset=" +record.offset() +
-                        " key=" + keySchemaAndValue.value() +
-                        " value="+ record.value());
-                if (topicName.endsWith("table1")) {
-                    assertEquals(Integer.toString(mutationTable1), keySchemaAndValue.value());
-                    assertEquals(expectedKeySchema1, keySchemaAndValue.schema());
-                    mutationTable1++;
-                } else if (topicName.endsWith("table2")) {
-                    Struct expectedKey = new Struct(keySchemaAndValue.schema())
-                            .put("a", Integer.toString(mutationTable2))
-                            .put("b", 1);
-                    assertEquals(expectedKey, keySchemaAndValue.value());
-                    assertEquals(expectedKeySchema2, keySchemaAndValue.schema());
-                    mutationTable2++;
-                }
+            RecordSchemaBuilder recordSchemaBuilder = SchemaBuilder.record("ks1.table1");
+            recordSchemaBuilder.field("a").type(SchemaType.STRING).optional().defaultValue(null);
+            recordSchemaBuilder.field("b").type(SchemaType.INT32).optional().defaultValue(null);
+            SchemaInfo keySchemaInfo = recordSchemaBuilder.build(SchemaType.AVRO);
+            Schema<GenericRecord> keySchema = GenericSchemaImpl.of(keySchemaInfo);
+            Schema<KeyValue<GenericRecord, MutationValue>> schema2 = KeyValueSchema.of(
+                    keySchema,
+                    AvroSchema.of(MutationValue.class),
+                    KeyValueEncodingType.SEPARATED);
+            try (Consumer<KeyValue<GenericRecord, MutationValue>> consumer = pulsarClient.newConsumer(schema2)
+                    .topic("events-ks1.table2")
+                    .subscriptionName("sub1")
+                    .subscriptionType(SubscriptionType.Key_Shared)
+                    .subscriptionMode(SubscriptionMode.Durable)
+                    .subscribe()) {
+                Message<KeyValue<GenericRecord, MutationValue>> msg = consumer.receive();
+                KeyValue<GenericRecord, MutationValue> kv = msg.getValue();
+                GenericRecord key = kv.getKey();
+                MutationValue val = kv.getValue();
+                System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
+                        " key=" + key +
+                        " value=" + val);
+                GenericAvroSchema genericAvroSchema = new GenericAvroSchema(keySchemaInfo);
+                GenericRecord expectedKey = genericAvroSchema.newRecordBuilder()
+                        .set("a", Integer.toString(mutationTable2))
+                        .set("b", 1)
+                        .build();
+                assertEquals(expectedKey, key);
+                mutationTable2++;
             }
-            consumer.commitSync();
+            assertEquals(4, mutationTable2);
         }
-        System.out.println("noRecordsCount=" + noRecordsCount);
-        assertEquals(4, mutationTable1);
-        assertEquals(4, mutationTable2);
-        consumer.close();
-
-         */
     }
 }
