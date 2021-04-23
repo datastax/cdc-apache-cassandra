@@ -1,16 +1,19 @@
-= Cassandra Data Connector FAQs
+= Cassandra Source Connector FAQs
 
-If you are new to DataStax Cassandra Data Connector, these FAQs are for you.
+If you are new to DataStax Cassandra Source Connector, these FAQs are for you.
 
 == Introduction
 
-=== What is DataStax Cassandra Data Connector?
+=== What is DataStax Cassandra Source Connector?
 
-The Alpha release of Cassandra Data Connector is a new, open-source product from DataStax. With CDC, your apps can consume data from an Apache Cassandra&reg; table and put the updates onto a Pulsar topic, which in turn can write the data to external targets such as Elastic, Snowflake, and other platforms. By design, the Source component is simple, with a 1:1 correspondence between the Cassandra table and a single Pulsar topic.
+The Alpha release of Cassandra Source Connector is a new, open-source product from DataStax.
+With CDC, Cassyour apps can consume data from an Apache Cassandra&reg; table and put the updates onto a Pulsar topic, which in turn can write the data to external targets such as Elastic, Snowflake, and other platforms. By design, the Source component is simple, with a 1:1 correspondence between the Cassandra table and a single Pulsar topic.
 
 === What are the system requirements for Cassandra Data Connector?
 
-Cassandra Data Connector requires ... (quantify cpu, ram, disk , ... )
+Cassandra Source Connector requires additional resources depending on your write throughput.
+For each cassandra write, each Cassandra replica send one message to your streaming platform (Pulsar or Kafka), and
+execute at least one QUORUM read on your
 
 === What components and features are provided by Cassandra Data Connector?
 
@@ -30,11 +33,11 @@ DataStax Cassandra Data Connector implements, in effect, the reverse of Apache P
 
 === Is DataStax Cassandra Data Connector an open-source project?
 
-Yes, DataStax Cassandra Data Connector is open source. See the <<gitHubRepos,repos FAQ>>. 
+Yes, DataStax Cassandra Data Connector is open source. See the <<gitHubRepos,repos FAQ>>.
 
 === Which Kubernetes platforms are supported by DataStax Cassandra Data Connector?
 
-They include Minikube, K8d, Kind, Google Kubernetes Engine (GKE), Microsoft Azure Kubernetes Service, Amazon Kubernetes Service (AKS), and other commonly used platforms. 
+They include Minikube, K8d, Kind, Google Kubernetes Engine (GKE), Microsoft Azure Kubernetes Service, Amazon Kubernetes Service (AKS), and other commonly used platforms.
 
 [#gitHubRepos]
 === Where is the DataStax Cassandra Data Connector public GitHub repo?
@@ -49,7 +52,7 @@ The DataStax Cassandra Data Connector distribution is designed for Java 11. Howe
 
 === How do I install Cassandra Data Connector?
 
-Download the tar file from the DataStax [Downloads site](https://downloads.datastax.com/#cdc). Then follow the xref:install.adoc[install] instructions. The tarball contains the Cassandra Data Connector distribution's NAR file. 
+Download the tar file from the DataStax [Downloads site](https://downloads.datastax.com/#cdc). Then follow the xref:install.adoc[install] instructions. The tarball contains the Cassandra Data Connector distribution's NAR file.
 
 == Tasks
 
@@ -70,7 +73,7 @@ From the Installation Console, you can:
 From the Admin Console, you can:
 
 * Add and run Pulsar clients
-* Establish credentials for secure connections 
+* Establish credentials for secure connections
 * Define topics that can be published for streaming apps
 * Set up Pulsar sinks that publish topics and make them available to subscribers, such as for a Cassandra database table
 * Control namespaces used by Pulsar
@@ -86,7 +89,7 @@ https://prometheus.io/docs/introduction/overview/[Prometheus] is an open-source 
 
 === What is Grafana?
 
-https://grafana.com/[Grafana] is a visualization tool that helps you make sense of metrics and related data coming from your apps via Prometheus, for example. 
+https://grafana.com/[Grafana] is a visualization tool that helps you make sense of metrics and related data coming from your apps via Prometheus, for example.
 
 == Pulsar Connector
 
@@ -106,7 +109,7 @@ https://grafana.com/[Grafana] is a visualization tool that helps you make sense 
 
 === What client APIs does Cassandra Data Connector provide?
 
-The same as for Apache Pulsar. See https://pulsar.apache.org/docs/en/client-libraries/. 
+The same as for Apache Pulsar. See https://pulsar.apache.org/docs/en/client-libraries/.
 
 == Next
 

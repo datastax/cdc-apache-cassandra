@@ -1,52 +1,38 @@
-= About DataStax Cassandra Data Connector
+= About DataStax Cassandra Source Connector
 
-DataStax Cassandra® Data Connector is open-source software (OSS) that synchronizes records from a supported database table to an Apache&reg; Pulsar topic, which in turn can write the data to platforms such as Elastic or Snowflake. 
+DataStax Cassandra® Source Connector is open-source software (OSS) that send Cassandra mutations
+for table having the CDC enabled to Apache Pulsar&reg; or Apache Kafka&reg;.
+, which in turn can write the data to platforms such as Elasticsearch&reg; or Snowflake&reg;.
 
 == Key Features
 
-* Flexibility in mapping Astra, Cassandra, or DataStax Enterprise (DSE0 database tables to Apache® Pulsar topics.
-* Enterprise grade security support including built-in SSL, and LDAP integration.
-* Supports all Apache Pulsar primitives including primitives, JSON and Avro formats.
-* Flexible time/date formatting.
-* Configurable consistency level.
-* Row-level Time-to-Live (TTL).
+* Support both Apache Cassandra 3.11.x and 4.0.x
+* Support Apache Pulsar or Apache Kafka.
+* Propagate Cassandra schema change to the Apache/Kafka schema registry
+* Support JSON or AVRO message format.
 * Distributed mode, high availability (HA) support.
 * Standalone mode support for development.
 
 [#supported-databases]
 == Supported databases
 
-* https://docs.datastax.com/en/astra/docs/[DataStax Astra] cloud databases
-* DataStax Enterprise (DSE) 5.1 and later databases
-* Open source Apache® Cassandra® 2.1 and later databases
+* Open source Apache® Cassandra® 3.11.x and later databases
 
-== Supported Pulsar data structures
+== Supported Cassandra data structures
 
-Ingest data from Pulsar topics with records in the following data structures:
+Cassandra supported CQL3 data types:
 
-* Primitive string values
-* Complex field values in record types:
- ** Avro
- ** JSON formatted string with JSON schema
- ** JSON formatted string inside a schemaless topic
+* text, ascii
+* tinyint, smallint, int, bigint, double, float
+* boolean
+* timestamp
+* User Defined Types
 
 == Getting started
 
-* xref:quickstart.adoc[] A quick introduction connecting a DSE or a Cassandra table to a Pulsar topic, sending simple key/value messages using the client utility.
-
-== Advanced message mapping topics
-
-If you're already familiar with Apache® Pulsar and DSE/Astra/Cassandra® see the following advanced message mapping topics:
-
-* ( decide which topics from DataStax Pulsar or Kafka docs the we want to include )
-
+* xref:quickstart-pulsar.adoc[] A quick introduction connecting a Cassandra table to a Pulsar cluster.
+* xref:quickstart-kafka.adoc[] A quick introduction connecting a Cassandra table to a Kafka cluster.
 
 == Where to go next
 
-If you've got an existing Kubernetes environment:: To deploy Cassandra Data Connector in your existing Kubernetes environment, see xref::quickstart-helm-installs.adoc[].
-
-If you've got bare metal or a cloud environment:: To deploy Cassandra Data Connector from scratch on bare metal or in a cloud environment, see xref::quickstart-server-installs.adoc[].
-
-If you'd like to learn about Pulsar Heartbeat:: See xref::pulsar-monitor.adoc[].
-
-If you've got more questions...:: For additional information about Cassandra Data Connector, see xref::faqs.adoc[].
+If you've got more questions...:: For additional information about Cassandra Source Connector, see xref::faqs.adoc[].
