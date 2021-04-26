@@ -1,7 +1,7 @@
 site:
-  title: DataStax Cassandra Data Connector Documentation
-  url: http://docs.datastax.com/en/cass-data-connector
-  start_page: cass-data-connector::index.adoc
+  title: DataStax Cassandra Source Connector documentation
+  url: http://docs.datastax.com/en/cass-source-connector
+  start_page: cass-source-connector::index.adoc
 
 content:
   edit_url: 'https://github.com/riptano/cdcrep/blob/master/docs/{path}'

@@ -1,7 +1,7 @@
-name: cass-data-connector
-title: DataStax Cassandra Data Connector (beta) documentation
-version: "0.1"
-display_version: "0.1"
+name: cass-source-connector
+title: DataStax Cassandra Source Connector (beta) documentation
+version: "1.0"
+display_version: "1.0"
 
 nav:
 - modules/ROOT/nav.adoc
