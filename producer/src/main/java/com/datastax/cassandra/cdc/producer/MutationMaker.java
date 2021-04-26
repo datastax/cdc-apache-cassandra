@@ -20,7 +20,7 @@ public class MutationMaker<T> {
     private final boolean emitTombstoneOnDelete;
 
     public MutationMaker() {
-        this.emitTombstoneOnDelete = PropertyConfig.emitTombstoneOnDelete;
+        this.emitTombstoneOnDelete = ProducerConfig.emitTombstoneOnDelete;
     }
 
     public void insert(String cluster, UUID node, CommitLogPosition offsetPosition,

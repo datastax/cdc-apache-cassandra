@@ -114,7 +114,7 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     public Producer getProducer(final TableMetadata tm) {
-        String topicName = PropertyConfig.topicPrefix + tm.keyspace + "." + tm.name;
+        String topicName = ProducerConfig.topicPrefix + tm.keyspace + "." + tm.name;
         String producerName = "pulsar-producer-" + StorageService.instance.getLocalHostId() + topicName;
         return producers.compute(topicName, (k, v) -> {
             if (v == null) {
@@ -145,7 +145,7 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
     public void initialize() throws PulsarClientException {
         try {
             this.client = PulsarClient.builder()
-                    .serviceUrl(PropertyConfig.pulsarServiceUrl)
+                    .serviceUrl(ProducerConfig.pulsarServiceUrl)
                     .build();
             log.info("Pulsar client connected");
         } catch (Exception e) {

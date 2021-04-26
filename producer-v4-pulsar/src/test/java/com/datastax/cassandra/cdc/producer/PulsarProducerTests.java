@@ -97,7 +97,7 @@ public class PulsarProducerTests {
         int mutationTable1= 1;
         int mutationTable2= 1;
 
-        try(PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(PropertyConfig.pulsarServiceUrl).build()) {
+        try(PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(ProducerConfig.pulsarServiceUrl).build()) {
             Schema<KeyValue<String, MutationValue>> schema1 = KeyValueSchema.of(
                     Schema.STRING,
                     AvroSchema.of(MutationValue.class),

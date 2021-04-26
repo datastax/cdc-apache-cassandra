@@ -44,7 +44,7 @@ public class Agent {
     static void startCdcProducer(String agentArgs) throws IOException {
         log.info("Starting CDC producer agent");
 
-        PropertyConfig.configure(agentArgs);
+        ProducerConfig.configure(agentArgs);
 
         OffsetFileWriter offsetFileWriter = new OffsetFileWriter(DatabaseDescriptor.getCDCLogLocation());
         KafkaMutationSender kafkaMutationSender = new KafkaMutationSender();

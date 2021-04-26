@@ -114,7 +114,7 @@ public class PulsarMutationSender implements MutationSender<CFMetaData> , AutoCl
 
     @SuppressWarnings({"rawtypes","unchecked"})
     public Producer getProducer(final CFMetaData tm) {
-        String topicName = PropertyConfig.topicPrefix + tm.ksName + "." + tm.cfName;
+        String topicName = ProducerConfig.topicPrefix + tm.ksName + "." + tm.cfName;
         String producerName = "pulsar-producer-" + StorageService.instance.getLocalHostId();
         return producers.compute(topicName, (k, v) -> {
                 if (v == null) {
@@ -145,7 +145,7 @@ public class PulsarMutationSender implements MutationSender<CFMetaData> , AutoCl
     public void initialize() throws PulsarClientException {
         try {
             this.client = PulsarClient.builder()
-                    .serviceUrl(PropertyConfig.pulsarServiceUrl)
+                    .serviceUrl(ProducerConfig.pulsarServiceUrl)
                     .build();
             log.info("Pulsar client connected");
         } catch(Exception e) {

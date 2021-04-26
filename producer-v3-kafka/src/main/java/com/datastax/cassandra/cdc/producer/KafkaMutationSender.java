@@ -15,7 +15,6 @@ import org.apache.cassandra.config.ColumnDefinition;
 import org.apache.cassandra.db.marshal.*;
 import org.apache.cassandra.service.StorageService;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.connect.data.Schema;
@@ -73,7 +72,7 @@ public class KafkaMutationSender implements MutationSender<CFMetaData> , AutoClo
         schemas.put(TimeUUIDType.instance.asCQL3Type().toString(), Uuid.builder().optional());
 
         Map<String, String> converterConfig = ImmutableMap.of(
-                AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, PropertyConfig.kafkaRegistryUrl
+                AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, ProducerConfig.kafkaSchemaRegistryUrl
         );
 
         // Kafka Converter for the Mutation key
@@ -121,10 +120,10 @@ public class KafkaMutationSender implements MutationSender<CFMetaData> , AutoClo
     public void initialize() throws Exception {
         String producerName = "kafka-producer-" + StorageService.instance.getLocalHostId();
         Properties props = new Properties();
-        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, PropertyConfig.kafkaBrokers);
-        props.put(ProducerConfig.CLIENT_ID_CONFIG, producerName);
-        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, org.apache.kafka.common.serialization.ByteArraySerializer.class.getName());
-        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, org.apache.kafka.common.serialization.ByteArraySerializer.class.getName());
+        props.put(org.apache.kafka.clients.producer.ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, ProducerConfig.kafkaBrokers);
+        props.put(org.apache.kafka.clients.producer.ProducerConfig.CLIENT_ID_CONFIG, producerName);
+        props.put(org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, org.apache.kafka.common.serialization.ByteArraySerializer.class.getName());
+        props.put(org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, org.apache.kafka.common.serialization.ByteArraySerializer.class.getName());
         //props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, CustomPartitioner.class.getName());
         this.kafkaProducer = new KafkaProducer<>(props);
         log.info("Kafka producer name={} created", producerName);
@@ -156,7 +155,7 @@ public class KafkaMutationSender implements MutationSender<CFMetaData> , AutoClo
     @SuppressWarnings({"rawtypes","unchecked"})
     public CompletionStage<Void> sendMutationAsync(final Mutation<CFMetaData> mutation) throws Exception {
         Schema keySchema = getKeySchema(mutation.getMetadata());
-        String topicName = PropertyConfig.topicPrefix + mutation.getMetadata().ksName + "." + mutation.getMetadata().cfName;
+        String topicName = ProducerConfig.topicPrefix + mutation.getMetadata().ksName + "." + mutation.getMetadata().cfName;
         byte[] serializedKey = keyConverter.fromConnectData(topicName, keySchema, buildKey(keySchema, mutation.primaryKeyCells()));
         byte[] serializedValue = valueConverter.fromConnectData(topicName, valueSchema, buildValue(mutation.mutationValue()));
         ProducerRecord record = new ProducerRecord(topicName, serializedKey, serializedValue);

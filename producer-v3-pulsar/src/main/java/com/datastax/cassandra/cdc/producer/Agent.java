@@ -37,12 +37,13 @@ public class Agent {
         } else if (DatabaseDescriptor.getCDCLogLocation() == null) {
             log.error("cdc_raw_directory=null in your cassandra configuration, CDC agent not started.");
         } else {
-            startCdcProducer();
+            startCdcProducer(agentArgs);
         }
     }
 
-    static void startCdcProducer() throws IOException {
+    static void startCdcProducer(String agentArgs) throws IOException {
         log.info("Starting CDC producer agent");
+        ProducerConfig.configure(agentArgs);
 
         OffsetFileWriter offsetFileWriter = new OffsetFileWriter(DatabaseDescriptor.getCDCLogLocation());
         PulsarMutationSender pulsarMutationSender = new PulsarMutationSender();

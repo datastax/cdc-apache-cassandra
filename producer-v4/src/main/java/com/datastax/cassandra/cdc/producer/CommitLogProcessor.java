@@ -46,7 +46,7 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
         this.offsetFileWriter = offsetFileWriter;
         this.cdcDir = new File(cdcLogDir);
         this.newCommitLogWatcher = new AbstractDirectoryWatcher(cdcDir.toPath(),
-                Duration.ofMillis(PropertyConfig.cdcDirPollIntervalMs),
+                Duration.ofMillis(ProducerConfig.cdcDirPollIntervalMs),
                 ImmutableSet.of(ENTRY_CREATE, ENTRY_MODIFY)) {
             @Override
             void handleEvent(WatchEvent<?> event, Path path) throws IOException {
@@ -72,7 +72,7 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
 
     @Override
     public void process() throws IOException, InterruptedException {
-        if (PropertyConfig.errorCommitLogReprocessEnabled) {
+        if (ProducerConfig.errorCommitLogReprocessEnabled) {
             log.debug("Moving back error commitlogs for reprocessing");
             commitLogTransfer.getErrorCommitLogFiles();
         }

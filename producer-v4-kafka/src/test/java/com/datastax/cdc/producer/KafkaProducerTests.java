@@ -3,7 +3,7 @@ package com.datastax.cdc.producer;
 import com.datastax.cassandra.cdc.MutationValue;
 
 import com.datastax.cassandra.cdc.producer.KafkaMutationSender;
-import com.datastax.cassandra.cdc.producer.PropertyConfig;
+import com.datastax.cassandra.cdc.producer.ProducerConfig;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
 import com.datastax.testcontainers.kafka.SchemaRegistryContainer;
@@ -127,7 +127,7 @@ public class KafkaProducerTests {
         }
         Thread.sleep(15000);
         KafkaConsumer<byte[], MutationValue> consumer = createConsumer("test-consumer-avro-group");
-        consumer.subscribe(ImmutableList.of(PropertyConfig.topicPrefix + "ks1.table1", PropertyConfig.topicPrefix + "ks1.table2"));
+        consumer.subscribe(ImmutableList.of(ProducerConfig.topicPrefix + "ks1.table1", ProducerConfig.topicPrefix + "ks1.table2"));
         int noRecordsCount = 0;
         int mutationTable1= 1;
         int mutationTable2= 1;
