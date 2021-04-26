@@ -22,7 +22,7 @@ Services:
 
 Install the Cassandra source connector into Kafka Connect:
 
-    curl -XPOST -H "Content-Type: application/json" "http://localhost:8083/connectors" -d @quickstart-cassandra.yaml
+    curl -XPOST -H "Content-Type: application/json" "http://localhost:8083/connectors" -d @quickstart-cassandra-source-connector.yaml
 
 Install the Elasticsearch sink connector:
 
