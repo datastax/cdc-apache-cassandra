@@ -248,11 +248,6 @@ pipeline {
               initializeEnvironment()
               script {
                 currentBuild.displayName = "${env.BRANCH_NAME} - ${env.GIT_SHA}"
-                script {
-                  docker.withRegistry("https://harbor.sjc.dsinternal.org/", "harbor-jenkins-engops-robot") {
-                    docker_image.push()
-                  }
-                }
               }
               notifySlack()
             }
