@@ -9,7 +9,7 @@ configurations {
 }
 
 dependencies {
-    //release project(path: ':producer-v3-kafka', configuration: 'shadow')
+    release project(path: ':producer-v3-kafka', configuration: 'shadow')
     release project(path: ':producer-v3-pulsar', configuration: 'shadow')
     release project(path: ':producer-v4-kafka', configuration: 'shadow')
     release project(path: ':producer-v4-pulsar', configuration: 'shadow')
