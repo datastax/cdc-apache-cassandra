@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils;
 import org.testcontainers.utility.DockerImageName;
 
 import java.time.Duration;
@@ -56,17 +57,20 @@ public class KafkaProducerTests {
     public static final void initBeforeClass() throws Exception {
         testNetwork = Network.newNetwork();
 
+        // seed to uniquely identify containers between concurrent tests.
+        String seed = RandomStringUtils.randomAscii(8);
+
         kafkaContainer = new KafkaContainer(DockerImageName.parse(KAFKA_IMAGE))
                 .withNetwork(testNetwork)
                 .withEmbeddedZookeeper()
-                .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withName("kafka"))
+                .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withName("kafka-"+seed))
                 .withEnv("KAFKA_NUM_PARTITIONS", "1")
                 .withStartupTimeout(Duration.ofSeconds(30));
         kafkaContainer.start();
 
         String internalBootstrapServers = String.format("PLAINTEXT://%s:%s", kafkaContainer.getContainerName(), 9092);
         schemaRegistryContainer = SchemaRegistryContainer
-                .create(KAFKA_SCHEMA_REGISTRY_IMAGE, internalBootstrapServers)
+                .create(KAFKA_SCHEMA_REGISTRY_IMAGE, internalBootstrapServers, seed)
                 .withNetwork(testNetwork)
                 .withStartupTimeout(Duration.ofSeconds(30));
         schemaRegistryContainer.start();
@@ -76,7 +80,7 @@ public class KafkaProducerTests {
         String jarFile = String.format(Locale.ROOT, "producer-v4-kafka-%s-all.jar", projectVersion);
         cassandraContainer = new CassandraContainer<>(CASSANDRA_IMAGE)
                 .withConfigurationOverride("cassandra-cdc")
-                .withCreateContainerCmdModifier(c -> c.withName("cassandra"))
+                .withCreateContainerCmdModifier(c -> c.withName("cassandra-"+seed))
                 .withLogConsumer(new Slf4jLogConsumer(log))
                 .withNetwork(testNetwork)
                 .withFileSystemBind(
@@ -84,7 +88,7 @@ public class KafkaProducerTests {
                         String.format(Locale.ROOT, "/%s", jarFile))
                 .withEnv("JVM_EXTRA_OPTS", String.format(
                         Locale.ROOT,
-                        "-javaagent:/%s -DkafkaBrokers=%s -DschemaRegistryUrl=%s",
+                        "-javaagent:/%s -DkafkaBrokers=%s -DkafkaSchemaRegistryUrl=%s",
                         jarFile,
                         internalBootstrapServers,
                         schemaRegistryContainer.getRegistryUrlInDockerNetwork()))

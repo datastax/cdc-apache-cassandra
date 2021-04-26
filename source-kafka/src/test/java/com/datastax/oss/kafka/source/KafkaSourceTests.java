@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
@@ -56,17 +57,20 @@ public class KafkaSourceTests {
     public static final void initBeforeClass() throws Exception {
         testNetwork = Network.newNetwork();
 
+        // seed to uniquely identify containers between concurrent tests.
+        String seed = RandomStringUtils.randomAscii(8);
+
         kafkaContainer = new KafkaContainer(DockerImageName.parse(KAFKA_IMAGE))
                 .withNetwork(testNetwork)
                 .withEmbeddedZookeeper()
-                .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withName("kafka"))
+                .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withName("kafka-"+seed))
                 .withEnv("KAFKA_NUM_PARTITIONS", "1")
                 .withStartupTimeout(Duration.ofSeconds(30));
         kafkaContainer.start();
 
         String internalBootstrapServers = String.format("PLAINTEXT://%s:%s", kafkaContainer.getContainerName(), 9092);
         schemaRegistryContainer = SchemaRegistryContainer
-                .create(KAFKA_SCHEMA_REGISTRY_IMAGE, internalBootstrapServers)
+                .create(KAFKA_SCHEMA_REGISTRY_IMAGE, internalBootstrapServers, seed)
                 .withNetwork(testNetwork)
                 .withStartupTimeout(Duration.ofSeconds(30));
         schemaRegistryContainer.start();
@@ -77,7 +81,7 @@ public class KafkaSourceTests {
         String producerJarFile = String.format(Locale.ROOT, "producer-v4-kafka-%s-all.jar", projectVersion);
         String sourceJarFile = String.format(Locale.ROOT, "source-kafka-%s-all.jar", projectVersion);
         cassandraContainer = new CassandraContainer<>(CASSANDRA_IMAGE)
-                .withCreateContainerCmdModifier(c -> c.withName("cassandra"))
+                .withCreateContainerCmdModifier(c -> c.withName("cassandra-"+seed))
                 .withLogConsumer(new Slf4jLogConsumer(log))
                 .withNetwork(testNetwork)
                 .withConfigurationOverride("cassandra-cdc")
