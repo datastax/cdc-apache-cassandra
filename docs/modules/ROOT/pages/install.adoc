@@ -83,6 +83,13 @@ The producer JVM agent takes the following settings:
 
 == Deploy the Kafka Cassandra Source Connector
 
+In order to the Cassandra Source Connector NAR file in your Pulsar cluster, you can copy it into
+the pulsar connectors directory or upload it. You have to specify th following parameters:
+
+* The connector name, remember you have one connector per replicated cassandra table.
+* The destination topic for Cassandra data
+* The connector configuration, see LINK
+
 [source,language-bash]
 ----
 pulsar-admin source localrun \
@@ -95,6 +102,9 @@ pulsar-admin source localrun \
 ----
 
 == Deploy the Pulsar Cassandra Source Connector
+
+In order to deploy the Cassandra Source Connector in Kafka Connect, the connector jar file
+must be deployed in a plugin directory, usually /usr/local/share/kafka/plugins. Alternatively, you can specify your plugin directory with the plugin.path, see Kafka Connect documentation https://docs.confluent.io/home/connect/userguide.html#installing-kconnect-plugins.
 
 [source,language-bash]
 ----
@@ -120,3 +130,7 @@ curl -XPOST -H "Content-Type: application/json" "http://localhost:8083/connector
   }
 }'
 ----
+
+
+== Cassandra Source Connector configuration
+

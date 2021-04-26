@@ -1,0 +1,69 @@
+= Cassandra connection
+
+Configure the Cassandra connection settings.
+
+== Parameters
+
+[source,language-yaml]
+----
+ connectionPoolLocalSize: 4
+ contactPoints: [dse_host_list]
+ loadBalancing.localDc: datacenter_name
+ port: 9042
+ maxConcurrentRequests: 500
+ maxNumberOfRecordsInBatch: 32
+ queryExecutionTimeout: 30
+ jmx: true
+ compression: None
+----
+
+[#connectionPoolLocalSize]
+connectionPoolLocalSize:: Number of connections that driver maintains within a connection pool to each node in the local datacenter.
++
+Default: `4`
+
+[#contactPoints]
+contactPoints:: A comma-separated list of host names or IP addresses in square brackets.
++
+NOTE: When this setting is specified (for example, the database is on a remote host), the xref:cfgRefPulsarDseConnection.adoc#loadBalancing[loadBalancing.localDc] parameter is required.
++
+Default: `localhost`
+
+[#loadBalancing]
+loadBalancing.localDc:: The case-sensitive datacenter name for the driver to use for load balancing.
++
+NOTE: You cannot use this option if specifying the [cloud.secureConnectBundle](pulsarConnector.md#secure_ConnectBundle) option for connecting to a DataStax Astra database.
++
+Default: `""`
+
+[#port]
+port:: DSE native transport port.
+See link:https://docs.datastax.com/en/dse/6.8/dse-admin/datastax_enterprise/config/configCassandra_yaml.html#configCassandra_yaml__native_transport_port[native_transport_port].
++
+Default: `9042`
+
+[#maxConcurrentRequests]
+maxConcurrentRequests:: Maximum number of requests to send to DSE at the same time.
++
+Default: `500`
+
+[#maxNumberOfRecordsInBatch]
+maxNumberOfRecordsInBatch:: Number of records to include in a write request to the database table.
++
+Default: `32`
+
+[#jmx]
+jmx:: Whether to enable metrics reporting using Java Management Extensions (JMX).
++
+Default: `true`
+
+[#compression]
+compression:: Compression algorithm to use when issuing requests to the database server.
+Valid values are `None`, `Snappy`, and `LZ4`, which is applied per connector instance.
++
+Default: `None`
+
+[#queryExecutionTimeout]
+queryExecutionTimeout:: CQL statement execution timeout, in seconds.
++
+Default: `30`

@@ -1,0 +1,78 @@
+= SSL encrypted connection
+
+When the cluster has client encryption enabled, configure the SSL keys and certificates for the DataStax Apache® Pulsar Connector.
+
+== Parameters
+
+[source,language-yaml]
+----
+ssl:
+  provider: None
+  cipherSuites:
+  hostnameValidation: true
+  keystore:
+    password:
+    path:
+  truststore:
+    password:
+    path:
+  openssl:
+    keyCertChain:
+    privateKey:
+----
+
+[#provider]
+provider::
+SSL provider to use, if any.
+Valid choices:
+-   None
+-   JDK
+-   OpenSSL
++
+Defaults to None
+
+[#hostnameValidation]
+hostnameValidation:: Whether to validate node hostnames when using SSL.
++
+Defaults to true
+
+[#cipherSuites]
+cipherSuites:: The cipher suites to enable.
++
+Defaults to none, resulting in a "minimal quality of service" according to JDK documentation.
+
+[#keystore-password]
+keystore: password:: Keystore password.
+
+[#keystore-path]
+keystore: path:: Path to the keystore file.
+
+[#openssl-keycertchain]
+openssl: keyCertChain:: Path to the SSL certificate file, when using OpenSSL.
+
+[#openssl-privatekey]
+openssl: privateKey:: Path to the private key file, when using OpenSSL.
+
+[#truststore-password]
+truststore: password:: Truststore password.
+
+[#trustore-path]
+truststore: path:: Path to the truststore file.
+
+
+== Using a base64 encoded file
+
+For `keystore.path`, `truststore.path`, `openssl.privateKey`, and `openssl.keyCertChain` you can encode the target file using the standard base64 tool, include it directly in the Pulsar configuration file, and the Pulsar function framework will take care of deploying it to additional Pulsar machines:
+
+[source,language-bash]
+----
+base64 -i trust-store-key
+----
+
+Add the output of the command to `truststore: path:`:
+
+[source,language-yaml]
+----
+truststore:
+  path: base64:UEsDBBQACAAIADmJJ1IAAAAAAAAAAAAAAAAGAAkAY2EuY3J0VVQFAAFeQPdfZJTJjvI4HMTveYq5t0bZoTl8Bzt2giEOOGQh3Mi+sgVw4qcf0a25zPj2L0s/VUml+vvzIHaI95eF/YDYxAIB/lElSgi2kGWBt1UBTiCoiAUvIUcs2WyvJ1K/Mw8w7EIGeHVmkyXABlZeBEESgD4KJMpGbrEERYwRzDeIBTikkDhADTGcqBtq9it3cMW0qc4GPOEA7H8B18DCfi3ljh3kjm1QZnAEfkAu5hFKnZV6QvaeYuUHBibPSTT8OsWblmqbJgm6pzfQWaKNo......
+----
