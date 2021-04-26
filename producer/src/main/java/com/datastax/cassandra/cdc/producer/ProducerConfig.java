@@ -10,7 +10,7 @@ public class ProducerConfig {
     public static String cdcRelocationDir = System.getProperty(CDC_RELOCATION_DIR_SETTING, storageDir + File.separator + "cdc_backup");
 
     public static final String CDC_DIR_POOL_INTERVAL_MS_SETTING = "cdcPoolIntervalMs";
-    public static long cdcDirPollIntervalMs = Long.getLong(CDC_DIR_POOL_INTERVAL_MS_SETTING, 50000L);
+    public static long cdcDirPollIntervalMs = Long.getLong(CDC_DIR_POOL_INTERVAL_MS_SETTING, 60000L);
 
     public static final String ERROR_COMMITLOG_REPROCESS_ENABLED_SETTING = "errorCommitLogReprocessEnabled";
     public static boolean errorCommitLogReprocessEnabled = Boolean.getBoolean(ERROR_COMMITLOG_REPROCESS_ENABLED_SETTING);
