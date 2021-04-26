@@ -1,6 +1,6 @@
-= DataStax Cassandra Data Connector documentation
+= DataStax Cassandra Source Connector documentation
 
-This repo contains the source files for the DataStax Cassandra&reg; Data Connector documentation.
+This repo contains the source files for the DataStax Cassandra&reg; Source Connector documentation.
 
 The docs are written in asciidoc and use Antora to generate the output.
 
