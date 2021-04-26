@@ -58,7 +58,7 @@ public class KafkaSourceTests {
         testNetwork = Network.newNetwork();
 
         // seed to uniquely identify containers between concurrent tests.
-        String seed = RandomStringUtils.randomAscii(8);
+        String seed = RandomStringUtils.randomNumeric(8);
 
         kafkaContainer = new KafkaContainer(DockerImageName.parse(KAFKA_IMAGE))
                 .withNetwork(testNetwork)
