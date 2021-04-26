@@ -224,144 +224,21 @@ pipeline {
   }
 
   stages {
-    stage ('Single Job') {
-      when {
-        beforeAgent true
-        allOf {
-          expression { params.MATRIX_TYPE == 'SINGLE' }
-          not { buildingTag() }
-        }
-      }
-      matrix {
-        axes {
-          axis {
-            name 'CASSANDRA_VERSION'
-            values '3.11'
+    stage('build') {
+      steps {
+        script {
+          try {
+            sh './gradlew clean test --no-daemon' //run a gradle task
+          } finally {
+            junit '**/build/test-results/test/*.xml'
+            //make the junit test results available in any case (success & failure)
           }
-        }
-        agent {
-          label "${OS_VERSION}"
-        }
-        stages {
-          stage('Initialize Environment') {
-            steps {
-              initializeEnvironment()
-              script {
-                currentBuild.displayName = "${env.BRANCH_NAME} - ${env.GIT_SHA}"
-              }
-              notifySlack()
-            }
-          }
-          stage('Build & Test') {
-            steps {
-              buildAndExecuteTests()
-            }
-            post {
-              success {
-                recordTestResults()
-                recordCodeCoverage()
-                recordArtifacts()
-              }
-              unstable {
-                recordTestResults()
-                recordCodeCoverage()
-              }
-            }
-          }
-        }
-      }
-      post {
-        aborted {
-          notifySlack('aborted')
-        }
-        success {
-          script {
-            if(currentBuild.previousBuild?.result == 'SUCCESS') {
-              // do not notify success for fixed builds
-              notifySlack('completed')
-            }
-          }
-        }
-        unstable {
-          notifySlack('unstable')
-        }
-        failure {
-          notifySlack('failed')
-        }
-        fixed {
-          notifySlack('fixed')
         }
       }
     }
-    stage('Full Matrix') {
-      when {
-        beforeAgent true
-        allOf {
-          expression { params.MATRIX_TYPE == 'FULL' }
-          not { buildingTag() }
-        }
-      }
-      matrix {
-        axes {
-          axis {
-            name 'CASSANDRA_VERSION'
-            values '2.1', '2.2', '3.0', '3.11',
-                    // '4.0', removed until GA
-                   'dse-4.7', 'dse-4.8', 'dse-5.1', 'dse-6.0', 'dse-6.7', 'dse-6.8'
-          }
-        }
-        agent {
-          label "${env.OS_VERSION}"
-        }
-        stages {
-          stage('Initialize Environment') {
-            steps {
-              initializeEnvironment()
-              script {
-                currentBuild.displayName = "${env.BRANCH_NAME} - ${env.GIT_SHA} (full)"
-              }
-              notifySlack()
-            }
-          }
-          stage('Build & Test') {
-            steps {
-              buildAndExecuteTests()
-            }
-            post {
-              success {
-                recordTestResults()
-                recordCodeCoverage()
-                recordArtifacts()
-              }
-              unstable {
-                recordTestResults()
-                recordCodeCoverage()
-              }
-            }
-          }
-        }
-      }
-      post {
-        aborted {
-          notifySlack('aborted')
-        }
-        success {
-          script {
-            if(currentBuild.previousBuild?.result == 'SUCCESS') {
-              // do not notify success for fixed builds
-              notifySlack('completed')
-            }
-          }
-        }
-        unstable {
-          notifySlack('unstable')
-        }
-        failure {
-          notifySlack('failed')
-        }
-        fixed {
-          notifySlack('fixed')
-        }
+    stage('Assemble') {
+      steps {
+        sh './gradlew assemble'
       }
     }
   }
