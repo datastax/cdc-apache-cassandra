@@ -13,6 +13,29 @@ for table having the CDC enabled to Apache Pulsar&reg; or Apache Kafka&reg;.
 * Distributed mode, high availability (HA) support.
 * Standalone mode support for development.
 
+== Architecture
+
+The DataStax Cassandra® Source Connector two components:
+* A event producer deployed as a JVM agent on each Cassandra data node.
+* A Cassandra source connector deployed in your streaming platform.
+
+The following diagram describes the general architecture.
+
+image::images/cassandra-source-connector.png[Cassandra-source-connector-architecture]
+
+When CDC is enabled for a given Cassandra table, the event producer emit a message for each Cassandra mutation
+in a per-table events topic. Then the source connector process these events, it fetches the mutated Cassandra row,
+and writes it to the data topic. This ensures the most recent state of the Cassandra table is replicated into
+the data topic without the need to time re-order Cassandra mutations.
+The Cassandra Source Connector also update the schema-registry to reflects the Cassandra table schema.
+
+Deployment matrix:
+
+| Streaming platform | Cassandra v3.x producer | Cassandra v4.x producer  | Source connector |
+| ---                | ---                     | ---                      | ---              |
+| Apache Pulsar      | [producer-v3-pulsar](producer-v3-pulsar) | [producer-v4-pulsar](producer-v4-pulsar) | [source-pulsar](source-pulsar) |
+| Apache Kafka       | [producer-v3-kafka](producer-v3-kafka)   | [producer-v4-kafka](producer-v4-kafka)   | [source-kafka](source-kafka)   |
+
 [#supported-databases]
 == Supported databases
 
@@ -27,6 +50,11 @@ Cassandra supported CQL3 data types:
 * boolean
 * timestamp
 * User Defined Types
+
+== Supported streaming platform
+
+* Apache Pulsar® 2.8.0 and later
+* Apache Kafka® 5.5.1 and later
 
 == Getting started
 

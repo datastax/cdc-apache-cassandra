@@ -1,0 +1,17 @@
+= Monitor DataStax Cassandra Source Connector
+
+== Producer Metrics
+
+The producer JVM agent provides a dedicated MBean *CdcProducer* with the following metrics:
+
+[cols="1,1"]
+|===
+|Metric |Description
+
+|SentMutations
+|Number of Cassandra mutations successfully sent to the streaming platform.
+
+|SentErrors
+|Number of errors when sending mutations to the streaming platform.
+
+|===
