@@ -223,23 +223,21 @@ pipeline {
     ENABLE_RELEASE_PROFILE = "${params.GENERATE_DISTRO}"
   }
 
-  stages {
-    stage('build') {
-      steps {
-        script {
-          try {
-            sh './gradlew clean test --no-daemon' //run a gradle task
-          } finally {
-            junit '**/build/test-results/test/*.xml'
-            //make the junit test results available in any case (success & failure)
-          }
+  stage('build') {
+    steps {
+      script {
+        try {
+          sh './gradlew clean test --no-daemon' //run a gradle task
+        } finally {
+          junit '**/build/test-results/test/*.xml'
+          //make the junit test results available in any case (success & failure)
         }
       }
     }
-    stage('Assemble') {
-      steps {
-        sh './gradlew assemble'
-      }
+  }
+  stage('Assemble') {
+    steps {
+      sh './gradlew assemble'
     }
   }
 }
