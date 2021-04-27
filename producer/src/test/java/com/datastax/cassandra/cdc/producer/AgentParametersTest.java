@@ -16,6 +16,7 @@ public class AgentParametersTest {
                         PULSAR_SERVICE_URL_SETTING + "=pulsar://mypulsar:6650," +
                         KAFKA_BROKERS_SETTING + "=mykafka:9092," +
                         KAFKA_SCHEMA_REGISTRY_URL_SETTING + "=http://myregistry:8081";
+        ProducerConfig.configure(null);
         ProducerConfig.configure(agentArgs);
         assertEquals(cdcRelocationDir, "cdc_mybackup");
         assertEquals(errorCommitLogReprocessEnabled, true);

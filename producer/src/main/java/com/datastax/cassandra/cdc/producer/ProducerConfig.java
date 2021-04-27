@@ -36,26 +36,28 @@ public class ProducerConfig {
      * @param agentParameters
      */
     public static void configure(String agentParameters) {
-        for (String param : agentParameters.split(",")) {
-            String[] kv = param.split("=");
-            if (kv.length == 2) {
-                String key = kv[0];
-                String value = kv[1];
+        if (agentParameters != null) {
+            for (String param : agentParameters.split(",")) {
+                String[] kv = param.split("=");
+                if (kv.length == 2) {
+                    String key = kv[0];
+                    String value = kv[1];
 
-                if (TOPIC_PREFIX_SETTING.equals(key)) {
-                    topicPrefix = value;
-                } else if (PULSAR_SERVICE_URL_SETTING.equals(key)) {
-                    pulsarServiceUrl = value;
-                } else if (KAFKA_BROKERS_SETTING.equals(key)) {
-                    kafkaBrokers = value;
-                } else if (KAFKA_SCHEMA_REGISTRY_URL_SETTING.equals(key)) {
-                    kafkaSchemaRegistryUrl = value;
-                } else if (CDC_DIR_POOL_INTERVAL_MS_SETTING.equals(key)) {
-                    cdcDirPollIntervalMs = Long.parseLong(value);
-                } else if (ERROR_COMMITLOG_REPROCESS_ENABLED_SETTING.equals(key)) {
-                    errorCommitLogReprocessEnabled = Boolean.parseBoolean(value);
-                } else if (CDC_RELOCATION_DIR_SETTING.equals(key)) {
-                    cdcRelocationDir = value;
+                    if (TOPIC_PREFIX_SETTING.equals(key)) {
+                        topicPrefix = value;
+                    } else if (PULSAR_SERVICE_URL_SETTING.equals(key)) {
+                        pulsarServiceUrl = value;
+                    } else if (KAFKA_BROKERS_SETTING.equals(key)) {
+                        kafkaBrokers = value;
+                    } else if (KAFKA_SCHEMA_REGISTRY_URL_SETTING.equals(key)) {
+                        kafkaSchemaRegistryUrl = value;
+                    } else if (CDC_DIR_POOL_INTERVAL_MS_SETTING.equals(key)) {
+                        cdcDirPollIntervalMs = Long.parseLong(value);
+                    } else if (ERROR_COMMITLOG_REPROCESS_ENABLED_SETTING.equals(key)) {
+                        errorCommitLogReprocessEnabled = Boolean.parseBoolean(value);
+                    } else if (CDC_RELOCATION_DIR_SETTING.equals(key)) {
+                        cdcRelocationDir = value;
+                    }
                 }
             }
         }
