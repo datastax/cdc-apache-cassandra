@@ -18,6 +18,7 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.storage.Converter;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -45,7 +46,7 @@ public class KafkaSourceTests {
     static final String KAFKA_SCHEMA_REGISTRY_IMAGE = "confluentinc/cp-schema-registry:" + CONFLUENT_PLATFORM_VERSION;
     static final String KAFKA_CONNECT_IMAGE = "confluentinc/cp-kafka-connect-base:" + CONFLUENT_PLATFORM_VERSION;
 
-    private static String seed;
+    private static String seed = "1";   // must match the source connector config
     private static Network testNetwork;
     private static CassandraContainer<?> cassandraContainer;
     private static KafkaContainer kafkaContainer;
@@ -58,9 +59,6 @@ public class KafkaSourceTests {
     public static final void initBeforeClass() throws Exception {
         testNetwork = Network.newNetwork();
 
-        // seed to uniquely identify containers between concurrent tests.
-        seed = RandomStringUtils.randomNumeric(6);
-
         kafkaContainer = new KafkaContainer(DockerImageName.parse(KAFKA_IMAGE))
                 .withNetwork(testNetwork)
                 .withEmbeddedZookeeper()
@@ -69,7 +67,7 @@ public class KafkaSourceTests {
                 .withStartupTimeout(Duration.ofSeconds(30));
         kafkaContainer.start();
 
-        String internalBootstrapServers = String.format("PLAINTEXT://%s:%s", kafkaContainer.getContainerName(), 9092);
+        String internalBootstrapServers = String.format("PLAINTEXT:/%s:%s", kafkaContainer.getContainerName(), 9092);
         schemaRegistryContainer = SchemaRegistryContainer
                 .create(KAFKA_SCHEMA_REGISTRY_IMAGE, seed, internalBootstrapServers)
                 .withNetwork(testNetwork)
@@ -82,7 +80,7 @@ public class KafkaSourceTests {
         String producerJarFile = String.format(Locale.ROOT, "producer-v4-kafka-%s-all.jar", projectVersion);
         String sourceJarFile = String.format(Locale.ROOT, "source-kafka-%s-all.jar", projectVersion);
         cassandraContainer = new CassandraContainer<>(CASSANDRA_IMAGE)
-                .withCreateContainerCmdModifier(c -> c.withName("cassandra"))
+                .withCreateContainerCmdModifier(c -> c.withName("cassandra-" + seed))
                 .withLogConsumer(new Slf4jLogConsumer(log))
                 .withNetwork(testNetwork)
                 .withConfigurationOverride("cassandra-cdc")
@@ -91,7 +89,7 @@ public class KafkaSourceTests {
                         String.format(Locale.ROOT, "/%s", producerJarFile))
                 .withEnv("JVM_EXTRA_OPTS", String.format(
                         Locale.ROOT,
-                        "-javaagent:/%s -DkafkaBrokers=%s -DkafkaSchemaRegistryUrl=%s",
+                        "-javaagent:/%s=kafkaBrokers=%s,kafkaSchemaRegistryUrl=%s",
                         producerJarFile,
                         internalBootstrapServers,
                         schemaRegistryContainer.getRegistryUrlInDockerNetwork()))
@@ -129,7 +127,7 @@ public class KafkaSourceTests {
     }
 
     @Test
-    public void testAvroConverters() throws InterruptedException, IOException {
+    public void testWithAvroConverters() throws InterruptedException, IOException {
         Converter keyConverter = new AvroConverter();
         keyConverter.configure(
                 ImmutableMap.of(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryContainer.getRegistryUrl()),
@@ -141,16 +139,15 @@ public class KafkaSourceTests {
         testSourceConnector("ks1", keyConverter, valueConverter, false);
     }
 
-    /*
     @Test
-    public void testJsonConverters() throws InterruptedException, IOException {
-        Converter keyConverter = new AvroConverter();
+    public void testWithJsonConverters() throws InterruptedException, IOException {
+        Converter keyConverter = new JsonConverter();
         keyConverter.configure(
                 ImmutableMap.of(
                         AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryContainer.getRegistryUrl(),
                         "key.converter.schemas.enable", "true"),
                 true);
-        Converter valueConverter = new AvroConverter();
+        Converter valueConverter = new JsonConverter();
         valueConverter.configure(
                 ImmutableMap.of(
                         AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryContainer.getRegistryUrl(),
@@ -158,8 +155,6 @@ public class KafkaSourceTests {
                 false);
         testSourceConnector("ks2", keyConverter, valueConverter, true);
     }
-
-     */
 
     public void testSourceConnector(String ksName, Converter keyConverter, Converter valueConverter, boolean schemaWithNullValue) throws InterruptedException, IOException {
         try(CqlSession cqlSession = cassandraContainer.getCqlSession()) {
@@ -185,7 +180,7 @@ public class KafkaSourceTests {
         // wait commitlogs sync on disk
         Thread.sleep(11000);
         KafkaConsumer<byte[], byte[]> consumer = createConsumer("test-consumer-data-group-"+ksName);
-        consumer.subscribe(ImmutableList.of("events-"+ksName+".table1", "data-"+ksName+".table2"));
+        consumer.subscribe(ImmutableList.of("data-"+ksName+".table1", "data-"+ksName+".table2"));
         int noRecordsCount = 0;
         int mutationTable1 = 1;
         int mutationTable2 = 1;
@@ -368,13 +363,16 @@ public class KafkaSourceTests {
                 String topicName = record.topic();
                 SchemaAndValue keySchemaAndValue = keyConverter.toConnectData(topicName, record.key());
                 SchemaAndValue valueSchemaAndValue = valueConverter.toConnectData(topicName, record.value());
+
                 System.out.println("Consumer Record: topicName=" + topicName+
                         " partition=" + record.partition() +
                         " offset=" +record.offset() +
                         " key=" + keySchemaAndValue.value() +
                         " value="+ valueSchemaAndValue.value());
                 System.out.println("key schema: " + CassandraConverter.schemaToString(keySchemaAndValue.schema()));
-                System.out.println("value schema: " + CassandraConverter.schemaToString(valueSchemaAndValue.schema()));
+                if (valueSchemaAndValue.schema() != null)
+                    System.out.println("value schema: " + CassandraConverter.schemaToString(valueSchemaAndValue.schema()));
+
                 if (topicName.endsWith("table1")) {
                     assertEquals("1", keySchemaAndValue.value());
                     assertEquals(expectedKeySchema1, keySchemaAndValue.schema());

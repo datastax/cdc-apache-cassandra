@@ -3,19 +3,19 @@
   "config": {
     "connector.class": "com.datastax.oss.kafka.source.CassandraSourceConnector",
     "tasks.max": "1",
-    "bootstrap.servers": "kafka:9092",
-    "schema.registry.url": "http://schemaregistry:8081",
+    "bootstrap.servers": "kafka-1:9092",
+    "schema.registry.url": "http://schemaregistry-1:8081",
     "errors.log.enable": true,
     "errors.log.include.messages": true,
     "events.topic": "events-ks1.table2",
     "data.topic": "data-ks1.table2",
     "keyspace": "ks1",
     "table": "table2",
-    "contactPoints": "cassandra",
+    "contactPoints": "cassandra-1",
     "loadBalancing.localDc": "datacenter1",
     "key.converter": "io.confluent.connect.avro.AvroConverter",
     "value.converter": "io.confluent.connect.avro.AvroConverter",
-    "key.converter.schema.registry.url": "http://schemaregistry:8081",
-    "value.converter.schema.registry.url": "http://schemaregistry:8081"
+    "key.converter.schema.registry.url": "http://schemaregistry-1:8081",
+    "value.converter.schema.registry.url": "http://schemaregistry-1:8081"
   }
 }
