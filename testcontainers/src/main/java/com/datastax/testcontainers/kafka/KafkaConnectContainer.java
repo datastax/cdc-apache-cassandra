@@ -55,10 +55,10 @@ public class KafkaConnectContainer extends GenericContainer<KafkaConnectContaine
         return "http://" + kafkaConnectContainerName + ":" + KAFKA_CONNECT_INTERNAL_PORT;
     }
 
-    public static KafkaConnectContainer create(String image, String boostrapServers, String schemaRegistryUrl) {
+    public static KafkaConnectContainer create(String image, String seed, String boostrapServers, String schemaRegistryUrl) {
         return (KafkaConnectContainer) new KafkaConnectContainer(image, boostrapServers, schemaRegistryUrl)
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd
-                        .withName(kafkaConnectContainerName)
+                        .withName(kafkaConnectContainerName+"-"+seed)
                 );
     }
 

@@ -70,7 +70,7 @@ public class KafkaProducerTests {
 
         String internalBootstrapServers = String.format("PLAINTEXT://%s:%s", kafkaContainer.getContainerName(), 9092);
         schemaRegistryContainer = SchemaRegistryContainer
-                .create(KAFKA_SCHEMA_REGISTRY_IMAGE, internalBootstrapServers, seed)
+                .create(KAFKA_SCHEMA_REGISTRY_IMAGE, seed, internalBootstrapServers)
                 .withNetwork(testNetwork)
                 .withStartupTimeout(Duration.ofSeconds(30));
         schemaRegistryContainer.start();
@@ -88,7 +88,7 @@ public class KafkaProducerTests {
                         String.format(Locale.ROOT, "/%s", jarFile))
                 .withEnv("JVM_EXTRA_OPTS", String.format(
                         Locale.ROOT,
-                        "-javaagent:/%s -DkafkaBrokers=%s -DkafkaSchemaRegistryUrl=%s",
+                        "-javaagent:/%s=kafkaBrokers=%s,kafkaSchemaRegistryUrl=%s",
                         jarFile,
                         internalBootstrapServers,
                         schemaRegistryContainer.getRegistryUrlInDockerNetwork()))

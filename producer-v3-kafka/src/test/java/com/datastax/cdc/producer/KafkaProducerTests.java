@@ -31,6 +31,7 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils;
 import org.testcontainers.utility.DockerImageName;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Properties;
@@ -70,14 +71,14 @@ public class KafkaProducerTests {
 
         String internalBootstrapServers = String.format("PLAINTEXT://%s:%s", kafkaContainer.getContainerName(), 9092);
         schemaRegistryContainer = SchemaRegistryContainer
-                .create(KAFKA_SCHEMA_REGISTRY_IMAGE, internalBootstrapServers, seed)
+                .create(KAFKA_SCHEMA_REGISTRY_IMAGE, seed, internalBootstrapServers)
                 .withNetwork(testNetwork)
                 .withStartupTimeout(Duration.ofSeconds(30));
         schemaRegistryContainer.start();
 
         String buildDir = System.getProperty("buildDir");
         String projectVersion = System.getProperty("projectVersion");
-        String jarFile = String.format(Locale.ROOT, "producer-v4-kafka-%s-all.jar", projectVersion);
+        String jarFile = String.format(Locale.ROOT, "producer-v3-kafka-%s-all.jar", projectVersion);
         cassandraContainer = new CassandraContainer<>(CASSANDRA_IMAGE)
                 .withConfigurationOverride("cassandra-cdc")
                 .withCreateContainerCmdModifier(c -> c.withName("cassandra-"+seed))
@@ -88,7 +89,7 @@ public class KafkaProducerTests {
                         String.format(Locale.ROOT, "/%s", jarFile))
                 .withEnv("JVM_EXTRA_OPTS", String.format(
                         Locale.ROOT,
-                        "-javaagent:/%s -DkafkaBrokers=%s -DkafkaSchemaRegistryUrl=%s",
+                        "-javaagent:/%s=kafkaBrokers=%s,kafkaSchemaRegistryUrl=%s",
                         jarFile,
                         internalBootstrapServers,
                         schemaRegistryContainer.getRegistryUrlInDockerNetwork()))
@@ -115,7 +116,7 @@ public class KafkaProducerTests {
     }
 
     @Test
-    public void testProducer() throws InterruptedException {
+    public void testProducer() throws InterruptedException, IOException {
         try(CqlSession cqlSession = cassandraContainer.getCqlSession()) {
             cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS ks1 WITH replication = \n" +
                     "{'class':'SimpleStrategy','replication_factor':'1'};");
@@ -129,7 +130,9 @@ public class KafkaProducerTests {
             cqlSession.execute("INSERT INTO ks1.table2 (a,b,c) VALUES('2',1,1)");
             cqlSession.execute("INSERT INTO ks1.table2 (a,b,c) VALUES('3',1,1)");
         }
-        Thread.sleep(15000);
+
+        cassandraContainer.execInContainer("nodetool flush");
+
         KafkaConsumer<byte[], MutationValue> consumer = createConsumer("test-consumer-avro-group");
         consumer.subscribe(ImmutableList.of(ProducerConfig.topicPrefix + "ks1.table1", ProducerConfig.topicPrefix + "ks1.table2"));
         int noRecordsCount = 0;

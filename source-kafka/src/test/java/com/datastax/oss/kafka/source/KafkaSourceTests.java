@@ -70,7 +70,7 @@ public class KafkaSourceTests {
 
         String internalBootstrapServers = String.format("PLAINTEXT://%s:%s", kafkaContainer.getContainerName(), 9092);
         schemaRegistryContainer = SchemaRegistryContainer
-                .create(KAFKA_SCHEMA_REGISTRY_IMAGE, internalBootstrapServers, seed)
+                .create(KAFKA_SCHEMA_REGISTRY_IMAGE, seed, internalBootstrapServers)
                 .withNetwork(testNetwork)
                 .withStartupTimeout(Duration.ofSeconds(30));
         schemaRegistryContainer.start();
@@ -90,7 +90,7 @@ public class KafkaSourceTests {
                         String.format(Locale.ROOT, "/%s", producerJarFile))
                 .withEnv("JVM_EXTRA_OPTS", String.format(
                         Locale.ROOT,
-                        "-javaagent:/%s -DkafkaBrokers=%s -DschemaRegistryUrl=%s",
+                        "-javaagent:/%s -DkafkaBrokers=%s -DkafkaSchemaRegistryUrl=%s",
                         producerJarFile,
                         internalBootstrapServers,
                         schemaRegistryContainer.getRegistryUrlInDockerNetwork()))
@@ -98,7 +98,7 @@ public class KafkaSourceTests {
         cassandraContainer.start();
 
         kafkaConnectContainer = KafkaConnectContainer
-                .create(KAFKA_CONNECT_IMAGE, internalBootstrapServers, schemaRegistryContainer.getRegistryUrlInDockerNetwork())
+                .create(KAFKA_CONNECT_IMAGE, seed, internalBootstrapServers, schemaRegistryContainer.getRegistryUrlInDockerNetwork())
                 .withNetwork(testNetwork)
                 .withFileSystemBind(
                         String.format(Locale.ROOT, "%s/libs/%s", sourceBuildDir, sourceJarFile),
