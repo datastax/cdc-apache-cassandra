@@ -1,7 +1,10 @@
 package com.datastax.cassandra.cdc.producer;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.File;
 
+@Slf4j
 public class ProducerConfig {
 
     public static final String storageDir = System.getProperty("cassandra.storagedir", null);
@@ -24,7 +27,7 @@ public class ProducerConfig {
     public static final String PULSAR_SERVICE_URL_SETTING = "pulsarServiceUrl";
     public static String pulsarServiceUrl = System.getProperty(PULSAR_SERVICE_URL_SETTING, "pulsar://localhost:6650");
 
-    public static final String KAFKA_BROKERS_SETTING = "kafakaBrokers";
+    public static final String KAFKA_BROKERS_SETTING = "kafkaBrokers";
     public static String kafkaBrokers = System.getProperty(KAFKA_BROKERS_SETTING, "localhost:9092");
 
     public static final String KAFKA_SCHEMA_REGISTRY_URL_SETTING = "kafkaSchemaRegistryUrl";
@@ -43,7 +46,13 @@ public class ProducerConfig {
                     String key = kv[0];
                     String value = kv[1];
 
-                    if (TOPIC_PREFIX_SETTING.equals(key)) {
+                    if (CDC_RELOCATION_DIR_SETTING.equals(key)) {
+                        cdcRelocationDir = value;
+                    } else if (ERROR_COMMITLOG_REPROCESS_ENABLED_SETTING.equals(key)) {
+                        errorCommitLogReprocessEnabled = Boolean.parseBoolean(value);
+                    } else if (CDC_DIR_POOL_INTERVAL_MS_SETTING.equals(key)) {
+                        cdcDirPollIntervalMs = Long.parseLong(value);
+                    } else if (TOPIC_PREFIX_SETTING.equals(key)) {
                         topicPrefix = value;
                     } else if (PULSAR_SERVICE_URL_SETTING.equals(key)) {
                         pulsarServiceUrl = value;
@@ -51,15 +60,13 @@ public class ProducerConfig {
                         kafkaBrokers = value;
                     } else if (KAFKA_SCHEMA_REGISTRY_URL_SETTING.equals(key)) {
                         kafkaSchemaRegistryUrl = value;
-                    } else if (CDC_DIR_POOL_INTERVAL_MS_SETTING.equals(key)) {
-                        cdcDirPollIntervalMs = Long.parseLong(value);
-                    } else if (ERROR_COMMITLOG_REPROCESS_ENABLED_SETTING.equals(key)) {
-                        errorCommitLogReprocessEnabled = Boolean.parseBoolean(value);
-                    } else if (CDC_RELOCATION_DIR_SETTING.equals(key)) {
-                        cdcRelocationDir = value;
                     }
                 }
             }
         }
+        log.info("cdcRelocationDir={}, errorCommitLogReprocessEnabled={}, cdcDirPollIntervalMs={} " +
+                "topicPrefix={} pulsarServiceUrl={} kafkaBrokers={} kafkaSchemaRegistryUrl={}",
+                cdcRelocationDir, errorCommitLogReprocessEnabled, cdcDirPollIntervalMs,
+                topicPrefix, pulsarServiceUrl, kafkaBrokers, kafkaSchemaRegistryUrl);
     }
 }

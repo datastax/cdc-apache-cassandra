@@ -29,11 +29,11 @@ public class SchemaRegistryContainer extends GenericContainer<SchemaRegistryCont
     }
 
     public String getRegistryUrlInDockerNetwork() {
-        return "http://" + getContainerName() + ":" + SCHEMA_REGISTRY_INTERNAL_PORT;
+        return "http:/" + getContainerName() + ":" + SCHEMA_REGISTRY_INTERNAL_PORT;
     }
 
     public static SchemaRegistryContainer create(String image, String seed, String boostrapServers) {
         return (SchemaRegistryContainer) new SchemaRegistryContainer(image, boostrapServers)
-                .withCreateContainerCmdModifier(c -> c.withName(schemaRegistryContainerName+"-"+seed));
+                .withCreateContainerCmdModifier(c -> c.withName(schemaRegistryContainerName + "-" + seed));
     }
 }

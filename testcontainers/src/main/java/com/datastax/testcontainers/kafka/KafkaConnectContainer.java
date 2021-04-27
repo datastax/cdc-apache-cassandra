@@ -58,7 +58,7 @@ public class KafkaConnectContainer extends GenericContainer<KafkaConnectContaine
     public static KafkaConnectContainer create(String image, String seed, String boostrapServers, String schemaRegistryUrl) {
         return (KafkaConnectContainer) new KafkaConnectContainer(image, boostrapServers, schemaRegistryUrl)
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd
-                        .withName(kafkaConnectContainerName+"-"+seed)
+                        .withName(kafkaConnectContainerName + "-" + seed)
                 );
     }
 

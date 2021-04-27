@@ -21,9 +21,6 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
     public static final String ARCHIVE_FOLDER = "archive";
     public static final String ERROR_FOLDER = "error";
 
-    // synced position
-    private AtomicReference<CommitLogPosition> syncedOffsetRef = new AtomicReference<>(new CommitLogPosition(0,0));
-
     private final PriorityBlockingQueue<File> commitLogQueue = new PriorityBlockingQueue<>(128, CommitLogUtil::compareCommitLogs);
 
     private final CommitLogReadHandlerImpl commitLogReadHandler;
@@ -62,7 +59,6 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
 
     @Override
     public void process() throws InterruptedException {
-        assert this.offsetFileWriter.offset().segmentId <= this.syncedOffsetRef.get().segmentId || this.offsetFileWriter.offset().position <= this.offsetFileWriter.offset().position : "file offset is greater than synced offset";
         File file = null;
         while(true) {
             file = this.commitLogQueue.take();
@@ -73,13 +69,8 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
                 log.debug("Ignoring file={} before the replicated segment={}", file.getName(), this.offsetFileWriter.offset().segmentId);
                 continue;
             }
-            // ignore file beyond the last synced commitlog, it will be re-queued on a file modification.
-            if (seg > this.syncedOffsetRef.get().segmentId) {
-                log.debug("Ignore a not synced file={}, last synced offset={}", file.getName(), this.syncedOffsetRef.get());
-                continue;
-            }
-            log.debug("processing file={} synced offset={}", file.getName(), this.syncedOffsetRef.get());
-            assert seg <= this.syncedOffsetRef.get().segmentId: "reading a commitlog ahead the last synced offset";
+
+            log.debug("processing file={}", file.getName());
 
             CommitLogReader commitLogReader = new CommitLogReader();
             try {
@@ -88,17 +79,12 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
                         ? new CommitLogPosition(seg, 0)
                         : new CommitLogPosition(offsetFileWriter.offset().getSegmentId(), offsetFileWriter.offset().getPosition());
 
-                commitLogReader.readCommitLogSegment(commitLogReadHandler, file, minPosition.position, false);
-                log.debug("Successfully processed commitlog immutable={} minPosition={} file={}",
-                        seg < this.syncedOffsetRef.get().segmentId, minPosition, file.getName());
-                if (seg < this.syncedOffsetRef.get().segmentId) {
-                    commitLogTransfer.onSuccessTransfer(file);
-                }
+                commitLogReader.readCommitLogSegment(commitLogReadHandler, file,false);
+                log.debug("Successfully processed commitlog minPosition={} file={}", minPosition, file.getName());
+                commitLogTransfer.onSuccessTransfer(file);
             } catch(Exception e) {
-                log.warn("Failed to read commitlog immutable="+(seg < this.syncedOffsetRef.get().segmentId)+"file="+file.getName(), e);
-                if (seg < this.syncedOffsetRef.get().segmentId) {
-                    commitLogTransfer.onErrorTransfer(file);
-                }
+                log.warn("Failed to read commitlog file="+file.getName(), e);
+                commitLogTransfer.onErrorTransfer(file);
             }
         }
     }

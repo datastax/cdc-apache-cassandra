@@ -45,6 +45,7 @@ public class KafkaSourceTests {
     static final String KAFKA_SCHEMA_REGISTRY_IMAGE = "confluentinc/cp-schema-registry:" + CONFLUENT_PLATFORM_VERSION;
     static final String KAFKA_CONNECT_IMAGE = "confluentinc/cp-kafka-connect-base:" + CONFLUENT_PLATFORM_VERSION;
 
+    private static String seed;
     private static Network testNetwork;
     private static CassandraContainer<?> cassandraContainer;
     private static KafkaContainer kafkaContainer;
@@ -58,12 +59,12 @@ public class KafkaSourceTests {
         testNetwork = Network.newNetwork();
 
         // seed to uniquely identify containers between concurrent tests.
-        String seed = RandomStringUtils.randomNumeric(8);
+        seed = RandomStringUtils.randomNumeric(6);
 
         kafkaContainer = new KafkaContainer(DockerImageName.parse(KAFKA_IMAGE))
                 .withNetwork(testNetwork)
                 .withEmbeddedZookeeper()
-                .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withName("kafka-"+seed))
+                .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withName("kafka-" + seed))
                 .withEnv("KAFKA_NUM_PARTITIONS", "1")
                 .withStartupTimeout(Duration.ofSeconds(30));
         kafkaContainer.start();
@@ -81,7 +82,7 @@ public class KafkaSourceTests {
         String producerJarFile = String.format(Locale.ROOT, "producer-v4-kafka-%s-all.jar", projectVersion);
         String sourceJarFile = String.format(Locale.ROOT, "source-kafka-%s-all.jar", projectVersion);
         cassandraContainer = new CassandraContainer<>(CASSANDRA_IMAGE)
-                .withCreateContainerCmdModifier(c -> c.withName("cassandra-"+seed))
+                .withCreateContainerCmdModifier(c -> c.withName("cassandra"))
                 .withLogConsumer(new Slf4jLogConsumer(log))
                 .withNetwork(testNetwork)
                 .withConfigurationOverride("cassandra-cdc")

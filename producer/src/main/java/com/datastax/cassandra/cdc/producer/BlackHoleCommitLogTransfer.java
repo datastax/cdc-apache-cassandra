@@ -6,6 +6,7 @@
 package com.datastax.cassandra.cdc.producer;
 
 import java.io.File;
+import java.nio.file.Paths;
 import java.util.Properties;
 
 /**
@@ -15,7 +16,7 @@ public class BlackHoleCommitLogTransfer implements CommitLogTransfer {
 
     @Override
     public void onSuccessTransfer(File file) {
-        CommitLogUtil.deleteCommitLog(file);
+        CommitLogUtil.moveCommitLog(file, Paths.get(ProducerConfig.cdcRelocationDir));
     }
 
     @Override

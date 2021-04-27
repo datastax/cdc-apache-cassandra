@@ -29,9 +29,11 @@ dependencies {
     testImplementation "org.projectlombok:lombok:${lombokVersion}"
     testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
 
-    testCompile "org.testcontainers:testcontainers:${testContainersVersion}"
-    testCompile "org.testcontainers:database-commons:${testContainersVersion}"
-    testCompile "org.testcontainers:cassandra:${testContainersVersion}"
+    testImplementation "com.datastax.oss:java-driver-core:${ossDriverVersion}"
+    testImplementation "com.datastax.oss:java-driver-query-builder:${ossDriverVersion}"
+    testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
+    testImplementation "org.testcontainers:kafka:${testContainersVersion}"
+    testImplementation project(':testcontainers')
 
     testCompile "net.andreinc.mockneat:mockneat:0.2.2"
     testCompile "org.mockito:mockito-core:3.0.0"

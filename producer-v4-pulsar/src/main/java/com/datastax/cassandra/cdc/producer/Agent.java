@@ -41,8 +41,7 @@ public class Agent {
     }
 
     static void startCdcProducer(String agentArgs) throws Exception {
-        log.info("Starting CDC producer agent");
-
+        log.info("Starting CDC producer agent, cdc_raw_directory={}", DatabaseDescriptor.getCDCLogLocation());
         ProducerConfig.configure(agentArgs);
 
         OffsetFileWriter offsetFileWriter = new OffsetFileWriter(DatabaseDescriptor.getCDCLogLocation());

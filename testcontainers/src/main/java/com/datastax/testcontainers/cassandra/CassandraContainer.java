@@ -4,6 +4,7 @@ import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
 import com.datastax.testcontainers.cassandra.delegate.CassandraDatabaseDelegate;
 import com.github.dockerjava.api.command.InspectContainerResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 import org.testcontainers.containers.ContainerState;
 import org.testcontainers.containers.GenericContainer;
@@ -27,6 +28,7 @@ import java.util.Optional;
  *
  * @author Eugeny Karpov
  */
+@Slf4j
 public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends GenericContainer<SELF> {
 
     private static final DockerImageName DEFAULT_IMAGE_NAME = DockerImageName.parse("cassandra");
@@ -63,7 +65,8 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
         dockerImageName.assertCompatibleWith(DEFAULT_IMAGE_NAME);
 
         addExposedPort(CQL_PORT);
-        setStartupAttempts(3);
+        setStartupAttempts(1);
+        withLogConsumer(o -> { log.info("cassandra> {}", o.getUtf8String()); });
     }
 
     @Override

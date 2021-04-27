@@ -401,7 +401,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         for (ColumnDefinition cd : pu.metadata().clusteringColumns()) {
             try {
                 String name = cd.name.toString();
-                Object value = row.clustering().get(cd.position());
+                Object value = cd.type.compose(row.clustering().get(cd.position()));
                 CellData cellData = new CellData(name, value, null, CellData.ColumnType.CLUSTERING);
                 after.addCell(cellData);
             }

@@ -9,7 +9,7 @@
         <appender-ref ref="STDOUT"/>
     </root>
 
-    <logger name="org.testcontainers" level="DEBUG"/>
+    <logger name="org.testcontainers.containers" level="TRACE"/>
     <logger name="com.github.dockerjava" level="WARN"/>
     <logger name="com.datastax.cassandra.cdc.producer" level="DEBUG"/>
 </configuration>

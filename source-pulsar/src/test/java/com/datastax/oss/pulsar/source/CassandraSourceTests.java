@@ -27,6 +27,7 @@ import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import com.datastax.oss.driver.internal.core.type.PrimitiveType;
 import com.datastax.oss.protocol.internal.ProtocolConstants;
 import com.datastax.oss.pulsar.source.converters.JsonConverter;
+import com.datastax.testcontainers.cassandra.CassandraContainer;
 import com.google.common.collect.Lists;
 import net.andreinc.mockneat.MockNeat;
 import org.apache.pulsar.client.api.Consumer;
@@ -36,13 +37,11 @@ import org.apache.pulsar.client.api.schema.GenericRecord;
 import org.apache.pulsar.client.impl.schema.generic.GenericJsonSchema;
 import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.functions.api.Record;
-
 import org.apache.pulsar.io.core.SourceContext;
 import org.junit.jupiter.api.*;
 import org.mockito.Mock;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
-import org.testcontainers.cassandra.CassandraContainer;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -81,8 +80,7 @@ public class CassandraSourceTests {
         cassandraContainer.start();
         Thread.sleep(15000);
         try(CqlSession cqlSession = cassandraContainer.getCqlSession()) {
-            cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS ks1 WITH replication = \n" +
-                    "{'class':'SimpleStrategy','replication_factor':'1'};");
+            cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS ks1 WITH replication = {'class':'SimpleStrategy','replication_factor':'1'};");
             cqlSession.execute("CREATE TABLE IF NOT EXISTS ks1.table1 (id text PRIMARY KEY, a int)");
             cqlSession.execute("INSERT INTO ks1.table1 (id, a) VALUES('1',1)");
         }
