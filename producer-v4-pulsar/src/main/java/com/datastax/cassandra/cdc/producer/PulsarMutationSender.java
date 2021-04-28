@@ -7,9 +7,10 @@ import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.service.StorageService;
 import org.apache.pulsar.client.api.*;
-import org.apache.pulsar.client.api.schema.*;
-import org.apache.pulsar.client.impl.schema.AvroSchema;
-import org.apache.pulsar.client.impl.schema.generic.GenericAvroSchema;
+import org.apache.pulsar.client.api.schema.GenericRecordBuilder;
+import org.apache.pulsar.client.api.schema.GenericSchema;
+import org.apache.pulsar.client.api.schema.RecordSchemaBuilder;
+import org.apache.pulsar.client.api.schema.SchemaBuilder;
 import org.apache.pulsar.client.impl.schema.generic.GenericSchemaImpl;
 import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.common.schema.KeyValueEncodingType;
@@ -31,10 +32,9 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
     public static final String SCHEMA_DOC_PREFIX = "Primary key schema for table ";
 
     PulsarClient client;
-    final Map<String, Producer<?>> producers = new ConcurrentHashMap<>();
+    final Map<String, Producer<KeyValue<?,?>>> producers = new ConcurrentHashMap<>();
     final Map<String, Schema<?>> schemas = new HashMap<>();
     final Map<String, SchemaType> schemaTypes = new HashMap<>();
-    final GenericAvroSchema mutationValueSchema;
 
     public PulsarMutationSender() {
         // Map Cassandra native types to Pulsar schemas
@@ -84,8 +84,6 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
 
         schemaTypes.put(UUIDType.instance.asCQL3Type().toString(), SchemaType.STRING);
         schemaTypes.put(TimeUUIDType.instance.asCQL3Type().toString(), SchemaType.STRING);
-
-        this.mutationValueSchema = new GenericAvroSchema(AvroSchema.of(MutationValue.class).getSchemaInfo());
     }
 
     @SuppressWarnings("rawtypes")
@@ -113,28 +111,31 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    public Producer getProducer(final TableMetadata tm) {
+    public Producer<KeyValue<?,?>> getProducer(final TableMetadata tm) {
         String topicName = ProducerConfig.topicPrefix + tm.keyspace + "." + tm.name;
-        String producerName = "pulsar-producer-" + StorageService.instance.getLocalHostId() + topicName;
+        String producerName = "pulsar-producer-" + StorageService.instance.getLocalHostId() + "-" + topicName;
         return producers.compute(topicName, (k, v) -> {
             if (v == null) {
                 try {
-                    Schema<?> keyValueSchema = Schema.KeyValue(
+                    Schema<KeyValue<?,?>> keyValueSchema = Schema.KeyValue(
                             getKeySchema(tm),
-                            mutationValueSchema,
+                            Schema.AVRO(MutationValue.class),
                             KeyValueEncodingType.SEPARATED);
-                    Producer producer = client.newProducer(keyValueSchema)
+                    Producer<KeyValue<?,?>> producer = client.newProducer(keyValueSchema)
                             .producerName(producerName)
-                            .topic(topicName)
+                            .topic(k)
                             .sendTimeout(15, TimeUnit.SECONDS)
-                            .maxPendingMessages(3)
                             .hashingScheme(HashingScheme.Murmur3_32Hash)
+                            .blockIfQueueFull(true)
+                            .enableBatching(true)
+                            .batchingMaxPublishDelay(1, TimeUnit.MILLISECONDS)
                             .batcherBuilder(BatcherBuilder.KEY_BASED)
                             .create();
                     log.info("Pulsar producer name={} created", producerName);
                     return producer;
                 } catch (Exception e) {
-                    log.error("unexpected error", e);
+                    log.error("Failed to get a pulsar producer", e);
+                    throw new RuntimeException(e);
                 }
             }
             return v;
@@ -167,29 +168,19 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
         }
     }
 
-    GenericRecord buildValue(final MutationValue mutationValue) {
-        GenericRecordBuilder genericRecordBuilder = this.mutationValueSchema.newRecordBuilder();
-        genericRecordBuilder.set("md5Digest", mutationValue.getMd5Digest());
-        genericRecordBuilder.set("nodeId", mutationValue.getNodeId());
-        if (mutationValue.getColumns() != null && mutationValue.getColumns().length > 0) {
-            genericRecordBuilder.set("columns", mutationValue.getColumns());
-        }
-        return genericRecordBuilder.build();
-    }
-
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public CompletionStage<MessageId> sendMutationAsync(final Mutation<TableMetadata> mutation) throws PulsarClientException {
         if (this.client == null) {
             initialize();
         }
-        Producer<?> producer = getProducer(mutation.getMetadata());
+        Producer<KeyValue<?,?>> producer = getProducer(mutation.getMetadata());
         Schema keySchema = getKeySchema(mutation.getMetadata());
-        TypedMessageBuilder messageBuilder = producer.newMessage();
+        TypedMessageBuilder<KeyValue<?,?>> messageBuilder = producer.newMessage();
         return messageBuilder
                 .value(new KeyValue(
                         buildKey(keySchema, mutation.primaryKeyCells()),
-                        buildValue(mutation.mutationValue())))
+                        mutation.mutationValue()))
                 .sendAsync();
     }
 
