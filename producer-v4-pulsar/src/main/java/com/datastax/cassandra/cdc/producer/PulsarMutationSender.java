@@ -234,7 +234,7 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
         try {
             this.client.close();
         } catch (PulsarClientException e) {
-            e.printStackTrace();
+            log.warn("close failed:", e);
         }
     }
 }
