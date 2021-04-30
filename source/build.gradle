@@ -6,7 +6,7 @@ plugins {
 
 task versionTxt()  {
     doFirst {
-        new File(project.getProjectDir().absolutePath+'/src/main/resources', "cassandra-source-version.properties")
+        new File(projectDir, "src/main/resources/cassandra-source-version.properties")
                 .text = "$project.version\n"
     }
 }
