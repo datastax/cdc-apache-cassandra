@@ -16,9 +16,10 @@ plugins {
 allprojects {
     repositories {
         mavenLocal()
+        maven { url "https://nexus.repo.strapdata.com/repository/maven-snapshots" }
         mavenCentral()
-        maven { url "https://repo.maven.apache.org/maven2" }
-        maven { url "https://repository.apache.org/content/groups/snapshots" }
+        //maven { url "https://repo.maven.apache.org/maven2" }
+        //maven { url "https://repository.apache.org/content/groups/snapshots" }
         maven { url "https://jcenter.bintray.com" }
         maven { url "https://oss.sonatype.org/content/repositories/snapshots" }
         maven { url 'http://dl.bintray.com/sponiro/gradle-plugins' }
