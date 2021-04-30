@@ -4,9 +4,14 @@ plugins {
     id "com.github.johnrengelman.shadow"
 }
 
+println  "Root project:   ${project.rootProject}";
+println  "  rootDir:      ${project.rootDir}"
+println  "  projectDir:   ${project.projectDir}";
+println  "  project dir:  ${System.getProperty("user.dir")}";
+
 task versionTxt()  {
     doFirst {
-        new File(projectDir, "src/main/resources/cassandra-source-version.properties")
+        new File(project.rootDir, "source/src/main/resources/cassandra-source-version.properties")
                 .text = "$project.version\n"
     }
 }

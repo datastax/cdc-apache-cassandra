@@ -132,7 +132,6 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         ConsumerBuilder<KeyValue<GenericRecord, MutationValue>> consumerBuilder = sourceContext.newConsumerBuilder(dirtySchema)
                 .consumerName("CDC Consumer")
                 .topic(dirtyTopicName)
-                .autoUpdatePartitions(true)
                 .subscriptionName(cassandraSourceConnectorConfig.getEventsSubscriptionName())
                 .subscriptionType(SubscriptionType.Key_Shared)
                 .subscriptionMode(SubscriptionMode.Durable)
