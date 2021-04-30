@@ -20,6 +20,11 @@ dependencies {
     implementation project(':common')
     api project(':source')
 
+    implementation("com.github.ben-manes.caffeine:caffeine:${caffeineVersion}")
+    implementation("io.vavr:vavr:${vavrVersion}")
+    implementation("com.datastax.oss:java-driver-core:${ossDriverVersion}")
+    implementation("com.datastax.oss:java-driver-query-builder:${ossDriverVersion}")
+
     implementation("com.google.guava:guava:30.1-jre")
     implementation("org.apache.kafka:connect-api:${kafkaVersion}")
     implementation("org.apache.kafka:connect-json:${kafkaVersion}")

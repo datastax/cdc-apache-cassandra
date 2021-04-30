@@ -26,7 +26,7 @@ import java.util.Arrays;
 import java.util.stream.Collectors;
 
 /** Helper methods useful for performing common tasks in *Config classes. */
-class ConfigUtil {
+public class ConfigUtil {
 
   /** This is a utility class; no one should instantiate it. */
   private ConfigUtil() {}

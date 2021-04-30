@@ -18,13 +18,14 @@ package com.datastax.oss.common.sink.config;
 import com.datastax.oss.common.sink.ConfigException;
 import com.datastax.oss.driver.shaded.guava.common.net.InetAddresses;
 import com.datastax.oss.driver.shaded.guava.common.net.InternetDomainName;
-import com.datastax.oss.kafka.source.CassandraSourceConnectorConfig;
 
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 public class ContactPointsValidator {
+
+    public static final String CONTACT_POINTS_OPT = "contactPoints";
 
   /**
    * This method validates all contact points and throws ConfigException if there is at least one
@@ -43,7 +44,7 @@ public class ContactPointsValidator {
       throw new ConfigException(
           String.format(
               "Incorrect %s: %s",
-              CassandraSourceConnectorConfig.CONTACT_POINTS_OPT, String.join(",", invalid)));
+              ContactPointsValidator.CONTACT_POINTS_OPT, String.join(",", invalid)));
     }
   }
 

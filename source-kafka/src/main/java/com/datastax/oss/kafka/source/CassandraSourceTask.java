@@ -1,10 +1,10 @@
 package com.datastax.oss.kafka.source;
 
-import com.datastax.cassandra.cdc.CassandraClient;
-import com.datastax.cassandra.cdc.MutationCache;
+import com.datastax.oss.cdc.CassandraClient;
+import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
+import com.datastax.oss.cdc.MutationCache;
+import com.datastax.oss.cdc.Version;
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
-import com.datastax.oss.driver.api.core.CqlSession;
-import com.datastax.oss.driver.api.core.CqlSessionBuilder;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.metadata.schema.*;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
@@ -28,7 +28,6 @@ import org.apache.kafka.connect.source.SourceTask;
 import org.apache.kafka.connect.storage.Converter;
 
 import java.io.Closeable;
-import java.net.InetSocketAddress;
 import java.nio.channels.Selector;
 import java.time.Duration;
 import java.util.*;
@@ -37,7 +36,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class CassandraSourceTask extends SourceTask implements SchemaChangeListener {
 
-    public static final String DEFAULT_CONSUMER_GROUP_ID_PREFIX = "connector-group-";
+    public static final String DEFAULT_CONSUMER_GROUP_ID_PREFIX = "consumer-group-";
 
     CassandraSourceConnectorConfig config;
 
@@ -95,7 +94,7 @@ public class CassandraSourceTask extends SourceTask implements SchemaChangeListe
         this.mutationCache = new MutationCache<>(3, 10, Duration.ofHours(1));
         this.cassandraClient = client;
         if (this.cassandraClient == null) {
-            this.cassandraClient = createClient(config.getContactPoints(), config.getLocalDc().get());
+            this.cassandraClient = new CassandraClient(config, version(), config.getInstanceName(), this);
         }
 
         Tuple2<KeyspaceMetadata, TableMetadata> tuple = this.cassandraClient.getTableMetadata(this.keyspaceName, this.tableName);
@@ -164,25 +163,6 @@ public class CassandraSourceTask extends SourceTask implements SchemaChangeListe
 
         log.info("Starting source connector name={} eventsTopic={} consumerGroupId={}}",
                 config.getInstanceName(), eventsTopic, consumerGroupId);
-    }
-
-    private CassandraClient createClient(List<String> contactPoints, String localDc) {
-        if (contactPoints.size() <= 0) {
-            throw new RuntimeException("Empty cassandra contact points");
-        }
-        CqlSessionBuilder cqlSessionBuilder = CqlSession.builder()
-                .withLocalDatacenter(localDc)
-                .withSchemaChangeListener(this);
-        log.info("Cassandra contact points={}", contactPoints);
-        for (String contactPoint : contactPoints) {
-            String[] hostPort = contactPoint.split(":");
-            int port = hostPort.length > 1 ? Integer.valueOf(hostPort[1]) : 9042;
-            InetSocketAddress endpoint = new InetSocketAddress(hostPort[0], port);
-            cqlSessionBuilder.addContactPoint(endpoint);
-        }
-        CqlSession cqlSession = cqlSessionBuilder.build();
-        cqlSession.setSchemaMetadataEnabled(true);
-        return new CassandraClient(cqlSession);
     }
 
     void setCassandraConverter(KeyspaceMetadata ksm, TableMetadata tableMetadata) {

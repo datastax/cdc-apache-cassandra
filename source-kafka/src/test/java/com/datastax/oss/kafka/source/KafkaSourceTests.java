@@ -26,7 +26,6 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
@@ -267,7 +266,7 @@ public class KafkaSourceTests {
             cqlSession.execute("INSERT INTO "+ksName+".table2 (a,b,c,d) VALUES('1',1,1,{a:1,b:1})");
         }
         // wait commitlogs sync on disk
-        Thread.sleep(11000);
+        Thread.sleep(15000);
 
         Schema expectedValueSchema1v2 = SchemaBuilder.struct()
                 .name(ksName+".table1")

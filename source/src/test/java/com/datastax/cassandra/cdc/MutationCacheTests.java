@@ -18,6 +18,7 @@
  */
 package com.datastax.cassandra.cdc;
 
+import com.datastax.oss.cdc.MutationCache;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;

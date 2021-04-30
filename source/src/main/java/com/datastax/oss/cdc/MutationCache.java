@@ -1,4 +1,4 @@
-package com.datastax.cassandra.cdc;
+package com.datastax.oss.cdc;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;

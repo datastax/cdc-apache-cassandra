@@ -13,19 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.datastax.oss.kafka.source;
+package com.datastax.oss.cdc;
 
 import com.datastax.oss.common.sink.ConfigException;
 import com.datastax.oss.common.sink.config.AuthenticatorConfig;
+import com.datastax.oss.common.sink.config.ContactPointsValidator;
 import com.datastax.oss.common.sink.config.SslConfig;
 import com.datastax.oss.common.sink.util.SinkUtil;
 import com.datastax.oss.common.sink.util.StringUtil;
 import com.datastax.oss.driver.api.core.config.DefaultDriverOption;
+import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableList;
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.Nullable;
-import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.config.AbstractConfig;
@@ -48,6 +48,10 @@ import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.*;
 @Slf4j
 public class CassandraSourceConnectorConfig {
 
+    public static final String SCHEMA_REGISTRY_URL_CONFIG = "schema.registry.url";
+
+    public static final String PULSAR_SUBSCRIPTION_NAME_CONFIG = "pulsar.subscription.name";
+
     public static final String EVENTS_TOPIC_CONFIG = "events.topic";
     public static final String DATA_TOPIC_CONFIG = "data.topic";
 
@@ -57,34 +61,32 @@ public class CassandraSourceConnectorConfig {
     public static final String KEY_CONVERTER_CLASS_CONFIG = "key.converter";
     public static final String VALUE_CONVERTER_CLASS_CONFIG = "value.converter";
 
-    private static final String DRIVER_CONFIG_PREFIX = "datastax-java-driver";
+    public static final String DRIVER_CONFIG_PREFIX = "datastax-java-driver";
 
     static final String SSL_OPT_PREFIX = "ssl.";
     private static final String AUTH_OPT_PREFIX = "auth.";
 
-    public static final String CONTACT_POINTS_OPT = "contactPoints";
-
-    static final String PORT_OPT = "port";
+    public static final String PORT_OPT = "port";
 
     public static final String DC_OPT = "loadBalancing.localDc";
     static final String LOCAL_DC_DRIVER_SETTING =
             withDriverPrefix(DefaultDriverOption.LOAD_BALANCING_LOCAL_DATACENTER);
 
-    static final String CONCURRENT_REQUESTS_OPT = "maxConcurrentRequests";
+    public static final String CONCURRENT_REQUESTS_OPT = "maxConcurrentRequests";
 
-    static final String QUERY_EXECUTION_TIMEOUT_OPT = "queryExecutionTimeout";
+    public static final String QUERY_EXECUTION_TIMEOUT_OPT = "queryExecutionTimeout";
     static final String QUERY_EXECUTION_TIMEOUT_DRIVER_SETTING =
             withDriverPrefix(DefaultDriverOption.REQUEST_TIMEOUT);
     public static final String QUERY_EXECUTION_TIMEOUT_DEFAULT = "30 seconds";
 
-    static final String CONNECTION_POOL_LOCAL_SIZE = "connectionPoolLocalSize";
+    public static final String CONNECTION_POOL_LOCAL_SIZE = "connectionPoolLocalSize";
     static final String CONNECTION_POOL_LOCAL_SIZE_DRIVER_SETTING =
             withDriverPrefix(DefaultDriverOption.CONNECTION_POOL_LOCAL_SIZE);
     public static final String CONNECTION_POOL_LOCAL_SIZE_DEFAULT = "4";
 
     static final String JMX_OPT = "jmx";
     public static final String JMX_CONNECTOR_DOMAIN_OPT = "jmxConnectorDomain";
-    private static final String JMX_CONNECTOR_DOMAIN_OPT_DEFAULT = "com.datastax.oss.kafka.sink";
+    public static final String JMX_CONNECTOR_DOMAIN_OPT_DEFAULT = "com.datastax.oss.cdc";
     static final String COMPRESSION_OPT = "compression";
     static final String COMPRESSION_DRIVER_SETTING =
             withDriverPrefix(DefaultDriverOption.PROTOCOL_COMPRESSION);
@@ -133,6 +135,11 @@ public class CassandraSourceConnectorConfig {
                             "",
                             ConfigDef.Importance.HIGH,
                             "The topic to publish cassandra data to")
+                    .define(PULSAR_SUBSCRIPTION_NAME_CONFIG,
+                            ConfigDef.Type.STRING,
+                            "connectorSubscription",
+                            ConfigDef.Importance.HIGH,
+                            "The pulsar events topic subscription name.")
                     .define(KEY_CONVERTER_CLASS_CONFIG,
                             ConfigDef.Type.CLASS,
                             ConfigDef.Importance.HIGH,
@@ -143,14 +150,16 @@ public class CassandraSourceConnectorConfig {
                             "Converter class used to write the message value to the data topic")
                     .define(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
                             ConfigDef.Type.STRING,
+                            "localhost:9092",
                             ConfigDef.Importance.HIGH,
                             "Kafka bootstrap servers")
-                    .define(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG,
+                    .define(SCHEMA_REGISTRY_URL_CONFIG,
                             ConfigDef.Type.STRING,
+                            "http://localhost:8081",
                             ConfigDef.Importance.HIGH,
                             "Schema registry URL")
                     .define(
-                            CONTACT_POINTS_OPT,
+                            ContactPointsValidator.CONTACT_POINTS_OPT,
                             ConfigDef.Type.LIST,
                             Collections.EMPTY_LIST,
                             ConfigDef.Importance.HIGH,
@@ -312,7 +321,7 @@ public class CassandraSourceConnectorConfig {
             log.debug("contactPoints: {}", contactPoints);
             if (!contactPoints.isEmpty() && !getLocalDc().isPresent()) {
                 throw new ConfigException(
-                        CONTACT_POINTS_OPT,
+                        ContactPointsValidator.CONTACT_POINTS_OPT,
                         contactPoints,
                         String.format("When contact points is provided, %s must also be specified", DC_OPT));
             }
@@ -487,7 +496,7 @@ public class CassandraSourceConnectorConfig {
             throw new ConfigException(
                     String.format(
                             "When %s parameter is specified you should not provide %s.",
-                            SECURE_CONNECT_BUNDLE_OPT, CONTACT_POINTS_OPT));
+                            SECURE_CONNECT_BUNDLE_OPT, ContactPointsValidator.CONTACT_POINTS_OPT));
         }
 
         if (getLocalDc().isPresent()) {
@@ -509,6 +518,8 @@ public class CassandraSourceConnectorConfig {
         return instanceName;
     }
 
+    public String getEventsSubscriptionName() { return globalConfig.getString(EVENTS_TOPIC_CONFIG);}
+
     public String getKeyspaceName() { return  globalConfig.getString(KEYSPACE_NAME_CONFIG); }
     public String getTableName() { return  globalConfig.getString(TABLE_NAME_CONFIG); }
 
@@ -519,7 +530,7 @@ public class CassandraSourceConnectorConfig {
     public Class<?> getValueConverterClass() { return globalConfig.getClass(VALUE_CONVERTER_CLASS_CONFIG); }
 
     public String getBootstrapServers() { return globalConfig.getString(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG); }
-    public String getSchemaRegistryUrl() { return globalConfig.getString(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG); }
+    public String getSchemaRegistryUrl() { return globalConfig.getString(SCHEMA_REGISTRY_URL_CONFIG); }
 
     public int getPort() {
         return globalConfig.getInt(PORT_OPT);
@@ -576,7 +587,7 @@ public class CassandraSourceConnectorConfig {
     }
 
     public List<String> getContactPoints() {
-        return globalConfig.getList(CONTACT_POINTS_OPT);
+        return globalConfig.getList(ContactPointsValidator.CONTACT_POINTS_OPT);
     }
 
     public Optional<String> getLocalDc() {

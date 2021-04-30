@@ -12,3 +12,4 @@ out/
 .settings
 .classpath
 .factorypath
+cassandra-source-version.properties

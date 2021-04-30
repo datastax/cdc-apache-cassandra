@@ -1,5 +1,6 @@
 package com.datastax.oss.kafka.source;
 
+import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.utils.AppInfoParser;

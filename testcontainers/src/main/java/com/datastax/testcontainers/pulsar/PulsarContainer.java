@@ -51,12 +51,8 @@ public class PulsarContainer<SELF extends PulsarContainer<SELF>> extends Generic
         super.configure();
 
         if (functionsWorkerEnabled) {
-            withCommand("/pulsar/bin/pulsar", "standalone");
-            waitingFor(
-                    new WaitAllStrategy()
-                            .withStrategy(waitStrategy)
-                            .withStrategy(Wait.forLogMessage(".*Function worker service started.*", 1))
-            );
+            withCommand("/pulsar/bin/pulsar", "standalone", "-nss");
+            waitingFor(Wait.forHttp(METRICS_ENDPOINT).forStatusCode(200).forPort(BROKER_HTTP_PORT));
         }
     }
 

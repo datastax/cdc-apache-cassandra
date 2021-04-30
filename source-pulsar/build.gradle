@@ -22,6 +22,11 @@ dependencies {
     implementation project(':common')
     api project(':source')
 
+    implementation("com.github.ben-manes.caffeine:caffeine:${caffeineVersion}")
+    implementation("io.vavr:vavr:${vavrVersion}")
+    implementation "com.datastax.oss:java-driver-core:${ossDriverVersion}"
+    implementation "com.datastax.oss:java-driver-query-builder:${ossDriverVersion}"
+
     implementation("org.apache.pulsar:pulsar-client:${pulsarVersion}")
     compileOnly("org.apache.pulsar:pulsar-io-common:${pulsarVersion}")
     compileOnly("org.apache.pulsar:pulsar-io-core:${pulsarVersion}")
@@ -29,16 +34,8 @@ dependencies {
     testImplementation "org.projectlombok:lombok:${lombokVersion}"
     testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
 
-    testImplementation "com.datastax.oss:java-driver-core:${ossDriverVersion}"
-    testImplementation "com.datastax.oss:java-driver-query-builder:${ossDriverVersion}"
     testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
-    testImplementation "org.testcontainers:kafka:${testContainersVersion}"
     testImplementation project(':testcontainers')
-
-    testCompile "net.andreinc.mockneat:mockneat:0.2.2"
-    testCompile "org.mockito:mockito-core:3.0.0"
-    testCompile "org.powermock:powermock-api-mockito2:2.0.9"
-    testCompile "org.powermock:powermock-module-testng:2.0.9"
 
     nar "org.apache.pulsar:pulsar-io:${pulsarVersion}"
 }
@@ -60,6 +57,19 @@ nar {
     }
 }
 
-jar.enabled = false
 assemble.dependsOn(nar)
 
+test {
+    // Add dependency on jar task, since it will be main target for testing
+    dependsOn project(':producer-v4-pulsar').shadowJar
+    dependsOn nar
+
+    // Rearrange test classpath, add compiled JAR instead of main classes
+    //classpath = project.sourceSets.test.output + configurations.testRuntimeClasspath + files(shadowJar.archiveFile)
+
+    useJUnitPlatform()
+
+    systemProperty "sourceBuildDir", buildDir
+    systemProperty "producerBuildDir", project(':producer-v4-pulsar').buildDir
+    systemProperty "projectVersion", project.version
+}

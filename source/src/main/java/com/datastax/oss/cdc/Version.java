@@ -13,7 +13,7 @@
  * specific language governing permissions and limitations under the License.
  */
 
-package com.datastax.oss.kafka.source;
+package com.datastax.oss.cdc;
 
 import lombok.extern.slf4j.Slf4j;
 

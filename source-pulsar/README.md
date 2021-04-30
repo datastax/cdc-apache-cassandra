@@ -38,7 +38,7 @@ Cassandra source connector:
            --namespace default \
            --name cassandra-source-1 \
            --destination-topic-name data-ks1.table1 \
-           --source-config '{"contactPoints":"localhost:9042", "localDc":"datacenter1", "keyspace":"ks1", "table":"table1", "eventsTopicPrefix": "persistent://public/default/events-", "eventsSubscriptionName":"sub1", "keyConverter":"com.datastax.oss.pulsar.source.converters.AvroConverter","valueConverter":"com.datastax.oss.pulsar.source.converters.JsonConverter"}'
+           --source-config '{"contactPoints":"localhost", "loadBalancing.localDc":"datacenter1", "keyspace":"ks1", "table":"table1", "eventsTopic": "persistent://public/default/events-ks1.table1", "eventsSubscriptionName":"sub1", "keyConverter":"com.datastax.oss.pulsar.source.converters.AvroConverter","valueConverter":"com.datastax.oss.pulsar.source.converters.JsonConverter"}'
 
 Elasticsearch sink connector:
 
