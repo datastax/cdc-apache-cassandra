@@ -9,6 +9,7 @@ println  "  rootDir:      ${project.rootDir}"
 println  "  projectDir:   ${project.projectDir}";
 println  "  project dir:  ${System.getProperty("user.dir")}";
 
+/* DO NOT WORK ON GITHUB ACTION
 task versionTxt()  {
     doFirst {
         new File(project.projectDir, "src/main/resources/cassandra-source-version.properties")
@@ -19,6 +20,8 @@ task versionTxt()  {
 compileJava {
     dependsOn versionTxt
 }
+*/
+
 
 compileTestJava {
     options.compilerArgs += '-parameters'
