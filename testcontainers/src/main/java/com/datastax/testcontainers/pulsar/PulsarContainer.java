@@ -1,9 +1,12 @@
 package com.datastax.testcontainers.pulsar;
 
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
 import org.testcontainers.utility.DockerImageName;
+
+import java.time.Duration;
 
 /**
  * This container wraps Apache Pulsar running in standalone mode
@@ -43,7 +46,11 @@ public class PulsarContainer<SELF extends PulsarContainer<SELF>> extends Generic
 
         withExposedPorts(BROKER_PORT, BROKER_HTTP_PORT);
         withCommand("/pulsar/bin/pulsar", "standalone", "--no-functions-worker", "-nss");
-        waitingFor(Wait.forHttp(METRICS_ENDPOINT).forStatusCode(200).forPort(BROKER_HTTP_PORT));
+        waitingFor(new HttpWaitStrategy()
+                .forPort(BROKER_HTTP_PORT)
+                .forStatusCode(200)
+                .forPath("/admin/v2/namespaces/public/default")
+                .withStartupTimeout(Duration.ofSeconds(120)));
     }
 
     @Override
@@ -52,7 +59,6 @@ public class PulsarContainer<SELF extends PulsarContainer<SELF>> extends Generic
 
         if (functionsWorkerEnabled) {
             withCommand("/pulsar/bin/pulsar", "standalone", "-nss");
-            waitingFor(Wait.forHttp(METRICS_ENDPOINT).forStatusCode(200).forPort(BROKER_HTTP_PORT));
         }
     }
 
