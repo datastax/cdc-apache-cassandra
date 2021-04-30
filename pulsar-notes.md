@@ -56,11 +56,11 @@ Set admin password:
 
 * schema management
 
-    bin/pulsar-admin schemas get "persistent://public/default/dirty-ks1.table1"
-    bin/pulsar-admin schemas delete "persistent://public/default/dirty-ks1.table1"
+    bin/pulsar-admin schemas get "persistent://public/default/events-ks1.table1"
+    bin/pulsar-admin schemas delete "persistent://public/default/events-ks1.table1"
 
-    bin/pulsar-admin schemas get "persistent://public/default/clean-ks1.table1"
-    bin/pulsar-admin schemas delete "persistent://public/default/clean-ks1.table1"
+    bin/pulsar-admin schemas get "persistent://public/default/data-ks1.table1"
+    bin/pulsar-admin schemas delete "persistent://public/default/data-ks1.table1"
 
 * Enable message dedup at the broker level
 
