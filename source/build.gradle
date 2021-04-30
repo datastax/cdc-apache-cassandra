@@ -11,7 +11,7 @@ println  "  project dir:  ${System.getProperty("user.dir")}";
 
 task versionTxt()  {
     doFirst {
-        new File(project.rootDir, "source/src/main/resources/cassandra-source-version.properties")
+        new File(project.projectDir, "src/main/resources/cassandra-source-version.properties")
                 .text = "$project.version\n"
     }
 }
