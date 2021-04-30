@@ -106,29 +106,34 @@ public class PulsarProducerTests {
             int mutationTable2 = 1;
 
             try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
-                Schema<KeyValue<String, MutationValue>> schema1 = KeyValueSchema.of(
-                        Schema.STRING,
+                RecordSchemaBuilder recordSchemaBuilder1 = SchemaBuilder.record("ks1.table1");
+                recordSchemaBuilder1.field("id").type(SchemaType.STRING).optional().defaultValue(null);
+                SchemaInfo keySchemaInfo1 = recordSchemaBuilder1.build(SchemaType.AVRO);
+                Schema<GenericRecord> keySchema1 = GenericSchemaImpl.of(keySchemaInfo1);
+
+                Schema<KeyValue<GenericRecord, MutationValue>> schema1 = KeyValueSchema.of(
+                        keySchema1,
                         Schema.AVRO(MutationValue.class),
                         KeyValueEncodingType.SEPARATED);
 
                 // pulsar-admin schemas get "persistent://public/default/events-ks1.table1"
                 // pulsar-admin topics peek-messages persistent://public/default/events-ks1.table1-partition-0 --count 3 --subscription sub1
-                try (Consumer<KeyValue<String, MutationValue>> consumer = pulsarClient.newConsumer(schema1)
-                        .topic("events-ks1.table1-partition-0")
+                try (Consumer<KeyValue<GenericRecord, MutationValue>> consumer = pulsarClient.newConsumer(schema1)
+                        .topic("events-ks1.table1")
                         .subscriptionName("sub1")
                         .subscriptionType(SubscriptionType.Key_Shared)
                         .subscriptionMode(SubscriptionMode.Durable)
                         .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                         .subscribe()) {
-                    Message<KeyValue<String, MutationValue>> msg;
+                    Message<KeyValue<GenericRecord, MutationValue>> msg;
                     while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null && mutationTable1 < 4) {
-                        KeyValue<String, MutationValue> kv = msg.getValue();
-                        String key = kv.getKey();
+                        KeyValue<GenericRecord, MutationValue> kv = msg.getValue();
+                        GenericRecord key = kv.getKey();
                         MutationValue val = kv.getValue();
                         System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
                                 " key=" + key +
                                 " value=" + val);
-                        assertEquals(Integer.toString(mutationTable1), key);
+                        assertEquals(Integer.toString(mutationTable1), key.getField("id"));
                         mutationTable1++;
                     }
                 }
@@ -136,13 +141,13 @@ public class PulsarProducerTests {
 
                 // pulsar-admin schemas get "persistent://public/default/events-ks1.table2"
                 // pulsar-admin topics peek-messages persistent://public/default/events-ks1.table2-partition-0 --count 3 --subscription sub1
-                RecordSchemaBuilder recordSchemaBuilder = SchemaBuilder.record("ks1.table2");
-                recordSchemaBuilder.field("a").type(SchemaType.STRING).optional().defaultValue(null);
-                recordSchemaBuilder.field("b").type(SchemaType.INT32).optional().defaultValue(null);
-                SchemaInfo keySchemaInfo = recordSchemaBuilder.build(SchemaType.AVRO);
-                Schema<GenericRecord> keySchema = GenericSchemaImpl.of(keySchemaInfo);
+                RecordSchemaBuilder recordSchemaBuilder2 = SchemaBuilder.record("ks1.table2");
+                recordSchemaBuilder2.field("a").type(SchemaType.STRING).optional().defaultValue(null);
+                recordSchemaBuilder2.field("b").type(SchemaType.INT32).optional().defaultValue(null);
+                SchemaInfo keySchemaInfo2 = recordSchemaBuilder2.build(SchemaType.AVRO);
+                Schema<GenericRecord> keySchema2 = GenericSchemaImpl.of(keySchemaInfo2);
                 Schema<KeyValue<GenericRecord, MutationValue>> schema2 = KeyValueSchema.of(
-                        keySchema,
+                        keySchema2,
                         Schema.AVRO(MutationValue.class),
                         KeyValueEncodingType.SEPARATED);
                 try (Consumer<KeyValue<GenericRecord, MutationValue>> consumer = pulsarClient.newConsumer(schema2)

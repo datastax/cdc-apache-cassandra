@@ -92,21 +92,17 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
         return schemas.computeIfAbsent(key, k -> {
             List<ColumnMetadata> primaryKeyColumns = new ArrayList<>();
             tm.primaryKeyColumns().forEach(primaryKeyColumns::add);
-            if (primaryKeyColumns.size() == 1) {
-                return schemas.get(primaryKeyColumns.get(0).type.asCQL3Type().toString());
-            } else {
-                RecordSchemaBuilder schemaBuilder = SchemaBuilder
-                        .record(tm.keyspace + "." + tm.name)
-                        .doc(SCHEMA_DOC_PREFIX + k);
-                int i = 0;
-                for (ColumnMetadata cm : primaryKeyColumns) {
-                    schemaBuilder
-                            .field(cm.name.toString())
-                            .type(schemaTypes.get(primaryKeyColumns.get(i++).type.asCQL3Type().toString()));
-                }
-                SchemaInfo schemaInfo = schemaBuilder.build(SchemaType.AVRO);
-                return GenericSchemaImpl.of(schemaInfo);
+            RecordSchemaBuilder schemaBuilder = SchemaBuilder
+                    .record(tm.keyspace + "." + tm.name)
+                    .doc(SCHEMA_DOC_PREFIX + k);
+            int i = 0;
+            for (ColumnMetadata cm : primaryKeyColumns) {
+                schemaBuilder
+                        .field(cm.name.toString())
+                        .type(schemaTypes.get(primaryKeyColumns.get(i++).type.asCQL3Type().toString()));
             }
+            SchemaInfo schemaInfo = schemaBuilder.build(SchemaType.AVRO);
+            return GenericSchemaImpl.of(schemaInfo);
         });
     }
 
@@ -157,15 +153,11 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
 
     @SuppressWarnings("rawtypes")
     Object buildKey(Schema keySchema, List<CellData> primaryKey) {
-        if (primaryKey.size() == 1) {
-            return primaryKey.get(0).value;
-        } else {
-            GenericRecordBuilder genericRecordBuilder = ((GenericSchema) keySchema).newRecordBuilder();
-            for (CellData cell : primaryKey) {
-                genericRecordBuilder.set(cell.name, cell.value);
-            }
-            return genericRecordBuilder.build();
+        GenericRecordBuilder genericRecordBuilder = ((GenericSchema) keySchema).newRecordBuilder();
+        for (CellData cell : primaryKey) {
+            genericRecordBuilder.set(cell.name, cell.value);
         }
+        return genericRecordBuilder.build();
     }
 
     @Override

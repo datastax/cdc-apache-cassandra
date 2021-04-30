@@ -25,8 +25,6 @@ import com.datastax.oss.cdc.MutationCache;
 import com.datastax.cassandra.cdc.MutationValue;
 import com.datastax.oss.cdc.Version;
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
-import com.datastax.oss.driver.api.core.CqlSession;
-import com.datastax.oss.driver.api.core.CqlSessionBuilder;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.metadata.schema.*;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
@@ -43,6 +41,7 @@ import io.vavr.Tuple3;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.api.*;
+import org.apache.pulsar.client.api.schema.GenericObject;
 import org.apache.pulsar.client.api.schema.GenericRecord;
 import org.apache.pulsar.client.impl.schema.AvroSchema;
 import org.apache.pulsar.common.schema.KeyValue;
@@ -56,7 +55,6 @@ import org.apache.pulsar.io.core.annotations.Connector;
 import org.apache.pulsar.io.core.annotations.IOType;
 
 import java.lang.reflect.InvocationTargetException;
-import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -85,7 +83,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
     MutationCache<String> mutationCache;
 
-    Schema<KeyValue<GenericRecord, MutationValue>> dirtySchema = Schema.KeyValue(
+    Schema<KeyValue<GenericRecord, MutationValue>> eventsSchema = Schema.KeyValue(
             Schema.AUTO_CONSUME(),
             AvroSchema.of(MutationValue.class),
             KeyValueEncodingType.SEPARATED);
@@ -97,7 +95,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         this.cassandraClient = new CassandraClient(cassandraSourceConnectorConfig, Version.getVersion(), sourceContext.getSourceName(), this);
 
         if (Strings.isNullOrEmpty(cassandraSourceConnectorConfig.getEventsTopic())) {
-            throw new IllegalArgumentException("Events topic prefix not set.");
+            throw new IllegalArgumentException("Events topic not set.");
         }
 
         Tuple2<KeyspaceMetadata, TableMetadata> tuple =
@@ -129,7 +127,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
 
         this.dirtyTopicName = cassandraSourceConnectorConfig.getEventsTopic();
-        ConsumerBuilder<KeyValue<GenericRecord, MutationValue>> consumerBuilder = sourceContext.newConsumerBuilder(dirtySchema)
+        ConsumerBuilder<KeyValue<GenericRecord, MutationValue>> consumerBuilder = sourceContext.newConsumerBuilder(eventsSchema)
                 .consumerName("CDC Consumer")
                 .topic(dirtyTopicName)
                 .subscriptionName(cassandraSourceConnectorConfig.getEventsSubscriptionName())
@@ -205,7 +203,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         while(true) {
             final Message<KeyValue<GenericRecord, MutationValue>> msg = consumer.receive();
             final KeyValue<GenericRecord, MutationValue> kv = msg.getValue();
-            final Object mutationKey = kv.getKey();
+            final GenericRecord mutationKey = kv.getKey();
             final MutationValue mutationValue = kv.getValue();
 
             log.debug("Message from producer={} msgId={} key={} value={}\n",
@@ -224,7 +222,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
                     Object value = tuple._1 == null ? null : valueConverter.toConnectData(tuple._1);
                     KeyValue<Object, Object> keyValue = new KeyValue(mutationKey, value);
-                    final Record record = new KVRecord() {
+                    final KVRecord record = new KVRecord() {
                         @Override
                         public Schema getKeySchema() {
                             return keyConverter.getSchema();
@@ -238,12 +236,6 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                         @Override
                         public KeyValueEncodingType getKeyValueEncodingType() {
                             return KeyValueEncodingType.SEPARATED;
-                        }
-
-                        @Override
-                        public Optional<String> getKey() {
-                            String encodedKey = Base64.getEncoder().encodeToString(mutationKeyConverter.getSchema().encode(mutationKey));
-                            return Optional.of(encodedKey);
                         }
 
                         @Override

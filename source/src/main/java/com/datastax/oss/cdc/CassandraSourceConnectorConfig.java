@@ -50,10 +50,9 @@ public class CassandraSourceConnectorConfig {
 
     public static final String SCHEMA_REGISTRY_URL_CONFIG = "schema.registry.url";
 
-    public static final String PULSAR_SUBSCRIPTION_NAME_CONFIG = "pulsar.subscription.name";
-
-    public static final String EVENTS_TOPIC_CONFIG = "events.topic";
-    public static final String DATA_TOPIC_CONFIG = "data.topic";
+    public static final String EVENTS_TOPIC_NAME_CONFIG = "events.topic";
+    public static final String EVENTS_SUBSCRIPTION_NAME_CONFIG = "events.subscription.name";
+    public static final String DATA_TOPIC_NAME_CONFIG = "data.topic";
 
     public static final String KEYSPACE_NAME_CONFIG = "keyspace";
     public static final String TABLE_NAME_CONFIG = "table";
@@ -125,17 +124,17 @@ public class CassandraSourceConnectorConfig {
                             "",
                             ConfigDef.Importance.HIGH,
                             "Cassandra table name")
-                    .define(EVENTS_TOPIC_CONFIG,
+                    .define(EVENTS_TOPIC_NAME_CONFIG,
                             ConfigDef.Type.STRING,
                             "",
                             ConfigDef.Importance.HIGH,
                             "The topic to listen cassandra mutation events to")
-                    .define(DATA_TOPIC_CONFIG,
+                    .define(DATA_TOPIC_NAME_CONFIG,
                             ConfigDef.Type.STRING,
                             "",
                             ConfigDef.Importance.HIGH,
                             "The topic to publish cassandra data to")
-                    .define(PULSAR_SUBSCRIPTION_NAME_CONFIG,
+                    .define(EVENTS_SUBSCRIPTION_NAME_CONFIG,
                             ConfigDef.Type.STRING,
                             "connectorSubscription",
                             ConfigDef.Importance.HIGH,
@@ -518,13 +517,13 @@ public class CassandraSourceConnectorConfig {
         return instanceName;
     }
 
-    public String getEventsSubscriptionName() { return globalConfig.getString(EVENTS_TOPIC_CONFIG);}
+    public String getEventsSubscriptionName() { return globalConfig.getString(EVENTS_TOPIC_NAME_CONFIG);}
 
     public String getKeyspaceName() { return  globalConfig.getString(KEYSPACE_NAME_CONFIG); }
     public String getTableName() { return  globalConfig.getString(TABLE_NAME_CONFIG); }
 
-    public String getEventsTopic() { return  globalConfig.getString(EVENTS_TOPIC_CONFIG); }
-    public String getDataTopic() { return  globalConfig.getString(DATA_TOPIC_CONFIG); }
+    public String getEventsTopic() { return  globalConfig.getString(EVENTS_TOPIC_NAME_CONFIG); }
+    public String getDataTopic() { return  globalConfig.getString(DATA_TOPIC_NAME_CONFIG); }
 
     public Class<?> getKeyConverterClass() { return globalConfig.getClass(KEY_CONVERTER_CLASS_CONFIG); }
     public Class<?> getValueConverterClass() { return globalConfig.getClass(VALUE_CONVERTER_CLASS_CONFIG); }
