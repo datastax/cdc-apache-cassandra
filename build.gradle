@@ -11,6 +11,8 @@ plugins {
     id "com.google.osdetector" version "1.6.2"
     id "kr.motd.sphinx" version "2.6.1"
     id 'com.bmuschko.docker-remote-api' version '6.7.0'
+    id "com.github.hierynomus.license" version"0.15.0"
+    id "com.github.hierynomus.license-report" version"0.15.0"
 }
 
 allprojects {
@@ -34,6 +36,8 @@ allprojects {
     apply plugin: 'maven-publish'
     apply plugin: 'io.spring.dependency-management'
     apply plugin: 'com.google.osdetector'
+    apply plugin: 'com.github.hierynomus.license'
+    apply plugin: 'com.gorylenko.gradle-git-properties'
 
     sourceCompatibility = 1.8
     targetCompatibility = 1.8
@@ -75,6 +79,16 @@ subprojects {
         testAgent {
             transitive = false
         }
+    }
+
+    license {
+        header rootProject.file('LICENSE-HEADER.txt')
+        strictCheck true
+        ext.year = Calendar.getInstance().get(Calendar.YEAR)
+        excludes([ "**/cassandra.yaml",
+                   "**/logback*",
+                   'source/src/main/resource/cassandra-source-version.properties'
+        ])
     }
 
     jacocoTestReport {
