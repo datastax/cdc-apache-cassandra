@@ -29,7 +29,7 @@ public class AgentParametersTest {
                         ERROR_COMMITLOG_REPROCESS_ENABLED + "=true," +
                         CDC_DIR_POOL_INTERVAL_MS + "=1234," +
                         TOPIC_PREFIX + "=events-mutations," +
-                        PULSAR_SERVICE_URL + "=pulsar://mypulsar:6650," +
+                        PULSAR_SERVICE_URL + "=pulsar+ssl://mypulsar:6650\\,localhost:6651\\,localhost:6652," +
                         KAFKA_BROKERS + "=mykafka:9092," +
                         KAFKA_SCHEMA_REGISTRY_URL + "=http://myregistry:8081," +
                         SSL_TRUSTSTORE_PATH + "=/truststore.jks," +
@@ -37,43 +37,44 @@ public class AgentParametersTest {
                         SSL_TRUSTSTORE_TYPE + "=PKCS12," +
                         SSL_KEYSTORE_PATH + "=/keystore.jks," +
                         SSL_KEYSTORE_PASSWORD + "=password," +
-                        SSL_USE + "=true," +
                         SSL_ALLOW_INSECURE_CONNECTION + "=true," +
                         SSL_HOSTNAME_VERIFICATION_ENABLE + "=true," +
                         SSL_ENABLED_PROTOCOLS + "=TLSv1.2," +
                         SSL_CIPHER_SUITES + "=AES256," +
                         SSL_ENDPOINT_IDENTIFICATION_ALGORITHM + "=none," +
                         SSL_PROVIDER + "=MyProvider," +
-                        KAFKA_SECURITY_PROTOCOL + "=SASL," +
                         PULSAR_AUTH_PLUGIN_CLASS_NAME + "=MyAuthPlugin," +
-                        PULSAR_AUTH_PARAMS + "=x:y|z:t"
+                        PULSAR_AUTH_PARAMS + "=x:y\\,z:t," +
+                        KAFKA_PROPERTIES + "=security.protocol=SASL_SSL\\,sasl.mechanism=PLAIN"
                 ;
         ProducerConfig.configure(null);     // test NPE
         ProducerConfig.configure(agentArgs);
-        assertEquals(cdcRelocationDir, "cdc_mybackup");
-        assertEquals(errorCommitLogReprocessEnabled, true);
-        assertEquals(cdcDirPollIntervalMs, 1234L);
-        assertEquals(topicPrefix, "events-mutations");
-        assertEquals(pulsarServiceUrl, "pulsar://mypulsar:6650");
-        assertEquals(kafkaBrokers, "mykafka:9092");
-        assertEquals(kafkaSchemaRegistryUrl, "http://myregistry:8081");
+        assertEquals("cdc_mybackup", cdcRelocationDir);
+        assertEquals( true, errorCommitLogReprocessEnabled);
+        assertEquals(1234L, cdcDirPollIntervalMs);
+        assertEquals( "events-mutations", topicPrefix);
+        assertEquals( "pulsar+ssl://mypulsar:6650,localhost:6651,localhost:6652", pulsarServiceUrl);
+        assertEquals( "mykafka:9092", kafkaBrokers);
+        assertEquals( "http://myregistry:8081", kafkaSchemaRegistryUrl);
 
-        // TLS
-        assertEquals(sslTruststorePath, "/truststore.jks");
-        assertEquals(sslTruststorePassword, "password");
-        assertEquals(sslTruststoreType, "PKCS12");
-        assertEquals(sslKeystorePath, "/keystore.jks");
-        assertEquals(sslKeystorePassword, "password");
-        assertEquals(sslUse, true);
-        assertEquals(sslAllowInsecureConnection, true);
-        assertEquals(sslHostnameVerificationEnable, true);
-        assertEquals(sslEnabledProtocols, "TLSv1.2");
-        assertEquals(sslCipherSuites, "AES256");
-        assertEquals(sslProvider, "MyProvider");
+        // common TLS settings
+        assertEquals( "/truststore.jks", sslTruststorePath);
+        assertEquals("password", sslTruststorePassword);
+        assertEquals( "PKCS12", sslTruststoreType);
+        assertEquals( "/keystore.jks", sslKeystorePath);
+        assertEquals("password", sslKeystorePassword);
+        assertEquals( true, sslAllowInsecureConnection);
+        assertEquals( true, sslHostnameVerificationEnable);
+        assertEquals( "TLSv1.2", sslEnabledProtocols);
+        assertEquals("AES256", sslCipherSuites);
+        assertEquals("MyProvider", sslProvider);
 
-        // Auth
-        assertEquals(kafkaSecurityProtocol, "SASL");
-        assertEquals(pulsarAuthPluginClassName, "MyAuthPlugin");
-        assertEquals(pulsarAuthParams, "x:y,z:t");
+        // Kafka custom settings
+        assertEquals("SASL_SSL", kafkaProperties.get("security.protocol"));
+        assertEquals("PLAIN", kafkaProperties.get("sasl.mechanism"));
+
+        // Pulsar Auth
+        assertEquals("MyAuthPlugin", pulsarAuthPluginClassName);
+        assertEquals("x:y,z:t", pulsarAuthParams);
     }
 }

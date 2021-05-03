@@ -75,11 +75,6 @@ public class ProducerConfig {
     public static final Setting<String> KAFKA_SCHEMA_REGISTRY_URL_SETTING =
             new Setting<>(KAFKA_SCHEMA_REGISTRY_URL, s -> kafkaSchemaRegistryUrl = s, () -> kafkaSchemaRegistryUrl);
 
-    public static final String KAFKA_SECURITY_PROTOCOL = "kafkaSecurityProtocol";
-    public static String kafkaSecurityProtocol = System.getProperty(KAFKA_SECURITY_PROTOCOL);
-    public static final Setting<String> KAFKA_SECURITY_PROTOCOL_SETTING =
-            new Setting<>(KAFKA_SECURITY_PROTOCOL, s -> kafkaSecurityProtocol = s, () -> kafkaSchemaRegistryUrl);
-
     public static final String SSL_PROVIDER = "sslProvider";
     public static String sslProvider = System.getProperty(SSL_PROVIDER);
     public static final Setting<String> SSL_PROVIDER_SETTING =
@@ -135,11 +130,6 @@ public class ProducerConfig {
     public static final Setting<Boolean> SSL_HOSTNAME_VERIFICATION_ENABLE_SETTING =
             new Setting<>(SSL_HOSTNAME_VERIFICATION_ENABLE, s -> sslHostnameVerificationEnable = Boolean.parseBoolean(s), () -> sslHostnameVerificationEnable);
 
-    // Whether to use TLS encryption on the connection
-    public static final String SSL_USE = "sslUse";
-    public static boolean sslUse = Boolean.getBoolean(SSL_USE);
-    public static final Setting<Boolean> SSL_USE_SETTING = new Setting<>(SSL_USE, s -> sslUse = Boolean.parseBoolean(s), () -> sslUse);
-
     public static final String PULSAR_AUTH_PLUGIN_CLASS_NAME = "pulsarAuthPluginClassName";
     public static String pulsarAuthPluginClassName = System.getProperty(PULSAR_AUTH_PLUGIN_CLASS_NAME);
     public static final Setting<String> PULSAR_AUTH_PLUGIN_CLASS_NAME_SETTING =
@@ -148,7 +138,23 @@ public class ProducerConfig {
     public static final String PULSAR_AUTH_PARAMS = "pulsarAuthParams";
     public static String pulsarAuthParams = System.getProperty(PULSAR_AUTH_PARAMS);
     public static final Setting<String> PULSAR_AUTH_PARAMS_SETTING =
-            new Setting<>(PULSAR_AUTH_PARAMS, s -> pulsarAuthParams = s.replaceAll("\\|",","), () -> pulsarAuthParams);
+            new Setting<>(PULSAR_AUTH_PARAMS, s -> pulsarAuthParams = s, () -> pulsarAuthParams);
+
+    // generic properties for kafka client
+    public static final String KAFKA_PROPERTIES = "kafkaProperties";
+    public static Map<String, String> kafkaProperties = new HashMap<>();
+    public static final Setting<Map<String, String>> KAFKA_PROPERTIES_SETTINGS =
+            new Setting<>(KAFKA_PROPERTIES,
+                    s -> {
+                        for (String param : s.split(",")) {
+                            int i = param.indexOf("=");
+                            if (i > 0) {
+                                kafkaProperties.put(param.substring(0, i), param.substring(i + 1));
+                            }
+                        }
+                        return kafkaProperties;
+                    },
+                    () -> kafkaProperties);
 
     public static final Set<Setting<?>> settings;
     public static final Map<String, Setting<?>> settingMap;
@@ -165,7 +171,6 @@ public class ProducerConfig {
         set.add(KAFKA_SCHEMA_REGISTRY_URL_SETTING);
         set.add(KAFKA_BROKERS_SETTING);
         set.add(KAFKA_SCHEMA_REGISTRY_URL_SETTING);
-        set.add(KAFKA_SECURITY_PROTOCOL_SETTING);
         set.add(SSL_PROVIDER_SETTING);
         set.add(SSL_TRUSTSTORE_PATH_SETTING);
         set.add(SSL_TRUSTSTORE_PASSWORD_SETTING);
@@ -177,9 +182,9 @@ public class ProducerConfig {
         set.add(SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_SETTING);
         set.add(SSL_ALLOW_INSECURE_CONNECTION_SETTING);
         set.add(SSL_HOSTNAME_VERIFICATION_ENABLE_SETTING);
-        set.add(SSL_USE_SETTING);
         set.add(PULSAR_AUTH_PLUGIN_CLASS_NAME_SETTING);
         set.add(PULSAR_AUTH_PARAMS_SETTING);
+        set.add(KAFKA_PROPERTIES_SETTINGS);
         settings = Collections.unmodifiableSet(set);
 
         Map<String, Setting<?>> map = new HashMap<>();
@@ -194,11 +199,12 @@ public class ProducerConfig {
      */
     public static void configure(String agentParameters) {
         if (agentParameters != null) {
-            for(String param : agentParameters.split(",")) {
+            for (String token : agentParameters.split("(?<!\\\\),\\s*")) {
+                String param = token.replace("\\,", ",");
                 int i = param.indexOf("=");
                 if (i > 0) {
                     String key = param.substring(0, i);
-                    String value = param.substring(i+1);
+                    String value = param.substring(i + 1);
                     Setting<?> setting = settingMap.get(key);
                     if (setting != null) {
                         setting.initializer.apply(value);

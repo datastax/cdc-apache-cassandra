@@ -142,6 +142,7 @@ public class KafkaMutationSender implements MutationSender<TableMetadata> , Auto
         //props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, CustomPartitioner.class.getName());
 
         ProducerConfig.configureKafkaTls(props);
+        props.putAll(ProducerConfig.kafkaProperties);
 
         this.kafkaProducer = new KafkaProducer<>(props);
         log.info("Kafka producer name={} created", producerName);
