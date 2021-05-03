@@ -57,6 +57,10 @@ public class CassandraSourceConnectorConfig {
     public static final String KEYSPACE_NAME_CONFIG = "keyspace";
     public static final String TABLE_NAME_CONFIG = "table";
 
+    public static final String CACHE_MAX_DIGESTS_CONFIG = "cache.max.digest";
+    public static final String CACHE_MAX_CAPACITY_CONFIG = "cache.max.capacity";
+    public static final String CACHE_EXPIRE_AFTER_MS_CONFIG = "cache.expire.after.ms";
+
     public static final String KEY_CONVERTER_CLASS_CONFIG = "key.converter";
     public static final String VALUE_CONVERTER_CLASS_CONFIG = "value.converter";
 
@@ -139,6 +143,21 @@ public class CassandraSourceConnectorConfig {
                             "connectorSubscription",
                             ConfigDef.Importance.HIGH,
                             "The pulsar events topic subscription name.")
+                    .define(CACHE_MAX_DIGESTS_CONFIG,
+                            ConfigDef.Type.LONG,
+                            "3",
+                            ConfigDef.Importance.HIGH,
+                            "The maximum number of digest per mutation cache entry.")
+                    .define(CACHE_MAX_CAPACITY_CONFIG,
+                            ConfigDef.Type.LONG,
+                            "1024",
+                            ConfigDef.Importance.HIGH,
+                            "The maximum capacity of the mutation cache.")
+                    .define(CACHE_EXPIRE_AFTER_MS_CONFIG,
+                            ConfigDef.Type.LONG,
+                            "300000",
+                            ConfigDef.Importance.HIGH,
+                            "The mutation cache entry duration in milliseconds.")
                     .define(KEY_CONVERTER_CLASS_CONFIG,
                             ConfigDef.Type.CLASS,
                             ConfigDef.Importance.HIGH,
@@ -537,6 +556,18 @@ public class CassandraSourceConnectorConfig {
 
     public int getMaxConcurrentRequests() {
         return globalConfig.getInt(CONCURRENT_REQUESTS_OPT);
+    }
+
+    public long getCacheMaxDigests() {
+        return globalConfig.getLong(CACHE_MAX_DIGESTS_CONFIG);
+    }
+
+    public long getCacheMaxCapacity() {
+        return globalConfig.getLong(CACHE_MAX_CAPACITY_CONFIG);
+    }
+
+    public long getCacheExpireAfterMs() {
+        return globalConfig.getLong(CACHE_EXPIRE_AFTER_MS_CONFIG);
     }
 
     public enum IgnoreErrorsPolicy {

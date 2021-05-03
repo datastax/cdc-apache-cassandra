@@ -146,10 +146,11 @@ public class PulsarProducerTests {
                         GenericRecord key = kv.getKey();
                         MutationValue val = kv.getValue();
                         System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
-                                " key=" + key +
+                                " key=" + key.genericRecordToString() +
                                 " value=" + val);
                         assertEquals(Integer.toString(mutationTable1), key.getField("id"));
                         mutationTable1++;
+                        consumer.acknowledgeAsync(msg);
                     }
                 }
                 assertEquals(4, mutationTable1);
@@ -178,11 +179,12 @@ public class PulsarProducerTests {
                         GenericRecord key = kv.getKey();
                         MutationValue val = kv.getValue();
                         System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
-                                " key=" + key +
+                                " key=" + key.genericRecordToString() +
                                 " value=" + val);
                         assertEquals(Integer.toString(mutationTable2), key.getField("a"));
                         assertEquals(1, key.getField("b"));
                         mutationTable2++;
+                        consumer.acknowledgeAsync(msg);
                     }
                 }
                 assertEquals(4, mutationTable2);

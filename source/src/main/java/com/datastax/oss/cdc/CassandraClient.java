@@ -80,13 +80,14 @@ public class CassandraClient implements AutoCloseable {
             CassandraSourceConnectorConfig config,
             String version, String applicationName,
             SchemaChangeListener schemaChangeListener) {
-        log.info("CassandraSinkTask starting with config:\n{}\n", config.toString());
+        log.info("CassandraClient starting with config:\n{}\n", config.toString());
         SslConfig sslConfig = config.getSslConfig();
         CqlSessionBuilder builder =
                 new SessionBuilder(sslConfig)
                         .withApplicationVersion(version)
                         .withApplicationName(applicationName)
                         .withClientId(generateClientId(config.getInstanceName()))
+                        .withKeyspace(config.getKeyspaceName())
                         .withSchemaChangeListener(schemaChangeListener);
 
         ContactPointsValidator.validateContactPoints(config.getContactPoints());
@@ -267,7 +268,7 @@ public class CassandraClient implements AutoCloseable {
                 statement.setNode(node);
             }
         }
-        log.debug("Executing query={} pk={} coordinator={}", query.toString(), pk, node);
+        log.info("Executing query={} pk={} coordinator={}", query.toString(), pk, node);
 
         return executeWithDowngradeConsistencyRetry(cqlSession, keyspaceName, statement, consistencyLevels)
                 .thenApply(tuple -> {

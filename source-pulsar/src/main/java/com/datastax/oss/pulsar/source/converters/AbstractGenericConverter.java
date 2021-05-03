@@ -25,6 +25,7 @@ import com.datastax.oss.driver.api.core.type.DataType;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
 import com.datastax.oss.protocol.internal.ProtocolConstants;
 import com.datastax.oss.pulsar.source.Converter;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.api.schema.Field;
 import org.apache.pulsar.client.api.schema.GenericRecord;
@@ -41,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 
 
+@Slf4j
 public abstract class AbstractGenericConverter implements Converter<GenericRecord, Row, Map<String, Object>> {
 
     public final GenericSchema<GenericRecord> schema;
@@ -57,6 +59,16 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
         this.schemaInfo = recordSchemaBuilder.build(schemaType);
         this.schema = GenericSchemaImpl.of(schemaInfo);
         this.columns = columns;
+        if (log.isInfoEnabled()) {
+            log.info("schema={}", schemaToString(this.schema));
+            for(Map.Entry<String, GenericSchema> entry : udtSchemas.entrySet()) {
+                log.info("type={} schema={}", entry.getKey(), schemaToString(entry.getValue()));
+            }
+        }
+    }
+
+    public static String schemaToString(Schema schema) {
+        return schema.getSchemaInfo().toString();
     }
 
     RecordSchemaBuilder addFieldSchema(RecordSchemaBuilder recordSchemaBuilder,
@@ -141,6 +153,7 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
     @Override
     public GenericRecord toConnectData(Row row) {
         GenericRecordBuilder genericRecordBuilder = schema.newRecordBuilder();
+        log.info("row columns={}", row.getColumnDefinitions());
         for(ColumnMetadata cm : columns) {
             if (!row.isNull(cm.getName())) {
                 switch (cm.getType().getProtocolCode()) {

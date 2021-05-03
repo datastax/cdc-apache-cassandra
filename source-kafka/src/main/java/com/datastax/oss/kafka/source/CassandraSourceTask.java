@@ -64,8 +64,9 @@ public class CassandraSourceTask extends SourceTask implements SchemaChangeListe
     CassandraClient cassandraClient;
     final List<ConsistencyLevel> consistencyLevels = Collections.unmodifiableList(
             Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE));
+
     MutationCache<Object> mutationCache;
-    volatile CassandraConverter cassandraConverter;
+    volatile CassandraConverter cassandraConverter; // modified on schema change
 
     Converter mutationKeyConverter, mutationValueConverter;
     Converter keyConverter, valueConverter;
@@ -106,7 +107,11 @@ public class CassandraSourceTask extends SourceTask implements SchemaChangeListe
         this.keyspaceName = config.getKeyspaceName();
         this.tableName = config.getTableName();
 
-        this.mutationCache = new MutationCache<>(3, 10, Duration.ofHours(1));
+        this.mutationCache = new MutationCache<>(
+                config.getCacheMaxDigests(),
+                config.getCacheMaxCapacity(),
+                Duration.ofMillis(config.getCacheExpireAfterMs()));
+
         this.cassandraClient = client;
         if (this.cassandraClient == null) {
             this.cassandraClient = new CassandraClient(config, version(), config.getInstanceName(), this);
@@ -181,6 +186,7 @@ public class CassandraSourceTask extends SourceTask implements SchemaChangeListe
     }
 
     void setCassandraConverter(KeyspaceMetadata ksm, TableMetadata tableMetadata) {
+        log.info("Update the value converter with a new CQL schema for table {}.{}", ksm.getName(), tableMetadata.getName());
         this.cassandraConverter = new CassandraConverter(ksm,
                 tableMetadata,
                 tableMetadata.getColumns().values());
@@ -204,10 +210,8 @@ public class CassandraSourceTask extends SourceTask implements SchemaChangeListe
     public List<SourceRecord> poll() {
         ConsumerRecords<byte[], byte[]> consumerRecords = consumer.poll(Duration.ofMillis(1000));
         List<SourceRecord> sourceRecords = new ArrayList<>(consumerRecords.count());
-        // TODO: set the kafka partition
-        int partition = 0;
         for (ConsumerRecord<byte[], byte[]> consumerRecord : consumerRecords) {
-            log.debug("Message from producer={} msgId={} key={} value={}\n",
+            log.debug("Message partition={} offset={} key={} value={}",
                     consumerRecord.partition(), consumerRecord.offset(), consumerRecord.key(), consumerRecord.value());
 
             SchemaAndValue keySchemaAndValue = mutationKeyConverter.toConnectData(this.eventsTopic, consumerRecord.key());
@@ -243,12 +247,12 @@ public class CassandraSourceTask extends SourceTask implements SchemaChangeListe
                     if (tuple._1 != null) {
                         value = cassandraConverterFinal.buildStruct(tuple._1);
                     }
-                    log.debug("key={} value={}", mutationKey, value);
+                    log.debug("Record partition={} key={} value={}", consumerRecord.partition(), mutationKey, value);
                     SourceRecord sourceRecord = new SourceRecord(
                             ImmutableMap.of(),
                             ImmutableMap.of(),
                             dataTopic,
-                            partition,
+                            consumerRecord.partition(),
                             mutationKeySchema,
                             mutationKey,
                             cassandraConverterFinal.getSchema(),
@@ -317,7 +321,7 @@ public class CassandraSourceTask extends SourceTask implements SchemaChangeListe
     public void onTableUpdated(@NonNull TableMetadata current, @NonNull TableMetadata previous) {
         if (current.getKeyspace().asCql(true).equals(keyspaceName)
                 && current.getName().asCql(true).equals(tableName)) {
-            KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(keyspaceName).get();
+            KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(current.getKeyspace()).get();
             setCassandraConverter(ksm, current);
         }
     }
@@ -326,7 +330,7 @@ public class CassandraSourceTask extends SourceTask implements SchemaChangeListe
     @Override
     public void onUserDefinedTypeCreated(@NonNull UserDefinedType type) {
         if (type.getKeyspace().asCql(true).equals(keyspaceName)) {
-            KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(keyspaceName).get();
+            KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(type.getKeyspace()).get();
             setCassandraConverter(ksm, ksm.getTable(tableName).get());
         }
     }
@@ -339,7 +343,7 @@ public class CassandraSourceTask extends SourceTask implements SchemaChangeListe
     @Override
     public void onUserDefinedTypeUpdated(@NonNull UserDefinedType userDefinedType, @NonNull UserDefinedType userDefinedType1) {
         if (userDefinedType.getKeyspace().asCql(true).equals(keyspaceName)) {
-            KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(keyspaceName).get();
+            KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(userDefinedType.getKeyspace()).get();
             setCassandraConverter(ksm, ksm.getTable(tableName).get());
         }
     }

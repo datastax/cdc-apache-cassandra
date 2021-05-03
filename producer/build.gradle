@@ -1,6 +1,5 @@
 plugins {
-    id 'java'
-    id "com.github.johnrengelman.shadow"
+    id 'java-library'
 }
 
 compileTestJava {
@@ -11,8 +10,9 @@ dependencies {
     implementation "org.projectlombok:lombok:${lombokVersion}"
     annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
 
-    implementation("io.debezium:debezium-core:1.4.0.Final")
     api project(':common')
+    implementation("io.debezium:debezium-core:${debeziumVersion}")
+    compileOnly("org.slf4j:slf4j-api:1.7.30")
 }
 
 

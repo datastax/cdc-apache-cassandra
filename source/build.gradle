@@ -36,7 +36,7 @@ dependencies {
     implementation("com.datastax.oss:java-driver-query-builder:${ossDriverVersion}")
 
     implementation("org.apache.kafka:connect-api:${kafkaVersion}")
-    implementation("com.google.guava:guava:30.1-jre")
+    implementation("com.google.guava:guava:${guavaVersion}")
     //api("com.datastax.oss:messaging-connectors-commons-core:1.0.12-SNAPSHOT")
 }
 

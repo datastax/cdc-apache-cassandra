@@ -140,6 +140,9 @@ public class KafkaMutationSender implements MutationSender<CFMetaData> , AutoClo
         props.put(org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, org.apache.kafka.common.serialization.ByteArraySerializer.class.getName());
         props.put(org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, org.apache.kafka.common.serialization.ByteArraySerializer.class.getName());
         //props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, CustomPartitioner.class.getName());
+
+        ProducerConfig.configureKafkaTls(props);
+
         this.kafkaProducer = new KafkaProducer<>(props);
         log.info("Kafka producer name={} created", producerName);
     }

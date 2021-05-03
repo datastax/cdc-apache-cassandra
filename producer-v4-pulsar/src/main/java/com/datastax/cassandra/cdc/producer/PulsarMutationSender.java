@@ -1,12 +1,12 @@
 /**
  * Copyright DataStax, Inc 2021.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,6 +16,7 @@
 package com.datastax.cassandra.cdc.producer;
 
 import com.datastax.cassandra.cdc.MutationValue;
+import com.google.common.collect.ImmutableMap;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.cassandra.db.marshal.*;
 import org.apache.cassandra.schema.ColumnMetadata;
@@ -33,10 +34,7 @@ import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
 
 import java.io.Closeable;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -47,58 +45,36 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
     public static final String SCHEMA_DOC_PREFIX = "Primary key schema for table ";
 
     PulsarClient client;
-    final Map<String, Producer<KeyValue<?,?>>> producers = new ConcurrentHashMap<>();
+    final Map<String, Producer<KeyValue<?, ?>>> producers = new ConcurrentHashMap<>();
     final Map<String, Schema<?>> schemas = new HashMap<>();
-    final Map<String, SchemaType> schemaTypes = new HashMap<>();
+    final ImmutableMap<String, SchemaType> schemaTypes;
 
     public PulsarMutationSender() {
-        // Map Cassandra native types to Pulsar schemas
-        schemas.put(UTF8Type.instance.asCQL3Type().toString(), Schema.STRING);
-        schemas.put(AsciiType.instance.asCQL3Type().toString(), Schema.STRING);
-        schemas.put(BooleanType.instance.asCQL3Type().toString(), Schema.BOOL);
-        schemas.put(BytesType.instance.asCQL3Type().toString(), Schema.BYTES);
-        schemas.put(ByteType.instance.asCQL3Type().toString(), Schema.INT8);
-        schemas.put(ShortType.instance.asCQL3Type().toString(), Schema.INT16);
-        schemas.put(Int32Type.instance.asCQL3Type().toString(), Schema.INT32);
-        schemas.put(IntegerType.instance.asCQL3Type().toString(), Schema.INT64);
-        schemas.put(LongType.instance.asCQL3Type().toString(), Schema.INT64);
-
-        schemas.put(FloatType.instance.asCQL3Type().toString(), Schema.FLOAT);
-        schemas.put(DoubleType.instance.asCQL3Type().toString(), Schema.DOUBLE);
-
-        schemas.put(InetAddressType.instance.asCQL3Type().toString(), Schema.INT64);
-
-        schemas.put(TimestampType.instance.asCQL3Type().toString(), Schema.TIMESTAMP);
-        schemas.put(SimpleDateType.instance.asCQL3Type().toString(), Schema.DATE);
-        schemas.put(TimeType.instance.asCQL3Type().toString(), Schema.TIME);
-        //schemas.put(DurationType.instance.asCQL3Type().toString(), NanoDuration.builder().optional());
-
-        schemas.put(UUIDType.instance.asCQL3Type().toString(), Schema.STRING);
-        schemas.put(TimeUUIDType.instance.asCQL3Type().toString(), Schema.STRING);
-
         // Map Cassandra native types to Pulsar schema types
-        schemaTypes.put(UTF8Type.instance.asCQL3Type().toString(), SchemaType.STRING);
-        schemaTypes.put(AsciiType.instance.asCQL3Type().toString(), SchemaType.STRING);
-        schemaTypes.put(BooleanType.instance.asCQL3Type().toString(), SchemaType.BOOLEAN);
-        schemaTypes.put(BytesType.instance.asCQL3Type().toString(), SchemaType.BYTES);
-        schemaTypes.put(ByteType.instance.asCQL3Type().toString(), SchemaType.INT8);
-        schemaTypes.put(ShortType.instance.asCQL3Type().toString(), SchemaType.INT16);
-        schemaTypes.put(Int32Type.instance.asCQL3Type().toString(), SchemaType.INT32);
-        schemaTypes.put(IntegerType.instance.asCQL3Type().toString(), SchemaType.INT64);
-        schemaTypes.put(LongType.instance.asCQL3Type().toString(), SchemaType.INT64);
+        schemaTypes = ImmutableMap.<String, SchemaType>builder()
+                .put(UTF8Type.instance.asCQL3Type().toString(), SchemaType.STRING)
+                .put(AsciiType.instance.asCQL3Type().toString(), SchemaType.STRING)
+                .put(BooleanType.instance.asCQL3Type().toString(), SchemaType.BOOLEAN)
+                .put(BytesType.instance.asCQL3Type().toString(), SchemaType.BYTES)
+                .put(ByteType.instance.asCQL3Type().toString(), SchemaType.INT8)
+                .put(ShortType.instance.asCQL3Type().toString(), SchemaType.INT16)
+                .put(Int32Type.instance.asCQL3Type().toString(), SchemaType.INT32)
+                .put(IntegerType.instance.asCQL3Type().toString(), SchemaType.INT64)
+                .put(LongType.instance.asCQL3Type().toString(), SchemaType.INT64)
 
-        schemaTypes.put(FloatType.instance.asCQL3Type().toString(), SchemaType.FLOAT);
-        schemaTypes.put(DoubleType.instance.asCQL3Type().toString(), SchemaType.DOUBLE);
+                .put(FloatType.instance.asCQL3Type().toString(), SchemaType.FLOAT)
+                .put(DoubleType.instance.asCQL3Type().toString(), SchemaType.DOUBLE)
 
-        schemaTypes.put(InetAddressType.instance.asCQL3Type().toString(), SchemaType.INT64);
+                .put(InetAddressType.instance.asCQL3Type().toString(), SchemaType.INT64)
 
-        schemaTypes.put(TimestampType.instance.asCQL3Type().toString(), SchemaType.TIMESTAMP);
-        schemaTypes.put(SimpleDateType.instance.asCQL3Type().toString(), SchemaType.DATE);
-        schemaTypes.put(TimeType.instance.asCQL3Type().toString(), SchemaType.TIME);
-        //schemas.put(DurationType.instance.asCQL3Type().toString(), NanoDuration.builder().optional());
+                .put(TimestampType.instance.asCQL3Type().toString(), SchemaType.TIMESTAMP)
+                .put(SimpleDateType.instance.asCQL3Type().toString(), SchemaType.DATE)
+                .put(TimeType.instance.asCQL3Type().toString(), SchemaType.TIME)
+                //schemas.put(DurationType.instance.asCQL3Type().toString(), NanoDuration.builder().optional());
 
-        schemaTypes.put(UUIDType.instance.asCQL3Type().toString(), SchemaType.STRING);
-        schemaTypes.put(TimeUUIDType.instance.asCQL3Type().toString(), SchemaType.STRING);
+                .put(UUIDType.instance.asCQL3Type().toString(), SchemaType.STRING)
+                .put(TimeUUIDType.instance.asCQL3Type().toString(), SchemaType.STRING)
+                .build();
     }
 
     @SuppressWarnings("rawtypes")
@@ -122,17 +98,17 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    public Producer<KeyValue<?,?>> getProducer(final TableMetadata tm) {
+    public Producer<KeyValue<?, ?>> getProducer(final TableMetadata tm) {
         String topicName = ProducerConfig.topicPrefix + tm.keyspace + "." + tm.name;
         String producerName = "pulsar-producer-" + StorageService.instance.getLocalHostId() + "-" + topicName;
         return producers.compute(topicName, (k, v) -> {
             if (v == null) {
                 try {
-                    Schema<KeyValue<?,?>> keyValueSchema = Schema.KeyValue(
+                    Schema<KeyValue<?, ?>> keyValueSchema = Schema.KeyValue(
                             getKeySchema(tm),
                             Schema.AVRO(MutationValue.class),
                             KeyValueEncodingType.SEPARATED);
-                    Producer<KeyValue<?,?>> producer = client.newProducer(keyValueSchema)
+                    Producer<KeyValue<?, ?>> producer = client.newProducer(keyValueSchema)
                             .producerName(producerName)
                             .topic(k)
                             .sendTimeout(15, TimeUnit.SECONDS)
@@ -156,9 +132,29 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
     @Override
     public void initialize() throws PulsarClientException {
         try {
-            this.client = PulsarClient.builder()
-                    .serviceUrl(ProducerConfig.pulsarServiceUrl)
-                    .build();
+            ClientBuilder clientBuilder = PulsarClient.builder().serviceUrl(ProducerConfig.pulsarServiceUrl);
+
+            if (ProducerConfig.pulsarServiceUrl.startsWith("pulsar+ssl://")) {
+                clientBuilder.tlsTrustStorePath(ProducerConfig.sslKeystorePath)
+                        .tlsTrustStorePassword(ProducerConfig.sslTruststorePassword)
+                        .tlsTrustStoreType(ProducerConfig.sslTruststoreType)
+                        .allowTlsInsecureConnection(ProducerConfig.sslAllowInsecureConnection)
+                        .enableTlsHostnameVerification(ProducerConfig.sslHostnameVerificationEnable);
+                if (ProducerConfig.sslProvider != null) {
+                    clientBuilder.sslProvider(ProducerConfig.sslProvider);
+                }
+                if (ProducerConfig.sslCipherSuites != null) {
+                    clientBuilder.tlsCiphers(new HashSet<String>(Arrays.asList(ProducerConfig.sslCipherSuites.split(","))));
+                }
+                if (ProducerConfig.sslEnabledProtocols != null) {
+                    clientBuilder.tlsProtocols(new HashSet<String>(Arrays.asList(ProducerConfig.sslEnabledProtocols.split(","))));
+                }
+            }
+            if (ProducerConfig.pulsarAuthPluginClassName != null) {
+                clientBuilder.authentication(ProducerConfig.pulsarAuthPluginClassName, ProducerConfig.pulsarAuthParams);
+            }
+
+            this.client = clientBuilder.build();
             log.info("Pulsar client connected");
         } catch (Exception e) {
             log.warn("Cannot connect to Pulsar:", e);
@@ -181,9 +177,9 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
         if (this.client == null) {
             initialize();
         }
-        Producer<KeyValue<?,?>> producer = getProducer(mutation.getMetadata());
+        Producer<KeyValue<?, ?>> producer = getProducer(mutation.getMetadata());
         Schema keySchema = getKeySchema(mutation.getMetadata());
-        TypedMessageBuilder<KeyValue<?,?>> messageBuilder = producer.newMessage();
+        TypedMessageBuilder<KeyValue<?, ?>> messageBuilder = producer.newMessage();
         return messageBuilder
                 .value(new KeyValue(
                         buildKey(keySchema, mutation.primaryKeyCells()),
