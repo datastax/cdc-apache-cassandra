@@ -125,7 +125,7 @@ public class ProducerConfig {
     public static final Setting<String> SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_SETTING =
             new Setting<>(SSL_ENDPOINT_IDENTIFICATION_ALGORITHM, s -> sslEndpointIdentificationAlgorithm = s, () -> sslEndpointIdentificationAlgorithm);
 
-    public static final String SSL_ALLOW_INSECURE_CONNECTION = "sslEndpointIdentificationAlgorithm";
+    public static final String SSL_ALLOW_INSECURE_CONNECTION = "sslAllowInsecureConnection";
     public static boolean sslAllowInsecureConnection = Boolean.getBoolean(SSL_ALLOW_INSECURE_CONNECTION);
     public static final Setting<Boolean> SSL_ALLOW_INSECURE_CONNECTION_SETTING =
             new Setting<>(SSL_ALLOW_INSECURE_CONNECTION, s -> sslAllowInsecureConnection = Boolean.parseBoolean(s), () -> sslAllowInsecureConnection);
@@ -148,7 +148,7 @@ public class ProducerConfig {
     public static final String PULSAR_AUTH_PARAMS = "pulsarAuthParams";
     public static String pulsarAuthParams = System.getProperty(PULSAR_AUTH_PARAMS);
     public static final Setting<String> PULSAR_AUTH_PARAMS_SETTING =
-            new Setting<>(PULSAR_AUTH_PARAMS, s -> pulsarAuthParams = s, () -> pulsarAuthParams);
+            new Setting<>(PULSAR_AUTH_PARAMS, s -> pulsarAuthParams = s.replaceAll("\\|",","), () -> pulsarAuthParams);
 
     public static final Set<Setting<?>> settings;
     public static final Map<String, Setting<?>> settingMap;
@@ -194,11 +194,11 @@ public class ProducerConfig {
      */
     public static void configure(String agentParameters) {
         if (agentParameters != null) {
-            for (String param : agentParameters.split(",")) {
-                String[] kv = param.split("=");
-                if (kv.length == 2) {
-                    String key = kv[0];
-                    String value = kv[1];
+            for(String param : agentParameters.split(",")) {
+                int i = param.indexOf("=");
+                if (i > 0) {
+                    String key = param.substring(0, i);
+                    String value = param.substring(i+1);
                     Setting<?> setting = settingMap.get(key);
                     if (setting != null) {
                         setting.initializer.apply(value);
