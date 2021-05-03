@@ -26,7 +26,6 @@ import org.apache.pulsar.client.api.schema.GenericRecord;
 import org.apache.pulsar.client.api.schema.RecordSchemaBuilder;
 import org.apache.pulsar.client.api.schema.SchemaBuilder;
 import org.apache.pulsar.client.impl.schema.KeyValueSchema;
-import org.apache.pulsar.client.impl.schema.generic.GenericAvroSchema;
 import org.apache.pulsar.client.impl.schema.generic.GenericSchemaImpl;
 import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.common.schema.KeyValueEncodingType;
@@ -41,7 +40,9 @@ import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -73,6 +74,29 @@ public class PulsarProducerTests {
         pulsarContainer.close();
     }
 
+    CassandraContainer createCassandraContainer(int nodeIndex) {
+        String buildDir = System.getProperty("buildDir");
+        String projectVersion = System.getProperty("projectVersion");
+        String jarFile = String.format(Locale.ROOT, "producer-v3-pulsar-%s-all.jar", projectVersion);
+        CassandraContainer<?> cassandraContainer = new CassandraContainer<>(CASSANDRA_IMAGE)
+                .withCreateContainerCmdModifier(c -> c.withName("cassandra-" + nodeIndex))
+                .withNetwork(testNetwork)
+                .withConfigurationOverride("cassandra-cdc" + nodeIndex)
+                .withFileSystemBind(
+                        String.format(Locale.ROOT, "%s/libs/%s", buildDir, jarFile),
+                        String.format(Locale.ROOT, "/%s", jarFile))
+                .withEnv("JVM_EXTRA_OPTS", String.format(
+                        Locale.ROOT,
+                        "-javaagent:/%s=pulsarServiceUrl=%s",
+                        jarFile,
+                        "pulsar://pulsar:" + pulsarContainer.BROKER_PORT))
+                .withStartupTimeout(Duration.ofSeconds(70));
+        if (nodeIndex > 1) {
+            cassandraContainer.withEnv("CASSANDRA_SEEDS","cassandra-1");
+        }
+        return cassandraContainer;
+    }
+
     @Test
     public void testProducer() throws InterruptedException, IOException {
         Container.ExecResult result = pulsarContainer.execInContainer(
@@ -82,27 +106,15 @@ public class PulsarProducerTests {
                 "/pulsar/bin/pulsar-admin", "namespaces", "set-deduplication", "public/default", "--enable");
         assertEquals(0, result.getExitCode());
 
-        String buildDir = System.getProperty("buildDir");
         String projectVersion = System.getProperty("projectVersion");
-        String jarFile = String.format(Locale.ROOT, "producer-v3-pulsar-%s-all.jar", projectVersion);
-        try (CassandraContainer<?> cassandraContainer = new CassandraContainer<>(CASSANDRA_IMAGE)
-                .withCreateContainerCmdModifier(c -> c.withName("cassandra"))
-                .withNetwork(testNetwork)
-                .withConfigurationOverride("cassandra-cdc")
-                .withFileSystemBind(
-                        String.format(Locale.ROOT, "%s/libs/%s", buildDir, jarFile),
-                        String.format(Locale.ROOT, "/%s", jarFile))
-                .withEnv("JVM_EXTRA_OPTS", String.format(
-                        Locale.ROOT,
-                        "-javaagent:/%s=pulsarServiceUrl=%s",
-                        jarFile,
-                        "pulsar://pulsar:" + pulsarContainer.BROKER_PORT))
-                .withStartupTimeout(Duration.ofSeconds(70))) {
-            cassandraContainer.start();
+        try (CassandraContainer<?> cassandraContainer1 = createCassandraContainer(1);
+                CassandraContainer<?> cassandraContainer2 = createCassandraContainer(2)) {
+            cassandraContainer1.start();
+            cassandraContainer2.start();
 
-            try (CqlSession cqlSession = cassandraContainer.getCqlSession()) {
+            try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
                 cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS ks1 WITH replication = \n" +
-                        "{'class':'SimpleStrategy','replication_factor':'1'};");
+                        "{'class':'SimpleStrategy','replication_factor':'2'};");
                 cqlSession.execute("CREATE TABLE IF NOT EXISTS ks1.table1 (id text PRIMARY KEY, a int) WITH cdc=true");
                 cqlSession.execute("INSERT INTO ks1.table1 (id, a) VALUES('1',1)");
                 cqlSession.execute("INSERT INTO ks1.table1 (id, a) VALUES('2',1)");
@@ -114,15 +126,14 @@ public class PulsarProducerTests {
                 cqlSession.execute("INSERT INTO ks1.table2 (a,b,c) VALUES('3',1,1)");
             }
 
-            // wait CL sync on disk
-            Thread.sleep(15000);
+            Thread.sleep(15000);    // wait CL sync on disk
             // cassandra drain to discard commitlog segments without stopping the producer
-            result = cassandraContainer.execInContainer("/opt/cassandra/bin/nodetool", "drain");
-            assertEquals(0, result.getExitCode());
-            Thread.sleep(15000);
+            assertEquals(0, cassandraContainer1.execInContainer("/opt/cassandra/bin/nodetool", "drain").getExitCode());
+            assertEquals(0, cassandraContainer2.execInContainer("/opt/cassandra/bin/nodetool", "drain").getExitCode());
+            Thread.sleep(11000);
 
-            int mutationTable1 = 1;
-            int mutationTable2 = 1;
+            Map<String,Integer> mutationTable1 = new HashMap<>();
+            Map<String,Integer> mutationTable2 = new HashMap<>();
 
             try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
                 RecordSchemaBuilder recordSchemaBuilder1 = SchemaBuilder.record("ks1.table1");
@@ -144,19 +155,25 @@ public class PulsarProducerTests {
                         .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                         .subscribe()) {
                     Message<KeyValue<GenericRecord, MutationValue>> msg;
-                    while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null && mutationTable1 < 4) {
+                    while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null &&
+                            mutationTable1.values().stream().mapToInt(Integer::intValue).sum() < 6) {
                         KeyValue<GenericRecord, MutationValue> kv = msg.getValue();
                         GenericRecord key = kv.getKey();
                         MutationValue val = kv.getValue();
                         System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
                                 " key=" + genericRecordToString(key) +
                                 " value=" + val);
-                        assertEquals(Integer.toString(mutationTable1), key.getField("id"));
-                        mutationTable1++;
+                        mutationTable1.compute((String) key.getField("id"), (k,v) -> {
+                            if (v == null)
+                                v = 0;
+                            return v+1;
+                        });
                         consumer.acknowledgeAsync(msg);
                     }
                 }
-                assertEquals(4, mutationTable1);
+                assertEquals(2, (int) mutationTable1.get("1"));
+                assertEquals(2, (int) mutationTable1.get("2"));
+                assertEquals(2, (int) mutationTable1.get("3"));
 
                 // pulsar-admin schemas get "persistent://public/default/events-ks1.table2"
                 // pulsar-admin topics peek-messages persistent://public/default/events-ks1.table2-partition-0 --count 3 --subscription sub1
@@ -177,20 +194,26 @@ public class PulsarProducerTests {
                         .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                         .subscribe()) {
                     Message<KeyValue<GenericRecord, MutationValue>> msg;
-                    while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null && mutationTable2 < 4) {
+                    while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null &&
+                            mutationTable2.values().stream().mapToInt(Integer::intValue).sum() < 6) {
                         KeyValue<GenericRecord, MutationValue> kv = msg.getValue();
                         GenericRecord key = kv.getKey();
                         MutationValue val = kv.getValue();
                         System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
                                 " key=" + genericRecordToString(key) +
                                 " value=" + val);
-                        assertEquals(Integer.toString(mutationTable2), key.getField("a"));
                         assertEquals(1, key.getField("b"));
-                        mutationTable2++;
+                        mutationTable2.compute((String)key.getField("a"), (k,v) -> {
+                            if (v == null)
+                                v = 0;
+                            return v+1;
+                        });
                         consumer.acknowledgeAsync(msg);
                     }
                 }
-                assertEquals(4, mutationTable2);
+                assertEquals(2, (int) mutationTable2.get("1"));
+                assertEquals(2, (int) mutationTable2.get("2"));
+                assertEquals(2, (int) mutationTable2.get("3"));
             }
         }
     }

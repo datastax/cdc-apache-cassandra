@@ -81,7 +81,7 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
 
         addExposedPort(CQL_PORT);
         setStartupAttempts(1);
-        withLogConsumer(o -> { log.info("cassandra> {}", o.getUtf8String()); });
+        withLogConsumer(o -> { log.info("{}}> {}", getContainerName(), o.getUtf8String()); });
     }
 
     @Override
