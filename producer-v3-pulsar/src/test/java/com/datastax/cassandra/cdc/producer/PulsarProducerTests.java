@@ -34,6 +34,7 @@ import org.apache.pulsar.common.schema.SchemaType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.Network;
 import org.testcontainers.utility.DockerImageName;
 
@@ -73,11 +74,7 @@ public class PulsarProducerTests {
 
     @Test
     public void testProducer() throws InterruptedException, IOException {
-        org.testcontainers.containers.Container.ExecResult result = pulsarContainer.execInContainer(
-                "/pulsar/bin/pulsar-admin", "namespaces", "set-auto-topic-creation",
-                "public/default", "--enable", "--type", "partitioned", "--num-partitions", "1");
-        assertEquals(0, result.getExitCode());
-        result = pulsarContainer.execInContainer(
+        Container.ExecResult result = pulsarContainer.execInContainer(
                 "/pulsar/bin/pulsar-admin", "namespaces", "set-is-allow-auto-update-schema", "public/default", "--enable");
         assertEquals(0, result.getExitCode());
         result = pulsarContainer.execInContainer(
@@ -117,7 +114,7 @@ public class PulsarProducerTests {
             }
 
             // wait CL sync on disk
-            Thread.sleep(11000);
+            Thread.sleep(15000);
             // cassandra drain to discard commitlog segments without stopping the producer
             result = cassandraContainer.execInContainer("/opt/cassandra/bin/nodetool", "drain");
             assertEquals(0, result.getExitCode());
@@ -139,7 +136,7 @@ public class PulsarProducerTests {
                 // pulsar-admin schemas get "persistent://public/default/events-ks1.table1"
                 // pulsar-admin topics peek-messages persistent://public/default/events-ks1.table1-partition-0 --count 3 --subscription sub1
                 try (Consumer<KeyValue<GenericRecord, MutationValue>> consumer = pulsarClient.newConsumer(schema1)
-                        .topic("events-ks1.table1-partition-0")
+                        .topic("events-ks1.table1")
                         .subscriptionName("sub1")
                         .subscriptionType(SubscriptionType.Key_Shared)
                         .subscriptionMode(SubscriptionMode.Durable)
@@ -172,7 +169,7 @@ public class PulsarProducerTests {
                         Schema.AVRO(MutationValue.class),
                         KeyValueEncodingType.SEPARATED);
                 try (Consumer<KeyValue<GenericRecord, MutationValue>> consumer = pulsarClient.newConsumer(schema2)
-                        .topic("events-ks1.table2-partition-0")
+                        .topic("events-ks1.table2")
                         .subscriptionName("sub1")
                         .subscriptionType(SubscriptionType.Key_Shared)
                         .subscriptionMode(SubscriptionMode.Durable)
