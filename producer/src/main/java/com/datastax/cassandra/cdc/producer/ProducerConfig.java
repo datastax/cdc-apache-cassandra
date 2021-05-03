@@ -15,7 +15,6 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
-import jdk.internal.joptsimple.internal.Strings;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -236,16 +235,16 @@ public class ProducerConfig {
             props.put("ssl.keystore.location", ProducerConfig.sslKeystorePath);
             props.put("ssl.keystore.password", ProducerConfig.sslKeystorePassword);
         }
-        if (!Strings.isNullOrEmpty(ProducerConfig.sslProvider)) {
+        if (ProducerConfig.sslProvider != null && ProducerConfig.sslProvider.length() > 0) {
             props.put("ssl.provider", ProducerConfig.sslProvider);
         }
-        if (!Strings.isNullOrEmpty(ProducerConfig.sslCipherSuites)) {
+        if (ProducerConfig.sslCipherSuites != null && ProducerConfig.sslCipherSuites.length() > 0) {
             props.put("ssl.cipher.suites", ProducerConfig.sslCipherSuites);
         }
-        if (!Strings.isNullOrEmpty(ProducerConfig.sslEnabledProtocols)) {
+        if (ProducerConfig.sslEnabledProtocols != null && ProducerConfig.sslEnabledProtocols.length() > 0) {
             props.put("ssl.enabled.protocols", ProducerConfig.sslEnabledProtocols);
         }
-        if (!Strings.isNullOrEmpty(ProducerConfig.sslEndpointIdentificationAlgorithm)) {
+        if (ProducerConfig.sslEndpointIdentificationAlgorithm != null && ProducerConfig.sslEndpointIdentificationAlgorithm.length() > 0) {
             props.put("ssl.endpoint.identification.algorithm", ProducerConfig.sslEndpointIdentificationAlgorithm);
         }
     }
