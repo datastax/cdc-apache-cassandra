@@ -197,7 +197,7 @@ public class PulsarProducerTests {
                 sb.append(",");
             sb.append(field.getName()).append("=");
             if (genericRecord.getField(field) instanceof GenericRecord) {
-                sb.append(((GenericRecord)genericRecord.getField(field)).genericRecordToString());
+                sb.append(genericRecordToString((GenericRecord)genericRecord.getField(field)));
             } else {
                 sb.append(genericRecord.getField(field).toString());
             }

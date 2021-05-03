@@ -149,7 +149,6 @@ public class PulsarProducerTests {
                         GenericRecord key = kv.getKey();
                         MutationValue val = kv.getValue();
                         System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
-                                " key=" + genericRecordToString(key) +
                                 " value=" + val);
                         assertEquals(Integer.toString(mutationTable1), key.getField("id"));
                         mutationTable1++;
@@ -202,7 +201,7 @@ public class PulsarProducerTests {
                 sb.append(",");
             sb.append(field.getName()).append("=");
             if (genericRecord.getField(field) instanceof GenericRecord) {
-                sb.append(((GenericRecord)genericRecord.getField(field)).genericRecordToString());
+                sb.append(genericRecordToString((GenericRecord)genericRecord.getField(field)));
             } else {
                 sb.append(genericRecord.getField(field).toString());
             }
