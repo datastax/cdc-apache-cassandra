@@ -123,7 +123,6 @@ public class PulsarProducerTests {
                 recordSchemaBuilder1.field("id").type(SchemaType.STRING).optional().defaultValue(null);
                 SchemaInfo keySchemaInfo1 = recordSchemaBuilder1.build(SchemaType.AVRO);
                 Schema<GenericRecord> keySchema1 = GenericSchemaImpl.of(keySchemaInfo1);
-
                 Schema<KeyValue<GenericRecord, MutationValue>> schema1 = KeyValueSchema.of(
                         keySchema1,
                         Schema.AVRO(MutationValue.class),
@@ -165,7 +164,7 @@ public class PulsarProducerTests {
                         Schema.AVRO(MutationValue.class),
                         KeyValueEncodingType.SEPARATED);
                 try (Consumer<KeyValue<GenericRecord, MutationValue>> consumer = pulsarClient.newConsumer(schema2)
-                        .topic("events-ks1.table2-partition-0")
+                        .topic("events-ks1.table2")
                         .subscriptionName("sub1")
                         .subscriptionType(SubscriptionType.Key_Shared)
                         .subscriptionMode(SubscriptionMode.Durable)
