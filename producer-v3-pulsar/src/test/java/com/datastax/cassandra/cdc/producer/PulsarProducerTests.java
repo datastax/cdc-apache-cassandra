@@ -21,6 +21,7 @@ import com.datastax.testcontainers.cassandra.CassandraContainer;
 import com.datastax.testcontainers.pulsar.PulsarContainer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.api.*;
+import org.apache.pulsar.client.api.schema.Field;
 import org.apache.pulsar.client.api.schema.GenericRecord;
 import org.apache.pulsar.client.api.schema.RecordSchemaBuilder;
 import org.apache.pulsar.client.api.schema.SchemaBuilder;
@@ -148,7 +149,7 @@ public class PulsarProducerTests {
                         GenericRecord key = kv.getKey();
                         MutationValue val = kv.getValue();
                         System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
-                                " key=" + key.genericRecordToString() +
+                                " key=" + genericRecordToString(key) +
                                 " value=" + val);
                         assertEquals(Integer.toString(mutationTable1), key.getField("id"));
                         mutationTable1++;
@@ -181,7 +182,7 @@ public class PulsarProducerTests {
                         GenericRecord key = kv.getKey();
                         MutationValue val = kv.getValue();
                         System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
-                                " key=" + key.genericRecordToString() +
+                                " key=" + genericRecordToString(key) +
                                 " value=" + val);
                         assertEquals(Integer.toString(mutationTable2), key.getField("a"));
                         assertEquals(1, key.getField("b"));
@@ -192,5 +193,20 @@ public class PulsarProducerTests {
                 assertEquals(4, mutationTable2);
             }
         }
+    }
+
+    static String genericRecordToString(GenericRecord genericRecord) {
+        StringBuilder sb = new StringBuilder("{");
+        for(Field field : genericRecord.getFields()) {
+            if (sb.length() > 1)
+                sb.append(",");
+            sb.append(field.getName()).append("=");
+            if (genericRecord.getField(field) instanceof GenericRecord) {
+                sb.append(((GenericRecord)genericRecord.getField(field)).genericRecordToString());
+            } else {
+                sb.append(genericRecord.getField(field).toString());
+            }
+        }
+        return sb.append("}").toString();
     }
 }
