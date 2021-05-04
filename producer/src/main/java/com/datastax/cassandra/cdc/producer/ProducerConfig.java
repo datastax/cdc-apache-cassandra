@@ -28,122 +28,127 @@ public class ProducerConfig {
 
     public static final String storageDir = System.getProperty("cassandra.storagedir", null);
 
+    static enum Plateform {
+        ALL, PULSAR, KAFKA;
+    }
+
     @AllArgsConstructor
     public static class Setting<T> {
         public final String name;
+        public final Plateform plateform;
         public final Function<String, T> initializer;
         public final Supplier<T> supplier;
     }
 
     public static final String CDC_RELOCATION_DIR = "cdcRelocationDir";
     public static String cdcRelocationDir = System.getProperty(CDC_RELOCATION_DIR, storageDir + File.separator + "cdc_backup");
-    public static final Setting<String> CDC_RELOCATION_DIR_SETTING = new Setting<>(CDC_RELOCATION_DIR, s -> cdcRelocationDir = s, () -> cdcRelocationDir);
+    public static final Setting<String> CDC_RELOCATION_DIR_SETTING = new Setting<>(CDC_RELOCATION_DIR, Plateform.ALL, s -> cdcRelocationDir = s, () -> cdcRelocationDir);
 
     public static final String CDC_DIR_POOL_INTERVAL_MS = "cdcPoolIntervalMs";
     public static long cdcDirPollIntervalMs = Long.getLong(CDC_DIR_POOL_INTERVAL_MS, 60000L);
     public static final Setting<Long> CDC_DIR_POOL_INTERVAL_MS_SETTING =
-            new Setting<>(CDC_DIR_POOL_INTERVAL_MS, s -> cdcDirPollIntervalMs = Long.parseLong(s), () -> cdcDirPollIntervalMs);
+            new Setting<>(CDC_DIR_POOL_INTERVAL_MS, Plateform.ALL, s -> cdcDirPollIntervalMs = Long.parseLong(s), () -> cdcDirPollIntervalMs);
 
     public static final String ERROR_COMMITLOG_REPROCESS_ENABLED = "errorCommitLogReprocessEnabled";
     public static boolean errorCommitLogReprocessEnabled = Boolean.getBoolean(ERROR_COMMITLOG_REPROCESS_ENABLED);
     public static final Setting<Boolean> ERROR_COMMITLOG_REPROCESS_ENABLED_SETTING =
-            new Setting<>(ERROR_COMMITLOG_REPROCESS_ENABLED, s -> errorCommitLogReprocessEnabled = Boolean.parseBoolean(s), () -> errorCommitLogReprocessEnabled);
+            new Setting<>(ERROR_COMMITLOG_REPROCESS_ENABLED, Plateform.ALL, s -> errorCommitLogReprocessEnabled = Boolean.parseBoolean(s), () -> errorCommitLogReprocessEnabled);
 
     public static final String EMIT_TOMBSTONE_ON_DELETE = "emitTombstoneOnDelete";
     public static boolean emitTombstoneOnDelete = Boolean.getBoolean(EMIT_TOMBSTONE_ON_DELETE);
     public static final Setting<Boolean> EMIT_TOMBSTONE_ON_DELETE_SETTING =
-            new Setting<>(EMIT_TOMBSTONE_ON_DELETE, s -> emitTombstoneOnDelete = Boolean.parseBoolean(s), () -> emitTombstoneOnDelete);
+            new Setting<>(EMIT_TOMBSTONE_ON_DELETE, Plateform.ALL, s -> emitTombstoneOnDelete = Boolean.parseBoolean(s), () -> emitTombstoneOnDelete);
 
     public static final String TOPIC_PREFIX = "topicPrefix";
     public static String topicPrefix = System.getProperty(TOPIC_PREFIX, "events-");
     public static final Setting<String> TOPIC_PREFIX_SETTING =
-            new Setting<>(TOPIC_PREFIX, s -> topicPrefix = s, () -> topicPrefix);
+            new Setting<>(TOPIC_PREFIX, Plateform.ALL, s -> topicPrefix = s, () -> topicPrefix);
 
     public static final String PULSAR_SERVICE_URL = "pulsarServiceUrl";
     public static String pulsarServiceUrl = System.getProperty(PULSAR_SERVICE_URL, "pulsar://localhost:6650");
     public static final Setting<String> PULSAR_SERVICE_URL_SETTING =
-            new Setting<>(PULSAR_SERVICE_URL, s -> pulsarServiceUrl = s, () -> pulsarServiceUrl);
+            new Setting<>(PULSAR_SERVICE_URL, Plateform.PULSAR, s -> pulsarServiceUrl = s, () -> pulsarServiceUrl);
 
     public static final String KAFKA_BROKERS = "kafkaBrokers";
     public static String kafkaBrokers = System.getProperty(KAFKA_BROKERS, "localhost:9092");
     public static final Setting<String> KAFKA_BROKERS_SETTING =
-            new Setting<>(KAFKA_BROKERS, s -> kafkaBrokers = s, () -> kafkaBrokers);
+            new Setting<>(KAFKA_BROKERS, Plateform.KAFKA, s -> kafkaBrokers = s, () -> kafkaBrokers);
 
     public static final String KAFKA_SCHEMA_REGISTRY_URL = "kafkaSchemaRegistryUrl";
     public static String kafkaSchemaRegistryUrl = System.getProperty(KAFKA_SCHEMA_REGISTRY_URL, "http://localhost:8081");
     public static final Setting<String> KAFKA_SCHEMA_REGISTRY_URL_SETTING =
-            new Setting<>(KAFKA_SCHEMA_REGISTRY_URL, s -> kafkaSchemaRegistryUrl = s, () -> kafkaSchemaRegistryUrl);
+            new Setting<>(KAFKA_SCHEMA_REGISTRY_URL, Plateform.KAFKA, s -> kafkaSchemaRegistryUrl = s, () -> kafkaSchemaRegistryUrl);
 
     public static final String SSL_PROVIDER = "sslProvider";
     public static String sslProvider = System.getProperty(SSL_PROVIDER);
     public static final Setting<String> SSL_PROVIDER_SETTING =
-            new Setting<>(SSL_PROVIDER, s -> sslProvider = s, () -> sslProvider);
+            new Setting<>(SSL_PROVIDER, Plateform.ALL, s -> sslProvider = s, () -> sslProvider);
 
     public static final String SSL_TRUSTSTORE_PATH = "sslTruststorePath";
     public static String sslTruststorePath = System.getProperty(SSL_TRUSTSTORE_PATH);
     public static final Setting<String> SSL_TRUSTSTORE_PATH_SETTING =
-            new Setting<>(SSL_TRUSTSTORE_PATH, s -> sslTruststorePath = s, () -> sslTruststorePath);
+            new Setting<>(SSL_TRUSTSTORE_PATH, Plateform.ALL, s -> sslTruststorePath = s, () -> sslTruststorePath);
 
     public static final String SSL_TRUSTSTORE_PASSWORD = "sslTruststorePassword";
     public static String sslTruststorePassword = System.getProperty(SSL_TRUSTSTORE_PASSWORD);
     public static final Setting<String> SSL_TRUSTSTORE_PASSWORD_SETTING =
-            new Setting<>(SSL_TRUSTSTORE_PASSWORD, s -> sslTruststorePassword = s, () -> sslTruststorePassword);
+            new Setting<>(SSL_TRUSTSTORE_PASSWORD, Plateform.ALL, s -> sslTruststorePassword = s, () -> sslTruststorePassword);
 
     public static final String SSL_TRUSTSTORE_TYPE = "sslTruststoreType";
     public static String sslTruststoreType = System.getProperty(SSL_TRUSTSTORE_TYPE, "JKS");
     public static final Setting<String> SSL_TRUSTSTORE_TYPE_SETTING =
-            new Setting<>(SSL_TRUSTSTORE_TYPE, s -> sslTruststoreType = s, () -> sslTruststoreType);
+            new Setting<>(SSL_TRUSTSTORE_TYPE, Plateform.ALL, s -> sslTruststoreType = s, () -> sslTruststoreType);
 
     public static final String SSL_KEYSTORE_PATH = "sslKeystorePath";
     public static String sslKeystorePath = System.getProperty(SSL_KEYSTORE_PATH);
     public static final Setting<String> SSL_KEYSTORE_PATH_SETTING =
-            new Setting<>(SSL_KEYSTORE_PATH, s -> sslKeystorePath = s, () -> sslKeystorePath);
+            new Setting<>(SSL_KEYSTORE_PATH, Plateform.ALL, s -> sslKeystorePath = s, () -> sslKeystorePath);
 
     public static final String SSL_KEYSTORE_PASSWORD = "sslKeystorePassword";
     public static String sslKeystorePassword = System.getProperty(SSL_KEYSTORE_PASSWORD);
     public static final Setting<String> SSL_KEYSTORE_PASSWORD_SETTING =
-            new Setting<>(SSL_KEYSTORE_PASSWORD, s -> sslKeystorePassword = s, () -> sslKeystorePassword);
+            new Setting<>(SSL_KEYSTORE_PASSWORD, Plateform.ALL, s -> sslKeystorePassword = s, () -> sslKeystorePassword);
 
     public static final String SSL_CIPHER_SUITES = "sslCipherSuites";
     public static String sslCipherSuites = System.getProperty(SSL_CIPHER_SUITES);
     public static final Setting<String> SSL_CIPHER_SUITES_SETTING =
-            new Setting<>(SSL_CIPHER_SUITES, s -> sslCipherSuites = s, () -> sslCipherSuites);
+            new Setting<>(SSL_CIPHER_SUITES, Plateform.ALL, s -> sslCipherSuites = s, () -> sslCipherSuites);
 
     public static final String SSL_ENABLED_PROTOCOLS = "sslEnabledProtocols";
     public static String sslEnabledProtocols = System.getProperty(SSL_ENABLED_PROTOCOLS, "TLSv1.2,TLSv1.1,TLSv1");
     public static final Setting<String> SSL_ENABLED_PROTOCOLS_SETTING =
-            new Setting<>(SSL_ENABLED_PROTOCOLS, s -> sslEnabledProtocols = s, () -> sslEnabledProtocols);
+            new Setting<>(SSL_ENABLED_PROTOCOLS, Plateform.ALL, s -> sslEnabledProtocols = s, () -> sslEnabledProtocols);
 
     public static final String SSL_ENDPOINT_IDENTIFICATION_ALGORITHM = "sslEndpointIdentificationAlgorithm";
     public static String sslEndpointIdentificationAlgorithm = System.getProperty(SSL_ENDPOINT_IDENTIFICATION_ALGORITHM, "https");
     public static final Setting<String> SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_SETTING =
-            new Setting<>(SSL_ENDPOINT_IDENTIFICATION_ALGORITHM, s -> sslEndpointIdentificationAlgorithm = s, () -> sslEndpointIdentificationAlgorithm);
+            new Setting<>(SSL_ENDPOINT_IDENTIFICATION_ALGORITHM, Plateform.KAFKA, s -> sslEndpointIdentificationAlgorithm = s, () -> sslEndpointIdentificationAlgorithm);
 
     public static final String SSL_ALLOW_INSECURE_CONNECTION = "sslAllowInsecureConnection";
     public static boolean sslAllowInsecureConnection = Boolean.getBoolean(SSL_ALLOW_INSECURE_CONNECTION);
     public static final Setting<Boolean> SSL_ALLOW_INSECURE_CONNECTION_SETTING =
-            new Setting<>(SSL_ALLOW_INSECURE_CONNECTION, s -> sslAllowInsecureConnection = Boolean.parseBoolean(s), () -> sslAllowInsecureConnection);
+            new Setting<>(SSL_ALLOW_INSECURE_CONNECTION, Plateform.PULSAR, s -> sslAllowInsecureConnection = Boolean.parseBoolean(s), () -> sslAllowInsecureConnection);
 
     public static final String SSL_HOSTNAME_VERIFICATION_ENABLE = "sslHostnameVerificationEnable";
     public static boolean sslHostnameVerificationEnable = Boolean.getBoolean(SSL_HOSTNAME_VERIFICATION_ENABLE);
     public static final Setting<Boolean> SSL_HOSTNAME_VERIFICATION_ENABLE_SETTING =
-            new Setting<>(SSL_HOSTNAME_VERIFICATION_ENABLE, s -> sslHostnameVerificationEnable = Boolean.parseBoolean(s), () -> sslHostnameVerificationEnable);
+            new Setting<>(SSL_HOSTNAME_VERIFICATION_ENABLE, Plateform.PULSAR, s -> sslHostnameVerificationEnable = Boolean.parseBoolean(s), () -> sslHostnameVerificationEnable);
 
     public static final String PULSAR_AUTH_PLUGIN_CLASS_NAME = "pulsarAuthPluginClassName";
     public static String pulsarAuthPluginClassName = System.getProperty(PULSAR_AUTH_PLUGIN_CLASS_NAME);
     public static final Setting<String> PULSAR_AUTH_PLUGIN_CLASS_NAME_SETTING =
-            new Setting<>(PULSAR_AUTH_PLUGIN_CLASS_NAME, s -> pulsarAuthPluginClassName = s, () -> pulsarAuthPluginClassName);
+            new Setting<>(PULSAR_AUTH_PLUGIN_CLASS_NAME, Plateform.PULSAR, s -> pulsarAuthPluginClassName = s, () -> pulsarAuthPluginClassName);
 
     public static final String PULSAR_AUTH_PARAMS = "pulsarAuthParams";
     public static String pulsarAuthParams = System.getProperty(PULSAR_AUTH_PARAMS);
     public static final Setting<String> PULSAR_AUTH_PARAMS_SETTING =
-            new Setting<>(PULSAR_AUTH_PARAMS, s -> pulsarAuthParams = s, () -> pulsarAuthParams);
+            new Setting<>(PULSAR_AUTH_PARAMS, Plateform.PULSAR, s -> pulsarAuthParams = s, () -> pulsarAuthParams);
 
     // generic properties for kafka client
     public static final String KAFKA_PROPERTIES = "kafkaProperties";
     public static Map<String, String> kafkaProperties = new HashMap<>();
     public static final Setting<Map<String, String>> KAFKA_PROPERTIES_SETTINGS =
-            new Setting<>(KAFKA_PROPERTIES,
+            new Setting<>(KAFKA_PROPERTIES, Plateform.KAFKA,
                     s -> {
                         for (String param : s.split(",")) {
                             int i = param.indexOf("=");
@@ -196,7 +201,7 @@ public class ProducerConfig {
      *
      * @param agentParameters
      */
-    public static void configure(String agentParameters) {
+    public static void configure(Plateform plateform, String agentParameters) {
         if (agentParameters != null) {
             for (String token : agentParameters.split("(?<!\\\\),\\s*")) {
                 String param = token.replace("\\,", ",");
@@ -206,6 +211,9 @@ public class ProducerConfig {
                     String value = param.substring(i + 1);
                     Setting<?> setting = settingMap.get(key);
                     if (setting != null) {
+                        if (!setting.plateform.equals(Plateform.ALL) && !setting.plateform.equals(plateform)) {
+                            throw new IllegalArgumentException(String.format("Unsupported parameter '%s' for the %s platform ", key, plateform));
+                        }
                         setting.initializer.apply(value);
                     } else {
                         throw new RuntimeException(String.format("Unknown parameter '%s'", key));
@@ -216,9 +224,11 @@ public class ProducerConfig {
         if (log.isInfoEnabled()) {
             StringBuilder sb = new StringBuilder();
             settings.forEach(s -> {
-                if (sb.length() > 0)
-                    sb.append(", ");
-                sb.append(s.name).append("=").append(s.supplier.get());
+                if (s.plateform.equals(Plateform.ALL) || !s.plateform.equals(plateform)) {
+                    if (sb.length() > 0)
+                        sb.append(", ");
+                    sb.append(s.name).append("=").append(s.supplier.get());
+                }
             });
             log.info(sb.toString());
         }
