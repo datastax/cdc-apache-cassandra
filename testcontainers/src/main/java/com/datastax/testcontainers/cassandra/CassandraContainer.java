@@ -1,12 +1,12 @@
 /**
  * Copyright DataStax, Inc 2021.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -23,6 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 import org.testcontainers.containers.ContainerState;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.Network;
 import org.testcontainers.delegate.DatabaseDelegate;
 import org.testcontainers.ext.ScriptUtils;
 import org.testcontainers.ext.ScriptUtils.ScriptLoadException;
@@ -34,11 +35,13 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.Locale;
 import java.util.Optional;
 
 /**
  * Cassandra container
- *
+ * <p>
  * Supports 2.x and 3.x Cassandra versions
  *
  * @author Eugeny Karpov
@@ -81,7 +84,9 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
 
         addExposedPort(CQL_PORT);
         setStartupAttempts(1);
-        withLogConsumer(o -> { log.info("{}}> {}", getContainerName(), o.getUtf8String()); });
+        withLogConsumer(o -> {
+            log.info("{}}> {}", getContainerName(), o.getUtf8String());
+        });
     }
 
     @Override
@@ -120,7 +125,7 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
 
     /**
      * Map (effectively replace) directory in Docker with the content of resourceLocation if resource location is not null
-     *
+     * <p>
      * Protected to allow for changing implementation by extending the class
      *
      * @param pathNameInContainer path in docker
@@ -170,7 +175,7 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
 
     /**
      * Get username
-     *
+     * <p>
      * By default Cassandra has authenticator: AllowAllAuthenticator in cassandra.yaml
      * If username and password need to be used, then authenticator should be set as PasswordAuthenticator
      * (through custom Cassandra configuration) and through CQL with default cassandra-cassandra credentials
@@ -182,7 +187,7 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
 
     /**
      * Get password
-     *
+     * <p>
      * By default Cassandra has authenticator: AllowAllAuthenticator in cassandra.yaml
      * If username and password need to be used, then authenticator should be set as PasswordAuthenticator
      * (through custom Cassandra configuration) and through CQL with default cassandra-cassandra credentials
@@ -196,11 +201,13 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
         return getHost() + ":" + getMappedPort(CassandraContainer.CQL_PORT);
     }
 
-    public String getLocalDc() { return CassandraContainer.LOCAL_DC; }
+    public String getLocalDc() {
+        return CassandraContainer.LOCAL_DC;
+    }
 
     /**
      * Get configured Cluster
-     *
+     * <p>
      * Can be used to obtain connections to Cassandra in the container
      */
     public CqlSession getCqlSession() {
@@ -210,8 +217,8 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
     public static CqlSession getCqlSession(ContainerState containerState, Object meterRegistry) {
         InetSocketAddress endpoint = new InetSocketAddress(containerState.getHost(), containerState.getMappedPort(CQL_PORT));
         final CqlSessionBuilder builder = CqlSession.builder()
-            .addContactPoint(endpoint)
-            .withLocalDatacenter(LOCAL_DC);
+                .addContactPoint(endpoint)
+                .withLocalDatacenter(LOCAL_DC);
 
         if (meterRegistry != null) {
             builder.withMetricRegistry(meterRegistry);
@@ -225,5 +232,49 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
 
     private DatabaseDelegate getDatabaseDelegate() {
         return new CassandraDatabaseDelegate(this);
+    }
+
+    public static CassandraContainer<?> createCassandraContainerWithPulsarProducer(String image,
+                                                                                   Network network,
+                                                                                   int nodeIndex,
+                                                                                   String version,
+                                                                                   String pulsarServiceUrl) {
+        return createCassandraContainerWithProducer(image, network, nodeIndex,
+                String.format("producer-%s-pulsar", version),
+                String.format("pulsarServiceUrl=%s", pulsarServiceUrl));
+    }
+
+    public static CassandraContainer<?> createCassandraContainerWithKafkaProducer(String image,
+                                                                                  Network network,
+                                                                                  int nodeIndex,
+                                                                                  String version,
+                                                                                  String kafkaBrokers,
+                                                                                  String kafkaSchemaRegistryUrl) {
+        return createCassandraContainerWithProducer(image, network, nodeIndex,
+                String.format("producer-%s-kafka", version),
+                String.format("kafkaBrokers=%s,kafkaSchemaRegistryUrl=%s", kafkaBrokers, kafkaSchemaRegistryUrl));
+    }
+
+    public static CassandraContainer<?> createCassandraContainerWithProducer(String image,
+                                                                             Network network,
+                                                                             int nodeIndex,
+                                                                             String agentName,
+                                                                             String agentParams) {
+        String buildDir = System.getProperty("buildDir");
+        String projectVersion = System.getProperty("projectVersion");
+        String jarFile = String.format(Locale.ROOT, "%s-%s-all.jar", agentName, projectVersion);
+        CassandraContainer<?> cassandraContainer = new CassandraContainer<>(image)
+                .withCreateContainerCmdModifier(c -> c.withName("cassandra-" + nodeIndex))
+                .withNetwork(network)
+                .withConfigurationOverride("cassandra-cdc" + nodeIndex)
+                .withFileSystemBind(
+                        String.format(Locale.ROOT, "%s/libs/%s", buildDir, jarFile),
+                        String.format(Locale.ROOT, "/%s", jarFile))
+                .withEnv("JVM_EXTRA_OPTS", String.format(Locale.ROOT, "-javaagent:/%s=%s", jarFile, agentParams))
+                .withStartupTimeout(Duration.ofSeconds(120));
+        if (nodeIndex > 1) {
+            cassandraContainer.withEnv("CASSANDRA_SEEDS", "cassandra-1");
+        }
+        return cassandraContainer;
     }
 }
