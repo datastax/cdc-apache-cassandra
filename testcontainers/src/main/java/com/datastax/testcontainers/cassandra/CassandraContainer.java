@@ -266,7 +266,7 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
         CassandraContainer<?> cassandraContainer = new CassandraContainer<>(image)
                 .withCreateContainerCmdModifier(c -> c.withName("cassandra-" + nodeIndex))
                 .withNetwork(network)
-                .withConfigurationOverride("cassandra-cdc" + nodeIndex)
+                .withConfigurationOverride("cassandra")
                 .withFileSystemBind(
                         String.format(Locale.ROOT, "%s/libs/%s", buildDir, jarFile),
                         String.format(Locale.ROOT, "/%s", jarFile))

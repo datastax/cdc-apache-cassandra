@@ -19,12 +19,15 @@ import com.datastax.cassandra.cdc.MutationValue;
 import com.google.common.collect.ImmutableMap;
 import io.confluent.connect.avro.AvroConverter;
 import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
+import io.confluent.kafka.streams.serdes.avro.ReflectionAvroSerializer;
 import io.debezium.data.Uuid;
 import io.debezium.time.Date;
 import io.debezium.time.NanoDuration;
 import io.debezium.time.Time;
 import io.debezium.time.Timestamp;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.avro.Conversions;
+import org.apache.avro.reflect.ReflectData;
 import org.apache.cassandra.db.marshal.*;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
@@ -51,13 +54,9 @@ public class KafkaMutationSender implements MutationSender<TableMetadata> , Auto
 
     public static final String SCHEMA_DOC_PREFIX = "Primary key schema for table ";
 
-    final Map<String, Schema> schemas = new HashMap<>();
-
-    final Schema valueSchema;
-    final Converter valueConverter;
     final Converter keyConverter;
-
-    KafkaProducer<?, ?> kafkaProducer; // lazy init
+    final Map<String, Schema> schemas = new HashMap<>();
+    KafkaProducer<?, MutationValue> kafkaProducer; // lazy init
 
     final Executor executor = Executors.newFixedThreadPool(1);
 
@@ -93,20 +92,6 @@ public class KafkaMutationSender implements MutationSender<TableMetadata> , Auto
         // Kafka Converter for the Mutation key
         keyConverter = new AvroConverter();
         keyConverter.configure(converterConfig, true);
-
-        // Kafka Converter for the MutationValue
-        valueConverter = new AvroConverter();
-        valueConverter.configure(converterConfig, false);
-
-        // Kafka Schema for MutationValue
-        valueSchema = SchemaBuilder.struct()
-                .name("com.datastax.cassandra.cdc.MutationValue")
-                .doc("Dirty cassandra mutation info")
-                .field("md5Digest", Schema.STRING_SCHEMA)
-                .field("nodeId", Schema.STRING_SCHEMA)
-                .field("columns", SchemaBuilder.array(Schema.STRING_SCHEMA).optional().build())
-                .build();
-        log.debug("Avro mutation valueSchema={}", valueSchema);
     }
 
     @SuppressWarnings("rawtypes")
@@ -133,14 +118,17 @@ public class KafkaMutationSender implements MutationSender<TableMetadata> , Auto
 
     @Override
     public void initialize() throws Exception {
-        String producerName = "kafka-producer-" + StorageService.instance.getLocalHostId();
+        // Add the AVRO logical type for UUID
+        ReflectData.get().addLogicalTypeConversion(new Conversions.UUIDConversion());
+        ReflectData.AllowNull.get().addLogicalTypeConversion(new Conversions.UUIDConversion());
+
+        String producerName = "cdc-producer-" + StorageService.instance.getLocalHostId();
         Properties props = new Properties();
         props.put(org.apache.kafka.clients.producer.ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, ProducerConfig.kafkaBrokers);
         props.put(org.apache.kafka.clients.producer.ProducerConfig.CLIENT_ID_CONFIG, producerName);
         props.put(org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, org.apache.kafka.common.serialization.ByteArraySerializer.class.getName());
-        props.put(org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, org.apache.kafka.common.serialization.ByteArraySerializer.class.getName());
-        //props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, CustomPartitioner.class.getName());
-
+        props.put(org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ReflectionAvroSerializer.class.getName());
+        props.put("schema.registry.url", ProducerConfig.kafkaSchemaRegistryUrl);
         ProducerConfig.configureKafkaTls(props);
         props.putAll(ProducerConfig.kafkaProperties);
 
@@ -160,24 +148,13 @@ public class KafkaMutationSender implements MutationSender<TableMetadata> , Auto
         }
     }
 
-    Struct buildValue(MutationValue mutationValue) {
-        log.debug("mutationValue={}", mutationValue);
-        Struct struct = new Struct(this.valueSchema)
-                .put("md5Digest", mutationValue.getMd5Digest())
-                .put("nodeId", mutationValue.getNodeId().toString());
-        if (mutationValue.getColumns() != null)
-            struct.put("columns", Arrays.asList(mutationValue.getColumns()));
-        return struct;
-    }
-
     @Override
     @SuppressWarnings({"rawtypes","unchecked"})
     public CompletionStage<Void> sendMutationAsync(final Mutation<TableMetadata> mutation) throws Exception {
         Schema keySchema = getKeySchema(mutation.getMetadata());
         String topicName = ProducerConfig.topicPrefix + mutation.getMetadata().keyspace + "." + mutation.getMetadata().name;
         byte[] serializedKey = keyConverter.fromConnectData(topicName, keySchema, buildKey(keySchema, mutation.primaryKeyCells()));
-        byte[] serializedValue = valueConverter.fromConnectData(topicName, valueSchema, buildValue(mutation.mutationValue()));
-        ProducerRecord record = new ProducerRecord(topicName, serializedKey, serializedValue);
+        ProducerRecord record = new ProducerRecord(topicName, serializedKey, mutation.mutationValue());
         log.debug("Sending kafka record={}", record);
 
         if (kafkaProducer == null) {

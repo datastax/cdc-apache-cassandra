@@ -81,11 +81,10 @@ public class PulsarProducerV4Tests {
     @Test
     public void testProducer() throws InterruptedException, IOException {
         String pulsarServiceUrl = "pulsar://pulsar:" + pulsarContainer.BROKER_PORT;
-        try (CassandraContainer<?> cassandraContainer1 =
-                     CassandraContainer.createCassandraContainerWithPulsarProducer(CASSANDRA_IMAGE, testNetwork, 1, "v4", pulsarServiceUrl);
-             CassandraContainer<?> cassandraContainer2 =
-                     CassandraContainer.createCassandraContainerWithPulsarProducer(CASSANDRA_IMAGE, testNetwork, 2, "v4", pulsarServiceUrl);
-        ) {
+        try (CassandraContainer<?> cassandraContainer1 = CassandraContainer.createCassandraContainerWithPulsarProducer(
+                CASSANDRA_IMAGE, testNetwork, 1, "v4", pulsarServiceUrl);
+             CassandraContainer<?> cassandraContainer2 = CassandraContainer.createCassandraContainerWithPulsarProducer(
+                     CASSANDRA_IMAGE, testNetwork, 2, "v4", pulsarServiceUrl)) {
             cassandraContainer1.start();
             cassandraContainer2.start();
 

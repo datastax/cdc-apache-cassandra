@@ -42,6 +42,7 @@ dependencies {
     implementation "org.apache.kafka:connect-json:${kafkaVersion}"
     implementation "io.confluent:kafka-avro-serializer:${confluentVersion}"
     implementation "io.confluent:kafka-connect-avro-converter:${confluentVersion}"
+    implementation "io.confluent:kafka-streams-avro-serde:${confluentVersion}"
 
     implementation("io.debezium:debezium-core:${debeziumVersion}")
     compileOnly("org.apache.cassandra:cassandra-all:${cassandra4Version}")
