@@ -51,7 +51,7 @@ import java.util.Properties;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @Slf4j
-public class KafkaSourceTests {
+public class KafkaCassandraSourceTests {
 
     public static final String CASSANDRA_IMAGE = "cassandra:4.0-beta4";
     public static final String CONFLUENT_PLATFORM_VERSION = "5.5.1";
@@ -62,7 +62,8 @@ public class KafkaSourceTests {
 
     private static String seed = "1";   // must match the source connector config
     private static Network testNetwork;
-    private static CassandraContainer<?> cassandraContainer;
+    private static CassandraContainer<?> cassandraContainer1;
+    private static CassandraContainer<?> cassandraContainer2;
     private static KafkaContainer kafkaContainer;
     private static SchemaRegistryContainer schemaRegistryContainer;
     private static KafkaConnectContainer kafkaConnectContainer;
@@ -81,48 +82,40 @@ public class KafkaSourceTests {
                 .withStartupTimeout(Duration.ofSeconds(30));
         kafkaContainer.start();
 
-        String internalBootstrapServers = String.format("PLAINTEXT:/%s:%s", kafkaContainer.getContainerName(), 9092);
+        String internalKafkaBootstrapServers = String.format("PLAINTEXT:/%s:%s", kafkaContainer.getContainerName(), 9092);
         schemaRegistryContainer = SchemaRegistryContainer
-                .create(KAFKA_SCHEMA_REGISTRY_IMAGE, seed, internalBootstrapServers)
+                .create(KAFKA_SCHEMA_REGISTRY_IMAGE, seed, internalKafkaBootstrapServers)
                 .withNetwork(testNetwork)
                 .withStartupTimeout(Duration.ofSeconds(30));
         schemaRegistryContainer.start();
 
-        String producerBuildDir = System.getProperty("producerBuildDir");
         String sourceBuildDir = System.getProperty("sourceBuildDir");
         String projectVersion = System.getProperty("projectVersion");
-        String producerJarFile = String.format(Locale.ROOT, "producer-v4-kafka-%s-all.jar", projectVersion);
         String sourceJarFile = String.format(Locale.ROOT, "source-kafka-%s-all.jar", projectVersion);
-        cassandraContainer = new CassandraContainer<>(CASSANDRA_IMAGE)
-                .withCreateContainerCmdModifier(c -> c.withName("cassandra-" + seed))
-                .withLogConsumer(new Slf4jLogConsumer(log))
-                .withNetwork(testNetwork)
-                .withConfigurationOverride("cassandra-cdc")
-                .withFileSystemBind(
-                        String.format(Locale.ROOT, "%s/libs/%s", producerBuildDir, producerJarFile),
-                        String.format(Locale.ROOT, "/%s", producerJarFile))
-                .withEnv("JVM_EXTRA_OPTS", String.format(
-                        Locale.ROOT,
-                        "-javaagent:/%s=kafkaBrokers=%s,kafkaSchemaRegistryUrl=%s",
-                        producerJarFile,
-                        internalBootstrapServers,
-                        schemaRegistryContainer.getRegistryUrlInDockerNetwork()))
-                .withStartupTimeout(Duration.ofSeconds(120));
-        cassandraContainer.start();
-
         kafkaConnectContainer = KafkaConnectContainer
-                .create(KAFKA_CONNECT_IMAGE, seed, internalBootstrapServers, schemaRegistryContainer.getRegistryUrlInDockerNetwork())
+                .create(KAFKA_CONNECT_IMAGE, seed, internalKafkaBootstrapServers, schemaRegistryContainer.getRegistryUrlInDockerNetwork())
                 .withNetwork(testNetwork)
                 .withFileSystemBind(
                         String.format(Locale.ROOT, "%s/libs/%s", sourceBuildDir, sourceJarFile),
                         String.format(Locale.ROOT, "/connect-plugins/%s", sourceJarFile))
                 .withStartupTimeout(Duration.ofSeconds(180));
         kafkaConnectContainer.start();
+
+        String producerBuildDir = System.getProperty("producerBuildDir");
+        cassandraContainer1 = CassandraContainer.createCassandraContainerWithKafkaProducer(
+                CASSANDRA_IMAGE, testNetwork, 1, producerBuildDir, "v4",
+                internalKafkaBootstrapServers, schemaRegistryContainer.getRegistryUrlInDockerNetwork());
+        cassandraContainer2 = CassandraContainer.createCassandraContainerWithKafkaProducer(
+                CASSANDRA_IMAGE, testNetwork, 2, producerBuildDir, "v4",
+                internalKafkaBootstrapServers, schemaRegistryContainer.getRegistryUrlInDockerNetwork());
+        cassandraContainer1.start();
+        cassandraContainer2.start();
     }
 
     @AfterAll
     public static void closeAfterAll() {
-        cassandraContainer.close();
+        cassandraContainer1.close();
+        cassandraContainer2.close();
         kafkaConnectContainer.close();
         schemaRegistryContainer.close();
         kafkaContainer.close();
@@ -171,9 +164,9 @@ public class KafkaSourceTests {
     }
 
     public void testSourceConnector(String ksName, Converter keyConverter, Converter valueConverter, boolean schemaWithNullValue) throws InterruptedException, IOException {
-        try(CqlSession cqlSession = cassandraContainer.getCqlSession()) {
+        try(CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
             cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName +
-                    " WITH replication = {'class':'SimpleStrategy','replication_factor':'1'};");
+                    " WITH replication = {'class':'SimpleStrategy','replication_factor':'2'};");
             cqlSession.execute("CREATE TABLE IF NOT EXISTS "+ksName+".table1 (id text PRIMARY KEY, a int) WITH cdc=true");
             cqlSession.execute("INSERT INTO "+ksName+".table1 (id, a) VALUES('1',1)");
             cqlSession.execute("INSERT INTO "+ksName+".table1 (id, a) VALUES('2',1)");
@@ -272,7 +265,7 @@ public class KafkaSourceTests {
         assertEquals(4, mutationTable2);
 
         // trigger a schema update
-        try(CqlSession cqlSession = cassandraContainer.getCqlSession()) {
+        try(CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
             cqlSession.execute("ALTER TABLE "+ksName+".table1 ADD b double");
             cqlSession.execute("INSERT INTO "+ksName+".table1 (id,a,b) VALUES('1',1,1.0)");
 
@@ -359,7 +352,7 @@ public class KafkaSourceTests {
         assertEquals(5, mutationTable2);
 
         // delete rows
-        try(CqlSession cqlSession = cassandraContainer.getCqlSession()) {
+        try(CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
             cqlSession.execute("DELETE FROM "+ksName+".table1 WHERE id = '1'");
             cqlSession.execute("DELETE FROM "+ksName+".table2 WHERE a = '1' AND b = 1");
         }

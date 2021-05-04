@@ -26,7 +26,7 @@ A Pulsar key-shared subscription ensure all mutations for a given primary key ar
 
 ## Test
 
-    ./gradlew clean  source-pulsar:test --tests com.datastax.oss.pulsar.source.CassandraSourceTests
+    ./gradlew clean  source-pulsar:test --tests com.datastax.oss.pulsar.source.PulsarCassandraSourceTests
     
 ## Run
 

@@ -15,19 +15,16 @@
  */
 package com.datastax.oss.pulsar.source;
 
+import com.datastax.cassandra.cdc.MutationValue;
 import com.datastax.oss.cdc.CassandraClient;
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
 import com.datastax.oss.cdc.MutationCache;
-import com.datastax.cassandra.cdc.MutationValue;
 import com.datastax.oss.cdc.Version;
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.metadata.schema.*;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
 import com.datastax.oss.pulsar.source.converters.AvroConverter;
-import com.datastax.oss.pulsar.source.converters.JsonConverter;
-import com.datastax.oss.pulsar.source.converters.ProtobufConverter;
-import com.datastax.oss.pulsar.source.converters.StringConverter;
 import com.datastax.oss.sink.pulsar.ConfigUtil;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
@@ -37,12 +34,10 @@ import io.vavr.Tuple3;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.api.*;
-import org.apache.pulsar.client.api.schema.GenericObject;
 import org.apache.pulsar.client.api.schema.GenericRecord;
 import org.apache.pulsar.client.impl.schema.AvroSchema;
 import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.common.schema.KeyValueEncodingType;
-import org.apache.pulsar.common.schema.SchemaType;
 import org.apache.pulsar.functions.api.KVRecord;
 import org.apache.pulsar.functions.api.Record;
 import org.apache.pulsar.io.core.Source;
@@ -52,7 +47,9 @@ import org.apache.pulsar.io.core.annotations.IOType;
 
 import java.lang.reflect.InvocationTargetException;
 import java.time.Duration;
-import java.util.*;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**

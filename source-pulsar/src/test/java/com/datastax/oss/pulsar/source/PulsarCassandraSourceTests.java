@@ -17,7 +17,6 @@ package com.datastax.oss.pulsar.source;
 
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
 import com.datastax.oss.common.sink.config.ContactPointsValidator;
-import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.pulsar.source.converters.AvroConverter;
 import com.datastax.oss.pulsar.source.converters.JsonConverter;
@@ -25,17 +24,16 @@ import com.datastax.testcontainers.cassandra.CassandraContainer;
 import com.datastax.testcontainers.pulsar.PulsarContainer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.api.*;
-import org.apache.pulsar.client.api.schema.*;
-import org.apache.pulsar.client.impl.schema.generic.GenericSchemaImpl;
+import org.apache.pulsar.client.api.schema.Field;
+import org.apache.pulsar.client.api.schema.GenericObject;
+import org.apache.pulsar.client.api.schema.GenericRecord;
 import org.apache.pulsar.common.schema.KeyValue;
-import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.Network;
-import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
@@ -47,7 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 @Slf4j
-public class CassandraSourceTests {
+public class PulsarCassandraSourceTests {
     public static final String CASSANDRA_IMAGE = "cassandra:4.0-beta4";
     public static final String PULSAR_VERSION = "latest";
 
@@ -55,9 +53,8 @@ public class CassandraSourceTests {
 
     private static Network testNetwork;
     private static PulsarContainer<?> pulsarContainer;
-    private static String projectVersion = System.getProperty("projectVersion");
-
-    private static CassandraContainer<?> cassandraContainer;
+    private static CassandraContainer<?> cassandraContainer1;
+    private static CassandraContainer<?> cassandraContainer2;
 
     @BeforeAll
     public static final void initBeforeClass() throws Exception {
@@ -84,38 +81,31 @@ public class CassandraSourceTests {
                 "/pulsar/bin/pulsar-admin", "namespaces", "set-is-allow-auto-update-schema", "public/default", "--enable");
         assertEquals(0, result.getExitCode());
 
+        String pulsarServiceUrl = "pulsar://pulsar:" + pulsarContainer.BROKER_PORT;
         String producerBuildDir = System.getProperty("producerBuildDir");
-        String producerJarFile = String.format(Locale.ROOT, "producer-v4-pulsar-%s-all.jar", projectVersion);
-        cassandraContainer = new CassandraContainer<>(CASSANDRA_IMAGE)
-                .withCreateContainerCmdModifier(c -> c.withName("cassandra"))
-                .withLogConsumer(new Slf4jLogConsumer(log))
-                .withNetwork(testNetwork)
-                .withConfigurationOverride("cassandra-cdc")
-                .withFileSystemBind(
-                        String.format(Locale.ROOT, "%s/libs/%s", producerBuildDir, producerJarFile),
-                        String.format(Locale.ROOT, "/%s", producerJarFile))
-                .withEnv("JVM_EXTRA_OPTS", String.format(
-                        Locale.ROOT,
-                        "-javaagent:/%s=pulsarServiceUrl=%s",
-                        producerJarFile, "pulsar://pulsar:" + pulsarContainer.BROKER_PORT))
-                .withStartupTimeout(Duration.ofSeconds(120));
-        cassandraContainer.start();
+        cassandraContainer1 = CassandraContainer.createCassandraContainerWithPulsarProducer(
+                CASSANDRA_IMAGE, testNetwork, 1, producerBuildDir,"v4", pulsarServiceUrl);
+        cassandraContainer2 = CassandraContainer.createCassandraContainerWithPulsarProducer(
+                CASSANDRA_IMAGE, testNetwork, 2, producerBuildDir,"v4", pulsarServiceUrl);
+        cassandraContainer1.start();
+        cassandraContainer2.start();
     }
 
     @AfterAll
     public static void closeAfterAll() {
+        cassandraContainer1.close();
+        cassandraContainer2.close();
         pulsarContainer.close();
-        cassandraContainer.close();
     }
 
     @Test
     public void testWithAvroConverter() throws InterruptedException, IOException {
-        testSourceConnector("ks1", AvroConverter.class, AvroConverter.class, SchemaType.AVRO);
+        testSourceConnector("ks1", AvroConverter.class, AvroConverter.class);
     }
 
     @Test
     public void testWithJsonConverter() throws InterruptedException, IOException {
-        testSourceConnector("ks2", AvroConverter.class, JsonConverter.class, SchemaType.JSON);
+        testSourceConnector("ks2", AvroConverter.class, JsonConverter.class);
     }
 
     void deploySourceConnector(String ksName, String tableName,
@@ -130,17 +120,15 @@ public class CassandraSourceTests {
                 "--name", "cassandra-source-" + ksName + "-" + tableName,
                 "--destination-topic-name", "data-" + ksName + "." + tableName,
                 "--source-config",
-                String.format(Locale.ROOT, "{\"%s\":\"cassandra\", \"%s\":\"datacenter1\", \"%s\":\"%s\", \"%s\":\"%s\", \"%s\": \"%s\", \"%s\":\"sub1\", \"%s\":\"%s\",\"%s\":\"%s\"}",
-                        ContactPointsValidator.CONTACT_POINTS_OPT,
-                        CassandraSourceConnectorConfig.DC_OPT,
+                String.format(Locale.ROOT, "{\"%s\":\"%s\", \"%s\":\"%s\", \"%s\":\"%s\", \"%s\":\"%s\", \"%s\": \"%s\", \"%s\":\"%s\", \"%s\":\"%s\",\"%s\":\"%s\"}",
+                        ContactPointsValidator.CONTACT_POINTS_OPT, "cassandra-1",
+                        CassandraSourceConnectorConfig.DC_OPT, "datacenter1",
                         CassandraSourceConnectorConfig.KEYSPACE_NAME_CONFIG, ksName,
                         CassandraSourceConnectorConfig.TABLE_NAME_CONFIG, tableName,
                         CassandraSourceConnectorConfig.EVENTS_TOPIC_NAME_CONFIG, "persistent://public/default/events-" + ksName + "." + tableName,
-                        CassandraSourceConnectorConfig.EVENTS_SUBSCRIPTION_NAME_CONFIG,
-                        CassandraSourceConnectorConfig.KEY_CONVERTER_CLASS_CONFIG,
-                        keyConverter.getName(),
-                        CassandraSourceConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG,
-                        valueConverter.getName()));
+                        CassandraSourceConnectorConfig.EVENTS_SUBSCRIPTION_NAME_CONFIG, "sub1",
+                        CassandraSourceConnectorConfig.KEY_CONVERTER_CLASS_CONFIG, keyConverter.getName(),
+                        CassandraSourceConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG, valueConverter.getName()));
         assertEquals(0, result.getExitCode());
     }
 
@@ -153,13 +141,13 @@ public class CassandraSourceTests {
         assertEquals(0, result.getExitCode());
     }
 
+    // docker exec -it pulsar cat /pulsar/logs/functions/public/default/cassandra-source-ks1-table1/cassandra-source-ks1-table1-0.log
     public void testSourceConnector(String ksName,
                                     Class<? extends Converter> keyConverter,
-                                    Class<? extends Converter> valueConverter,
-                                    SchemaType valueSchemaType) throws InterruptedException, IOException {
-        try (CqlSession cqlSession = cassandraContainer.getCqlSession()) {
+                                    Class<? extends Converter> valueConverter) throws InterruptedException, IOException {
+        try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
             cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName +
-                    " WITH replication = {'class':'SimpleStrategy','replication_factor':'1'};");
+                    " WITH replication = {'class':'SimpleStrategy','replication_factor':'2'};");
             cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table1 (id text PRIMARY KEY, a int) WITH cdc=true");
             cqlSession.execute("INSERT INTO " + ksName + ".table1 (id, a) VALUES('1',1)");
             cqlSession.execute("INSERT INTO " + ksName + ".table1 (id, a) VALUES('2',1)");
@@ -184,7 +172,7 @@ public class CassandraSourceTests {
                     .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                     .subscribe()) {
                 Message<GenericRecord> msg;
-                while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null && mutationTable1 < 4) {
+                while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null && mutationTable1 < 4) {
                     GenericObject genericObject = msg.getValue();
                     assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
                     KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
@@ -201,12 +189,12 @@ public class CassandraSourceTests {
                 assertEquals(4, mutationTable1);
 
                 // trigger a schema update
-                try(CqlSession cqlSession = cassandraContainer.getCqlSession()) {
+                try(CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
                     cqlSession.execute("ALTER TABLE "+ksName+".table1 ADD b double");
                     cqlSession.execute("INSERT INTO "+ksName+".table1 (id,a,b) VALUES('4',1,1.0)");
                 }
                 Thread.sleep(15000);  // wait commitlogs sync on disk
-                while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null && mutationTable1 < 5) {
+                while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null && mutationTable1 < 5) {
                     GenericObject genericObject = msg.getValue();
                     assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
                     KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
@@ -224,12 +212,12 @@ public class CassandraSourceTests {
                 }
                 assertEquals(5, mutationTable1);
 
-                // delete rows
-                try(CqlSession cqlSession = cassandraContainer.getCqlSession()) {
+                // delete a row
+                try(CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
                     cqlSession.execute("DELETE FROM "+ksName+".table1 WHERE id = '1'");
                 }
                 Thread.sleep(11000);    // wait commitlogs sync on disk
-                while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null && mutationTable1 < 6) {
+                while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null && mutationTable1 < 6) {
                     GenericObject genericObject = msg.getValue();
                     assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
                     KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
@@ -255,7 +243,7 @@ public class CassandraSourceTests {
                     .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                     .subscribe()) {
                 Message<GenericRecord> msg;
-                while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null && mutationTable2 < 4) {
+                while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null && mutationTable2 < 4) {
                     GenericObject genericObject = msg.getValue();
                     assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
                     KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
@@ -273,7 +261,7 @@ public class CassandraSourceTests {
                 assertEquals(4, mutationTable2);
 
                 // trigger a schema update
-                try(CqlSession cqlSession = cassandraContainer.getCqlSession()) {
+                try(CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
                     cqlSession.execute("CREATE TYPE "+ksName+".type2 (a bigint, b smallint);");
                     cqlSession.execute("ALTER TABLE "+ksName+".table2 ADD d type2");
                     cqlSession.execute("INSERT INTO "+ksName+".table2 (a,b,c,d) VALUES('1',1,1,{a:1,b:1})");
@@ -300,8 +288,8 @@ public class CassandraSourceTests {
                 }
                 assertEquals(5, mutationTable2);
 
-                // delete rows
-                try(CqlSession cqlSession = cassandraContainer.getCqlSession()) {
+                // delete a row
+                try(CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
                     cqlSession.execute("DELETE FROM "+ksName+".table2 WHERE a = '1' AND b = 1");
                 }
                 Thread.sleep(11000);    // wait commitlogs sync on disk

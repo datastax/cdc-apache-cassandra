@@ -239,7 +239,18 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
                                                                                    int nodeIndex,
                                                                                    String version,
                                                                                    String pulsarServiceUrl) {
-        return createCassandraContainerWithProducer(image, network, nodeIndex,
+        return createCassandraContainerWithProducer(image, network, nodeIndex, System.getProperty("buildDir"),
+                String.format("producer-%s-pulsar", version),
+                String.format("pulsarServiceUrl=%s", pulsarServiceUrl));
+    }
+
+    public static CassandraContainer<?> createCassandraContainerWithPulsarProducer(String image,
+                                                                                   Network network,
+                                                                                   int nodeIndex,
+                                                                                   String producerBuildDir,
+                                                                                   String version,
+                                                                                   String pulsarServiceUrl) {
+        return createCassandraContainerWithProducer(image, network, nodeIndex, producerBuildDir,
                 String.format("producer-%s-pulsar", version),
                 String.format("pulsarServiceUrl=%s", pulsarServiceUrl));
     }
@@ -250,7 +261,19 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
                                                                                   String version,
                                                                                   String kafkaBrokers,
                                                                                   String kafkaSchemaRegistryUrl) {
-        return createCassandraContainerWithProducer(image, network, nodeIndex,
+        return createCassandraContainerWithProducer(image, network, nodeIndex, System.getProperty("buildDir"),
+                String.format("producer-%s-kafka", version),
+                String.format("kafkaBrokers=%s,kafkaSchemaRegistryUrl=%s", kafkaBrokers, kafkaSchemaRegistryUrl));
+    }
+
+    public static CassandraContainer<?> createCassandraContainerWithKafkaProducer(String image,
+                                                                                  Network network,
+                                                                                  int nodeIndex,
+                                                                                  String producerBuildDir,
+                                                                                  String version,
+                                                                                  String kafkaBrokers,
+                                                                                  String kafkaSchemaRegistryUrl) {
+        return createCassandraContainerWithProducer(image, network, nodeIndex, producerBuildDir,
                 String.format("producer-%s-kafka", version),
                 String.format("kafkaBrokers=%s,kafkaSchemaRegistryUrl=%s", kafkaBrokers, kafkaSchemaRegistryUrl));
     }
@@ -258,9 +281,9 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
     public static CassandraContainer<?> createCassandraContainerWithProducer(String image,
                                                                              Network network,
                                                                              int nodeIndex,
+                                                                             String producerBuildDir,
                                                                              String agentName,
                                                                              String agentParams) {
-        String buildDir = System.getProperty("buildDir");
         String projectVersion = System.getProperty("projectVersion");
         String jarFile = String.format(Locale.ROOT, "%s-%s-all.jar", agentName, projectVersion);
         CassandraContainer<?> cassandraContainer = new CassandraContainer<>(image)
@@ -268,7 +291,7 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
                 .withNetwork(network)
                 .withConfigurationOverride("cassandra")
                 .withFileSystemBind(
-                        String.format(Locale.ROOT, "%s/libs/%s", buildDir, jarFile),
+                        String.format(Locale.ROOT, "%s/libs/%s", producerBuildDir, jarFile),
                         String.format(Locale.ROOT, "/%s", jarFile))
                 .withEnv("JVM_EXTRA_OPTS", String.format(Locale.ROOT, "-javaagent:/%s=%s", jarFile, agentParams))
                 .withStartupTimeout(Duration.ofSeconds(120));
