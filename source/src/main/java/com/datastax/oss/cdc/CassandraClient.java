@@ -24,7 +24,10 @@ import com.datastax.oss.common.sink.ssl.SessionBuilder;
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
+import com.datastax.oss.driver.api.core.config.DriverConfigLoader;
+import com.datastax.oss.driver.api.core.config.OptionsMap;
 import com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
+import com.datastax.oss.driver.api.core.config.TypedDriverOption;
 import com.datastax.oss.driver.api.core.cql.AsyncResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
@@ -82,8 +85,15 @@ public class CassandraClient implements AutoCloseable {
             SchemaChangeListener schemaChangeListener) {
         log.info("CassandraClient starting with config:\n{}\n", config.toString());
         SslConfig sslConfig = config.getSslConfig();
+
+        // refresh only our keyspace.
+        OptionsMap optionsMap = OptionsMap.driverDefaults();
+        optionsMap.put(TypedDriverOption.METADATA_SCHEMA_REFRESHED_KEYSPACES, Arrays.asList(config.getKeyspaceName()));
+        DriverConfigLoader loader = DriverConfigLoader.fromMap(optionsMap);
+
         CqlSessionBuilder builder =
                 new SessionBuilder(sslConfig)
+                        .withConfigLoader(loader)
                         .withApplicationVersion(version)
                         .withApplicationName(applicationName)
                         .withClientId(generateClientId(config.getInstanceName()))
