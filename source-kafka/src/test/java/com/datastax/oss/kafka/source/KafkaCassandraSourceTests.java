@@ -256,7 +256,7 @@ public class KafkaCassandraSourceTests {
         // expect exactly one update per PK
         for(int i=1; i < 4; i++) {
             assertEquals((Integer)1, mutationTable1.get(Integer.toString(i)));
-            assertEquals((Integer)2, mutationTable1.get(Integer.toString(i)));
+            assertEquals((Integer)1, mutationTable1.get(Integer.toString(i)));
         }
 
         // trigger a schema update
@@ -407,7 +407,7 @@ public class KafkaCassandraSourceTests {
             }
             consumer.commitSync();
         }
-        // expect 3 updates for PK = 1, and 1 for PK=2 and 3
+        // expect 3 updates for PK=1, and 1 for PK=2 and 3
         assertEquals((Integer)3, mutationTable1.get("1"));
         assertEquals((Integer)3, mutationTable2.get("1"));
         assertEquals((Integer)1, mutationTable1.get("2"));
