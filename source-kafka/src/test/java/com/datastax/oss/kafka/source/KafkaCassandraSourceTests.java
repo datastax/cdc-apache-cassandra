@@ -338,7 +338,7 @@ public class KafkaCassandraSourceTests {
                     assertEquals(expectedKeySchema2, keySchemaAndValue.schema());
                     assertEquals(expectedValue, valueSchemaAndValue.value());
                     assertEquals(expectedValueSchema2v2, valueSchemaAndValue.schema());
-                    mutationTable2.compute((String)keySchemaAndValue.value(), (k,v) -> v+1);
+                    mutationTable2.compute(((Struct)keySchemaAndValue.value()).getString("a"), (k,v) -> v+1);
                 }
             }
             consumer.commitSync();
@@ -402,7 +402,7 @@ public class KafkaCassandraSourceTests {
                     } else {
                         assertEquals(null, valueSchemaAndValue.schema());
                     }
-                    mutationTable2.compute((String)keySchemaAndValue.value(), (k,v) -> v+1);
+                    mutationTable2.compute(((Struct)keySchemaAndValue.value()).getString("a"), (k,v) -> v+1);
                 }
             }
             consumer.commitSync();
