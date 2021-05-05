@@ -59,7 +59,7 @@ import java.util.stream.Collectors;
 @Connector(
         name = "cassandra",
         type = IOType.SOURCE,
-        help = "The CassandraSource is used for moving messages from Cassandra to Pulsar.",
+        help = "The CassandraSource is used for moving data from Cassandra to Pulsar.",
         configClass = CassandraSourceConfig.class)
 @Slf4j
 public class CassandraSource implements Source<GenericRecord>, SchemaChangeListener {

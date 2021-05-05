@@ -45,7 +45,9 @@ import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -189,9 +191,6 @@ public class KafkaCassandraSourceTests {
         KafkaConsumer<byte[], byte[]> consumer = createConsumer("test-consumer-data-group-"+ksName);
         consumer.subscribe(ImmutableList.of("data-"+ksName+".table1", "data-"+ksName+".table2"));
         int noRecordsCount = 0;
-        int mutationTable1 = 1;
-        int mutationTable2 = 1;
-
 
         Schema expectedKeySchema1 = SchemaBuilder.string().optional().build();
         Schema expectedKeySchema2 = SchemaBuilder.struct()
@@ -218,6 +217,8 @@ public class KafkaCassandraSourceTests {
                 .field("c", SchemaBuilder.int32().optional().build())
                 .build();
 
+        Map<String, Integer> mutationTable1 = new HashMap<>();
+        Map<String, Integer> mutationTable2 = new HashMap<>();
         while(true) {
             final ConsumerRecords<byte[], byte[]> consumerRecords = consumer.poll(Duration.ofMillis(100));
             if (consumerRecords.count()==0) {
@@ -236,33 +237,27 @@ public class KafkaCassandraSourceTests {
                 System.out.println("key schema: " + CassandraConverter.schemaToString(keySchemaAndValue.schema()));
                 System.out.println("value schema: " + CassandraConverter.schemaToString(valueSchemaAndValue.schema()));
                 if (topicName.endsWith("table1")) {
-                    assertEquals(Integer.toString(mutationTable1), keySchemaAndValue.value());
-                    assertEquals(expectedKeySchema1, keySchemaAndValue.schema());
-                    Struct expectedValue = new Struct(valueSchemaAndValue.schema())
-                            .put("id", Integer.toString(mutationTable1))
-                            .put("a", 1);
-                    assertEquals(expectedValue, valueSchemaAndValue.value());
+                    assertEquals((Integer)0, mutationTable1.computeIfAbsent((String)keySchemaAndValue.value(), k -> 0));
                     assertEquals(expectedValueSchema1, valueSchemaAndValue.schema());
-                    mutationTable1++;
+                    assertEquals(expectedKeySchema1, keySchemaAndValue.schema());
+                    assertEquals((Integer)1, ((Struct)valueSchemaAndValue.value()).getInt32("a"));
+                    mutationTable1.compute((String)keySchemaAndValue.value(), (k,v) -> v+1);
                 } else if (topicName.endsWith("table2")) {
-                    Struct expectedKey = new Struct(keySchemaAndValue.schema())
-                            .put("a", Integer.toString(mutationTable2))
-                            .put("b", 1);
-                    Struct expectedValue = new Struct(valueSchemaAndValue.schema())
-                            .put("a", Integer.toString(mutationTable2))
-                            .put("b", 1)
-                            .put("c", 1);
-                    assertEquals(expectedKey, keySchemaAndValue.value());
+                    assertEquals((Integer)0, mutationTable2.computeIfAbsent(((Struct)keySchemaAndValue.value()).getString("a"), k -> 0));
+                    assertEquals((Integer)1, ((Struct)keySchemaAndValue.value()).getInt32("b"));
+                    assertEquals((Integer)1, ((Struct)valueSchemaAndValue.value()).getInt32("c"));
                     assertEquals(expectedKeySchema2, keySchemaAndValue.schema());
-                    assertEquals(expectedValue, valueSchemaAndValue.value());
                     assertEquals(expectedValueSchema2, valueSchemaAndValue.schema());
-                    mutationTable2++;
+                    mutationTable2.compute(((Struct)keySchemaAndValue.value()).getString("a"), (k,v) -> v+1);
                 }
             }
             consumer.commitSync();
         }
-        assertEquals(4, mutationTable1);
-        assertEquals(4, mutationTable2);
+        // expect exactly one update per PK
+        for(int i=1; i < 4; i++) {
+            assertEquals((Integer)1, mutationTable1.get(Integer.toString(i)));
+            assertEquals((Integer)2, mutationTable1.get(Integer.toString(i)));
+        }
 
         // trigger a schema update
         try(CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
@@ -327,7 +322,7 @@ public class KafkaCassandraSourceTests {
                             .put("b", 1.0d);
                     assertEquals(expectedValue, valueSchemaAndValue.value());
                     assertEquals(expectedValueSchema1v2, valueSchemaAndValue.schema());
-                    mutationTable1++;
+                    mutationTable1.compute((String)keySchemaAndValue.value(), (k,v) -> v+1);
                 } else if (topicName.endsWith("table2")) {
                     Struct expectedKey = new Struct(keySchemaAndValue.schema())
                             .put("a", "1")
@@ -343,13 +338,18 @@ public class KafkaCassandraSourceTests {
                     assertEquals(expectedKeySchema2, keySchemaAndValue.schema());
                     assertEquals(expectedValue, valueSchemaAndValue.value());
                     assertEquals(expectedValueSchema2v2, valueSchemaAndValue.schema());
-                    mutationTable2++;
+                    mutationTable2.compute((String)keySchemaAndValue.value(), (k,v) -> v+1);
                 }
             }
             consumer.commitSync();
         }
-        assertEquals(5, mutationTable1);
-        assertEquals(5, mutationTable2);
+        // expect 2 updates for PK = 1, and 1 for PK=2 and 3
+        assertEquals((Integer)2, mutationTable1.get("1"));
+        assertEquals((Integer)2, mutationTable2.get("1"));
+        assertEquals((Integer)1, mutationTable1.get("2"));
+        assertEquals((Integer)1, mutationTable2.get("2"));
+        assertEquals((Integer)1, mutationTable1.get("3"));
+        assertEquals((Integer)1, mutationTable2.get("3"));
 
         // delete rows
         try(CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
@@ -389,7 +389,7 @@ public class KafkaCassandraSourceTests {
                     } else {
                         assertEquals(null, valueSchemaAndValue.schema());
                     }
-                    mutationTable1++;
+                    mutationTable1.compute((String)keySchemaAndValue.value(), (k,v) -> v+1);
                 } else if (topicName.endsWith("table2")) {
                     Struct expectedKey = new Struct(keySchemaAndValue.schema())
                             .put("a", "1")
@@ -402,13 +402,18 @@ public class KafkaCassandraSourceTests {
                     } else {
                         assertEquals(null, valueSchemaAndValue.schema());
                     }
-                    mutationTable2++;
+                    mutationTable2.compute((String)keySchemaAndValue.value(), (k,v) -> v+1);
                 }
             }
             consumer.commitSync();
         }
-        assertEquals(6, mutationTable1);
-        assertEquals(6, mutationTable2);
+        // expect 3 updates for PK = 1, and 1 for PK=2 and 3
+        assertEquals((Integer)3, mutationTable1.get("1"));
+        assertEquals((Integer)3, mutationTable2.get("1"));
+        assertEquals((Integer)1, mutationTable1.get("2"));
+        assertEquals((Integer)1, mutationTable2.get("2"));
+        assertEquals((Integer)1, mutationTable1.get("3"));
+        assertEquals((Integer)1, mutationTable2.get("3"));
 
         consumer.close();
         assertEquals(204, kafkaConnectContainer.undeployConnector("cassandra-source-"+ksName+"-table1"));
