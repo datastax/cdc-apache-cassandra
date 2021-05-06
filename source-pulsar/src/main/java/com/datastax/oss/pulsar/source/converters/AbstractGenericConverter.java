@@ -42,6 +42,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 
 @Slf4j
@@ -49,6 +50,7 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
 
     public final GenericSchema<GenericRecord> schema;
     public final SchemaInfo schemaInfo;
+    public final SchemaType schemaType;
 
     public final Map<String, GenericSchema> udtSchemas = new HashMap<>();
 
@@ -59,6 +61,7 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
         }
         this.schemaInfo = recordSchemaBuilder.build(schemaType);
         this.schema = GenericSchemaImpl.of(schemaInfo);
+        this.schemaType = schemaType;
         if (log.isInfoEnabled()) {
             log.info("schema={}", schemaToString(this.schema));
             for(Map.Entry<String, GenericSchema> entry : udtSchemas.entrySet()) {
@@ -209,11 +212,12 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
 
     GenericRecord buildUDTValue(UdtValue udtValue) {
         String typeName = udtValue.getType().getKeyspace() + "." + udtValue.getType().getName().toString();
-        GenericSchema genericSchema = udtSchemas.get(typeName);
+        GenericSchema<?> genericSchema = udtSchemas.get(typeName);
         assert genericSchema != null : "Generic schema not found for UDT=" + typeName;
+        List<String> fields = genericSchema.getFields().stream().map(Field::getName).collect(Collectors.toList());
         GenericRecordBuilder genericRecordBuilder = genericSchema.newRecordBuilder();
         for(CqlIdentifier field : udtValue.getType().getFieldNames()) {
-            if (!udtValue.isNull(field)) {
+            if (fields.contains(field.asInternal()) && !udtValue.isNull(field)) {
                 DataType dataType = udtValue.getType(field);
                 switch (dataType.getProtocolCode()) {
                     case ProtocolConstants.DataType.UUID:
@@ -245,6 +249,9 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
                         break;
                     case ProtocolConstants.DataType.BOOLEAN:
                         genericRecordBuilder.set(field.toString(), udtValue.getBoolean(field));
+                        break;
+                    case ProtocolConstants.DataType.TIMESTAMP:
+                        genericRecordBuilder.set(field.toString(), udtValue.getLocalDate(field).toEpochDay());
                         break;
                     case ProtocolConstants.DataType.DATE:
                         genericRecordBuilder.set(field.toString(), udtValue.getLocalDate(field));

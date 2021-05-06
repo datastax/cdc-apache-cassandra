@@ -63,7 +63,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class CassandraSource implements Source<GenericRecord>, SchemaChangeListener {
 
-    CassandraSourceConnectorConfig cassandraSourceConnectorConfig;
+    CassandraSourceConnectorConfig config;
     CassandraClient cassandraClient;
     Consumer<KeyValue<GenericRecord, MutationValue>> consumer = null;
 
@@ -88,27 +88,27 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     @Override
     public void open(Map<String, Object> config, SourceContext sourceContext) throws Exception {
         Map<String, String> processorConfig = ConfigUtil.flatString(config);
-        this.cassandraSourceConnectorConfig = new CassandraSourceConnectorConfig(processorConfig);
-        this.cassandraClient = new CassandraClient(cassandraSourceConnectorConfig, Version.getVersion(), sourceContext.getSourceName(), this);
+        this.config = new CassandraSourceConnectorConfig(processorConfig);
+        this.cassandraClient = new CassandraClient(this.config, Version.getVersion(), sourceContext.getSourceName(), this);
 
-        if (Strings.isNullOrEmpty(cassandraSourceConnectorConfig.getEventsTopic())) {
+        if (Strings.isNullOrEmpty(this.config.getEventsTopic())) {
             throw new IllegalArgumentException("Events topic not set.");
         }
 
         Tuple2<KeyspaceMetadata, TableMetadata> tuple =
                 cassandraClient.getTableMetadata(
-                        cassandraSourceConnectorConfig.getKeyspaceName(),
-                        cassandraSourceConnectorConfig.getTableName());
+                        this.config.getKeyspaceName(),
+                        this.config.getTableName());
         if (tuple._2 == null) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Table %s.%s does not exist.",
-                    cassandraSourceConnectorConfig.getKeyspaceName(),
-                    cassandraSourceConnectorConfig.getTableName()));
+                    this.config.getKeyspaceName(),
+                    this.config.getTableName()));
         }
         this.pkColumns = tuple._2.getPrimaryKey().stream().map(c -> c.getName().asInternal()).collect(Collectors.toList());
-        if (cassandraSourceConnectorConfig.getKeyConverterClass() == null) {
+        if (this.config.getKeyConverterClass() == null) {
             throw new IllegalArgumentException("Key converter not defined.");
         }
-        this.keyConverter = createConverter(cassandraSourceConnectorConfig.getKeyConverterClass(),
+        this.keyConverter = createConverter(this.config.getKeyConverterClass(),
                 tuple._1,
                 tuple._2,
                 tuple._2.getPrimaryKey());
@@ -117,51 +117,56 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                 tuple._2,
                 tuple._2.getPrimaryKey());
 
-        if (cassandraSourceConnectorConfig.getValueConverterClass() == null) {
+        if (this.config.getValueConverterClass() == null) {
             throw new IllegalArgumentException("Value converter not defined.");
         }
         setValueConverterAndQuery(tuple._1, tuple._2);
 
-        if (!Strings.isNullOrEmpty(cassandraSourceConnectorConfig.getColumnsRegexp()) &&
-                !".*".equals(cassandraSourceConnectorConfig.getColumnsRegexp())) {
-            this.columnPattern = Optional.of(Pattern.compile(cassandraSourceConnectorConfig.getColumnsRegexp()));
+        if (!Strings.isNullOrEmpty(this.config.getColumnsRegexp()) &&
+                !".*".equals(this.config.getColumnsRegexp())) {
+            this.columnPattern = Optional.of(Pattern.compile(this.config.getColumnsRegexp()));
         }
 
-        this.dirtyTopicName = cassandraSourceConnectorConfig.getEventsTopic();
+        this.dirtyTopicName = this.config.getEventsTopic();
         ConsumerBuilder<KeyValue<GenericRecord, MutationValue>> consumerBuilder = sourceContext.newConsumerBuilder(eventsSchema)
                 .consumerName("CDC Consumer")
                 .topic(dirtyTopicName)
-                .subscriptionName(cassandraSourceConnectorConfig.getEventsSubscriptionName())
+                .subscriptionName(this.config.getEventsSubscriptionName())
                 .subscriptionType(SubscriptionType.Key_Shared)
                 .subscriptionMode(SubscriptionMode.Durable)
                 .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                 .keySharedPolicy(KeySharedPolicy.autoSplitHashRange());
         this.consumer = consumerBuilder.subscribe();
+
         this.mutationCache = new MutationCache<>(
-                cassandraSourceConnectorConfig.getCacheMaxDigests(),
-                cassandraSourceConnectorConfig.getCacheMaxDigests(),
-                Duration.ofMillis(cassandraSourceConnectorConfig.getCacheExpireAfterMs()));
+                this.config.getCacheMaxDigests(),
+                this.config.getCacheMaxCapacity(),
+                Duration.ofMillis(this.config.getCacheExpireAfterMs()));
+
         log.debug("Starting source connector topic={} subscription={}",
                 dirtyTopicName,
-                cassandraSourceConnectorConfig.getEventsSubscriptionName());
+                this.config.getEventsSubscriptionName());
     }
 
-    synchronized void setValueConverterAndQuery(KeyspaceMetadata ksm, TableMetadata tableMetadata)
-            throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
-        List<ColumnMetadata> columns = tableMetadata.getColumns().values().stream()
-                .filter(c -> !tableMetadata.getPrimaryKey().contains(c))
-                .filter(c -> !columnPattern.isPresent() || columnPattern.get().matcher(c.getName().asInternal()).matches())
-                .collect(Collectors.toList());
-        log.info("Schema update for table {}.{} replicated columns={}", ksm.getName(), tableMetadata.getName(),
-                columns.stream().map(c -> c.getName().asInternal()).collect(Collectors.toList()));
-        this.valueConverterAndQuery = new ConverterAndQuery(
-                createConverter(cassandraSourceConnectorConfig.getValueConverterClass(), ksm, tableMetadata, columns),
-                cassandraClient.buildSelect(tableMetadata, columns));
-        // Invalidate the prepare statement if the query has changed.
-        // We cannot build the statement here form a C* driver thread (can cause dead lock)
-        if (valueConverterAndQuery.getQuery().hashCode() != this.selectHash) {
-            this.selectStatement = null;
-            this.selectHash = valueConverterAndQuery.getQuery().hashCode();
+    synchronized void setValueConverterAndQuery(KeyspaceMetadata ksm, TableMetadata tableMetadata) {
+        try {
+            List<ColumnMetadata> columns = tableMetadata.getColumns().values().stream()
+                    .filter(c -> !tableMetadata.getPrimaryKey().contains(c))
+                    .filter(c -> !columnPattern.isPresent() || columnPattern.get().matcher(c.getName().asInternal()).matches())
+                    .collect(Collectors.toList());
+            log.info("Schema update for table {}.{} replicated columns={}", ksm.getName(), tableMetadata.getName(),
+                    columns.stream().map(c -> c.getName().asInternal()).collect(Collectors.toList()));
+            this.valueConverterAndQuery = new ConverterAndQuery(
+                    createConverter(config.getValueConverterClass(), ksm, tableMetadata, columns),
+                    cassandraClient.buildSelect(tableMetadata, columns));
+            // Invalidate the prepare statement if the query has changed.
+            // We cannot build the statement here form a C* driver thread (can cause dead lock)
+            if (valueConverterAndQuery.getQuery().hashCode() != this.selectHash) {
+                this.selectStatement = null;
+                this.selectHash = valueConverterAndQuery.getQuery().hashCode();
+            }
+        } catch (Exception e) {
+            log.error("Unexpected error", e);
         }
     }
 
@@ -309,8 +314,8 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     @SneakyThrows
     @Override
     public void onTableUpdated(@NonNull TableMetadata current, @NonNull TableMetadata previous) {
-        if (current.getKeyspace().asInternal().equals(cassandraSourceConnectorConfig.getKeyspaceName())
-                && current.getName().asInternal().equals(cassandraSourceConnectorConfig.getTableName())) {
+        if (current.getKeyspace().asInternal().equals(config.getKeyspaceName())
+                && current.getName().asInternal().equals(config.getTableName())) {
             KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(current.getKeyspace()).get();
             setValueConverterAndQuery(ksm, current);
         }
@@ -319,9 +324,9 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     @SneakyThrows
     @Override
     public void onUserDefinedTypeCreated(@NonNull UserDefinedType type) {
-        if (type.getKeyspace().asInternal().equals(cassandraSourceConnectorConfig.getKeyspaceName())) {
+        if (type.getKeyspace().asInternal().equals(config.getKeyspaceName())) {
             KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(type.getKeyspace()).get();
-            setValueConverterAndQuery(ksm, ksm.getTable(cassandraSourceConnectorConfig.getTableName()).get());
+            setValueConverterAndQuery(ksm, ksm.getTable(config.getTableName()).get());
         }
     }
 
@@ -333,9 +338,9 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     @SneakyThrows
     @Override
     public void onUserDefinedTypeUpdated(@NonNull UserDefinedType userDefinedType, @NonNull UserDefinedType userDefinedType1) {
-        if (userDefinedType.getKeyspace().asCql(true).equals(cassandraSourceConnectorConfig.getKeyspaceName())) {
+        if (userDefinedType.getKeyspace().asCql(true).equals(config.getKeyspaceName())) {
             KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(userDefinedType.getKeyspace()).get();
-            setValueConverterAndQuery(ksm, ksm.getTable(cassandraSourceConnectorConfig.getTableName()).get());
+            setValueConverterAndQuery(ksm, ksm.getTable(config.getTableName()).get());
         }
     }
 

@@ -202,9 +202,9 @@ public class PulsarCassandraSourceTests {
                 while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null &&
                         mutationTable1.values().stream().mapToInt(i -> i).sum() < 5) {
                     GenericObject genericObject = msg.getValue();
+                    Schema msgSchema = msg.getSchema().get();
                     assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
                     KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
-                    Schema msgSchema = msg.getSchema().get();
                     GenericRecord key = kv.getKey();
                     GenericRecord value = kv.getValue();
                     System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
@@ -212,8 +212,7 @@ public class PulsarCassandraSourceTests {
                             " value=" + genericRecordToString(value));
                     assertEquals("1", key.getField("id"));
                     assertEquals(1, value.getField("a"));
-                    // TODO: fix pulsar consumer schema not updated
-                    // assertEquals(1.0D, value.getField("b"));
+                    assertEquals(1.0D, value.getField("b"));
                     mutationTable1.compute((String)key.getField("id"), (k,v) -> v+1);
                     consumer.acknowledge(msg);
                 }
@@ -276,15 +275,17 @@ public class PulsarCassandraSourceTests {
                 assertEquals((Integer) 1, mutationTable2.get("3"));
 
                 // trigger a schema update
+                // TODO: only work for AVO supported types, properly decoded in JSON.
                 try(CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
-                    cqlSession.execute("CREATE TYPE "+ksName+".type2 (a bigint, b smallint);");
+                    cqlSession.execute("CREATE TYPE "+ksName+".type2 (a2 int, b2 boolean);");
                     cqlSession.execute("ALTER TABLE "+ksName+".table2 ADD d type2");
-                    cqlSession.execute("INSERT INTO "+ksName+".table2 (a,b,c,d) VALUES('1',1,1,{a:1,b:1})");
+                    cqlSession.execute("INSERT INTO "+ksName+".table2 (a,b,c,d) VALUES('1',1,1,{a2:1,b2:true})");
                 }
                 Thread.sleep(15000);    // wait commitlogs sync on disk
                 while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null &&
                         mutationTable2.values().stream().mapToInt(i -> i).sum() < 5) {
                     GenericObject genericObject = msg.getValue();
+                    Schema msgSchema = msg.getSchema().get();
                     assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
                     KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
                     GenericRecord key = kv.getKey();
@@ -295,10 +296,9 @@ public class PulsarCassandraSourceTests {
                     assertEquals("1", key.getField("a"));
                     assertEquals(1, key.getField("b"));
                     assertEquals(1, value.getField("c"));
-                    // TODO: fix pulsar consumer schema update
-                    //GenericRecord udtGenericRecord = (GenericRecord) value.getField("d");
-                    //assertEquals(1L, udtGenericRecord.getField("a"));
-                    //assertEquals((short)1, udtGenericRecord.getField("b"));
+                    GenericRecord udtGenericRecord = (GenericRecord) value.getField("d");
+                    assertEquals(1, udtGenericRecord.getField("a2"));
+                    assertEquals(true, udtGenericRecord.getField("b2"));
                     mutationTable2.compute((String)key.getField("a"), (k,v) -> v+1);
                     consumer.acknowledge(msg);
                 }

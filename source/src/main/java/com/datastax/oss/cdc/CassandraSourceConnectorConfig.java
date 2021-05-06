@@ -146,24 +146,24 @@ public class CassandraSourceConnectorConfig {
                             "The topic to publish cassandra data to")
                     .define(EVENTS_SUBSCRIPTION_NAME_CONFIG,
                             ConfigDef.Type.STRING,
-                            "connectorSubscription",
+                            "sub",
                             ConfigDef.Importance.HIGH,
-                            "The pulsar events topic subscription name.")
+                            "The pulsar events topic subscription name, with a default set to 'sub'")
                     .define(CACHE_MAX_DIGESTS_CONFIG,
                             ConfigDef.Type.LONG,
                             "3",
                             ConfigDef.Importance.HIGH,
-                            "The maximum number of digest per mutation cache entry.")
+                            "The maximum number of digest per mutation cache entry, with a default set to 3")
                     .define(CACHE_MAX_CAPACITY_CONFIG,
                             ConfigDef.Type.LONG,
-                            "1024",
+                            "32767",
                             ConfigDef.Importance.HIGH,
-                            "The maximum capacity of the mutation cache.")
+                            "The maximum capacity of the mutation cache, with a default size of 32767")
                     .define(CACHE_EXPIRE_AFTER_MS_CONFIG,
                             ConfigDef.Type.LONG,
-                            "300000",
+                            "600000",
                             ConfigDef.Importance.HIGH,
-                            "The mutation cache entry duration in milliseconds.")
+                            "The mutation cache entry duration in milliseconds, with a default value of 60 seconds.")
                     .define(KEY_CONVERTER_CLASS_CONFIG,
                             ConfigDef.Type.CLASS,
                             ConfigDef.Importance.HIGH,
