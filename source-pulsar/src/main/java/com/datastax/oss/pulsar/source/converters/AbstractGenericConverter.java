@@ -16,6 +16,7 @@
 package com.datastax.oss.pulsar.source.converters;
 
 import com.datastax.oss.driver.api.core.CqlIdentifier;
+import com.datastax.oss.driver.api.core.cql.ColumnDefinition;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.data.UdtValue;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
@@ -37,28 +38,27 @@ import org.apache.pulsar.client.impl.schema.generic.GenericSchemaImpl;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 
 @Slf4j
-public abstract class AbstractGenericConverter implements Converter<GenericRecord, Row, Map<String, Object>> {
+public abstract class AbstractGenericConverter implements Converter<GenericRecord, Row, List<Object>> {
 
     public final GenericSchema<GenericRecord> schema;
-    public final List<ColumnMetadata> columns;
     public final SchemaInfo schemaInfo;
 
     public final Map<String, GenericSchema> udtSchemas = new HashMap<>();
 
     public AbstractGenericConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns, SchemaType schemaType) {
-        RecordSchemaBuilder recordSchemaBuilder = SchemaBuilder.record(ksm.getName() + "." + tm.getName().toString());
+        RecordSchemaBuilder recordSchemaBuilder = SchemaBuilder.record(ksm.getName() + "." + tm.getName());
         for(ColumnMetadata cm : columns) {
             addFieldSchema(recordSchemaBuilder, ksm, cm.getName().toString(), cm.getType(), schemaType);
         }
         this.schemaInfo = recordSchemaBuilder.build(schemaType);
         this.schema = GenericSchemaImpl.of(schemaInfo);
-        this.columns = columns;
         if (log.isInfoEnabled()) {
             log.info("schema={}", schemaToString(this.schema));
             for(Map.Entry<String, GenericSchema> entry : udtSchemas.entrySet()) {
@@ -154,7 +154,7 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
     public GenericRecord toConnectData(Row row) {
         GenericRecordBuilder genericRecordBuilder = schema.newRecordBuilder();
         log.info("row columns={}", row.getColumnDefinitions());
-        for(ColumnMetadata cm : columns) {
+        for(ColumnDefinition cm : row.getColumnDefinitions()) {
             if (!row.isNull(cm.getName())) {
                 switch (cm.getType().getProtocolCode()) {
                     case ProtocolConstants.DataType.UUID:
@@ -273,10 +273,10 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
      * @return
      */
     @Override
-    public Map<String, Object> fromConnectData(GenericRecord genericRecord) {
-        Map<String, Object> pk = new HashMap<>();
+    public List<Object> fromConnectData(GenericRecord genericRecord) {
+        List<Object> pk = new ArrayList<>(genericRecord.getFields().size());
         for(Field field : genericRecord.getFields()) {
-            pk.put(field.getName(), genericRecord.getField(field.getName()));
+            pk.add(genericRecord.getField(field.getName()));
         }
         return pk;
     }

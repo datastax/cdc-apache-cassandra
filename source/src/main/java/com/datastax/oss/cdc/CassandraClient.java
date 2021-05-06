@@ -1,12 +1,12 @@
 /**
  * Copyright DataStax, Inc 2021.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -22,6 +22,7 @@ import com.datastax.oss.common.sink.config.ContactPointsValidator;
 import com.datastax.oss.common.sink.config.SslConfig;
 import com.datastax.oss.common.sink.ssl.SessionBuilder;
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
 import com.datastax.oss.driver.api.core.config.DriverConfigLoader;
@@ -29,8 +30,9 @@ import com.datastax.oss.driver.api.core.config.OptionsMap;
 import com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
 import com.datastax.oss.driver.api.core.config.TypedDriverOption;
 import com.datastax.oss.driver.api.core.cql.AsyncResultSet;
+import com.datastax.oss.driver.api.core.cql.BoundStatement;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.Row;
-import com.datastax.oss.driver.api.core.cql.SimpleStatement;
 import com.datastax.oss.driver.api.core.metadata.Metadata;
 import com.datastax.oss.driver.api.core.metadata.Node;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
@@ -47,7 +49,6 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import io.vavr.Tuple2;
-import io.vavr.Tuple3;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -132,10 +133,27 @@ public class CassandraClient implements AutoCloseable {
         return cqlSession;
     }
 
+    public String buildSelect(TableMetadata tableMetadata, List<ColumnMetadata> columns) {
+        CqlIdentifier[] cqlIdentifiers = new CqlIdentifier[columns.size()];
+        int i = 0;
+        for (ColumnMetadata column : columns) {
+            cqlIdentifiers[i++] = column.getName();
+        }
+        Select query = selectFrom(tableMetadata.getKeyspace(), tableMetadata.getName()).columns(cqlIdentifiers);
+        for (ColumnMetadata column : tableMetadata.getPrimaryKey()) {
+            query = query.whereColumn(column.getName()).isEqualTo(bindMarker());
+        }
+        return query.asCql();
+    }
+
+    public PreparedStatement prepareSelect(String query) {
+        return cqlSession.prepare(query);
+    }
+
     /**
      * Process ssl settings in the config; essentially map them to settings in the session builder.
      *
-     * @param sslConfig the ssl config
+     * @param sslConfig           the ssl config
      * @param configLoaderBuilder the config loader builder
      */
     private static void processSslConfig(
@@ -165,7 +183,7 @@ public class CassandraClient implements AutoCloseable {
     /**
      * Process auth settings in the config; essentially map them to settings in the session builder.
      *
-     * @param config the sink config
+     * @param config              the sink config
      * @param configLoaderBuilder the config loader builder
      */
     private static void processAuthenticatorConfig(
@@ -230,77 +248,64 @@ public class CassandraClient implements AutoCloseable {
         this.cqlSession.close();
     }
 
-    public Tuple3<Row, ConsistencyLevel, KeyspaceMetadata> selectRow(String keyspaceName,
-                                                                     String tableName,
-                                                                     Map<String, Object> pk,
-                                                                     UUID nodeId,
-                                                                     List<ConsistencyLevel> consistencyLevels)
-            throws ExecutionException, InterruptedException {
-        return selectRowAsync(keyspaceName, tableName, pk, nodeId, consistencyLevels)
-                .toCompletableFuture().get();
-    }
 
     public Tuple2<KeyspaceMetadata, TableMetadata> getTableMetadata(String keyspace, String table) {
         Metadata metadata = cqlSession.getMetadata();
         Optional<KeyspaceMetadata> keyspaceMetadataOptional = metadata.getKeyspace(keyspace);
-        if(!keyspaceMetadataOptional.isPresent()) {
+        if (!keyspaceMetadataOptional.isPresent()) {
             throw new IllegalArgumentException("No metadata for keyspace " + keyspace);
         }
         Optional<TableMetadata> tableMetadataOptional = keyspaceMetadataOptional.get().getTable(table);
-        if(!tableMetadataOptional.isPresent()) {
+        if (!tableMetadataOptional.isPresent()) {
             throw new IllegalArgumentException("No metadata for table " + keyspace + "." + table);
         }
         return new Tuple2<>(keyspaceMetadataOptional.get(), tableMetadataOptional.get());
     }
 
+    public Tuple2<Row, ConsistencyLevel> selectRow(List<Object> pkValues,
+                                                   UUID nodeId,
+                                                   List<ConsistencyLevel> consistencyLevels,
+                                                   PreparedStatement preparedStatement)
+            throws ExecutionException, InterruptedException {
+        return selectRowAsync(pkValues, nodeId, consistencyLevels, preparedStatement)
+                .toCompletableFuture().get();
+    }
+
     /**
      * Try to read CL=ALL (could be LOCAL_ALL), retry LOCAL_QUORUM, retry LOCAL_ONE.
-     *
      */
-    public CompletionStage<Tuple3<Row, ConsistencyLevel, KeyspaceMetadata>> selectRowAsync(String keyspaceName,
-                                                                                           String tableName,
-                                                                                           Map<String, Object> pk,
-                                                                                           UUID nodeId,
-                                                                                           List<ConsistencyLevel> consistencyLevels) {
-        Select query = selectFrom(keyspaceName, tableName).all();
-        List<Object> values = new ArrayList<>(pk.size());
-        for(Map.Entry<String, Object> entry : pk.entrySet()) {
-            values.add(entry.getValue());
-            query = query.whereColumn(entry.getKey()).isEqualTo(bindMarker());
-        }
-        SimpleStatement statement = query.build(pk);
+    public CompletionStage<Tuple2<Row, ConsistencyLevel>> selectRowAsync(List<Object> pkValues,
+                                                                         UUID nodeId,
+                                                                         List<ConsistencyLevel> consistencyLevels,
+                                                                         PreparedStatement preparedStatement) {
+        BoundStatement statement = preparedStatement.bind(pkValues.toArray(new Object[pkValues.size()]));
 
         // set the coordinator node
         Node node = null;
-        if(nodeId != null) {
+        if (nodeId != null) {
             node = cqlSession.getMetadata().getNodes().get(nodeId);
-            if(node != null) {
+            if (node != null) {
                 statement.setNode(node);
             }
         }
-        log.info("Executing query={} pk={} coordinator={}", query.toString(), pk, node);
+        log.info("Fetching query={} pk={} coordinator={}", preparedStatement.getQuery(), pkValues, node);
 
-        return executeWithDowngradeConsistencyRetry(cqlSession, keyspaceName, statement, consistencyLevels)
+        return executeWithDowngradeConsistencyRetry(cqlSession, statement, consistencyLevels)
                 .thenApply(tuple -> {
-                    log.debug("Read cl={} coordinator={} pk={}",
-                            tuple._2, tuple._1.getExecutionInfo().getCoordinator().getHostId(), pk);
-                    KeyspaceMetadata keyspaceMetadata = cqlSession.getMetadata().getKeyspace(keyspaceName).get();
+                    log.debug("Read cl={} coordinator={} pk={}", tuple._2, tuple._1.getExecutionInfo().getCoordinator().getHostId(), pkValues);
                     Row row = tuple._1.one();
-                    return new Tuple3<>(
-                            row,
-                            tuple._2,
-                            keyspaceMetadata);
+                    return new Tuple2<>(row, tuple._2);
                 })
                 .whenComplete((tuple, error) -> {
-                    if(error != null) {
-                        log.warn("Failed to retrieve row: {}", error); }
+                    if (error != null) {
+                        log.warn("Failed to retrieve row: {}", error);
+                    }
                 });
     }
 
     CompletionStage<Tuple2<AsyncResultSet, ConsistencyLevel>> executeWithDowngradeConsistencyRetry(
             CqlSession cqlSession,
-            String keyspaceName,
-            SimpleStatement statement,
+            BoundStatement statement,
             List<ConsistencyLevel> consistencyLevels) {
         final ConsistencyLevel cl = consistencyLevels.remove(0);
         statement.setConsistencyLevel(cl);
@@ -309,13 +314,13 @@ public class CassandraClient implements AutoCloseable {
                 cqlSession.executeAsync(statement).thenApply(rx -> new Tuple2<>(rx, cl));
         return completionStage
                 .handle((r, ex) -> {
-                    if(ex == null || !(ex instanceof UnavailableException) || consistencyLevels.isEmpty()) {
+                    if (ex == null || !(ex instanceof UnavailableException) || consistencyLevels.isEmpty()) {
                         log.debug("Executed CL={} statement={}", cl, statement);
                         return completionStage;
                     }
                     return completionStage
                             .handleAsync((r1, ex1) ->
-                                    executeWithDowngradeConsistencyRetry(cqlSession, keyspaceName, statement, consistencyLevels))
+                                    executeWithDowngradeConsistencyRetry(cqlSession, statement, consistencyLevels))
                             .thenCompose(Function.identity());
                 })
                 .thenCompose(Function.identity());

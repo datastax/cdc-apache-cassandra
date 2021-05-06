@@ -24,11 +24,12 @@ import com.datastax.oss.pulsar.source.Converter;
 import com.google.common.collect.ImmutableMap;
 import org.apache.pulsar.client.api.Schema;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-public class StringConverter implements Converter<String, Row, Map<String, Object>> {
+public class StringConverter implements Converter<String, Row, List<Object>> {
 
     List<String> pkColumns;
 
@@ -66,7 +67,7 @@ public class StringConverter implements Converter<String, Row, Map<String, Objec
      * @return
      */
     @Override
-    public Map<String, Object> fromConnectData(String value) {
-        return ImmutableMap.of(pkColumns.get(0), value);
+    public List<Object> fromConnectData(String value) {
+        return Collections.singletonList(value);
     }
 }

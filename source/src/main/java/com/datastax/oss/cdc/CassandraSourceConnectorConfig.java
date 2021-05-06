@@ -1,12 +1,12 @@
 /**
  * Copyright DataStax, Inc 2021.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -56,6 +56,7 @@ public class CassandraSourceConnectorConfig {
 
     public static final String KEYSPACE_NAME_CONFIG = "keyspace";
     public static final String TABLE_NAME_CONFIG = "table";
+    public static final String COLUMNS_REGEXP_CONFIG = "columns";
 
     public static final String CACHE_MAX_DIGESTS_CONFIG = "cache.max.digest";
     public static final String CACHE_MAX_CAPACITY_CONFIG = "cache.max.capacity";
@@ -128,6 +129,11 @@ public class CassandraSourceConnectorConfig {
                             "",
                             ConfigDef.Importance.HIGH,
                             "Cassandra table name")
+                    .define(COLUMNS_REGEXP_CONFIG,
+                            ConfigDef.Type.STRING,
+                            ".*",
+                            ConfigDef.Importance.LOW,
+                            "Regular expression of the Cassandra replicated column names")
                     .define(EVENTS_TOPIC_NAME_CONFIG,
                             ConfigDef.Type.STRING,
                             "",
@@ -536,19 +542,45 @@ public class CassandraSourceConnectorConfig {
         return instanceName;
     }
 
-    public String getEventsSubscriptionName() { return globalConfig.getString(EVENTS_TOPIC_NAME_CONFIG);}
+    public String getEventsSubscriptionName() {
+        return globalConfig.getString(EVENTS_TOPIC_NAME_CONFIG);
+    }
 
-    public String getKeyspaceName() { return  globalConfig.getString(KEYSPACE_NAME_CONFIG); }
-    public String getTableName() { return  globalConfig.getString(TABLE_NAME_CONFIG); }
+    public String getKeyspaceName() {
+        return globalConfig.getString(KEYSPACE_NAME_CONFIG);
+    }
 
-    public String getEventsTopic() { return  globalConfig.getString(EVENTS_TOPIC_NAME_CONFIG); }
-    public String getDataTopic() { return  globalConfig.getString(DATA_TOPIC_NAME_CONFIG); }
+    public String getTableName() {
+        return globalConfig.getString(TABLE_NAME_CONFIG);
+    }
 
-    public Class<?> getKeyConverterClass() { return globalConfig.getClass(KEY_CONVERTER_CLASS_CONFIG); }
-    public Class<?> getValueConverterClass() { return globalConfig.getClass(VALUE_CONVERTER_CLASS_CONFIG); }
+    public String getColumnsRegexp() {
+        return globalConfig.getString(COLUMNS_REGEXP_CONFIG);
+    }
 
-    public String getBootstrapServers() { return globalConfig.getString(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG); }
-    public String getSchemaRegistryUrl() { return globalConfig.getString(SCHEMA_REGISTRY_URL_CONFIG); }
+    public String getEventsTopic() {
+        return globalConfig.getString(EVENTS_TOPIC_NAME_CONFIG);
+    }
+
+    public String getDataTopic() {
+        return globalConfig.getString(DATA_TOPIC_NAME_CONFIG);
+    }
+
+    public Class<?> getKeyConverterClass() {
+        return globalConfig.getClass(KEY_CONVERTER_CLASS_CONFIG);
+    }
+
+    public Class<?> getValueConverterClass() {
+        return globalConfig.getClass(VALUE_CONVERTER_CLASS_CONFIG);
+    }
+
+    public String getBootstrapServers() {
+        return globalConfig.getString(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG);
+    }
+
+    public String getSchemaRegistryUrl() {
+        return globalConfig.getString(SCHEMA_REGISTRY_URL_CONFIG);
+    }
 
     public int getPort() {
         return globalConfig.getInt(PORT_OPT);
