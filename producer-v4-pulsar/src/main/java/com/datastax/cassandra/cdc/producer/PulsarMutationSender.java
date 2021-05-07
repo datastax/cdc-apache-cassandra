@@ -56,8 +56,8 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
                 .put(AsciiType.instance.asCQL3Type().toString(), SchemaType.STRING)
                 .put(BooleanType.instance.asCQL3Type().toString(), SchemaType.BOOLEAN)
                 .put(BytesType.instance.asCQL3Type().toString(), SchemaType.BYTES)
-                .put(ByteType.instance.asCQL3Type().toString(), SchemaType.INT8)
-                .put(ShortType.instance.asCQL3Type().toString(), SchemaType.INT16)
+                .put(ByteType.instance.asCQL3Type().toString(), SchemaType.INT32)   // INT8 not supported by AVRO
+                .put(ShortType.instance.asCQL3Type().toString(), SchemaType.INT32)  // INT16 not supported by AVRO
                 .put(Int32Type.instance.asCQL3Type().toString(), SchemaType.INT32)
                 .put(IntegerType.instance.asCQL3Type().toString(), SchemaType.INT64)
                 .put(LongType.instance.asCQL3Type().toString(), SchemaType.INT64)
@@ -72,6 +72,7 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
                 .put(TimeType.instance.asCQL3Type().toString(), SchemaType.TIME)
                 //schemas.put(DurationType.instance.asCQL3Type().toString(), NanoDuration.builder().optional());
 
+                // convert UUID to String
                 .put(UUIDType.instance.asCQL3Type().toString(), SchemaType.STRING)
                 .put(TimeUUIDType.instance.asCQL3Type().toString(), SchemaType.STRING)
                 .build();

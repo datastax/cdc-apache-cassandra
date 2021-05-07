@@ -38,7 +38,7 @@ dependencies {
     api project(':producer-v3')
     implementation("org.apache.pulsar:pulsar-client:${pulsarVersion}")
     compileOnly("org.apache.cassandra:cassandra-all:${cassandra3Version}")
-    testCompileOnly("org.apache.cassandra:cassandra-all:${cassandra3Version}")
+    testImplementation("org.apache.cassandra:cassandra-all:${cassandra3Version}")
 
     testImplementation "org.projectlombok:lombok:${lombokVersion}"
     testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
