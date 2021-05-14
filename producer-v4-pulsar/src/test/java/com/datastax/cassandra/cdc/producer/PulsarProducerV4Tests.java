@@ -52,7 +52,7 @@ public class PulsarProducerV4Tests {
     public static final String CASSANDRA_IMAGE = "cassandra:4.0-beta4";
     public static final String PULSAR_VERSION = "latest";
 
-    static final String PULSAR_IMAGE = "strapdata/pulsar-all:" + PULSAR_VERSION;
+    static final String PULSAR_IMAGE = "harbor.sjc.dsinternal.org/pulsar/lunastreaming-all:" + PULSAR_VERSION;
 
     private static Network testNetwork;
     private static PulsarContainer<?> pulsarContainer;
