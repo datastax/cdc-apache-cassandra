@@ -45,7 +45,7 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
     public static final String SCHEMA_DOC_PREFIX = "Primary key schema for table ";
 
     PulsarClient client;
-    final Map<String, Producer<KeyValue<?, ?>>> producers = new ConcurrentHashMap<>();
+    final Map<String, Producer<KeyValue<?, MutationValue>>> producers = new ConcurrentHashMap<>();
     final Map<String, Schema<?>> schemas = new HashMap<>();
     final ImmutableMap<String, SchemaType> schemaTypes;
 
@@ -99,17 +99,17 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    public Producer<KeyValue<?, ?>> getProducer(final TableMetadata tm) {
+    public Producer<KeyValue<?, MutationValue>> getProducer(final TableMetadata tm) {
         String topicName = ProducerConfig.topicPrefix + tm.keyspace + "." + tm.name;
         String producerName = "pulsar-producer-" + StorageService.instance.getLocalHostId() + "-" + topicName;
         return producers.compute(topicName, (k, v) -> {
             if (v == null) {
                 try {
-                    Schema<KeyValue<?, ?>> keyValueSchema = Schema.KeyValue(
+                    Schema<KeyValue<?, MutationValue>> keyValueSchema = Schema.KeyValue(
                             getKeySchema(tm),
                             Schema.AVRO(MutationValue.class),
                             KeyValueEncodingType.SEPARATED);
-                    Producer<KeyValue<?, ?>> producer = client.newProducer(keyValueSchema)
+                    Producer<KeyValue<?, MutationValue>> producer = client.newProducer(keyValueSchema)
                             .producerName(producerName)
                             .topic(k)
                             .sendTimeout(15, TimeUnit.SECONDS)
@@ -178,9 +178,9 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
         if (this.client == null) {
             initialize();
         }
-        Producer<KeyValue<?, ?>> producer = getProducer(mutation.getMetadata());
+        Producer<KeyValue<?, MutationValue>> producer = getProducer(mutation.getMetadata());
         Schema keySchema = getKeySchema(mutation.getMetadata());
-        TypedMessageBuilder<KeyValue<?, ?>> messageBuilder = producer.newMessage();
+        TypedMessageBuilder<KeyValue<?, MutationValue>> messageBuilder = producer.newMessage();
         return messageBuilder
                 .value(new KeyValue(
                         buildKey(keySchema, mutation.primaryKeyCells()),
