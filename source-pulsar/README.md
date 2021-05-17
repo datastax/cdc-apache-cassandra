@@ -33,17 +33,17 @@ A Pulsar key-shared subscription ensure all mutations for a given primary key ar
 Cassandra source connector:
 
     $PULSAR_HOME/bin/pulsar-admin source localrun \
-           --archive $CDC_HOME/source-pulsar/build/libs/source-pulsar-0.1-SNAPSHOT.nar \
+           --archive $CDC_HOME/source-pulsar/build/libs/source-pulsar-0.1.0-SNAPSHOT.nar \
            --tenant public \
            --namespace default \
            --name cassandra-source-1 \
            --destination-topic-name data-ks1.table1 \
-           --source-config '{"contactPoints":"localhost", "loadBalancing.localDc":"datacenter1", "keyspace":"ks1", "table":"table1", "eventsTopic": "persistent://public/default/events-ks1.table1", "eventsSubscriptionName":"sub1", "keyConverter":"com.datastax.oss.pulsar.source.converters.AvroConverter","valueConverter":"com.datastax.oss.pulsar.source.converters.JsonConverter"}'
+           --source-config '{"contactPoints":"localhost", "loadBalancing.localDc":"datacenter1", "keyspace":"ks1", "table":"table1", "events.topic": "persistent://public/default/events-ks1.table1", "events.subscription.name":"sub1", "key.converter":"com.datastax.oss.pulsar.source.converters.AvroConverter","value.converter":"com.datastax.oss.pulsar.source.converters.AvroConverter"}'
 
 Elasticsearch sink connector:
 
-    $PULSAR_HOME/bin/pulsar-admin sinks localrun \
-    --archive $PULSAR_HOME/pulsar-io/elastic-search/target/pulsar-io-elastic-search-2.8.0-SNAPSHOT.nar \
+    bin/pulsar-admin sinks localrun \
+    --archive pulsar-io/elastic-search/target/pulsar-io-elastic-search-2.8.0-SNAPSHOT.nar \
     --tenant public \
     --namespace default \
     --name elasticsearch-ks1-sink \
