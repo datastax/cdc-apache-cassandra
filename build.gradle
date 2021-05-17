@@ -26,6 +26,7 @@ allprojects {
         maven { url "https://packages.confluent.io/maven/" }
         maven { url "https://repo.typesafe.com/typesafe/releases/" }
         jcenter() // or Maven central, required for Lombok dependency
+        maven { url "https://repo.sjc.dsinternal.org/artifactory/datastax-snapshots-local" }
     }
 
     apply plugin: 'idea'
