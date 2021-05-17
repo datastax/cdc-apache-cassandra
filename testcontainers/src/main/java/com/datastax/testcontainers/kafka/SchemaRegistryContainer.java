@@ -21,7 +21,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 
 @Slf4j
-public class SchemaRegistryContainer extends GenericContainer<SchemaRegistryContainer> {
+public class SchemaRegistryContainer<SELF extends SchemaRegistryContainer<SELF>> extends GenericContainer<SELF> {
 
     public static final int SCHEMA_REGISTRY_INTERNAL_PORT = 8081;
     public static final String schemaRegistryContainerName = "schemaregistry";
@@ -47,8 +47,8 @@ public class SchemaRegistryContainer extends GenericContainer<SchemaRegistryCont
         return "http:/" + getContainerName() + ":" + SCHEMA_REGISTRY_INTERNAL_PORT;
     }
 
-    public static SchemaRegistryContainer create(String image, String seed, String boostrapServers) {
-        return (SchemaRegistryContainer) new SchemaRegistryContainer(image, boostrapServers)
+    public static SchemaRegistryContainer<?> create(String image, String seed, String boostrapServers) {
+        return (SchemaRegistryContainer) new SchemaRegistryContainer<>(image, boostrapServers)
                 .withCreateContainerCmdModifier(c -> c.withName(schemaRegistryContainerName + "-" + seed));
     }
 }

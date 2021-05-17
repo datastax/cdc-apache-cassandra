@@ -26,7 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
 @Slf4j
-public class KafkaConnectContainer extends GenericContainer<KafkaConnectContainer> {
+public class KafkaConnectContainer<SELF extends KafkaConnectContainer<SELF>> extends GenericContainer<SELF> {
 
     public static final int KAFKA_CONNECT_INTERNAL_PORT = 8083;
     public static final String kafkaConnectContainerName = "connect";
@@ -70,8 +70,8 @@ public class KafkaConnectContainer extends GenericContainer<KafkaConnectContaine
         return "http://" + kafkaConnectContainerName + ":" + KAFKA_CONNECT_INTERNAL_PORT;
     }
 
-    public static KafkaConnectContainer create(String image, String seed, String boostrapServers, String schemaRegistryUrl) {
-        return (KafkaConnectContainer) new KafkaConnectContainer(image, boostrapServers, schemaRegistryUrl)
+    public static KafkaConnectContainer<?> create(String image, String seed, String boostrapServers, String schemaRegistryUrl) {
+        return (KafkaConnectContainer) new KafkaConnectContainer<>(image, boostrapServers, schemaRegistryUrl)
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd
                         .withName(kafkaConnectContainerName + "-" + seed)
                 );
