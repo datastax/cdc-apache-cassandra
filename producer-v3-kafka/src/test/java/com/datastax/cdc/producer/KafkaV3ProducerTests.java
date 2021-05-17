@@ -57,11 +57,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @Slf4j
 public class KafkaV3ProducerTests {
 
-    public static final String CASSANDRA_IMAGE = "cassandra:3.11.10";
+    public static final String CASSANDRA_IMAGE = Optional.ofNullable(System.getenv("CASSANDRA_IMAGE"))
+            .orElse("cassandra:3.11.10");
+
     public static final String CONFLUENT_PLATFORM_VERSION = "5.5.1";
 
-    static final String KAFKA_IMAGE = "confluentinc/cp-kafka:" + CONFLUENT_PLATFORM_VERSION;
-    static final String KAFKA_SCHEMA_REGISTRY_IMAGE = "confluentinc/cp-schema-registry:" + CONFLUENT_PLATFORM_VERSION;
+    public static final String KAFKA_IMAGE = Optional.ofNullable(System.getenv("KAFKA_IMAGE"))
+            .orElse("confluentinc/cp-kafka:" + CONFLUENT_PLATFORM_VERSION);
+    public static final String KAFKA_SCHEMA_REGISTRY_IMAGE = Optional.ofNullable(System.getenv("KAFKA_SCHEMA_REGISTRY_IMAGE"))
+            .orElse("confluentinc/cp-schema-registry:" + CONFLUENT_PLATFORM_VERSION);
 
     private static String seed;
     private static Network testNetwork;
