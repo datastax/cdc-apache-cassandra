@@ -41,6 +41,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -48,10 +49,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 @Slf4j
 public class PulsarCassandraSourceTests {
-    public static final String CASSANDRA_IMAGE = "cassandra:4.0-beta4";
-    public static final String PULSAR_VERSION = "latest";
-
-    static final String PULSAR_IMAGE = "strapdata/pulsar-all:" + PULSAR_VERSION;
+    public static final String CASSANDRA_IMAGE = Optional.ofNullable(System.getenv("CASSANDRA_IMAGE")).orElse("cassandra:4.0-beta4");
+    public static final String PULSAR_IMAGE = Optional.ofNullable(System.getenv("PULSAR_IMAGE")).orElse("harbor.sjc.dsinternal.org/pulsar/lunastreaming-all:latest");
 
     private static Network testNetwork;
     private static PulsarContainer<?> pulsarContainer;

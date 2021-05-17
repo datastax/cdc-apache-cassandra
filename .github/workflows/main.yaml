@@ -5,7 +5,8 @@ on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    env:
+      PULSAR_IMAGE: strapdata/pulsar-all:latest
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK 11
@@ -23,10 +24,10 @@ jobs:
             ${{ runner.os }}-buildx-
 
       - name: Test with Gradle
-        run: ./gradlew test
+        run: ./gradlew test -PpulsarVersion=2.8.0-SNAPSHOT
 
       - name: Build with Gradle
-        run: ./gradlew assemble
+        run: ./gradlew assemble -PpulsarVersion=2.8.0-SNAPSHOT
 
       - name: Create Release
         id: create_release
