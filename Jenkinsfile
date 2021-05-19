@@ -158,7 +158,9 @@ def notifySlack(status = 'started') {
 def branchPatternCron = ~"\\d+(\\.\\d+)*\\.x"
 
 pipeline {
-  agent any
+  agent {
+    label "${OS_VERSION}"
+  }
 
   options {
     timeout(time: 4, unit: 'HOURS')
