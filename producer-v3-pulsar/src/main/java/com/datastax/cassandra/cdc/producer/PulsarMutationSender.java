@@ -42,8 +42,8 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
     public static final String SCHEMA_DOC_PREFIX = "Primary key schema for table ";
 
     PulsarClient client;
-    final Map<String, Producer<KeyValue<? extends GenericRecord, MutationValue>>> producers = new ConcurrentHashMap<>();
-    final Map<String, Schema<?>> schemas = new HashMap<>();
+    final Map<String, Producer<KeyValue<GenericRecord, MutationValue>>> producers = new ConcurrentHashMap<>();
+    final Map<String, Schema<GenericRecord>> schemas = new HashMap<>();
     final ImmutableMap<String, SchemaType> schemaTypes;
 
     public PulsarMutationSender() {
@@ -76,7 +76,7 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
     }
 
     @SuppressWarnings("rawtypes")
-    public Schema getKeySchema(final CFMetaData tm) {
+    public Schema<GenericRecord> getKeySchema(final CFMetaData tm) {
         String key = tm.ksName + "." + tm.cfName;
         return schemas.computeIfAbsent(key, k -> {
             List<ColumnDefinition> primaryKeyColumns = new ArrayList<>();
@@ -96,17 +96,17 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    public Producer<KeyValue<? extends GenericRecord, MutationValue>> getProducer(final CFMetaData tm) {
+    public Producer<KeyValue<GenericRecord, MutationValue>> getProducer(final CFMetaData tm) {
         String topicName = ProducerConfig.topicPrefix + tm.ksName + "." + tm.cfName;
         String producerName = "pulsar-producer-" + StorageService.instance.getLocalHostId();
         return producers.compute(topicName, (k, v) -> {
             if (v == null) {
                 try {
-                    Schema<KeyValue<? extends GenericRecord, MutationValue>> keyValueSchema = Schema.KeyValue(
+                    Schema<KeyValue<GenericRecord, MutationValue>> keyValueSchema = Schema.KeyValue(
                             getKeySchema(tm),
                             Schema.AVRO(MutationValue.class),
                             KeyValueEncodingType.SEPARATED);
-                    Producer<KeyValue<? extends GenericRecord, MutationValue>> producer = client.newProducer(keyValueSchema)
+                    Producer<KeyValue<GenericRecord, MutationValue>> producer = client.newProducer(keyValueSchema)
                             .producerName(producerName)
                             .topic(k)
                             .sendTimeout(15, TimeUnit.SECONDS)
@@ -175,9 +175,9 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
         if (this.client == null) {
             initialize();
         }
-        Producer<KeyValue<? extends GenericRecord, MutationValue>> producer = getProducer(mutation.getMetadata());
+        Producer<KeyValue<GenericRecord, MutationValue>> producer = getProducer(mutation.getMetadata());
         Schema keySchema = getKeySchema(mutation.getMetadata());
-        TypedMessageBuilder<KeyValue<? extends GenericRecord, MutationValue>> messageBuilder = producer.newMessage();
+        TypedMessageBuilder<KeyValue<GenericRecord, MutationValue>> messageBuilder = producer.newMessage();
         return messageBuilder
                 .value(new KeyValue(
                         buildKey(keySchema, mutation.primaryKeyCells()),
