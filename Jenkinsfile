@@ -15,45 +15,12 @@ def initializeEnvironment() {
     jabba which ${JABBA_VERSION}''', returnStdout: true).trim()
 
   sh label: 'Display Java and environment information', script: '''#!/bin/bash -le
-    # Load CCM environment variables
-    set -o allexport
-    . ${HOME}/environment.txt
-    set +o allexport
-
     . ${JABBA_SHELL}
     jabba use ${JABBA_VERSION}
 
     java -version
 
     printenv | sort
-  '''
-}
-
-def buildAndExecuteTests() {
-  sh label: 'Build and execute tests', script: '''#!/bin/bash -le
-    # Load CCM environment variables
-    set -o allexport
-    . ${HOME}/environment.txt
-    set +o allexport
-
-    . ${JABBA_SHELL}
-    jabba use ${JABBA_VERSION}
-
-    if [ "${ENABLE_MEDIUM_PROFILE}" = "true" ]; then
-      mavenArgs="$mavenArgs -Pmedium"
-    fi
-    if [ "${ENABLE_LONG_PROFILE}" = "true" ]; then
-      mavenArgs="$mavenArgs -Plong"
-    fi
-    if [ "${ENABLE_RELEASE_PROFILE}" = "true" ]; then
-      mavenArgs="$mavenArgs -Prelease -Dgpg.skip=true"
-    else
-      mavenArgs="$mavenArgs -Dmaven.javadoc.skip=true"
-    fi
-
-    ./gradlew source-kafka:test
-
-    exit $?
   '''
 }
 
@@ -161,49 +128,10 @@ pipeline {
   }
 
   parameters {
-    choice(
-      name: 'MATRIX_TYPE',
-      choices: ['SINGLE', 'FULL'],
-      description: '''<p>The matrix to use</p>
-                      <table style="width:100%">
-                        <col width="25%">
-                        <col width="75%">
-                        <tr>
-                          <th align="left">Choice</th>
-                          <th align="left">Description</th>
-                        </tr>
-                        <tr>
-                          <td><strong>SINGLE</strong></td>
-                          <td>Runs the test suite against a single C* backend</td>
-                        </tr>
-                        <tr>
-                          <td><strong>FULL</strong></td>
-                          <td>Runs the test suite against the full set of configured C* backends</td>
-                        </tr>
-                      </table>''')
-    booleanParam(
-      name: 'RUN_LONG_TESTS',
-      defaultValue: false,
-      description: 'Flag to determine if long tests should be executed (may take up to an hour')
-    booleanParam(
-      name: 'RUN_VERY_LONG_TESTS',
-      defaultValue: false,
-      description: 'Flag to determine if very long tests should be executed (may take several hours)')
-    booleanParam(
-      name: 'GENERATE_DISTRO',
-      defaultValue: false,
-      description: 'Flag to determine if the distribution tarball should be generated')
     booleanParam(
       name: 'SLACK_ENABLED',
       defaultValue: false,
       description: 'Flag to determine if Slack notifications should be sent')
-  }
-
-  triggers {
-    parameterizedCron(branchPatternCron.matcher(env.BRANCH_NAME).matches() ? """
-      # Every weeknight (Monday - Friday) around 6:00 AM
-      H 6 * * 1-5 % MATRIX_TYPE=FULL; RUN_LONG_TESTS=true; RUN_VERY_LONG_TESTS=true; GENERATE_DISTRO=true
-    """ : "")
   }
 
   environment {
@@ -243,9 +171,6 @@ pipeline {
           }
         }
         stage('Assemble') {
-          agent {
-            label "${OS_VERSION}"
-          }
           steps {
             sh './gradlew assemble'
           }
