@@ -14,12 +14,6 @@ def initializeEnvironment() {
     . ${JABBA_SHELL}
     jabba which ${JABBA_VERSION}''', returnStdout: true).trim()
 
-  sh label: 'Download Apache Cassandra(R) or DataStax Enterprise', script: '''#!/bin/bash -le
-    . ${JABBA_SHELL}
-    jabba use ${JABBA_VERSION}
-    . ${CCM_ENVIRONMENT_SHELL} ${CASSANDRA_VERSION}
-  '''
-
   sh label: 'Display Java and environment information', script: '''#!/bin/bash -le
     # Load CCM environment variables
     set -o allexport
@@ -30,7 +24,7 @@ def initializeEnvironment() {
     jabba use ${JABBA_VERSION}
 
     java -version
-    mvn -v
+
     printenv | sort
   '''
 }
@@ -216,7 +210,6 @@ pipeline {
     OS_VERSION = 'ubuntu/bionic64/java-driver'
     JABBA_SHELL = '/usr/lib/jabba/jabba.sh'
     JABBA_VERSION = '1.8'
-    CCM_ENVIRONMENT_SHELL = '/usr/local/bin/ccm_environment.sh'
     // always run all tests when generating the distribution tarball
     ENABLE_MEDIUM_PROFILE = "${params.RUN_LONG_TESTS || params.RUN_VERY_LONG_TESTS || params.GENERATE_DISTRO}"
     ENABLE_LONG_PROFILE = "${params.RUN_VERY_LONG_TESTS || params.GENERATE_DISTRO}"
@@ -224,10 +217,18 @@ pipeline {
   }
 
   stages {
-    stage('build') {
-      agent {
-        label "${OS_VERSION}"
+    agent {
+      label "${OS_VERSION}"
+    }
+    environment {
+      JABBA_VERSION = '1.8'
+    }
+    stage('Initialize-Environment') {
+      steps {
+        initializeEnvironment()
       }
+    }
+    stage('test') {
       steps {
         script {
           try {
