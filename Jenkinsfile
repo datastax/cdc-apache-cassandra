@@ -158,9 +158,7 @@ def notifySlack(status = 'started') {
 def branchPatternCron = ~"\\d+(\\.\\d+)*\\.x"
 
 pipeline {
-  agent {
-    label "${OS_VERSION}"
-  }
+  agent none
 
   options {
     timeout(time: 4, unit: 'HOURS')
@@ -227,6 +225,9 @@ pipeline {
 
   stages {
     stage('build') {
+      agent {
+        label "${OS_VERSION}"
+      }
       steps {
         script {
           try {
@@ -239,6 +240,9 @@ pipeline {
       }
     }
     stage('Assemble') {
+      agent {
+        label "${OS_VERSION}"
+      }
       steps {
         sh './gradlew assemble'
       }
