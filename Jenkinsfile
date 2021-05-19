@@ -217,35 +217,39 @@ pipeline {
   }
 
   stages {
-    agent {
-      label "${OS_VERSION}"
-    }
-    environment {
-      JABBA_VERSION = '1.8'
-    }
-    stage('Initialize-Environment') {
-      steps {
-        initializeEnvironment()
-      }
-    }
-    stage('test') {
-      steps {
-        script {
-          try {
-            sh './gradlew clean test --no-daemon' //run a gradle task
-          } finally {
-            junit '**/build/test-results/test/*.xml'
-            //make the junit test results available in any case (success & failure)
-          }
-        }
-      }
-    }
-    stage('Assemble') {
+    stage('default') {
       agent {
         label "${OS_VERSION}"
       }
-      steps {
-        sh './gradlew assemble'
+      environment {
+        JABBA_VERSION = '1.8'
+      }
+      stages {
+        stage('Initialize-Environment') {
+          steps {
+            initializeEnvironment()
+          }
+        }
+        stage('Test') {
+          steps {
+            script {
+              try {
+                sh './gradlew clean test --no-daemon' //run a gradle task
+              } finally {
+                junit '**/build/test-results/test/*.xml'
+                //make the junit test results available in any case (success & failure)
+              }
+            }
+          }
+        }
+        stage('Assemble') {
+          agent {
+            label "${OS_VERSION}"
+          }
+          steps {
+            sh './gradlew assemble'
+          }
+        }
       }
     }
   }
