@@ -23,10 +23,7 @@ import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.service.StorageService;
 import org.apache.pulsar.client.api.*;
-import org.apache.pulsar.client.api.schema.GenericRecordBuilder;
-import org.apache.pulsar.client.api.schema.GenericSchema;
-import org.apache.pulsar.client.api.schema.RecordSchemaBuilder;
-import org.apache.pulsar.client.api.schema.SchemaBuilder;
+import org.apache.pulsar.client.api.schema.*;
 import org.apache.pulsar.client.impl.schema.generic.GenericSchemaImpl;
 import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.common.schema.KeyValueEncodingType;
@@ -45,7 +42,7 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
     public static final String SCHEMA_DOC_PREFIX = "Primary key schema for table ";
 
     PulsarClient client;
-    final Map<String, Producer<KeyValue<?, MutationValue>>> producers = new ConcurrentHashMap<>();
+    final Map<String, Producer<KeyValue<? extends GenericRecord, MutationValue>>> producers = new ConcurrentHashMap<>();
     final Map<String, Schema<?>> schemas = new HashMap<>();
     final ImmutableMap<String, SchemaType> schemaTypes;
 
@@ -99,17 +96,17 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    public Producer<KeyValue<?, MutationValue>> getProducer(final TableMetadata tm) {
+    public Producer<KeyValue<? extends GenericRecord, MutationValue>> getProducer(final TableMetadata tm) {
         String topicName = ProducerConfig.topicPrefix + tm.keyspace + "." + tm.name;
         String producerName = "pulsar-producer-" + StorageService.instance.getLocalHostId() + "-" + topicName;
         return producers.compute(topicName, (k, v) -> {
             if (v == null) {
                 try {
-                    Schema<KeyValue<?, MutationValue>> keyValueSchema = Schema.KeyValue(
+                    Schema<KeyValue<? extends GenericRecord, MutationValue>> keyValueSchema = Schema.KeyValue(
                             getKeySchema(tm),
                             Schema.AVRO(MutationValue.class),
                             KeyValueEncodingType.SEPARATED);
-                    Producer<KeyValue<?, MutationValue>> producer = client.newProducer(keyValueSchema)
+                    Producer<KeyValue<? extends GenericRecord, MutationValue>> producer = client.newProducer(keyValueSchema)
                             .producerName(producerName)
                             .topic(k)
                             .sendTimeout(15, TimeUnit.SECONDS)
@@ -178,9 +175,9 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
         if (this.client == null) {
             initialize();
         }
-        Producer<KeyValue<?, MutationValue>> producer = getProducer(mutation.getMetadata());
+        Producer<KeyValue<? extends GenericRecord, MutationValue>> producer = getProducer(mutation.getMetadata());
         Schema keySchema = getKeySchema(mutation.getMetadata());
-        TypedMessageBuilder<KeyValue<?, MutationValue>> messageBuilder = producer.newMessage();
+        TypedMessageBuilder<KeyValue<? extends GenericRecord, MutationValue>> messageBuilder = producer.newMessage();
         return messageBuilder
                 .value(new KeyValue(
                         buildKey(keySchema, mutation.primaryKeyCells()),
