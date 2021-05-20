@@ -24,10 +24,10 @@ jobs:
             ${{ runner.os }}-buildx-
 
       - name: Test with Gradle
-        run: ./gradlew test -PpulsarVersion=2.8.0-SNAPSHOT
+        run: ./gradlew test -PpulsarVersion=2.8.0-SNAPSHOT -PdatastaxRepo=repo.datastax.com
 
       - name: Build with Gradle
-        run: ./gradlew assemble -PpulsarVersion=2.8.0-SNAPSHOT
+        run: ./gradlew assemble -PpulsarVersion=2.8.0-SNAPSHOT -PdatastaxRepo=repo.datastax.com
 
       - name: Create Release
         id: create_release
