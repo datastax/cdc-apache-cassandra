@@ -18,6 +18,7 @@ package com.datastax.testcontainers.kafka;
 import lombok.extern.slf4j.Slf4j;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.utility.DockerImageName;
 
 import java.io.*;
 import java.net.HttpURLConnection;
@@ -31,7 +32,7 @@ public class KafkaConnectContainer<SELF extends KafkaConnectContainer<SELF>> ext
     public static final int KAFKA_CONNECT_INTERNAL_PORT = 8083;
     public static final String kafkaConnectContainerName = "connect";
 
-    private KafkaConnectContainer(String image, String boostrapServers, String schemaRegistryUrl) {
+    private KafkaConnectContainer(DockerImageName image, String boostrapServers, String schemaRegistryUrl) {
         super(image);
 
         addEnv("CONNECT_BOOTSTRAP_SERVERS", boostrapServers);
@@ -70,7 +71,7 @@ public class KafkaConnectContainer<SELF extends KafkaConnectContainer<SELF>> ext
         return "http://" + kafkaConnectContainerName + ":" + KAFKA_CONNECT_INTERNAL_PORT;
     }
 
-    public static KafkaConnectContainer<?> create(String image, String seed, String boostrapServers, String schemaRegistryUrl) {
+    public static KafkaConnectContainer<?> create(DockerImageName image, String seed, String boostrapServers, String schemaRegistryUrl) {
         return (KafkaConnectContainer) new KafkaConnectContainer<>(image, boostrapServers, schemaRegistryUrl)
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd
                         .withName(kafkaConnectContainerName + "-" + seed)

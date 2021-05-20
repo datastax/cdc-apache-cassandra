@@ -15,7 +15,6 @@
  */
 package com.datastax.cdc.producer;
 
-import com.datastax.cassandra.cdc.MutationValue;
 import com.datastax.cassandra.cdc.producer.KafkaMutationSender;
 import com.datastax.cassandra.cdc.producer.ProducerConfig;
 import com.datastax.oss.driver.api.core.CqlSession;
@@ -43,11 +42,9 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.Network;
-import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils;
 import org.testcontainers.utility.DockerImageName;
 
-import java.io.IOException;
 import java.time.Duration;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -55,17 +52,23 @@ import java.util.stream.Collectors;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @Slf4j
-public class KafkaV3ProducerTests {
+public class KafkaProducerV4Tests {
 
-    public static final String CASSANDRA_IMAGE = Optional.ofNullable(System.getenv("CASSANDRA_IMAGE"))
-            .orElse("cassandra:3.11.10");
+    public static final DockerImageName CASSANDRA_IMAGE = DockerImageName.parse(
+            Optional.ofNullable(System.getenv("CASSANDRA_IMAGE"))
+                    .orElse("cassandra:4.0-beta4"))
+            .asCompatibleSubstituteFor("cassandra");
 
     public static final String CONFLUENT_PLATFORM_VERSION = "5.5.1";
 
-    public static final String KAFKA_IMAGE = Optional.ofNullable(System.getenv("KAFKA_IMAGE"))
-            .orElse("confluentinc/cp-kafka:" + CONFLUENT_PLATFORM_VERSION);
-    public static final String KAFKA_SCHEMA_REGISTRY_IMAGE = Optional.ofNullable(System.getenv("KAFKA_SCHEMA_REGISTRY_IMAGE"))
-            .orElse("confluentinc/cp-schema-registry:" + CONFLUENT_PLATFORM_VERSION);
+    public static final DockerImageName KAFKA_IMAGE = DockerImageName.parse(
+            Optional.ofNullable(System.getenv("KAFKA_IMAGE"))
+                    .orElse("confluentinc/cp-kafka:" + CONFLUENT_PLATFORM_VERSION))
+            .asCompatibleSubstituteFor("kafka");
+
+    public static final DockerImageName KAFKA_SCHEMA_REGISTRY_IMAGE = DockerImageName.parse(
+            Optional.ofNullable(System.getenv("KAFKA_SCHEMA_REGISTRY_IMAGE"))
+                    .orElse("confluentinc/cp-schema-registry:" + CONFLUENT_PLATFORM_VERSION));
 
     private static String seed;
     private static Network testNetwork;
@@ -82,7 +85,7 @@ public class KafkaV3ProducerTests {
         // seed to uniquely identify containers between concurrent tests.
         seed = RandomStringUtils.randomNumeric(6);
 
-        kafkaContainer = new KafkaContainer(DockerImageName.parse(KAFKA_IMAGE))
+        kafkaContainer = new KafkaContainer(KAFKA_IMAGE)
                 .withNetwork(testNetwork)
                 .withEmbeddedZookeeper()
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withName("kafka-" + seed))
@@ -122,11 +125,11 @@ public class KafkaV3ProducerTests {
     }
 
     @Test
-    public void testProducer() throws InterruptedException, IOException {
+    public void testProducer() throws InterruptedException {
         try (CassandraContainer<?> cassandraContainer1 = CassandraContainer.createCassandraContainerWithKafkaProducer(
-                CASSANDRA_IMAGE, testNetwork, 1, "v3", internalKafkaBootstrapServers, schemaRegistryUrl);
+                CASSANDRA_IMAGE, testNetwork, 1, "v4", internalKafkaBootstrapServers, schemaRegistryUrl);
              CassandraContainer<?> cassandraContainer2 = CassandraContainer.createCassandraContainerWithKafkaProducer(
-                     CASSANDRA_IMAGE, testNetwork, 2, "v3", internalKafkaBootstrapServers, schemaRegistryUrl)) {
+                     CASSANDRA_IMAGE, testNetwork, 2, "v4", internalKafkaBootstrapServers, schemaRegistryUrl)) {
             cassandraContainer1.start();
             cassandraContainer2.start();
 
@@ -142,12 +145,7 @@ public class KafkaV3ProducerTests {
                 cqlSession.execute("INSERT INTO ks1.table2 (a,b,c) VALUES('2',1,1)");
                 cqlSession.execute("INSERT INTO ks1.table2 (a,b,c) VALUES('3',1,1)");
             }
-
             Thread.sleep(15000);    // wait CL sync on disk
-            // cassandra drain to discard commitlog segments without stopping the producer
-            assertEquals(0, cassandraContainer1.execInContainer("/opt/cassandra/bin/nodetool", "drain").getExitCode());
-            assertEquals(0, cassandraContainer2.execInContainer("/opt/cassandra/bin/nodetool", "drain").getExitCode());
-            Thread.sleep(11000);
 
             KafkaConsumer<byte[], GenericRecord> consumer = createConsumer("test-consumer-avro-group");
             consumer.subscribe(ImmutableList.of(ProducerConfig.topicPrefix + "ks1.table1", ProducerConfig.topicPrefix + "ks1.table2"));

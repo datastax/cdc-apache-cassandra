@@ -51,17 +51,22 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @Slf4j
 public class KafkaCassandraSourceTests {
 
-    public static final String CASSANDRA_IMAGE = Optional.ofNullable(System.getenv("CASSANDRA_IMAGE"))
-            .orElse("cassandra:4.0-beta4");
+    public static final DockerImageName CASSANDRA_IMAGE = DockerImageName.parse(
+            Optional.ofNullable(System.getenv("CASSANDRA_IMAGE")).orElse("cassandra:4.0-beta4"))
+            .asCompatibleSubstituteFor("cassandra");
 
     public static final String CONFLUENT_PLATFORM_VERSION = "5.5.1";
 
-    public static final String KAFKA_IMAGE = Optional.ofNullable(System.getenv("KAFKA_IMAGE"))
-            .orElse("confluentinc/cp-kafka:" + CONFLUENT_PLATFORM_VERSION);
-    public static final String KAFKA_SCHEMA_REGISTRY_IMAGE = Optional.ofNullable(System.getenv("KAFKA_SCHEMA_REGISTRY_IMAGE"))
-            .orElse("confluentinc/cp-schema-registry:" + CONFLUENT_PLATFORM_VERSION);
-    public static final String KAFKA_CONNECT_IMAGE = Optional.ofNullable(System.getenv("KAFKA_CONNECT_IMAGE"))
-            .orElse("confluentinc/cp-kafka-connect-base:" + CONFLUENT_PLATFORM_VERSION);
+    public static final DockerImageName KAFKA_IMAGE = DockerImageName.parse(
+            Optional.ofNullable(System.getenv("KAFKA_IMAGE"))
+                    .orElse("confluentinc/cp-kafka:" + CONFLUENT_PLATFORM_VERSION))
+            .asCompatibleSubstituteFor("kafka");
+    public static final DockerImageName KAFKA_SCHEMA_REGISTRY_IMAGE = DockerImageName.parse(
+            Optional.ofNullable(System.getenv("KAFKA_SCHEMA_REGISTRY_IMAGE"))
+                    .orElse("confluentinc/cp-schema-registry:" + CONFLUENT_PLATFORM_VERSION));
+    public static final DockerImageName KAFKA_CONNECT_IMAGE = DockerImageName.parse(
+            Optional.ofNullable(System.getenv("KAFKA_CONNECT_IMAGE"))
+                    .orElse("confluentinc/cp-kafka-connect-base:" + CONFLUENT_PLATFORM_VERSION));
 
     private static String seed = "1";   // must match the source connector config
     private static Network testNetwork;
@@ -77,7 +82,7 @@ public class KafkaCassandraSourceTests {
     public static final void initBeforeClass() throws Exception {
         testNetwork = Network.newNetwork();
 
-        kafkaContainer = new KafkaContainer(DockerImageName.parse(KAFKA_IMAGE))
+        kafkaContainer = new KafkaContainer(KAFKA_IMAGE)
                 .withNetwork(testNetwork)
                 .withEmbeddedZookeeper()
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withName("kafka-" + seed))

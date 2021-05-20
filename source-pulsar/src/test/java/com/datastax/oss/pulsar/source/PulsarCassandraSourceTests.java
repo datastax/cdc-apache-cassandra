@@ -49,8 +49,13 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 @Slf4j
 public class PulsarCassandraSourceTests {
-    public static final String CASSANDRA_IMAGE = Optional.ofNullable(System.getenv("CASSANDRA_IMAGE")).orElse("cassandra:4.0-beta4");
-    public static final String PULSAR_IMAGE = Optional.ofNullable(System.getenv("PULSAR_IMAGE")).orElse("harbor.sjc.dsinternal.org/pulsar/lunastreaming-all:latest");
+    public static final DockerImageName CASSANDRA_IMAGE = DockerImageName.parse(
+            Optional.ofNullable(System.getenv("CASSANDRA_IMAGE")).orElse("cassandra:4.0-beta4")
+    ).asCompatibleSubstituteFor("cassandra");
+
+    public static final DockerImageName PULSAR_IMAGE = DockerImageName.parse(
+            Optional.ofNullable(System.getenv("PULSAR_IMAGE")).orElse("harbor.sjc.dsinternal.org/pulsar/lunastreaming-all:latest")
+    ).asCompatibleSubstituteFor("pulsar");
 
     private static Network testNetwork;
     private static PulsarContainer<?> pulsarContainer;
@@ -64,7 +69,7 @@ public class PulsarCassandraSourceTests {
         String sourceBuildDir = System.getProperty("sourceBuildDir");
         String projectVersion = System.getProperty("projectVersion");
         String sourceJarFile = String.format(Locale.ROOT, "source-pulsar-%s.nar", projectVersion);
-        pulsarContainer = new PulsarContainer<>(DockerImageName.parse(PULSAR_IMAGE))
+        pulsarContainer = new PulsarContainer<>(PULSAR_IMAGE)
                 .withNetwork(testNetwork)
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withName("pulsar"))
                 .withFunctionsWorker()
@@ -201,7 +206,6 @@ public class PulsarCassandraSourceTests {
                 while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null &&
                         mutationTable1.values().stream().mapToInt(i -> i).sum() < 5) {
                     GenericObject genericObject = msg.getValue();
-                    Schema msgSchema = msg.getSchema().get();
                     assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
                     KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
                     GenericRecord key = kv.getKey();
@@ -284,7 +288,6 @@ public class PulsarCassandraSourceTests {
                 while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null &&
                         mutationTable2.values().stream().mapToInt(i -> i).sum() < 5) {
                     GenericObject genericObject = msg.getValue();
-                    Schema msgSchema = msg.getSchema().get();
                     assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
                     KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
                     GenericRecord key = kv.getKey();

@@ -1,12 +1,12 @@
 /**
  * Copyright DataStax, Inc 2021.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -22,7 +22,6 @@ import org.apache.cassandra.db.commitlog.CommitLogReader;
 import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.PriorityBlockingQueue;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Consume a queue of commitlog files to read mutations.
@@ -49,25 +48,9 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
         this.commitLogReadHandler = commitLogReadHandler;
         this.offsetFileWriter = offsetFileWriter;
         this.commitLogTransfer = commitLogTransfer;
-
-        /*
-        this.meterRegistry = meterRegistry;
-        this.meterRegistry.gauge(MetricConstants.METRICS_PREFIX + "synced_segment", syncedOffsetRef, new ToDoubleFunction<AtomicReference<CommitLogPosition>>() {
-            @Override
-            public double applyAsDouble(AtomicReference<CommitLogPosition> offsetRef) {
-                return offsetRef.get().segmentId;
-            }
-        });
-        this.meterRegistry.gauge(MetricConstants.METRICS_PREFIX + "synced_position", syncedOffsetRef, new ToDoubleFunction<AtomicReference<CommitLogPosition>>() {
-            @Override
-            public double applyAsDouble(AtomicReference<CommitLogPosition> offsetRef) {
-                return offsetRef.get().position;
-            }
-        });
-         */
     }
 
-    public void submitCommitLog(File file)  {
+    public void submitCommitLog(File file) {
         log.debug("submitCommitLog file={}", file.getAbsolutePath());
         this.commitLogQueue.add(file);
     }
@@ -75,7 +58,7 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
     @Override
     public void process() throws InterruptedException {
         File file = null;
-        while(true) {
+        while (true) {
             file = this.commitLogQueue.take();
             long seg = CommitLogUtil.extractTimestamp(file.getName());
 
@@ -94,11 +77,11 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
                         ? new CommitLogPosition(seg, 0)
                         : new CommitLogPosition(offsetFileWriter.offset().getSegmentId(), offsetFileWriter.offset().getPosition());
 
-                commitLogReader.readCommitLogSegment(commitLogReadHandler, file,false);
+                commitLogReader.readCommitLogSegment(commitLogReadHandler, file, false);
                 log.debug("Successfully processed commitlog minPosition={} file={}", minPosition, file.getName());
                 commitLogTransfer.onSuccessTransfer(file);
-            } catch(Exception e) {
-                log.warn("Failed to read commitlog file="+file.getName(), e);
+            } catch (Exception e) {
+                log.warn("Failed to read commitlog file=" + file.getName(), e);
                 commitLogTransfer.onErrorTransfer(file);
             }
         }

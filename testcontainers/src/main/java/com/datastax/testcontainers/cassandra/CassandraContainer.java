@@ -234,7 +234,7 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
         return new CassandraDatabaseDelegate(this);
     }
 
-    public static CassandraContainer<?> createCassandraContainerWithPulsarProducer(String image,
+    public static CassandraContainer<?> createCassandraContainerWithPulsarProducer(DockerImageName image,
                                                                                    Network network,
                                                                                    int nodeIndex,
                                                                                    String version,
@@ -244,7 +244,7 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
                 String.format("pulsarServiceUrl=%s", pulsarServiceUrl));
     }
 
-    public static CassandraContainer<?> createCassandraContainerWithPulsarProducer(String image,
+    public static CassandraContainer<?> createCassandraContainerWithPulsarProducer(DockerImageName image,
                                                                                    Network network,
                                                                                    int nodeIndex,
                                                                                    String producerBuildDir,
@@ -255,7 +255,7 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
                 String.format("pulsarServiceUrl=%s", pulsarServiceUrl));
     }
 
-    public static CassandraContainer<?> createCassandraContainerWithKafkaProducer(String image,
+    public static CassandraContainer<?> createCassandraContainerWithKafkaProducer(DockerImageName image,
                                                                                   Network network,
                                                                                   int nodeIndex,
                                                                                   String version,
@@ -266,7 +266,7 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
                 String.format("kafkaBrokers=%s,kafkaSchemaRegistryUrl=%s", kafkaBrokers, kafkaSchemaRegistryUrl));
     }
 
-    public static CassandraContainer<?> createCassandraContainerWithKafkaProducer(String image,
+    public static CassandraContainer<?> createCassandraContainerWithKafkaProducer(DockerImageName image,
                                                                                   Network network,
                                                                                   int nodeIndex,
                                                                                   String producerBuildDir,
@@ -278,7 +278,7 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
                 String.format("kafkaBrokers=%s,kafkaSchemaRegistryUrl=%s", kafkaBrokers, kafkaSchemaRegistryUrl));
     }
 
-    public static CassandraContainer<?> createCassandraContainerWithProducer(String image,
+    public static CassandraContainer<?> createCassandraContainerWithProducer(DockerImageName image,
                                                                              Network network,
                                                                              int nodeIndex,
                                                                              String producerBuildDir,

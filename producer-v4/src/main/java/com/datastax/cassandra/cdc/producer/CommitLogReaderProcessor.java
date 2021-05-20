@@ -58,22 +58,6 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
         this.commitLogReadHandler = commitLogReadHandler;
         this.offsetFileWriter = offsetFileWriter;
         this.commitLogTransfer = commitLogTransfer;
-
-        /*
-        this.meterRegistry = meterRegistry;
-        this.meterRegistry.gauge(MetricConstants.METRICS_PREFIX + "synced_segment", syncedOffsetRef, new ToDoubleFunction<AtomicReference<CommitLogPosition>>() {
-            @Override
-            public double applyAsDouble(AtomicReference<CommitLogPosition> offsetRef) {
-                return offsetRef.get().segmentId;
-            }
-        });
-        this.meterRegistry.gauge(MetricConstants.METRICS_PREFIX + "synced_position", syncedOffsetRef, new ToDoubleFunction<AtomicReference<CommitLogPosition>>() {
-            @Override
-            public double applyAsDouble(AtomicReference<CommitLogPosition> offsetRef) {
-                return offsetRef.get().position;
-            }
-        });
-         */
     }
 
     public void submitCommitLog(File file)  {

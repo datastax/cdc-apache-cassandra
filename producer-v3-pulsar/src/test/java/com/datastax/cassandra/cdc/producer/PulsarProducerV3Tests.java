@@ -49,8 +49,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @Slf4j
 public class PulsarProducerV3Tests {
 
-    public static final String CASSANDRA_IMAGE = Optional.ofNullable(System.getenv("CASSANDRA_IMAGE")).orElse("cassandra:3.11.10");
-    public static final String PULSAR_IMAGE = Optional.ofNullable(System.getenv("PULSAR_IMAGE")).orElse("harbor.sjc.dsinternal.org/pulsar/lunastreaming-all:latest");
+    public static final DockerImageName CASSANDRA_IMAGE = DockerImageName.parse(
+            Optional.ofNullable(System.getenv("CASSANDRA_IMAGE")).orElse("cassandra:3.11.10")
+    ).asCompatibleSubstituteFor("cassandra");
+
+    public static final DockerImageName PULSAR_IMAGE = DockerImageName.parse(
+            Optional.ofNullable(System.getenv("PULSAR_IMAGE")).orElse("harbor.sjc.dsinternal.org/pulsar/lunastreaming-all:latest")
+    ).asCompatibleSubstituteFor("pulsar");
 
     private static Network testNetwork;
     private static PulsarContainer<?> pulsarContainer;
@@ -58,7 +63,7 @@ public class PulsarProducerV3Tests {
     @BeforeAll
     public static final void initBeforeClass() throws Exception {
         testNetwork = Network.newNetwork();
-        pulsarContainer = new PulsarContainer<>(DockerImageName.parse(PULSAR_IMAGE))
+        pulsarContainer = new PulsarContainer<>(PULSAR_IMAGE)
                 .withNetwork(testNetwork)
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withName("pulsar"))
                 .withStartupTimeout(Duration.ofSeconds(30));

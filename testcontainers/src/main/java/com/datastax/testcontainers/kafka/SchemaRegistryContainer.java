@@ -26,7 +26,7 @@ public class SchemaRegistryContainer<SELF extends SchemaRegistryContainer<SELF>>
     public static final int SCHEMA_REGISTRY_INTERNAL_PORT = 8081;
     public static final String schemaRegistryContainerName = "schemaregistry";
 
-    private SchemaRegistryContainer(String image, String boostrapServers) {
+    private SchemaRegistryContainer(DockerImageName image, String boostrapServers) {
         super(image);
 
         addEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", boostrapServers);
@@ -47,7 +47,7 @@ public class SchemaRegistryContainer<SELF extends SchemaRegistryContainer<SELF>>
         return "http:/" + getContainerName() + ":" + SCHEMA_REGISTRY_INTERNAL_PORT;
     }
 
-    public static SchemaRegistryContainer<?> create(String image, String seed, String boostrapServers) {
+    public static SchemaRegistryContainer<?> create(DockerImageName image, String seed, String boostrapServers) {
         return (SchemaRegistryContainer) new SchemaRegistryContainer<>(image, boostrapServers)
                 .withCreateContainerCmdModifier(c -> c.withName(schemaRegistryContainerName + "-" + seed));
     }

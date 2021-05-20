@@ -63,9 +63,6 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
                 if (path.toString().endsWith(".log")) {
                     commitLogReaderProcessor.submitCommitLog(path.toFile());
                 }
-                if (path.toString().endsWith("_cdc.idx")) {
-                    commitLogReaderProcessor.submitCommitLog(path.toFile());
-                }
             }
         };
 

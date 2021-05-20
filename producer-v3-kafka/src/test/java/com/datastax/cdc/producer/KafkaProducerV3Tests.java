@@ -1,12 +1,12 @@
 /**
  * Copyright DataStax, Inc 2021.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -45,6 +45,7 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils;
 import org.testcontainers.utility.DockerImageName;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -52,17 +53,21 @@ import java.util.stream.Collectors;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @Slf4j
-public class KafkaV4ProducerTests {
+public class KafkaProducerV3Tests {
 
-    public static final String CASSANDRA_IMAGE = Optional.ofNullable(System.getenv("CASSANDRA_IMAGE"))
-            .orElse("cassandra:4.0-beta4");
+    public static final DockerImageName CASSANDRA_IMAGE = DockerImageName.parse(
+            Optional.ofNullable(System.getenv("CASSANDRA_IMAGE")).orElse("cassandra:3.11.10"))
+            .asCompatibleSubstituteFor("cassandra");
 
     public static final String CONFLUENT_PLATFORM_VERSION = "5.5.1";
 
-    public static final String KAFKA_IMAGE = Optional.ofNullable(System.getenv("KAFKA_IMAGE"))
-            .orElse("confluentinc/cp-kafka:" + CONFLUENT_PLATFORM_VERSION);
-    public static final String KAFKA_SCHEMA_REGISTRY_IMAGE = Optional.ofNullable(System.getenv("KAFKA_SCHEMA_REGISTRY_IMAGE"))
-            .orElse("confluentinc/cp-schema-registry:" + CONFLUENT_PLATFORM_VERSION);
+    public static final DockerImageName KAFKA_IMAGE = DockerImageName.parse(
+            Optional.ofNullable(System.getenv("KAFKA_IMAGE"))
+                    .orElse("confluentinc/cp-kafka:" + CONFLUENT_PLATFORM_VERSION))
+            .asCompatibleSubstituteFor("kafka");
+    public static final DockerImageName KAFKA_SCHEMA_REGISTRY_IMAGE = DockerImageName.parse(
+            Optional.ofNullable(System.getenv("KAFKA_SCHEMA_REGISTRY_IMAGE"))
+                    .orElse("confluentinc/cp-schema-registry:" + CONFLUENT_PLATFORM_VERSION));
 
     private static String seed;
     private static Network testNetwork;
@@ -79,7 +84,7 @@ public class KafkaV4ProducerTests {
         // seed to uniquely identify containers between concurrent tests.
         seed = RandomStringUtils.randomNumeric(6);
 
-        kafkaContainer = new KafkaContainer(DockerImageName.parse(KAFKA_IMAGE))
+        kafkaContainer = new KafkaContainer(KAFKA_IMAGE)
                 .withNetwork(testNetwork)
                 .withEmbeddedZookeeper()
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withName("kafka-" + seed))
@@ -99,8 +104,8 @@ public class KafkaV4ProducerTests {
 
     @AfterAll
     public static void closeAfterAll() {
-       kafkaContainer.close();
-       schemaRegistryContainer.close();
+        kafkaContainer.close();
+        schemaRegistryContainer.close();
     }
 
     KafkaConsumer<byte[], GenericRecord> createConsumer(String groupId) {
@@ -119,11 +124,11 @@ public class KafkaV4ProducerTests {
     }
 
     @Test
-    public void testProducer() throws InterruptedException {
+    public void testProducer() throws InterruptedException, IOException {
         try (CassandraContainer<?> cassandraContainer1 = CassandraContainer.createCassandraContainerWithKafkaProducer(
-                CASSANDRA_IMAGE, testNetwork, 1, "v4", internalKafkaBootstrapServers, schemaRegistryUrl);
+                CASSANDRA_IMAGE, testNetwork, 1, "v3", internalKafkaBootstrapServers, schemaRegistryUrl);
              CassandraContainer<?> cassandraContainer2 = CassandraContainer.createCassandraContainerWithKafkaProducer(
-                     CASSANDRA_IMAGE, testNetwork, 2, "v4", internalKafkaBootstrapServers, schemaRegistryUrl)) {
+                     CASSANDRA_IMAGE, testNetwork, 2, "v3", internalKafkaBootstrapServers, schemaRegistryUrl)) {
             cassandraContainer1.start();
             cassandraContainer2.start();
 
@@ -139,7 +144,12 @@ public class KafkaV4ProducerTests {
                 cqlSession.execute("INSERT INTO ks1.table2 (a,b,c) VALUES('2',1,1)");
                 cqlSession.execute("INSERT INTO ks1.table2 (a,b,c) VALUES('3',1,1)");
             }
+
             Thread.sleep(15000);    // wait CL sync on disk
+            // cassandra drain to discard commitlog segments without stopping the producer
+            assertEquals(0, cassandraContainer1.execInContainer("/opt/cassandra/bin/nodetool", "drain").getExitCode());
+            assertEquals(0, cassandraContainer2.execInContainer("/opt/cassandra/bin/nodetool", "drain").getExitCode());
+            Thread.sleep(11000);
 
             KafkaConsumer<byte[], GenericRecord> consumer = createConsumer("test-consumer-avro-group");
             consumer.subscribe(ImmutableList.of(ProducerConfig.topicPrefix + "ks1.table1", ProducerConfig.topicPrefix + "ks1.table2"));
@@ -184,11 +194,11 @@ public class KafkaV4ProducerTests {
                     String mutationMd5Digest = genericRecord.get("md5Digest").toString();
                     if (topicName.endsWith("table1")) {
                         assertEquals(expectedKeySchema1, keySchemaAndValue.schema());
-                        nodesTable1.computeIfAbsent((String)keySchemaAndValue.value(), k -> new ArrayList<>()).add(mutationNodeId);
-                        digestsTable1.computeIfAbsent((String)keySchemaAndValue.value(), k -> new ArrayList<>()).add(mutationMd5Digest);
+                        nodesTable1.computeIfAbsent((String) keySchemaAndValue.value(), k -> new ArrayList<>()).add(mutationNodeId);
+                        digestsTable1.computeIfAbsent((String) keySchemaAndValue.value(), k -> new ArrayList<>()).add(mutationMd5Digest);
                     } else if (topicName.endsWith("table2")) {
-                        String key = (String) ((Struct)keySchemaAndValue.value()).get("a");
-                        assertEquals(1, ((Struct)keySchemaAndValue.value()).get("b"));
+                        String key = (String) ((Struct) keySchemaAndValue.value()).get("a");
+                        assertEquals(1, ((Struct) keySchemaAndValue.value()).get("b"));
                         assertEquals(expectedKeySchema2, keySchemaAndValue.schema());
                         nodesTable2.computeIfAbsent(key, k -> new ArrayList<>()).add(mutationNodeId);
                         digestsTable2.computeIfAbsent(key, k -> new ArrayList<>()).add(mutationMd5Digest);
@@ -197,14 +207,14 @@ public class KafkaV4ProducerTests {
                 consumer.commitSync();
             }
             // check we have exactly one mutation per node for each key.
-            for(int i=1; i < 4; i++) {
+            for (int i = 1; i < 4; i++) {
                 assertEquals(2, nodesTable1.get(Integer.toString(i)).size());
                 assertEquals(2, nodesTable1.get(Integer.toString(i)).stream().collect(Collectors.toSet()).size());
                 assertEquals(2, nodesTable2.get(Integer.toString(i)).size());
                 assertEquals(2, nodesTable2.get(Integer.toString(i)).stream().collect(Collectors.toSet()).size());
             }
             // check we have exactly 2 identical digests.
-            for(int i=1; i < 4; i++) {
+            for (int i = 1; i < 4; i++) {
                 assertEquals(2, digestsTable1.get(Integer.toString(i)).size());
                 assertEquals(1, digestsTable1.get(Integer.toString(i)).stream().collect(Collectors.toSet()).size());
                 assertEquals(2, digestsTable2.get(Integer.toString(i)).size());

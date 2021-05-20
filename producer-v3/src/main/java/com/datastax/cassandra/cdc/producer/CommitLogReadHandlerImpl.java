@@ -569,6 +569,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                     offsetWriter.markOffset(mutation.getSource().commitLogPosition);
                     offsetWriter.notCommittedEvents++;
                     offsetWriter.maybeCommitOffset(mutation);
+                    log.info("mutation={} sent", mutation);
                 });
     }
 
