@@ -28,7 +28,7 @@ public class ProducerConfig {
 
     public static final String storageDir = System.getProperty("cassandra.storagedir", null);
 
-    static enum Plateform {
+    enum Plateform {
         ALL, PULSAR, KAFKA;
     }
 
@@ -42,7 +42,8 @@ public class ProducerConfig {
 
     public static final String CDC_RELOCATION_DIR = "cdcRelocationDir";
     public static String cdcRelocationDir = System.getProperty(CDC_RELOCATION_DIR, storageDir + File.separator + "cdc_backup");
-    public static final Setting<String> CDC_RELOCATION_DIR_SETTING = new Setting<>(CDC_RELOCATION_DIR, Plateform.ALL, s -> cdcRelocationDir = s, () -> cdcRelocationDir);
+    public static final Setting<String> CDC_RELOCATION_DIR_SETTING =
+            new Setting<>(CDC_RELOCATION_DIR, Plateform.ALL, s -> cdcRelocationDir = s, () -> cdcRelocationDir);
 
     public static final String CDC_DIR_POOL_INTERVAL_MS = "cdcPoolIntervalMs";
     public static long cdcDirPollIntervalMs = Long.getLong(CDC_DIR_POOL_INTERVAL_MS, 60000L);
@@ -224,7 +225,7 @@ public class ProducerConfig {
         if (log.isInfoEnabled()) {
             StringBuilder sb = new StringBuilder();
             settings.forEach(s -> {
-                if (s.plateform.equals(Plateform.ALL) || !s.plateform.equals(plateform)) {
+                if (s.plateform.equals(Plateform.ALL) || s.plateform.equals(plateform)) {
                     if (sb.length() > 0)
                         sb.append(", ");
                     sb.append(s.name).append("=").append(s.supplier.get());
