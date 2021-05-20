@@ -77,13 +77,11 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
 
     @SuppressWarnings("rawtypes")
     public Schema<GenericRecord> getKeySchema(final CFMetaData tm) {
-        String key = tm.ksName + "." + tm.cfName;
+        final String key = tm.ksName + "." + tm.cfName;
         return schemas.computeIfAbsent(key, k -> {
             List<ColumnDefinition> primaryKeyColumns = new ArrayList<>();
             tm.primaryKeyColumns().forEach(primaryKeyColumns::add);
-            RecordSchemaBuilder schemaBuilder = SchemaBuilder
-                    .record(tm.ksName + "." + tm.cfName)
-                    .doc(SCHEMA_DOC_PREFIX + k);
+            RecordSchemaBuilder schemaBuilder = SchemaBuilder.record(k).doc(SCHEMA_DOC_PREFIX + k);
             int i = 0;
             for (ColumnDefinition cm : primaryKeyColumns) {
                 schemaBuilder
@@ -97,8 +95,8 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     public Producer<KeyValue<GenericRecord, MutationValue>> getProducer(final CFMetaData tm) {
-        String topicName = ProducerConfig.topicPrefix + tm.ksName + "." + tm.cfName;
-        String producerName = "pulsar-producer-" + StorageService.instance.getLocalHostId();
+        final String topicName = ProducerConfig.topicPrefix + tm.ksName + "." + tm.cfName;
+        final String producerName = "pulsar-producer-" + StorageService.instance.getLocalHostId();
         return producers.compute(topicName, (k, v) -> {
             if (v == null) {
                 try {

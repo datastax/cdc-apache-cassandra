@@ -77,13 +77,11 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
 
     @SuppressWarnings("rawtypes")
     public Schema getKeySchema(final TableMetadata tm) {
-        String key = tm.keyspace + "." + tm.name;
+        final String key = tm.keyspace + "." + tm.name;
         return schemas.computeIfAbsent(key, k -> {
             List<ColumnMetadata> primaryKeyColumns = new ArrayList<>();
             tm.primaryKeyColumns().forEach(primaryKeyColumns::add);
-            RecordSchemaBuilder schemaBuilder = SchemaBuilder
-                    .record(tm.keyspace + "." + tm.name)
-                    .doc(SCHEMA_DOC_PREFIX + k);
+            RecordSchemaBuilder schemaBuilder = SchemaBuilder.record(k).doc(SCHEMA_DOC_PREFIX + k);
             int i = 0;
             for (ColumnMetadata cm : primaryKeyColumns) {
                 schemaBuilder
@@ -97,8 +95,8 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     public Producer<KeyValue<GenericRecord, MutationValue>> getProducer(final TableMetadata tm) {
-        String topicName = ProducerConfig.topicPrefix + tm.keyspace + "." + tm.name;
-        String producerName = "pulsar-producer-" + StorageService.instance.getLocalHostId() + "-" + topicName;
+        final String topicName = ProducerConfig.topicPrefix + tm.keyspace + "." + tm.name;
+        final String producerName = "pulsar-producer-" + StorageService.instance.getLocalHostId() + "-" + topicName;
         return producers.compute(topicName, (k, v) -> {
             if (v == null) {
                 try {
