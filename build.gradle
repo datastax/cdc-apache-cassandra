@@ -23,7 +23,7 @@ allprojects {
         maven { url "https://packages.confluent.io/maven/" }
         maven { url "https://repo.typesafe.com/typesafe/releases/" }
         maven { url "https://${datastaxRepo}/artifactory/datastax-snapshots-local" }
-        maven { url "https://nexus.repo.strapdata.com/repository/maven-snapshots" }
+        maven { url "https://${strapdataRepo}/repository/maven-snapshots" }
     }
 
     apply plugin: 'idea'
@@ -112,6 +112,15 @@ subprojects {
         publications {
             maven(MavenPublication) {
                 from components.java
+            }
+        }
+        repositories {
+            maven {
+                url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+                credentials(PasswordCredentials) {
+                    username project.hasProperty("repoUsername") ? getProperty("repoUsername") : ""
+                    password project.hasProperty("repoPassword") ? getProperty("repoPassword") : ""
+                }
             }
         }
     }
