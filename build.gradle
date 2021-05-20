@@ -17,16 +17,13 @@ plugins {
 allprojects {
     repositories {
         mavenLocal()
-        maven { url "https://nexus.repo.strapdata.com/repository/maven-snapshots" }
         mavenCentral()
-        //maven { url "https://repo.maven.apache.org/maven2" }
-        //maven { url "https://repository.apache.org/content/groups/snapshots" }
-        maven { url "https://jcenter.bintray.com" }
+        jcenter() // or Maven central, required for Lombok dependency
         maven { url "https://oss.sonatype.org/content/repositories/snapshots" }
         maven { url "https://packages.confluent.io/maven/" }
         maven { url "https://repo.typesafe.com/typesafe/releases/" }
-        jcenter() // or Maven central, required for Lombok dependency
-        maven { url "https://repo.sjc.dsinternal.org/artifactory/datastax-snapshots-local" }
+        maven { url "https://${datastaxRepo}/artifactory/datastax-snapshots-local" }
+        maven { url "https://nexus.repo.strapdata.com/repository/maven-snapshots" }
     }
 
     apply plugin: 'idea'
