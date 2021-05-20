@@ -27,9 +27,6 @@ compileTestJava {
 }
 
 dependencies {
-    implementation "org.projectlombok:lombok:${lombokVersion}"
-    annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
-
     implementation("com.github.ben-manes.caffeine:caffeine:${caffeineVersion}")
     implementation("io.vavr:vavr:${vavrVersion}")
     implementation("com.datastax.oss:java-driver-core:${ossDriverVersion}")

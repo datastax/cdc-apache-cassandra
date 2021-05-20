@@ -7,9 +7,6 @@ compileTestJava {
 }
 
 dependencies {
-    implementation "org.projectlombok:lombok:${lombokVersion}"
-    annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
-
     api project(':common')
     implementation("io.debezium:debezium-core:${debeziumVersion}")
     compileOnly("org.slf4j:slf4j-api:1.7.30")

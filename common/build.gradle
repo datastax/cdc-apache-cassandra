@@ -2,15 +2,6 @@ plugins {
     id 'java-library'
 }
 
-tasks.withType(JavaCompile) {
-    options.compilerArgs += '-Xlint:none'
-}
-
-dependencies {
-    implementation "org.projectlombok:lombok:${lombokVersion}"
-    annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
-}
-
 jar {
 }
 

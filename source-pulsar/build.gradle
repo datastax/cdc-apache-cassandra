@@ -15,9 +15,6 @@ sourceSets {
 }
 
 dependencies {
-    implementation "org.projectlombok:lombok:${lombokVersion}"
-    annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
-
     implementation project(':common')
     api project(':source')
 

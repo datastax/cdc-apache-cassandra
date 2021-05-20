@@ -29,9 +29,6 @@ sourceSets {
 }
 
 dependencies {
-    implementation "org.projectlombok:lombok:${lombokVersion}"
-    annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
-
     api project(':producer')
     api("io.debezium:debezium-core:${debeziumVersion}")
     compileOnly("org.apache.cassandra:cassandra-all:${cassandra3Version}")

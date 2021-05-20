@@ -32,9 +32,6 @@ compileTestJava {
 }
 
 dependencies {
-    implementation "org.projectlombok:lombok:${lombokVersion}"
-    annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
-
     api project(':producer-v4')
 
     // see https://docs.confluent.io/platform/current/installation/versions-interoperability.html
