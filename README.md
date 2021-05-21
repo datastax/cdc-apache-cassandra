@@ -12,3 +12,9 @@
 The following diagram describes the general architecture. The CDC replication ensures the most recent state of the Cassandra table is replicated into the data topic, and the schema in the schema-registry reflects the Cassandra table schema.
 
 ![Cassandra-source-connector](docs/images/cassandra-source-connector.png)
+
+## Limitations
+
+* Does not replay batch updates
+* Does not manage table truncates
+* Does not sync data available before starting the CDC producer.
