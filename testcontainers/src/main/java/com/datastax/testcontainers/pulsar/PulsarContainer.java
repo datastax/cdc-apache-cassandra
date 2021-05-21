@@ -33,18 +33,9 @@ public class PulsarContainer<SELF extends PulsarContainer<SELF>> extends Generic
     public static final String METRICS_ENDPOINT = "/metrics";
 
     private static final DockerImageName DEFAULT_IMAGE_NAME = DockerImageName.parse("pulsar/pulsar-all");
-    @Deprecated
-    private static final String DEFAULT_TAG = "2.2.0";
 
     private boolean functionsWorkerEnabled = false;
 
-    /**
-     * @deprecated use {@link PulsarContainer (DockerImageName)} instead
-     */
-    @Deprecated
-    public PulsarContainer() {
-        this(DEFAULT_IMAGE_NAME.withTag(DEFAULT_TAG));
-    }
 
     /**
      * @deprecated use {@link PulsarContainer (DockerImageName)} instead
