@@ -569,7 +569,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                     CdcMetrics.sentMutations.inc();
                     sentOffset.set(mutation.getSource().commitLogPosition);
                     offsetWriter.markOffset(mutation.getSource().commitLogPosition);
-                    offsetWriter.notCommittedEvents++;
+                    offsetWriter.incNotCommittedEvents();
                     offsetWriter.maybeCommitOffset(mutation);
                     log.info("mutation={} sent", mutation);
                 });

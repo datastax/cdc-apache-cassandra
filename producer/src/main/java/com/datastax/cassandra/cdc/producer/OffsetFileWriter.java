@@ -31,26 +31,11 @@ public class OffsetFileWriter implements AutoCloseable {
     private AtomicReference<CommitLogPosition> fileOffsetRef = new AtomicReference<>(new CommitLogPosition(0,0));
 
     private final OffsetFlushPolicy offsetFlushPolicy;
-    volatile long timeOfLastFlush = System.currentTimeMillis();
-    volatile Long notCommittedEvents = 0L;
+    private volatile long timeOfLastFlush = System.currentTimeMillis();
+    private volatile long notCommittedEvents = 0L;
 
     public OffsetFileWriter(String cdcLogDir) throws IOException {
         this.offsetFlushPolicy = new OffsetFlushPolicy.AlwaysFlushOffsetPolicy();
-        /*
-        this.meterRegistry.gauge("committed_segment", fileOffsetRef, new ToDoubleFunction<AtomicReference<CommitLogPosition>>() {
-            @Override
-            public double applyAsDouble(AtomicReference<CommitLogPosition> offsetPositionRef) {
-                return offsetPositionRef.get().segmentId;
-            }
-        });
-        this.meterRegistry.gauge("committed_position", fileOffsetRef, new ToDoubleFunction<AtomicReference<CommitLogPosition>>() {
-            @Override
-            public double applyAsDouble(AtomicReference<CommitLogPosition> offsetPositionRef) {
-                return offsetPositionRef.get().position;
-            }
-        });
-         */
-
         this.offsetFile = new File(cdcLogDir, COMMITLOG_OFFSET_FILE);
         init();
     }
@@ -112,7 +97,7 @@ public class OffsetFileWriter implements AutoCloseable {
         }
     }
 
-    void maybeCommitOffset(Mutation<?> record) {
+    public void maybeCommitOffset(Mutation<?> record) {
         try {
             long now = System.currentTimeMillis();
             long timeSinceLastFlush = now - timeOfLastFlush;
@@ -127,5 +112,9 @@ public class OffsetFileWriter implements AutoCloseable {
         } catch(IOException e) {
             log.warn("error:", e);
         }
+    }
+
+    public long incNotCommittedEvents() {
+        return this.notCommittedEvents++;
     }
 }
