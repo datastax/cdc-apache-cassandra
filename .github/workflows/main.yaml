@@ -24,10 +24,12 @@ jobs:
             ${{ runner.os }}-buildx-
 
       - name: Test with Gradle
-        run: ./gradlew test -PpulsarVersion=2.8.0-SNAPSHOT -PdatastaxRepo=repo.datastax.com
+        env:
+          PULSAR_IMAGE: "strapdata/pulsar-all:latest"
+        run: ./gradlew test -PpulsarVersion=2.8.0-SNAPSHOT -PpulsarRepoUrl=https://nexus.repo.strapdata.com/repository/maven-snapshots
 
       - name: Build with Gradle
-        run: ./gradlew assemble -PpulsarVersion=2.8.0-SNAPSHOT -PdatastaxRepo=repo.datastax.com
+        run: ./gradlew assemble -PpulsarVersion=2.8.0-SNAPSHOT -PpulsarRepoUrl=https://nexus.repo.strapdata.com/repository/maven-snapshots
 
       - name: Create Release
         id: create_release
