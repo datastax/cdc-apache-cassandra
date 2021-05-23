@@ -49,6 +49,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import io.vavr.Tuple2;
+import io.vavr.Tuple3;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -262,7 +263,7 @@ public class CassandraClient implements AutoCloseable {
         return new Tuple2<>(keyspaceMetadataOptional.get(), tableMetadataOptional.get());
     }
 
-    public Tuple2<Row, ConsistencyLevel> selectRow(List<Object> pkValues,
+    public Tuple3<Row, ConsistencyLevel, UUID> selectRow(List<Object> pkValues,
                                                    UUID nodeId,
                                                    List<ConsistencyLevel> consistencyLevels,
                                                    PreparedStatement preparedStatement)
@@ -274,7 +275,7 @@ public class CassandraClient implements AutoCloseable {
     /**
      * Try to read CL=ALL (could be LOCAL_ALL), retry LOCAL_QUORUM, retry LOCAL_ONE.
      */
-    public CompletionStage<Tuple2<Row, ConsistencyLevel>> selectRowAsync(List<Object> pkValues,
+    public CompletionStage<Tuple3<Row, ConsistencyLevel, UUID>> selectRowAsync(List<Object> pkValues,
                                                                          UUID nodeId,
                                                                          List<ConsistencyLevel> consistencyLevels,
                                                                          PreparedStatement preparedStatement) {
@@ -294,7 +295,7 @@ public class CassandraClient implements AutoCloseable {
                 .thenApply(tuple -> {
                     log.debug("Read cl={} coordinator={} pk={}", tuple._2, tuple._1.getExecutionInfo().getCoordinator().getHostId(), pkValues);
                     Row row = tuple._1.one();
-                    return new Tuple2<>(row, tuple._2);
+                    return new Tuple3<>(row, tuple._2, tuple._1.getExecutionInfo().getCoordinator().getHostId());
                 })
                 .whenComplete((tuple, error) -> {
                     if (error != null) {

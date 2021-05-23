@@ -31,6 +31,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import io.vavr.Tuple2;
+import io.vavr.Tuple3;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.api.*;
@@ -217,7 +218,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                     // ensure the schema is the one used when building the struct.
                     final ConverterAndQuery converterAndQueryFinal = this.valueConverterAndQuery;
 
-                    Tuple2<Row, ConsistencyLevel> tuple = cassandraClient.selectRow(
+                    Tuple3<Row, ConsistencyLevel, UUID> tuple = cassandraClient.selectRow(
                             pk,
                             mutationValue.getNodeId(),
                             Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE),
@@ -247,7 +248,10 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                         }
                     };
                     acknowledge(consumer, msg);
-                    mutationCache.addMutationMd5(msg.getKey(), mutationValue.getMd5Digest());
+                    if (tuple._3 != null && tuple._3.equals(mutationValue.getNodeId())) {
+                        // cache the mutation digest if the coordinator is the source of this event.
+                        mutationCache.addMutationMd5(msg.getKey(), mutationValue.getMd5Digest());
+                    }
                     return record;
                 } catch (Exception e) {
                     log.error("error", e);

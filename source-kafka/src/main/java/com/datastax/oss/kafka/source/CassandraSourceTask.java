@@ -32,6 +32,7 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import io.confluent.connect.avro.AvroConverter;
 import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import io.vavr.Tuple2;
+import io.vavr.Tuple3;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.*;
@@ -270,7 +271,7 @@ public class CassandraSourceTask extends SourceTask implements SchemaChangeListe
                         String colName = cassandraConverterAndStatementFinal.getConverter().getPrimaryKeyColumns().get(0).getName().asCql(true);
                         pk.add(keySchemaAndValue.value());
                     }
-                    Tuple2<Row, ConsistencyLevel> tuple = cassandraClient.selectRow(
+                    Tuple3<Row, ConsistencyLevel, UUID> tuple = cassandraClient.selectRow(
                             pk,
                             UUID.fromString(nodeId),
                             new ArrayList<>(consistencyLevels),
@@ -291,7 +292,10 @@ public class CassandraSourceTask extends SourceTask implements SchemaChangeListe
                             cassandraConverterAndStatementFinal.getConverter().getSchema(),
                             value);
                     sourceRecords.add(sourceRecord);
-                    mutationCache.addMutationMd5(mutationKey, md5Digest);
+                    if (tuple._3 != null && tuple._3.equals(md5Digest)) {
+                        // cache the mutation digest if the coordinator is the source of this event.
+                        mutationCache.addMutationMd5(mutationKey, md5Digest);
+                    }
                 } catch (Exception e) {
                     log.error("error", e);
                 }
