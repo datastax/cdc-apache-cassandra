@@ -222,7 +222,8 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                             pk,
                             mutationValue.getNodeId(),
                             Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE),
-                            getSelectStatement());
+                            getSelectStatement(),
+                            mutationValue.getMd5Digest());
 
                     Object value = tuple._1 == null ? null : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
                     KeyValue<Object, Object> keyValue = new KeyValue(mutationKey, value);

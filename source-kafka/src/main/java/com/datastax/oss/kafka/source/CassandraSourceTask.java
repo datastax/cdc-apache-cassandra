@@ -275,13 +275,15 @@ public class CassandraSourceTask extends SourceTask implements SchemaChangeListe
                             pk,
                             UUID.fromString(nodeId),
                             new ArrayList<>(consistencyLevels),
-                            getSelectStatement()
+                            getSelectStatement(),
+                            md5Digest
                     );
                     Object value = null;
                     if (tuple._1 != null) {
                         value = cassandraConverterAndStatementFinal.getConverter().buildStruct(tuple._1);
                     }
-                    log.debug("Record partition={} key={} value={}", consumerRecord.partition(), mutationKey, value);
+                    log.debug("Record partition={} mutationNodeId={} coordinatorId={} md5Digest={} key={} value={}",
+                            consumerRecord.partition(), nodeId, tuple._3, md5Digest, mutationKey, value);
                     SourceRecord sourceRecord = new SourceRecord(
                             ImmutableMap.of(),
                             ImmutableMap.of(),
@@ -292,7 +294,7 @@ public class CassandraSourceTask extends SourceTask implements SchemaChangeListe
                             cassandraConverterAndStatementFinal.getConverter().getSchema(),
                             value);
                     sourceRecords.add(sourceRecord);
-                    if (tuple._3 != null && tuple._3.equals(md5Digest)) {
+                    if (tuple._3 != null && tuple._3.equals(UUID.fromString(nodeId))) {
                         // cache the mutation digest if the coordinator is the source of this event.
                         mutationCache.addMutationMd5(mutationKey, md5Digest);
                     }

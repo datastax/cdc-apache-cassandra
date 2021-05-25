@@ -264,11 +264,12 @@ public class CassandraClient implements AutoCloseable {
     }
 
     public Tuple3<Row, ConsistencyLevel, UUID> selectRow(List<Object> pkValues,
-                                                   UUID nodeId,
-                                                   List<ConsistencyLevel> consistencyLevels,
-                                                   PreparedStatement preparedStatement)
+                                                         UUID nodeId,
+                                                         List<ConsistencyLevel> consistencyLevels,
+                                                         PreparedStatement preparedStatement,
+                                                         String md5Digest)
             throws ExecutionException, InterruptedException {
-        return selectRowAsync(pkValues, nodeId, consistencyLevels, preparedStatement)
+        return selectRowAsync(pkValues, nodeId, consistencyLevels, preparedStatement, md5Digest)
                 .toCompletableFuture().get();
     }
 
@@ -276,9 +277,10 @@ public class CassandraClient implements AutoCloseable {
      * Try to read CL=ALL (could be LOCAL_ALL), retry LOCAL_QUORUM, retry LOCAL_ONE.
      */
     public CompletionStage<Tuple3<Row, ConsistencyLevel, UUID>> selectRowAsync(List<Object> pkValues,
-                                                                         UUID nodeId,
-                                                                         List<ConsistencyLevel> consistencyLevels,
-                                                                         PreparedStatement preparedStatement) {
+                                                                               UUID nodeId,
+                                                                               List<ConsistencyLevel> consistencyLevels,
+                                                                               PreparedStatement preparedStatement,
+                                                                               String md5Digest) {
         BoundStatement statement = preparedStatement.bind(pkValues.toArray(new Object[pkValues.size()]));
 
         // set the coordinator node
@@ -286,10 +288,10 @@ public class CassandraClient implements AutoCloseable {
         if (nodeId != null) {
             node = cqlSession.getMetadata().getNodes().get(nodeId);
             if (node != null) {
-                statement.setNode(node);
+                statement = statement.setNode(node);
             }
         }
-        log.info("Fetching query={} pk={} coordinator={}", preparedStatement.getQuery(), pkValues, node);
+        log.debug("Fetching md5Digest={} coordinator={} query={} pk={} ", md5Digest, node, preparedStatement.getQuery(), pkValues);
 
         return executeWithDowngradeConsistencyRetry(cqlSession, statement, consistencyLevels)
                 .thenApply(tuple -> {
