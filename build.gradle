@@ -85,7 +85,7 @@ subprojects {
         ext.year = Calendar.getInstance().get(Calendar.YEAR)
         excludes([ "**/cassandra.yaml",
                    "**/logback*",
-                   'source/src/main/resources/cassandra-source-version.properties',
+                   '**/cassandra-source-version.properties',
                    '**/source-cassandra-*'
         ])
     }
