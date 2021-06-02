@@ -43,17 +43,17 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
     private boolean initial = true;
 
     CommitLogReaderProcessor commitLogReaderProcessor;
-    OffsetFileWriter offsetFileWriter;
+    OffsetWriter offsetWriter;
 
     public CommitLogProcessor(String cdcLogDir,
                               CommitLogTransfer commitLogTransfer,
-                              OffsetFileWriter offsetFileWriter,
+                              OffsetWriter offsetWriter,
                               CommitLogReaderProcessor commitLogReaderProcessor) throws IOException {
         super(NAME, 0);
 
         this.commitLogReaderProcessor = commitLogReaderProcessor;
         this.commitLogTransfer = commitLogTransfer;
-        this.offsetFileWriter = offsetFileWriter;
+        this.offsetWriter = offsetWriter;
         this.cdcDir = new File(cdcLogDir);
         this.newCommitLogWatcher = new AbstractDirectoryWatcher(cdcDir.toPath(),
                 Duration.ofMillis(ProducerConfig.cdcDirPollIntervalMs),
@@ -98,7 +98,7 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
                 long segmentId = CommitLogUtil.extractTimestamp(file.getName());
                 if (file.getName().endsWith(".log")) {
                     // only submit logs, not _cdc.idx
-                    if(segmentId >= offsetFileWriter.offset().segmentId) {
+                    if(segmentId >= offsetWriter.offset().segmentId) {
                         commitLogReaderProcessor.submitCommitLog(file);
                     }
                 } else if (file.getName().endsWith("_cdc.idx")) {

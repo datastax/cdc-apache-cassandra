@@ -48,15 +48,15 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
     private final PriorityBlockingQueue<File> commitLogQueue = new PriorityBlockingQueue<>(128, CommitLogUtil::compareCommitLogs);
 
     private final CommitLogReadHandlerImpl commitLogReadHandler;
-    private final OffsetFileWriter offsetFileWriter;
+    private final OffsetWriter offsetWriter;
     private final CommitLogTransfer commitLogTransfer;
 
     public CommitLogReaderProcessor(CommitLogReadHandlerImpl commitLogReadHandler,
-                                    OffsetFileWriter offsetFileWriter,
+                                    OffsetWriter offsetWriter,
                                     CommitLogTransfer commitLogTransfer) {
         super(NAME, 0);
         this.commitLogReadHandler = commitLogReadHandler;
-        this.offsetFileWriter = offsetFileWriter;
+        this.offsetWriter = offsetWriter;
         this.commitLogTransfer = commitLogTransfer;
     }
 
@@ -104,15 +104,15 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
 
     @Override
     public void process() throws InterruptedException {
-        assert this.offsetFileWriter.offset().segmentId <= this.syncedOffsetRef.get().segmentId || this.offsetFileWriter.offset().position <= this.offsetFileWriter.offset().position : "file offset is greater than synced offset";
+        assert this.offsetWriter.offset().segmentId <= this.syncedOffsetRef.get().segmentId || this.offsetWriter.offset().position <= this.offsetWriter.offset().position : "file offset is greater than synced offset";
         File file = null;
         while(true) {
             file = this.commitLogQueue.take();
             long seg = CommitLogUtil.extractTimestamp(file.getName());
 
             // ignore file before the last write offset
-            if (seg < this.offsetFileWriter.offset().segmentId) {
-                log.debug("Ignoring file={} before the replicated segment={}", file.getName(), this.offsetFileWriter.offset().segmentId);
+            if (seg < this.offsetWriter.offset().segmentId) {
+                log.debug("Ignoring file={} before the replicated segment={}", file.getName(), this.offsetWriter.offset().segmentId);
                 continue;
             }
             // ignore file beyond the last synced commitlog, it will be re-queued on a file modification.
@@ -126,9 +126,9 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
             CommitLogReader commitLogReader = new CommitLogReader();
             try {
                 // hack to use a dummy min position for segment ahead of the offsetFile.
-                CommitLogPosition minPosition = (seg > offsetFileWriter.offset().segmentId)
+                CommitLogPosition minPosition = (seg > offsetWriter.offset().segmentId)
                         ? new CommitLogPosition(seg, 0)
-                        : new CommitLogPosition(offsetFileWriter.offset().getSegmentId(), offsetFileWriter.offset().getPosition());
+                        : new CommitLogPosition(offsetWriter.offset().getSegmentId(), offsetWriter.offset().getPosition());
 
                 commitLogReader.readCommitLogSegment(commitLogReadHandler, file, minPosition, false);
                 log.debug("Successfully processed commitlog immutable={} minPosition={} file={}",

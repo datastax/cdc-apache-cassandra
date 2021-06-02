@@ -42,7 +42,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.CompletionStage;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static com.datastax.cassandra.cdc.producer.CommitLogReadHandlerImpl.RowType.DELETE;
 
@@ -59,10 +58,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
     private final MutationMaker<CFMetaData> mutationMaker;
     private final MutationSender<CFMetaData> mutationSender;
-    private final OffsetFileWriter offsetWriter;
-
-    AtomicReference<CommitLogPosition> sentOffset =
-            new AtomicReference<>(new com.datastax.cassandra.cdc.producer.CommitLogPosition(0,0));
+    private final OffsetWriter offsetWriter;
 
     CommitLogReadHandlerImpl(OffsetFileWriter offsetFileWriter,
                              MutationSender<CFMetaData> mutationSender) {
@@ -565,7 +561,6 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         return this.mutationSender.sendMutationAsync(mutation)
                 .thenAccept(msgId -> {
                     CdcMetrics.sentMutations.inc();
-                    sentOffset.set(mutation.getSource().commitLogPosition);
                     offsetWriter.markOffset(mutation.getSource().commitLogPosition);
                     offsetWriter.incNotCommittedEvents();
                     offsetWriter.maybeCommitOffset(mutation);

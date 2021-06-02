@@ -60,16 +60,13 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
     private final MutationMaker<TableMetadata> mutationMaker;
     private final MutationSender<TableMetadata> mutationSender;
-    private final OffsetFileWriter offsetWriter;
+    private final OffsetWriter offsetWriter;
 
-    AtomicReference<CommitLogPosition> sentOffset =
-            new AtomicReference<>(new com.datastax.cassandra.cdc.producer.CommitLogPosition(0,0));
-
-    CommitLogReadHandlerImpl(OffsetFileWriter offsetFileWriter,
+    CommitLogReadHandlerImpl(OffsetWriter offsetWriter,
                              MutationSender<TableMetadata> mutationSender) {
         this.mutationSender = mutationSender;
         this.mutationMaker = new MutationMaker<TableMetadata>();
-        this.offsetWriter = offsetFileWriter;
+        this.offsetWriter = offsetWriter;
     }
 
     /**
@@ -567,7 +564,6 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         return this.mutationSender.sendMutationAsync(mutation)
                 .thenAccept(msgId -> {
                     CdcMetrics.sentMutations.inc();
-                    sentOffset.set(mutation.getSource().commitLogPosition);
                     offsetWriter.markOffset(mutation.getSource().commitLogPosition);
                     offsetWriter.incNotCommittedEvents();
                     offsetWriter.maybeCommitOffset(mutation);

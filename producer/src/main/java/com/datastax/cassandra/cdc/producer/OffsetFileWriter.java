@@ -24,7 +24,7 @@ import java.time.Duration;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
-public class OffsetFileWriter implements AutoCloseable {
+public class OffsetFileWriter implements OffsetWriter, AutoCloseable {
     public static final String COMMITLOG_OFFSET_FILE = "commitlog_offset.dat";
 
     private final File offsetFile;
@@ -40,14 +40,17 @@ public class OffsetFileWriter implements AutoCloseable {
         init();
     }
 
+    @Override
     public CommitLogPosition offset() {
         return this.fileOffsetRef.get();
     }
 
+    @Override
     public void markOffset(CommitLogPosition sourceOffset) {
         this.fileOffsetRef.set(sourceOffset);
     }
 
+    @Override
     public void flush() throws IOException {
         saveOffset();
     }
@@ -97,6 +100,7 @@ public class OffsetFileWriter implements AutoCloseable {
         }
     }
 
+    @Override
     public void maybeCommitOffset(Mutation<?> record) {
         try {
             long now = System.currentTimeMillis();
@@ -114,6 +118,7 @@ public class OffsetFileWriter implements AutoCloseable {
         }
     }
 
+    @Override
     public long incNotCommittedEvents() {
         return this.notCommittedEvents++;
     }
