@@ -7,7 +7,7 @@ compileTestJava {
 }
 
 dependencies {
-    api project(':common')
+    api project(':commons')
     implementation("io.debezium:debezium-core:${debeziumVersion}")
     compileOnly("org.slf4j:slf4j-api:1.7.30")
 }

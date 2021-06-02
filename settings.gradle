@@ -12,7 +12,7 @@ buildscript {
 
 rootProject.name = 'cassandra-source-connector'
 
-include 'common'
+include 'commons'
 include 'testcontainers'
 include 'producer'
 include 'source'

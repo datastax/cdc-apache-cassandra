@@ -13,7 +13,7 @@ configurations {
 }
 
 dependencies {
-    implementation project(':common')
+    implementation project(':commons')
     api project(':source')
 
     implementation("com.github.ben-manes.caffeine:caffeine:${caffeineVersion}")
