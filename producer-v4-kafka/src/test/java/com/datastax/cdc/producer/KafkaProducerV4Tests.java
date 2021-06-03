@@ -148,7 +148,8 @@ public class KafkaProducerV4Tests {
             Thread.sleep(15000);    // wait CL sync on disk
 
             KafkaConsumer<byte[], GenericRecord> consumer = createConsumer("test-consumer-avro-group");
-            consumer.subscribe(ImmutableList.of(ProducerConfig.topicPrefix + "ks1.table1", ProducerConfig.topicPrefix + "ks1.table2"));
+            ProducerConfig config = ProducerConfig.create(ProducerConfig.Plateform.KAFKA, null); // default config
+            consumer.subscribe(ImmutableList.of(config.topicPrefix + "ks1.table1", config.topicPrefix + "ks1.table2"));
             int noRecordsCount = 0;
 
             Map<String, List<UUID>> nodesTable1 = new HashMap<>();

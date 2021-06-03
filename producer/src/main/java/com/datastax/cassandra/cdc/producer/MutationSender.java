@@ -19,7 +19,7 @@ import java.util.concurrent.CompletionStage;
 
 public interface MutationSender<T> {
 
-    default void initialize() throws Exception {
+    default void initialize(ProducerConfig config) throws Exception {
     }
 
     CompletionStage<?> sendMutationAsync(final Mutation<T> mutation) throws Exception;

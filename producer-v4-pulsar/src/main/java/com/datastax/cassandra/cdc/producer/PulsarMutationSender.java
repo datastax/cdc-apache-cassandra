@@ -41,12 +41,14 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
 
     public static final String SCHEMA_DOC_PREFIX = "Primary key schema for table ";
 
+    final ProducerConfig config;
     PulsarClient client;
     final Map<String, Producer<KeyValue<GenericRecord, MutationValue>>> producers = new ConcurrentHashMap<>();
     final Map<String, Schema<GenericRecord>> schemas = new HashMap<>();
     final ImmutableMap<String, SchemaType> schemaTypes;
 
-    public PulsarMutationSender() {
+    public PulsarMutationSender(ProducerConfig config) {
+        this.config = config;
         // Map Cassandra native types to Pulsar schema types
         schemaTypes = ImmutableMap.<String, SchemaType>builder()
                 .put(UTF8Type.instance.asCQL3Type().toString(), SchemaType.STRING)
@@ -95,7 +97,7 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     public Producer<KeyValue<GenericRecord, MutationValue>> getProducer(final TableMetadata tm) {
-        final String topicName = ProducerConfig.topicPrefix + tm.keyspace + "." + tm.name;
+        final String topicName = config.topicPrefix + tm.keyspace + "." + tm.name;
         final String producerName = "pulsar-producer-" + StorageService.instance.getLocalHostId() + "-" + topicName;
         return producers.compute(topicName, (k, v) -> {
             if (v == null) {
@@ -126,28 +128,28 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
     }
 
     @Override
-    public void initialize() throws PulsarClientException {
+    public void initialize(ProducerConfig config) throws PulsarClientException {
         try {
-            ClientBuilder clientBuilder = PulsarClient.builder().serviceUrl(ProducerConfig.pulsarServiceUrl);
+            ClientBuilder clientBuilder = PulsarClient.builder().serviceUrl(config.pulsarServiceUrl);
 
-            if (ProducerConfig.pulsarServiceUrl.startsWith("pulsar+ssl://")) {
-                clientBuilder.tlsTrustStorePath(ProducerConfig.sslKeystorePath)
-                        .tlsTrustStorePassword(ProducerConfig.sslTruststorePassword)
-                        .tlsTrustStoreType(ProducerConfig.sslTruststoreType)
-                        .allowTlsInsecureConnection(ProducerConfig.sslAllowInsecureConnection)
-                        .enableTlsHostnameVerification(ProducerConfig.sslHostnameVerificationEnable);
-                if (ProducerConfig.sslProvider != null) {
-                    clientBuilder.sslProvider(ProducerConfig.sslProvider);
+            if (config.pulsarServiceUrl.startsWith("pulsar+ssl://")) {
+                clientBuilder.tlsTrustStorePath(config.sslKeystorePath)
+                        .tlsTrustStorePassword(config.sslTruststorePassword)
+                        .tlsTrustStoreType(config.sslTruststoreType)
+                        .allowTlsInsecureConnection(config.sslAllowInsecureConnection)
+                        .enableTlsHostnameVerification(config.sslHostnameVerificationEnable);
+                if (config.sslProvider != null) {
+                    clientBuilder.sslProvider(config.sslProvider);
                 }
-                if (ProducerConfig.sslCipherSuites != null) {
-                    clientBuilder.tlsCiphers(new HashSet<String>(Arrays.asList(ProducerConfig.sslCipherSuites.split(","))));
+                if (config.sslCipherSuites != null) {
+                    clientBuilder.tlsCiphers(new HashSet<String>(Arrays.asList(config.sslCipherSuites.split(","))));
                 }
-                if (ProducerConfig.sslEnabledProtocols != null) {
-                    clientBuilder.tlsProtocols(new HashSet<String>(Arrays.asList(ProducerConfig.sslEnabledProtocols.split(","))));
+                if (config.sslEnabledProtocols != null) {
+                    clientBuilder.tlsProtocols(new HashSet<String>(Arrays.asList(config.sslEnabledProtocols.split(","))));
                 }
             }
-            if (ProducerConfig.pulsarAuthPluginClassName != null) {
-                clientBuilder.authentication(ProducerConfig.pulsarAuthPluginClassName, ProducerConfig.pulsarAuthParams);
+            if (config.pulsarAuthPluginClassName != null) {
+                clientBuilder.authentication(config.pulsarAuthPluginClassName, config.pulsarAuthParams);
             }
 
             this.client = clientBuilder.build();
@@ -171,7 +173,7 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
     @SuppressWarnings({"rawtypes", "unchecked"})
     public CompletionStage<MessageId> sendMutationAsync(final Mutation<TableMetadata> mutation) throws PulsarClientException {
         if (this.client == null) {
-            initialize();
+            initialize(config);
         }
         Producer<KeyValue<GenericRecord, MutationValue>> producer = getProducer(mutation.getMetadata());
         Schema keySchema = getKeySchema(mutation.getMetadata());

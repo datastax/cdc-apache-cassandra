@@ -20,6 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.util.*;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -29,7 +30,7 @@ public class ProducerConfig {
     public static final String CDC_PROPERTY_PREFIX = "cdc.";
     public static final String storageDir = System.getProperty("cassandra.storagedir", null);
 
-    enum Plateform {
+    public enum Plateform {
         ALL, PULSAR, KAFKA;
     }
 
@@ -37,130 +38,130 @@ public class ProducerConfig {
     public static class Setting<T> {
         public final String name;
         public final Plateform plateform;
-        public final Function<String, T> initializer;
-        public final Supplier<T> supplier;
+        public final BiFunction<ProducerConfig, String, T> initializer;
+        public final Function<ProducerConfig, T> supplier;
     }
 
     public static final String CDC_RELOCATION_DIR = "cdcRelocationDir";
-    public static String cdcRelocationDir = System.getProperty(CDC_PROPERTY_PREFIX + CDC_RELOCATION_DIR, storageDir + File.separator + "cdc_backup");
+    public String cdcRelocationDir = System.getProperty(CDC_PROPERTY_PREFIX + CDC_RELOCATION_DIR, storageDir + File.separator + "cdc_backup");
     public static final Setting<String> CDC_RELOCATION_DIR_SETTING =
-            new Setting<>(CDC_RELOCATION_DIR, Plateform.ALL, s -> cdcRelocationDir = s, () -> cdcRelocationDir);
+            new Setting<>(CDC_RELOCATION_DIR, Plateform.ALL, (c,s) -> c.cdcRelocationDir = s, c -> c.cdcRelocationDir);
 
     public static final String CDC_DIR_POOL_INTERVAL_MS = "cdcPoolIntervalMs";
-    public static long cdcDirPollIntervalMs = Long.getLong(CDC_PROPERTY_PREFIX + CDC_DIR_POOL_INTERVAL_MS, 60000L);
+    public long cdcDirPollIntervalMs = Long.getLong(CDC_PROPERTY_PREFIX + CDC_DIR_POOL_INTERVAL_MS, 60000L);
     public static final Setting<Long> CDC_DIR_POOL_INTERVAL_MS_SETTING =
-            new Setting<>(CDC_DIR_POOL_INTERVAL_MS, Plateform.ALL, s -> cdcDirPollIntervalMs = Long.parseLong(s), () -> cdcDirPollIntervalMs);
+            new Setting<>(CDC_DIR_POOL_INTERVAL_MS, Plateform.ALL, (c,s) -> c.cdcDirPollIntervalMs = Long.parseLong(s), c -> c.cdcDirPollIntervalMs);
 
     public static final String ERROR_COMMITLOG_REPROCESS_ENABLED = "errorCommitLogReprocessEnabled";
-    public static boolean errorCommitLogReprocessEnabled = Boolean.getBoolean(CDC_PROPERTY_PREFIX + ERROR_COMMITLOG_REPROCESS_ENABLED);
+    public boolean errorCommitLogReprocessEnabled = Boolean.getBoolean(CDC_PROPERTY_PREFIX + ERROR_COMMITLOG_REPROCESS_ENABLED);
     public static final Setting<Boolean> ERROR_COMMITLOG_REPROCESS_ENABLED_SETTING =
-            new Setting<>(ERROR_COMMITLOG_REPROCESS_ENABLED, Plateform.ALL, s -> errorCommitLogReprocessEnabled = Boolean.parseBoolean(s), () -> errorCommitLogReprocessEnabled);
+            new Setting<>(ERROR_COMMITLOG_REPROCESS_ENABLED, Plateform.ALL, (c,s) -> c.errorCommitLogReprocessEnabled = Boolean.parseBoolean(s), c -> c.errorCommitLogReprocessEnabled);
 
     public static final String EMIT_TOMBSTONE_ON_DELETE = "emitTombstoneOnDelete";
-    public static boolean emitTombstoneOnDelete = Boolean.getBoolean(CDC_PROPERTY_PREFIX + EMIT_TOMBSTONE_ON_DELETE);
+    public boolean emitTombstoneOnDelete = Boolean.getBoolean(CDC_PROPERTY_PREFIX + EMIT_TOMBSTONE_ON_DELETE);
     public static final Setting<Boolean> EMIT_TOMBSTONE_ON_DELETE_SETTING =
-            new Setting<>(EMIT_TOMBSTONE_ON_DELETE, Plateform.ALL, s -> emitTombstoneOnDelete = Boolean.parseBoolean(s), () -> emitTombstoneOnDelete);
+            new Setting<>(EMIT_TOMBSTONE_ON_DELETE, Plateform.ALL, (c,s) -> c.emitTombstoneOnDelete = Boolean.parseBoolean(s), c -> c.emitTombstoneOnDelete);
 
     public static final String TOPIC_PREFIX = "topicPrefix";
-    public static String topicPrefix = System.getProperty(CDC_PROPERTY_PREFIX + TOPIC_PREFIX, "events-");
+    public String topicPrefix = System.getProperty(CDC_PROPERTY_PREFIX + TOPIC_PREFIX, "events-");
     public static final Setting<String> TOPIC_PREFIX_SETTING =
-            new Setting<>(TOPIC_PREFIX, Plateform.ALL, s -> topicPrefix = s, () -> topicPrefix);
+            new Setting<>(TOPIC_PREFIX, Plateform.ALL, (c,s) -> c.topicPrefix = s, c -> c.topicPrefix);
 
     public static final String PULSAR_SERVICE_URL = "pulsarServiceUrl";
-    public static String pulsarServiceUrl = System.getProperty(CDC_PROPERTY_PREFIX + PULSAR_SERVICE_URL, "pulsar://localhost:6650");
+    public String pulsarServiceUrl = System.getProperty(CDC_PROPERTY_PREFIX + PULSAR_SERVICE_URL, "pulsar://localhost:6650");
     public static final Setting<String> PULSAR_SERVICE_URL_SETTING =
-            new Setting<>(PULSAR_SERVICE_URL, Plateform.PULSAR, s -> pulsarServiceUrl = s, () -> pulsarServiceUrl);
+            new Setting<>(PULSAR_SERVICE_URL, Plateform.PULSAR, (c,s) -> c.pulsarServiceUrl = s, c -> c.pulsarServiceUrl);
 
     public static final String KAFKA_BROKERS = "kafkaBrokers";
-    public static String kafkaBrokers = System.getProperty(CDC_PROPERTY_PREFIX + KAFKA_BROKERS, "localhost:9092");
+    public String kafkaBrokers = System.getProperty(CDC_PROPERTY_PREFIX + KAFKA_BROKERS, "localhost:9092");
     public static final Setting<String> KAFKA_BROKERS_SETTING =
-            new Setting<>(KAFKA_BROKERS, Plateform.KAFKA, s -> kafkaBrokers = s, () -> kafkaBrokers);
+            new Setting<>(KAFKA_BROKERS, Plateform.KAFKA, (c,s) -> c.kafkaBrokers = s, c -> c.kafkaBrokers);
 
     public static final String KAFKA_SCHEMA_REGISTRY_URL = "kafkaSchemaRegistryUrl";
-    public static String kafkaSchemaRegistryUrl = System.getProperty(CDC_PROPERTY_PREFIX + KAFKA_SCHEMA_REGISTRY_URL, "http://localhost:8081");
+    public String kafkaSchemaRegistryUrl = System.getProperty(CDC_PROPERTY_PREFIX + KAFKA_SCHEMA_REGISTRY_URL, "http://localhost:8081");
     public static final Setting<String> KAFKA_SCHEMA_REGISTRY_URL_SETTING =
-            new Setting<>(KAFKA_SCHEMA_REGISTRY_URL, Plateform.KAFKA, s -> kafkaSchemaRegistryUrl = s, () -> kafkaSchemaRegistryUrl);
+            new Setting<>(KAFKA_SCHEMA_REGISTRY_URL, Plateform.KAFKA, (c,s) -> c.kafkaSchemaRegistryUrl = s, c -> c.kafkaSchemaRegistryUrl);
 
     public static final String SSL_PROVIDER = "sslProvider";
-    public static String sslProvider = System.getProperty(CDC_PROPERTY_PREFIX + SSL_PROVIDER);
+    public String sslProvider = System.getProperty(CDC_PROPERTY_PREFIX + SSL_PROVIDER);
     public static final Setting<String> SSL_PROVIDER_SETTING =
-            new Setting<>(SSL_PROVIDER, Plateform.ALL, s -> sslProvider = s, () -> sslProvider);
+            new Setting<>(SSL_PROVIDER, Plateform.ALL, (c,s) -> c.sslProvider = s, c -> c.sslProvider);
 
     public static final String SSL_TRUSTSTORE_PATH = "sslTruststorePath";
-    public static String sslTruststorePath = System.getProperty(CDC_PROPERTY_PREFIX + SSL_TRUSTSTORE_PATH);
+    public String sslTruststorePath = System.getProperty(CDC_PROPERTY_PREFIX + SSL_TRUSTSTORE_PATH);
     public static final Setting<String> SSL_TRUSTSTORE_PATH_SETTING =
-            new Setting<>(SSL_TRUSTSTORE_PATH, Plateform.ALL, s -> sslTruststorePath = s, () -> sslTruststorePath);
+            new Setting<>(SSL_TRUSTSTORE_PATH, Plateform.ALL, (c,s) -> c.sslTruststorePath = s, c -> c.sslTruststorePath);
 
     public static final String SSL_TRUSTSTORE_PASSWORD = "sslTruststorePassword";
-    public static String sslTruststorePassword = System.getProperty(CDC_PROPERTY_PREFIX + SSL_TRUSTSTORE_PASSWORD);
+    public String sslTruststorePassword = System.getProperty(CDC_PROPERTY_PREFIX + SSL_TRUSTSTORE_PASSWORD);
     public static final Setting<String> SSL_TRUSTSTORE_PASSWORD_SETTING =
-            new Setting<>(SSL_TRUSTSTORE_PASSWORD, Plateform.ALL, s -> sslTruststorePassword = s, () -> sslTruststorePassword);
+            new Setting<>(SSL_TRUSTSTORE_PASSWORD, Plateform.ALL, (c,s) -> c.sslTruststorePassword = s, c -> c.sslTruststorePassword);
 
     public static final String SSL_TRUSTSTORE_TYPE = "sslTruststoreType";
-    public static String sslTruststoreType = System.getProperty(CDC_PROPERTY_PREFIX + SSL_TRUSTSTORE_TYPE, "JKS");
+    public String sslTruststoreType = System.getProperty(CDC_PROPERTY_PREFIX + SSL_TRUSTSTORE_TYPE, "JKS");
     public static final Setting<String> SSL_TRUSTSTORE_TYPE_SETTING =
-            new Setting<>(SSL_TRUSTSTORE_TYPE, Plateform.ALL, s -> sslTruststoreType = s, () -> sslTruststoreType);
+            new Setting<>(SSL_TRUSTSTORE_TYPE, Plateform.ALL, (c,s) -> c.sslTruststoreType = s, c -> c.sslTruststoreType);
 
     public static final String SSL_KEYSTORE_PATH = "sslKeystorePath";
-    public static String sslKeystorePath = System.getProperty(CDC_PROPERTY_PREFIX + SSL_KEYSTORE_PATH);
+    public String sslKeystorePath = System.getProperty(CDC_PROPERTY_PREFIX + SSL_KEYSTORE_PATH);
     public static final Setting<String> SSL_KEYSTORE_PATH_SETTING =
-            new Setting<>(SSL_KEYSTORE_PATH, Plateform.ALL, s -> sslKeystorePath = s, () -> sslKeystorePath);
+            new Setting<>(SSL_KEYSTORE_PATH, Plateform.ALL, (c,s) -> c.sslKeystorePath = s, c -> c.sslKeystorePath);
 
     public static final String SSL_KEYSTORE_PASSWORD = "sslKeystorePassword";
-    public static String sslKeystorePassword = System.getProperty(CDC_PROPERTY_PREFIX + SSL_KEYSTORE_PASSWORD);
+    public String sslKeystorePassword = System.getProperty(CDC_PROPERTY_PREFIX + SSL_KEYSTORE_PASSWORD);
     public static final Setting<String> SSL_KEYSTORE_PASSWORD_SETTING =
-            new Setting<>(SSL_KEYSTORE_PASSWORD, Plateform.ALL, s -> sslKeystorePassword = s, () -> sslKeystorePassword);
+            new Setting<>(SSL_KEYSTORE_PASSWORD, Plateform.ALL, (c,s) -> c.sslKeystorePassword = s, c -> c.sslKeystorePassword);
 
     public static final String SSL_CIPHER_SUITES = "sslCipherSuites";
-    public static String sslCipherSuites = System.getProperty(CDC_PROPERTY_PREFIX + SSL_CIPHER_SUITES);
+    public String sslCipherSuites = System.getProperty(CDC_PROPERTY_PREFIX + SSL_CIPHER_SUITES);
     public static final Setting<String> SSL_CIPHER_SUITES_SETTING =
-            new Setting<>(SSL_CIPHER_SUITES, Plateform.ALL, s -> sslCipherSuites = s, () -> sslCipherSuites);
+            new Setting<>(SSL_CIPHER_SUITES, Plateform.ALL, (c,s) -> c.sslCipherSuites = s, c -> c.sslCipherSuites);
 
     public static final String SSL_ENABLED_PROTOCOLS = "sslEnabledProtocols";
-    public static String sslEnabledProtocols = System.getProperty(CDC_PROPERTY_PREFIX + SSL_ENABLED_PROTOCOLS, "TLSv1.2,TLSv1.1,TLSv1");
+    public String sslEnabledProtocols = System.getProperty(CDC_PROPERTY_PREFIX + SSL_ENABLED_PROTOCOLS, "TLSv1.2,TLSv1.1,TLSv1");
     public static final Setting<String> SSL_ENABLED_PROTOCOLS_SETTING =
-            new Setting<>(SSL_ENABLED_PROTOCOLS, Plateform.ALL, s -> sslEnabledProtocols = s, () -> sslEnabledProtocols);
+            new Setting<>(SSL_ENABLED_PROTOCOLS, Plateform.ALL, (c,s) -> c.sslEnabledProtocols = s, c -> c.sslEnabledProtocols);
 
     public static final String SSL_ENDPOINT_IDENTIFICATION_ALGORITHM = "sslEndpointIdentificationAlgorithm";
-    public static String sslEndpointIdentificationAlgorithm = System.getProperty(CDC_PROPERTY_PREFIX + SSL_ENDPOINT_IDENTIFICATION_ALGORITHM, "https");
+    public String sslEndpointIdentificationAlgorithm = System.getProperty(CDC_PROPERTY_PREFIX + SSL_ENDPOINT_IDENTIFICATION_ALGORITHM, "https");
     public static final Setting<String> SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_SETTING =
-            new Setting<>(SSL_ENDPOINT_IDENTIFICATION_ALGORITHM, Plateform.KAFKA, s -> sslEndpointIdentificationAlgorithm = s, () -> sslEndpointIdentificationAlgorithm);
+            new Setting<>(SSL_ENDPOINT_IDENTIFICATION_ALGORITHM, Plateform.KAFKA, (c,s) -> c.sslEndpointIdentificationAlgorithm = s, c -> c.sslEndpointIdentificationAlgorithm);
 
     public static final String SSL_ALLOW_INSECURE_CONNECTION = "sslAllowInsecureConnection";
-    public static boolean sslAllowInsecureConnection = Boolean.getBoolean(CDC_PROPERTY_PREFIX + SSL_ALLOW_INSECURE_CONNECTION);
+    public boolean sslAllowInsecureConnection = Boolean.getBoolean(CDC_PROPERTY_PREFIX + SSL_ALLOW_INSECURE_CONNECTION);
     public static final Setting<Boolean> SSL_ALLOW_INSECURE_CONNECTION_SETTING =
-            new Setting<>(SSL_ALLOW_INSECURE_CONNECTION, Plateform.PULSAR, s -> sslAllowInsecureConnection = Boolean.parseBoolean(s), () -> sslAllowInsecureConnection);
+            new Setting<>(SSL_ALLOW_INSECURE_CONNECTION, Plateform.PULSAR, (c,s) -> c.sslAllowInsecureConnection = Boolean.parseBoolean(s), c -> c.sslAllowInsecureConnection);
 
     public static final String SSL_HOSTNAME_VERIFICATION_ENABLE = "sslHostnameVerificationEnable";
-    public static boolean sslHostnameVerificationEnable = Boolean.getBoolean(CDC_PROPERTY_PREFIX + SSL_HOSTNAME_VERIFICATION_ENABLE);
+    public boolean sslHostnameVerificationEnable = Boolean.getBoolean(CDC_PROPERTY_PREFIX + SSL_HOSTNAME_VERIFICATION_ENABLE);
     public static final Setting<Boolean> SSL_HOSTNAME_VERIFICATION_ENABLE_SETTING =
-            new Setting<>(SSL_HOSTNAME_VERIFICATION_ENABLE, Plateform.PULSAR, s -> sslHostnameVerificationEnable = Boolean.parseBoolean(s), () -> sslHostnameVerificationEnable);
+            new Setting<>(SSL_HOSTNAME_VERIFICATION_ENABLE, Plateform.PULSAR, (c,s) -> c.sslHostnameVerificationEnable = Boolean.parseBoolean(s), c -> c.sslHostnameVerificationEnable);
 
     public static final String PULSAR_AUTH_PLUGIN_CLASS_NAME = "pulsarAuthPluginClassName";
-    public static String pulsarAuthPluginClassName = System.getProperty(CDC_PROPERTY_PREFIX + PULSAR_AUTH_PLUGIN_CLASS_NAME);
+    public String pulsarAuthPluginClassName = System.getProperty(CDC_PROPERTY_PREFIX + PULSAR_AUTH_PLUGIN_CLASS_NAME);
     public static final Setting<String> PULSAR_AUTH_PLUGIN_CLASS_NAME_SETTING =
-            new Setting<>(PULSAR_AUTH_PLUGIN_CLASS_NAME, Plateform.PULSAR, s -> pulsarAuthPluginClassName = s, () -> pulsarAuthPluginClassName);
+            new Setting<>(PULSAR_AUTH_PLUGIN_CLASS_NAME, Plateform.PULSAR, (c,s) -> c.pulsarAuthPluginClassName = s, c -> c.pulsarAuthPluginClassName);
 
     public static final String PULSAR_AUTH_PARAMS = "pulsarAuthParams";
-    public static String pulsarAuthParams = System.getProperty(CDC_PROPERTY_PREFIX + PULSAR_AUTH_PARAMS);
+    public String pulsarAuthParams = System.getProperty(CDC_PROPERTY_PREFIX + PULSAR_AUTH_PARAMS);
     public static final Setting<String> PULSAR_AUTH_PARAMS_SETTING =
-            new Setting<>(PULSAR_AUTH_PARAMS, Plateform.PULSAR, s -> pulsarAuthParams = s, () -> pulsarAuthParams);
+            new Setting<>(PULSAR_AUTH_PARAMS, Plateform.PULSAR, (c,s) -> c.pulsarAuthParams = s, c -> c.pulsarAuthParams);
 
     // generic properties for kafka client
     public static final String KAFKA_PROPERTIES = "kafkaProperties";
-    public static Map<String, String> kafkaProperties = new HashMap<>();
+    public Map<String, String> kafkaProperties = new HashMap<>();
     public static final Setting<Map<String, String>> KAFKA_PROPERTIES_SETTINGS =
             new Setting<>(KAFKA_PROPERTIES, Plateform.KAFKA,
-                    s -> {
+                    (c,s) -> {
                         for (String param : s.split(",")) {
                             int i = param.indexOf("=");
                             if (i > 0) {
-                                kafkaProperties.put(param.substring(0, i), param.substring(i + 1));
+                                c.kafkaProperties.put(param.substring(0, i), param.substring(i + 1));
                             }
                         }
-                        return kafkaProperties;
+                        return c.kafkaProperties;
                     },
-                    () -> kafkaProperties);
+                    c -> c.kafkaProperties);
 
     public static final Set<Setting<?>> settings;
     public static final Map<String, Setting<?>> settingMap;
@@ -198,12 +199,17 @@ public class ProducerConfig {
         settingMap = Collections.unmodifiableMap(map);
     }
 
+    public static ProducerConfig create(Plateform plateform, String agentParams)
+    {
+        return new ProducerConfig().configure(plateform, agentParams);
+    }
+
     /**
      * Override the system properties with agent parameters.
      *
      * @param agentParameters
      */
-    public static void configure(Plateform plateform, String agentParameters) {
+    public ProducerConfig configure(Plateform plateform, String agentParameters) {
         if (agentParameters != null) {
             for (String token : agentParameters.split("(?<!\\\\),\\s*")) {
                 String param = token.replace("\\,", ",");
@@ -216,7 +222,7 @@ public class ProducerConfig {
                         if (!setting.plateform.equals(Plateform.ALL) && !setting.plateform.equals(plateform)) {
                             throw new IllegalArgumentException(String.format("Unsupported parameter '%s' for the %s platform ", key, plateform));
                         }
-                        setting.initializer.apply(value);
+                        setting.initializer.apply(this, value);
                     } else {
                         throw new RuntimeException(String.format("Unknown parameter '%s'", key));
                     }
@@ -229,35 +235,36 @@ public class ProducerConfig {
                 if (s.plateform.equals(Plateform.ALL) || s.plateform.equals(plateform)) {
                     if (sb.length() > 0)
                         sb.append(", ");
-                    sb.append(s.name).append("=").append(s.supplier.get());
+                    sb.append(s.name).append("=").append(s.supplier.apply(this));
                 }
             });
             log.info(sb.toString());
         }
+        return this;
     }
 
-    public static void configureKafkaTls(Properties props) {
+    public void configureKafkaTls(Properties props) {
         // TLS, see https://docs.confluent.io/platform/current/kafka/authentication_ssl.html#clients
-        if (ProducerConfig.sslTruststorePath != null) {
-            props.put("ssl.truststore.location", ProducerConfig.sslTruststorePath);
-            props.put("ssl.truststore.password", ProducerConfig.sslTruststorePassword);
-            props.put("ssl.truststore.type", ProducerConfig.sslTruststoreType);
+        if (sslTruststorePath != null) {
+            props.put("ssl.truststore.location",sslTruststorePath);
+            props.put("ssl.truststore.password", sslTruststorePassword);
+            props.put("ssl.truststore.type", sslTruststoreType);
         }
-        if (ProducerConfig.sslKeystorePath != null) {
-            props.put("ssl.keystore.location", ProducerConfig.sslKeystorePath);
-            props.put("ssl.keystore.password", ProducerConfig.sslKeystorePassword);
+        if (sslKeystorePath != null) {
+            props.put("ssl.keystore.location", sslKeystorePath);
+            props.put("ssl.keystore.password", sslKeystorePassword);
         }
-        if (ProducerConfig.sslProvider != null && ProducerConfig.sslProvider.length() > 0) {
-            props.put("ssl.provider", ProducerConfig.sslProvider);
+        if (sslProvider != null && sslProvider.length() > 0) {
+            props.put("ssl.provider", sslProvider);
         }
-        if (ProducerConfig.sslCipherSuites != null && ProducerConfig.sslCipherSuites.length() > 0) {
-            props.put("ssl.cipher.suites", ProducerConfig.sslCipherSuites);
+        if (sslCipherSuites != null && sslCipherSuites.length() > 0) {
+            props.put("ssl.cipher.suites", sslCipherSuites);
         }
-        if (ProducerConfig.sslEnabledProtocols != null && ProducerConfig.sslEnabledProtocols.length() > 0) {
-            props.put("ssl.enabled.protocols", ProducerConfig.sslEnabledProtocols);
+        if (sslEnabledProtocols != null && sslEnabledProtocols.length() > 0) {
+            props.put("ssl.enabled.protocols", sslEnabledProtocols);
         }
-        if (ProducerConfig.sslEndpointIdentificationAlgorithm != null && ProducerConfig.sslEndpointIdentificationAlgorithm.length() > 0) {
-            props.put("ssl.endpoint.identification.algorithm", ProducerConfig.sslEndpointIdentificationAlgorithm);
+        if (sslEndpointIdentificationAlgorithm != null && sslEndpointIdentificationAlgorithm.length() > 0) {
+            props.put("ssl.endpoint.identification.algorithm", sslEndpointIdentificationAlgorithm);
         }
     }
 }

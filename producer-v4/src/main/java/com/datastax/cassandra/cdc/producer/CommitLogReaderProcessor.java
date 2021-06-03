@@ -50,11 +50,14 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
     private final CommitLogReadHandlerImpl commitLogReadHandler;
     private final OffsetWriter offsetWriter;
     private final CommitLogTransfer commitLogTransfer;
+    private final ProducerConfig config;
 
-    public CommitLogReaderProcessor(CommitLogReadHandlerImpl commitLogReadHandler,
+    public CommitLogReaderProcessor(ProducerConfig config,
+                                    CommitLogReadHandlerImpl commitLogReadHandler,
                                     OffsetWriter offsetWriter,
                                     CommitLogTransfer commitLogTransfer) {
         super(NAME, 0);
+        this.config = config;
         this.commitLogReadHandler = commitLogReadHandler;
         this.offsetWriter = offsetWriter;
         this.commitLogTransfer = commitLogTransfer;
@@ -148,11 +151,11 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
     @Override
     public void initialize() throws Exception {
 
-        File relocationDir = new File(ProducerConfig.cdcRelocationDir);
+        File relocationDir = new File(config.cdcRelocationDir);
 
         if (!relocationDir.exists()) {
             if (!relocationDir.mkdir()) {
-                throw new IOException("Failed to create " + ProducerConfig.cdcRelocationDir);
+                throw new IOException("Failed to create " + config.cdcRelocationDir);
             }
         }
 

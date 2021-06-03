@@ -58,14 +58,14 @@ public class Agent {
 
     static void startCdcProducer(String agentArgs) throws IOException {
         log.info("Starting CDC producer agent, cdc_raw_directory={}", DatabaseDescriptor.getCDCLogLocation());
-        ProducerConfig.configure(ProducerConfig.Plateform.KAFKA, agentArgs);
+        ProducerConfig config = ProducerConfig.create(ProducerConfig.Plateform.KAFKA, agentArgs);
 
         OffsetFileWriter offsetFileWriter = new OffsetFileWriter(DatabaseDescriptor.getCDCLogLocation());
-        KafkaMutationSender kafkaMutationSender = new KafkaMutationSender();
-        CommitLogReadHandlerImpl commitLogReadHandler = new CommitLogReadHandlerImpl(offsetFileWriter, kafkaMutationSender);
-        CommitLogTransfer commitLogTransfer = new BlackHoleCommitLogTransfer();
-        CommitLogReaderProcessor commitLogReaderProcessor = new CommitLogReaderProcessor(commitLogReadHandler, offsetFileWriter, commitLogTransfer);
-        CommitLogProcessor commitLogProcessor = new CommitLogProcessor(DatabaseDescriptor.getCDCLogLocation(), commitLogTransfer, offsetFileWriter, commitLogReaderProcessor);
+        KafkaMutationSender kafkaMutationSender = new KafkaMutationSender(config);
+        CommitLogReadHandlerImpl commitLogReadHandler = new CommitLogReadHandlerImpl(config, offsetFileWriter, kafkaMutationSender);
+        CommitLogTransfer commitLogTransfer = new BlackHoleCommitLogTransfer(config);
+        CommitLogReaderProcessor commitLogReaderProcessor = new CommitLogReaderProcessor(config, commitLogReadHandler, offsetFileWriter, commitLogTransfer);
+        CommitLogProcessor commitLogProcessor = new CommitLogProcessor(DatabaseDescriptor.getCDCLogLocation(), config, commitLogTransfer, offsetFileWriter, commitLogReaderProcessor);
 
         // detect commitlogs file and submit new/modified files to the commitLogReader
         ExecutorService commitLogExecutor = Executors.newSingleThreadExecutor();

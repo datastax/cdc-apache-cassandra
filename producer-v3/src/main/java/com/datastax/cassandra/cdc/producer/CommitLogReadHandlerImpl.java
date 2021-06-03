@@ -60,10 +60,11 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     private final MutationSender<CFMetaData> mutationSender;
     private final OffsetWriter offsetWriter;
 
-    CommitLogReadHandlerImpl(OffsetFileWriter offsetFileWriter,
+    CommitLogReadHandlerImpl(ProducerConfig config,
+                             OffsetFileWriter offsetFileWriter,
                              MutationSender<CFMetaData> mutationSender) {
         this.mutationSender = mutationSender;
-        this.mutationMaker = new MutationMaker<>();
+        this.mutationMaker = new MutationMaker<>(config);
         this.offsetWriter = offsetFileWriter;
     }
 

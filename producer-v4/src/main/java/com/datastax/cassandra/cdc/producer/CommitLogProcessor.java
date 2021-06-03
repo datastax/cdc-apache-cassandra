@@ -44,19 +44,21 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
 
     CommitLogReaderProcessor commitLogReaderProcessor;
     OffsetWriter offsetWriter;
+    ProducerConfig config;
 
     public CommitLogProcessor(String cdcLogDir,
+                              ProducerConfig config,
                               CommitLogTransfer commitLogTransfer,
                               OffsetWriter offsetWriter,
                               CommitLogReaderProcessor commitLogReaderProcessor) throws IOException {
         super(NAME, 0);
-
+        this.config = config;
         this.commitLogReaderProcessor = commitLogReaderProcessor;
         this.commitLogTransfer = commitLogTransfer;
         this.offsetWriter = offsetWriter;
         this.cdcDir = new File(cdcLogDir);
         this.newCommitLogWatcher = new AbstractDirectoryWatcher(cdcDir.toPath(),
-                Duration.ofMillis(ProducerConfig.cdcDirPollIntervalMs),
+                Duration.ofMillis(config.cdcDirPollIntervalMs),
                 ImmutableSet.of(ENTRY_CREATE, ENTRY_MODIFY)) {
             @Override
             void handleEvent(WatchEvent<?> event, Path path) throws IOException {
@@ -82,7 +84,7 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
 
     @Override
     public void process() throws IOException, InterruptedException {
-        if (ProducerConfig.errorCommitLogReprocessEnabled) {
+        if (config.errorCommitLogReprocessEnabled) {
             log.debug("Moving back error commitlogs for reprocessing");
             commitLogTransfer.getErrorCommitLogFiles();
         }

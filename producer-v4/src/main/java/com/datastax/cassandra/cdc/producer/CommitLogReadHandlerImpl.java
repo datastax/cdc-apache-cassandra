@@ -62,10 +62,11 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     private final MutationSender<TableMetadata> mutationSender;
     private final OffsetWriter offsetWriter;
 
-    CommitLogReadHandlerImpl(OffsetWriter offsetWriter,
+    CommitLogReadHandlerImpl(ProducerConfig config,
+                             OffsetWriter offsetWriter,
                              MutationSender<TableMetadata> mutationSender) {
         this.mutationSender = mutationSender;
-        this.mutationMaker = new MutationMaker<TableMetadata>();
+        this.mutationMaker = new MutationMaker<TableMetadata>(config);
         this.offsetWriter = offsetWriter;
     }
 

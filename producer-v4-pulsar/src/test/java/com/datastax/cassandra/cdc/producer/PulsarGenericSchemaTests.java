@@ -27,7 +27,8 @@ public class PulsarGenericSchemaTests {
 
     @Test
     public void testGenericSchema() {
-        PulsarMutationSender pulsarMutationSender = new PulsarMutationSender();
+        ProducerConfig config = ProducerConfig.create(ProducerConfig.Plateform.PULSAR, null);
+        PulsarMutationSender pulsarMutationSender = new PulsarMutationSender(config);
 
         RecordSchemaBuilder schemaBuilder = SchemaBuilder.record("testrecord");
         int i = 0;

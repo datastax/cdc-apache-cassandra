@@ -25,9 +25,15 @@ import java.util.Properties;
  */
 public class BlackHoleCommitLogTransfer implements CommitLogTransfer {
 
+    ProducerConfig config;
+
+    BlackHoleCommitLogTransfer(ProducerConfig config) {
+        this.config = config;
+    }
+
     @Override
     public void onSuccessTransfer(Path file) {
-        CommitLogUtil.moveCommitLog(file.toFile(), Paths.get(ProducerConfig.instance.cdcRelocationDir));
+        CommitLogUtil.moveCommitLog(file.toFile(), Paths.get(config.cdcRelocationDir));
     }
 
     @Override

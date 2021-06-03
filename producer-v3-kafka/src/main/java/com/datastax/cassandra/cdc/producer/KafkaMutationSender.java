@@ -54,13 +54,15 @@ public class KafkaMutationSender implements MutationSender<CFMetaData> , AutoClo
 
     public static final String SCHEMA_DOC_PREFIX = "Primary key schema for table ";
 
+    final ProducerConfig config;
     final Converter keyConverter;
     final Map<String, Schema> schemas = new HashMap<>();
     KafkaProducer<?, MutationValue> kafkaProducer; // lazy init
 
     final Executor executor = Executors.newFixedThreadPool(1);
 
-    KafkaMutationSender() {
+    KafkaMutationSender(ProducerConfig config) {
+        this.config = config;
         // Map Cassandra native types to Kafka schemas
         schemas.put(UTF8Type.instance.asCQL3Type().toString(), SchemaBuilder.string().optional().build());
         schemas.put(AsciiType.instance.asCQL3Type().toString(), SchemaBuilder.string().optional().build());
@@ -86,7 +88,7 @@ public class KafkaMutationSender implements MutationSender<CFMetaData> , AutoClo
         schemas.put(TimeUUIDType.instance.asCQL3Type().toString(), Uuid.builder().optional());
 
         Map<String, String> converterConfig = ImmutableMap.of(
-                AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, ProducerConfig.kafkaSchemaRegistryUrl
+                AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, config.kafkaSchemaRegistryUrl
         );
 
         // Kafka Converter for the Mutation key
@@ -117,20 +119,20 @@ public class KafkaMutationSender implements MutationSender<CFMetaData> , AutoClo
     }
 
     @Override
-    public void initialize() throws Exception {
+    public void initialize(ProducerConfig config) throws Exception {
         // Add the AVRO logical type for UUID
         ReflectData.get().addLogicalTypeConversion(new Conversions.UUIDConversion());
         ReflectData.AllowNull.get().addLogicalTypeConversion(new Conversions.UUIDConversion());
 
         String producerName = "cdc-producer-" + StorageService.instance.getLocalHostId();
         Properties props = new Properties();
-        props.put(org.apache.kafka.clients.producer.ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, ProducerConfig.kafkaBrokers);
+        props.put(org.apache.kafka.clients.producer.ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, config.kafkaBrokers);
         props.put(org.apache.kafka.clients.producer.ProducerConfig.CLIENT_ID_CONFIG, producerName);
         props.put(org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, org.apache.kafka.common.serialization.ByteArraySerializer.class.getName());
         props.put(org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ReflectionAvroSerializer.class.getName());
-        props.put("schema.registry.url", ProducerConfig.kafkaSchemaRegistryUrl);
-        ProducerConfig.configureKafkaTls(props);
-        props.putAll(ProducerConfig.kafkaProperties);
+        props.put("schema.registry.url", config.kafkaSchemaRegistryUrl);
+        config.configureKafkaTls(props);
+        props.putAll(config.kafkaProperties);
 
         this.kafkaProducer = new KafkaProducer<>(props);
         log.info("Kafka producer name={} created", producerName);
@@ -152,13 +154,13 @@ public class KafkaMutationSender implements MutationSender<CFMetaData> , AutoClo
     @SuppressWarnings({"rawtypes","unchecked"})
     public CompletionStage<Void> sendMutationAsync(final Mutation<CFMetaData> mutation) throws Exception {
         Schema keySchema = getKeySchema(mutation.getMetadata());
-        String topicName = ProducerConfig.topicPrefix + mutation.getMetadata().ksName + "." + mutation.getMetadata().cfName;
+        String topicName = config.topicPrefix + mutation.getMetadata().ksName + "." + mutation.getMetadata().cfName;
         byte[] serializedKey = keyConverter.fromConnectData(topicName, keySchema, buildKey(keySchema, mutation.primaryKeyCells()));
         ProducerRecord record = new ProducerRecord(topicName, serializedKey, mutation.mutationValue());
         log.debug("Sending kafka record={}", record);
 
         if (kafkaProducer == null) {
-            initialize(); // lazy init
+            initialize(config); // lazy init
         }
         return CompletableFuture.runAsync(() -> {
             try {

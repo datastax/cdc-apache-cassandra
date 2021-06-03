@@ -36,21 +36,21 @@ public class AgentParametersTest {
             SSL_CIPHER_SUITES + "=AES256," +
             SSL_PROVIDER + "=MyProvider,";
 
-    void assertCommonConfig() {
-        assertEquals("cdc_mybackup", cdcRelocationDir);
-        assertEquals(true, errorCommitLogReprocessEnabled);
-        assertEquals(1234L, cdcDirPollIntervalMs);
-        assertEquals("events-mutations", topicPrefix);
+    void assertCommonConfig(ProducerConfig config) {
+        assertEquals("cdc_mybackup", config.cdcRelocationDir);
+        assertEquals(true, config.errorCommitLogReprocessEnabled);
+        assertEquals(1234L, config.cdcDirPollIntervalMs);
+        assertEquals("events-mutations", config.topicPrefix);
 
         // common TLS settings
-        assertEquals("/truststore.jks", sslTruststorePath);
-        assertEquals("password", sslTruststorePassword);
-        assertEquals("PKCS12", sslTruststoreType);
-        assertEquals("/keystore.jks", sslKeystorePath);
-        assertEquals("password", sslKeystorePassword);
-        assertEquals("TLSv1.2", sslEnabledProtocols);
-        assertEquals("AES256", sslCipherSuites);
-        assertEquals("MyProvider", sslProvider);
+        assertEquals("/truststore.jks", config.sslTruststorePath);
+        assertEquals("password", config.sslTruststorePassword);
+        assertEquals("PKCS12", config.sslTruststoreType);
+        assertEquals("/keystore.jks", config.sslKeystorePath);
+        assertEquals("password", config.sslKeystorePassword);
+        assertEquals("TLSv1.2", config.sslEnabledProtocols);
+        assertEquals("AES256", config.sslCipherSuites);
+        assertEquals("MyProvider", config.sslProvider);
     }
 
     @Test
@@ -62,15 +62,17 @@ public class AgentParametersTest {
                 SSL_ALLOW_INSECURE_CONNECTION + "=true," +
                 SSL_HOSTNAME_VERIFICATION_ENABLE + "=true,"
                 ;
-        ProducerConfig.configure(Plateform.PULSAR, null);     // test NPE
-        ProducerConfig.configure(Plateform.PULSAR, agentArgs);
-        assertCommonConfig();
 
-        assertEquals("pulsar+ssl://mypulsar:6650,localhost:6651,localhost:6652", pulsarServiceUrl);
+        ProducerConfig config = new ProducerConfig();
+        config.configure(Plateform.PULSAR, null);     // test NPE
+        config.configure(Plateform.PULSAR, agentArgs);
+        assertCommonConfig(config);
+
+        assertEquals("pulsar+ssl://mypulsar:6650,localhost:6651,localhost:6652", config.pulsarServiceUrl);
 
         // Pulsar Auth
-        assertEquals("MyAuthPlugin", pulsarAuthPluginClassName);
-        assertEquals("x:y,z:t", pulsarAuthParams);
+        assertEquals("MyAuthPlugin", config.pulsarAuthPluginClassName);
+        assertEquals("x:y,z:t", config.pulsarAuthParams);
     }
 
     @Test
@@ -81,17 +83,18 @@ public class AgentParametersTest {
                 KAFKA_PROPERTIES + "=security.protocol=SASL_SSL\\,sasl.mechanism=PLAIN," +
                 SSL_ENDPOINT_IDENTIFICATION_ALGORITHM + "=none,";
 
-        ProducerConfig.configure(Plateform.KAFKA, null);     // test NPE
-        ProducerConfig.configure(Plateform.KAFKA, agentArgs);
+        ProducerConfig config = new ProducerConfig();
+        config.configure(Plateform.KAFKA, null);     // test NPE
+        config.configure(Plateform.KAFKA, agentArgs);
 
-        assertCommonConfig();
+        assertCommonConfig(config);
 
-        assertEquals("mykafka:9092", kafkaBrokers);
-        assertEquals("http://myregistry:8081", kafkaSchemaRegistryUrl);
+        assertEquals("mykafka:9092", config.kafkaBrokers);
+        assertEquals("http://myregistry:8081", config.kafkaSchemaRegistryUrl);
 
         // Kafka custom TLS settings
-        assertEquals("SASL_SSL", kafkaProperties.get("security.protocol"));
-        assertEquals("PLAIN", kafkaProperties.get("sasl.mechanism"));
-        assertEquals("none", sslEndpointIdentificationAlgorithm);
+        assertEquals("SASL_SSL", config.kafkaProperties.get("security.protocol"));
+        assertEquals("PLAIN", config.kafkaProperties.get("sasl.mechanism"));
+        assertEquals("none", config.sslEndpointIdentificationAlgorithm);
     }
 }

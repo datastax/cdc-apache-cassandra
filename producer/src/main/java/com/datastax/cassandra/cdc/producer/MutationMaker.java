@@ -27,10 +27,10 @@ import java.util.UUID;
  */
 @Slf4j
 public class MutationMaker<T> {
-    private final boolean emitTombstoneOnDelete;
+    ProducerConfig config;
 
-    public MutationMaker() {
-        this.emitTombstoneOnDelete = ProducerConfig.emitTombstoneOnDelete;
+    public MutationMaker(ProducerConfig config) {
+        this.config = config;
     }
 
     public void insert(String cluster, UUID node, CommitLogPosition offsetPosition,
