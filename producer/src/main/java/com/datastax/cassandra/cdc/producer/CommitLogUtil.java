@@ -95,6 +95,16 @@ public final class CommitLogUtil {
     }
 
     /**
+     * Comparing two commit log files provided the {@link File} instances;
+     * Returns 0 if they are the same, -1 if first file is older, 1 if first file is newer.
+     */
+    public static int compareCommitLogs(Path file1, Path file2) {
+        long ts1 = extractTimestamp(file1.getFileName().toString());
+        long ts2 = extractTimestamp(file2.getFileName().toString());
+        return Long.compare(ts1, ts2);
+    }
+
+    /**
      * Comparing two commit log files provided the file names.
      * Returns 0 if they are the same, -1 if first file is older, 1 if first file is newer.
      */

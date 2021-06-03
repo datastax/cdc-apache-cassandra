@@ -16,6 +16,7 @@
 package com.datastax.cassandra.cdc.producer;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.util.Properties;
 
 /**
@@ -36,12 +37,12 @@ public interface CommitLogTransfer extends AutoCloseable {
     /**
      * Transfer a commit log that has been successfully processed.
      */
-    void onSuccessTransfer(File file);
+    void onSuccessTransfer(Path file);
 
     /**
      * Transfer a commit log that has not been successfully processed.
      */
-    void onErrorTransfer(File file);
+    void onErrorTransfer(Path file);
 
     /**
      * Get all error commitLog files into cdc_raw directory for re-processing.

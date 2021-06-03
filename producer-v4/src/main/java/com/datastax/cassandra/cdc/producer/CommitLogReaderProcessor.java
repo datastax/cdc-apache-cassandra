@@ -134,12 +134,12 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
                 log.debug("Successfully processed commitlog immutable={} minPosition={} file={}",
                         seg < this.syncedOffsetRef.get().segmentId, minPosition, file.getName());
                 if (seg < this.syncedOffsetRef.get().segmentId) {
-                    commitLogTransfer.onSuccessTransfer(file);
+                    commitLogTransfer.onSuccessTransfer(file.toPath());
                 }
             } catch(Exception e) {
                 log.warn("Failed to read commitlog immutable="+(seg < this.syncedOffsetRef.get().segmentId)+"file="+file.getName(), e);
                 if (seg < this.syncedOffsetRef.get().segmentId) {
-                    commitLogTransfer.onErrorTransfer(file);
+                    commitLogTransfer.onErrorTransfer(file.toPath());
                 }
             }
         }

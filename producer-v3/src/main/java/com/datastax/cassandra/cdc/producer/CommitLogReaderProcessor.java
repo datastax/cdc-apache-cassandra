@@ -79,10 +79,10 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
 
                 commitLogReader.readCommitLogSegment(commitLogReadHandler, file, false);
                 log.debug("Successfully processed commitlog minPosition={} file={}", minPosition, file.getName());
-                commitLogTransfer.onSuccessTransfer(file);
+                commitLogTransfer.onSuccessTransfer(file.toPath());
             } catch (Exception e) {
                 log.warn("Failed to read commitlog file=" + file.getName(), e);
-                commitLogTransfer.onErrorTransfer(file);
+                commitLogTransfer.onErrorTransfer(file.toPath());
             }
         }
     }

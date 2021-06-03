@@ -16,6 +16,7 @@
 package com.datastax.cassandra.cdc.producer;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Properties;
 
@@ -25,13 +26,13 @@ import java.util.Properties;
 public class BlackHoleCommitLogTransfer implements CommitLogTransfer {
 
     @Override
-    public void onSuccessTransfer(File file) {
-        CommitLogUtil.moveCommitLog(file, Paths.get(ProducerConfig.cdcRelocationDir));
+    public void onSuccessTransfer(Path file) {
+        CommitLogUtil.moveCommitLog(file.toFile(), Paths.get(ProducerConfig.instance.cdcRelocationDir));
     }
 
     @Override
-    public void onErrorTransfer(File file) {
-        CommitLogUtil.deleteCommitLog(file);
+    public void onErrorTransfer(Path file) {
+        CommitLogUtil.deleteCommitLog(file.toFile());
     }
 
     @Override
