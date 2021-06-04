@@ -23,6 +23,7 @@ import com.datastax.oss.pulsar.source.converters.JsonConverter;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
 import com.datastax.testcontainers.pulsar.PulsarContainer;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.io.IOUtils;
 import org.apache.pulsar.client.api.*;
 import org.apache.pulsar.client.api.schema.Field;
 import org.apache.pulsar.client.api.schema.GenericObject;
@@ -151,188 +152,193 @@ public class PulsarCassandraSourceTests {
     public void testSourceConnector(String ksName,
                                     Class<? extends Converter> keyConverter,
                                     Class<? extends Converter> valueConverter) throws InterruptedException, IOException {
-        try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
-            cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName +
-                    " WITH replication = {'class':'SimpleStrategy','replication_factor':'2'};");
-            cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table1 (id text PRIMARY KEY, a int) WITH cdc=true");
-            cqlSession.execute("INSERT INTO " + ksName + ".table1 (id, a) VALUES('1',1)");
-            cqlSession.execute("INSERT INTO " + ksName + ".table1 (id, a) VALUES('2',1)");
-            cqlSession.execute("INSERT INTO " + ksName + ".table1 (id, a) VALUES('3',1)");
+        try {
+            try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName +
+                        " WITH replication = {'class':'SimpleStrategy','replication_factor':'2'};");
+                cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table1 (id text PRIMARY KEY, a int) WITH cdc=true");
+                cqlSession.execute("INSERT INTO " + ksName + ".table1 (id, a) VALUES('1',1)");
+                cqlSession.execute("INSERT INTO " + ksName + ".table1 (id, a) VALUES('2',1)");
+                cqlSession.execute("INSERT INTO " + ksName + ".table1 (id, a) VALUES('3',1)");
 
-            cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table2 (a text, b int, c int, PRIMARY KEY(a,b)) WITH cdc=true");
-            cqlSession.execute("INSERT INTO " + ksName + ".table2 (a,b,c) VALUES('1',1,1)");
-            cqlSession.execute("INSERT INTO " + ksName + ".table2 (a,b,c) VALUES('2',1,1)");
-            cqlSession.execute("INSERT INTO " + ksName + ".table2 (a,b,c) VALUES('3',1,1)");
-        }
-        deployConnector(ksName, "table1", keyConverter, valueConverter);
-        deployConnector(ksName, "table2", keyConverter, valueConverter);
-        Thread.sleep(11000);    // wait commitlogs sync on disk
-
-        try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
-            Map<String, Integer> mutationTable1 = new HashMap<>();
-            try (Consumer<GenericRecord> consumer = pulsarClient.newConsumer(org.apache.pulsar.client.api.Schema.AUTO_CONSUME())
-                    .topic(String.format(Locale.ROOT, "data-%s.table1", ksName))
-                    .subscriptionName("sub1")
-                    .subscriptionType(SubscriptionType.Key_Shared)
-                    .subscriptionMode(SubscriptionMode.Durable)
-                    .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
-                    .subscribe()) {
-                Message<GenericRecord> msg;
-                while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null &&
-                        mutationTable1.values().stream().mapToInt(i -> i).sum() < 4) {
-                    GenericObject genericObject = msg.getValue();
-                    assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
-                    KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
-                    GenericRecord key = kv.getKey();
-                    GenericRecord value = kv.getValue();
-                    System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
-                            " key=" + genericRecordToString(key) +
-                            " value=" + genericRecordToString(value));
-                    assertEquals((Integer)0, mutationTable1.computeIfAbsent((String)key.getField("id"), k -> 0));
-                    assertEquals(1, value.getField("a"));
-                    mutationTable1.compute((String)key.getField("id"), (k,v) -> v+1);
-                    consumer.acknowledge(msg);
-                }
-                assertEquals((Integer) 1, mutationTable1.get("1"));
-                assertEquals((Integer) 1, mutationTable1.get("2"));
-                assertEquals((Integer) 1, mutationTable1.get("3"));
-
-                // trigger a schema update
-                try(CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
-                    cqlSession.execute("ALTER TABLE "+ksName+".table1 ADD b double");
-                    cqlSession.execute("INSERT INTO "+ksName+".table1 (id,a,b) VALUES('1',1,1.0)");
-                }
-                Thread.sleep(15000);  // wait commitlogs sync on disk
-                while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null &&
-                        mutationTable1.values().stream().mapToInt(i -> i).sum() < 5) {
-                    GenericObject genericObject = msg.getValue();
-                    assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
-                    KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
-                    GenericRecord key = kv.getKey();
-                    GenericRecord value = kv.getValue();
-                    System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
-                            " key=" + genericRecordToString(key) +
-                            " value=" + genericRecordToString(value));
-                    assertEquals("1", key.getField("id"));
-                    assertEquals(1, value.getField("a"));
-                    assertEquals(1.0D, value.getField("b"));
-                    mutationTable1.compute((String)key.getField("id"), (k,v) -> v+1);
-                    consumer.acknowledge(msg);
-                }
-                assertEquals((Integer) 2, mutationTable1.get("1"));
-                assertEquals((Integer) 1, mutationTable1.get("2"));
-                assertEquals((Integer) 1, mutationTable1.get("3"));
-
-                // delete a row
-                try(CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
-                    cqlSession.execute("DELETE FROM "+ksName+".table1 WHERE id = '1'");
-                }
-                Thread.sleep(11000);    // wait commitlogs sync on disk
-                while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null &&
-                        mutationTable1.values().stream().mapToInt(i -> i).sum() < 6) {
-                    GenericObject genericObject = msg.getValue();
-                    assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
-                    KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
-                    GenericRecord key = kv.getKey();
-                    GenericRecord value = kv.getValue();
-                    System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
-                            " key=" + genericRecordToString(key) +
-                            " value=" + value);
-                    assertEquals("1", key.getField("id"));
-                    assertNull(value);
-                    mutationTable1.compute((String)key.getField("id"), (k,v) -> v+1);
-                    consumer.acknowledge(msg);
-                }
-                assertEquals((Integer) 3, mutationTable1.get("1"));
-                assertEquals((Integer) 1, mutationTable1.get("2"));
-                assertEquals((Integer) 1, mutationTable1.get("3"));
+                cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table2 (a text, b int, c int, PRIMARY KEY(a,b)) WITH cdc=true");
+                cqlSession.execute("INSERT INTO " + ksName + ".table2 (a,b,c) VALUES('1',1,1)");
+                cqlSession.execute("INSERT INTO " + ksName + ".table2 (a,b,c) VALUES('2',1,1)");
+                cqlSession.execute("INSERT INTO " + ksName + ".table2 (a,b,c) VALUES('3',1,1)");
             }
+            deployConnector(ksName, "table1", keyConverter, valueConverter);
+            deployConnector(ksName, "table2", keyConverter, valueConverter);
+            Thread.sleep(11000);    // wait commitlogs sync on disk
 
-            Map<String, Integer> mutationTable2 = new HashMap<>();
-            try (Consumer<GenericRecord> consumer = pulsarClient.newConsumer(org.apache.pulsar.client.api.Schema.AUTO_CONSUME())
-                    .topic(String.format(Locale.ROOT, "data-%s.table2", ksName))
-                    .subscriptionName("sub1")
-                    .subscriptionType(SubscriptionType.Key_Shared)
-                    .subscriptionMode(SubscriptionMode.Durable)
-                    .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
-                    .subscribe()) {
-                Message<GenericRecord> msg;
-                while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null &&
-                        mutationTable2.values().stream().mapToInt(i -> i).sum() < 4) {
-                    GenericObject genericObject = msg.getValue();
-                    assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
-                    KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
-                    GenericRecord key = kv.getKey();
-                    GenericRecord value = kv.getValue();
-                    System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
-                            " key=" + genericRecordToString(key) +
-                            " value=" + genericRecordToString(value));
-                    assertEquals((Integer)0, mutationTable2.computeIfAbsent((String)key.getField("a"), k -> 0));
-                    assertEquals(1, key.getField("b"));
-                    assertEquals(1, value.getField("c"));
-                    mutationTable2.compute((String)key.getField("a"), (k,v) -> v+1);
-                    consumer.acknowledge(msg);
-                }
-                assertEquals((Integer) 1, mutationTable2.get("1"));
-                assertEquals((Integer) 1, mutationTable2.get("2"));
-                assertEquals((Integer) 1, mutationTable2.get("3"));
+            try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
+                Map<String, Integer> mutationTable1 = new HashMap<>();
+                try (Consumer<GenericRecord> consumer = pulsarClient.newConsumer(org.apache.pulsar.client.api.Schema.AUTO_CONSUME())
+                        .topic(String.format(Locale.ROOT, "data-%s.table1", ksName))
+                        .subscriptionName("sub1")
+                        .subscriptionType(SubscriptionType.Key_Shared)
+                        .subscriptionMode(SubscriptionMode.Durable)
+                        .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+                        .subscribe()) {
+                    Message<GenericRecord> msg;
+                    while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null &&
+                            mutationTable1.values().stream().mapToInt(i -> i).sum() < 4) {
+                        GenericObject genericObject = msg.getValue();
+                        assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
+                        KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
+                        GenericRecord key = kv.getKey();
+                        GenericRecord value = kv.getValue();
+                        System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
+                                " key=" + genericRecordToString(key) +
+                                " value=" + genericRecordToString(value));
+                        assertEquals((Integer) 0, mutationTable1.computeIfAbsent((String) key.getField("id"), k -> 0));
+                        assertEquals(1, value.getField("a"));
+                        mutationTable1.compute((String) key.getField("id"), (k, v) -> v + 1);
+                        consumer.acknowledge(msg);
+                    }
+                    assertEquals((Integer) 1, mutationTable1.get("1"));
+                    assertEquals((Integer) 1, mutationTable1.get("2"));
+                    assertEquals((Integer) 1, mutationTable1.get("3"));
 
-                // trigger a schema update
-                // TODO: only work for AVO supported types, properly decoded in JSON.
-                try(CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
-                    cqlSession.execute("CREATE TYPE "+ksName+".type2 (a2 int, b2 boolean);");
-                    cqlSession.execute("ALTER TABLE "+ksName+".table2 ADD d type2");
-                    cqlSession.execute("INSERT INTO "+ksName+".table2 (a,b,c,d) VALUES('1',1,1,{a2:1,b2:true})");
-                }
-                Thread.sleep(15000);    // wait commitlogs sync on disk
-                while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null &&
-                        mutationTable2.values().stream().mapToInt(i -> i).sum() < 5) {
-                    GenericObject genericObject = msg.getValue();
-                    assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
-                    KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
-                    GenericRecord key = kv.getKey();
-                    GenericRecord value = kv.getValue();
-                    System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
-                            " key=" + genericRecordToString(key) +
-                            " value=" + genericRecordToString(value));
-                    assertEquals("1", key.getField("a"));
-                    assertEquals(1, key.getField("b"));
-                    assertEquals(1, value.getField("c"));
-                    GenericRecord udtGenericRecord = (GenericRecord) value.getField("d");
-                    assertEquals(1, udtGenericRecord.getField("a2"));
-                    assertEquals(true, udtGenericRecord.getField("b2"));
-                    mutationTable2.compute((String)key.getField("a"), (k,v) -> v+1);
-                    consumer.acknowledge(msg);
-                }
-                assertEquals((Integer) 2, mutationTable2.get("1"));
-                assertEquals((Integer) 1, mutationTable2.get("2"));
-                assertEquals((Integer) 1, mutationTable2.get("3"));
+                    // trigger a schema update
+                    try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                        cqlSession.execute("ALTER TABLE " + ksName + ".table1 ADD b double");
+                        cqlSession.execute("INSERT INTO " + ksName + ".table1 (id,a,b) VALUES('1',1,1.0)");
+                    }
+                    Thread.sleep(15000);  // wait commitlogs sync on disk
+                    while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null &&
+                            mutationTable1.values().stream().mapToInt(i -> i).sum() < 5) {
+                        GenericObject genericObject = msg.getValue();
+                        assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
+                        KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
+                        GenericRecord key = kv.getKey();
+                        GenericRecord value = kv.getValue();
+                        System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
+                                " key=" + genericRecordToString(key) +
+                                " value=" + genericRecordToString(value));
+                        assertEquals("1", key.getField("id"));
+                        assertEquals(1, value.getField("a"));
+                        assertEquals(1.0D, value.getField("b"));
+                        mutationTable1.compute((String) key.getField("id"), (k, v) -> v + 1);
+                        consumer.acknowledge(msg);
+                    }
+                    assertEquals((Integer) 2, mutationTable1.get("1"));
+                    assertEquals((Integer) 1, mutationTable1.get("2"));
+                    assertEquals((Integer) 1, mutationTable1.get("3"));
 
-                // delete a row
-                try(CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
-                    cqlSession.execute("DELETE FROM "+ksName+".table2 WHERE a = '1' AND b = 1");
+                    // delete a row
+                    try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                        cqlSession.execute("DELETE FROM " + ksName + ".table1 WHERE id = '1'");
+                    }
+                    Thread.sleep(11000);    // wait commitlogs sync on disk
+                    while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null &&
+                            mutationTable1.values().stream().mapToInt(i -> i).sum() < 6) {
+                        GenericObject genericObject = msg.getValue();
+                        assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
+                        KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
+                        GenericRecord key = kv.getKey();
+                        GenericRecord value = kv.getValue();
+                        System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
+                                " key=" + genericRecordToString(key) +
+                                " value=" + value);
+                        assertEquals("1", key.getField("id"));
+                        assertNull(value);
+                        mutationTable1.compute((String) key.getField("id"), (k, v) -> v + 1);
+                        consumer.acknowledge(msg);
+                    }
+                    assertEquals((Integer) 3, mutationTable1.get("1"));
+                    assertEquals((Integer) 1, mutationTable1.get("2"));
+                    assertEquals((Integer) 1, mutationTable1.get("3"));
                 }
-                Thread.sleep(11000);    // wait commitlogs sync on disk
-                while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null &&
-                        mutationTable2.values().stream().mapToInt(i -> i).sum() < 6) {
-                    GenericObject genericObject = msg.getValue();
-                    assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
-                    KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
-                    GenericRecord key = kv.getKey();
-                    GenericRecord value = kv.getValue();
-                    System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
-                            " key=" + genericRecordToString(key) +
-                            " value=" + value);
-                    assertEquals("1", key.getField("a"));
-                    assertEquals(1, key.getField("b"));
-                    assertNull(value);
-                    mutationTable2.compute((String)key.getField("a"), (k,v) -> v+1);
-                    consumer.acknowledge(msg);
+
+                Map<String, Integer> mutationTable2 = new HashMap<>();
+                try (Consumer<GenericRecord> consumer = pulsarClient.newConsumer(org.apache.pulsar.client.api.Schema.AUTO_CONSUME())
+                        .topic(String.format(Locale.ROOT, "data-%s.table2", ksName))
+                        .subscriptionName("sub1")
+                        .subscriptionType(SubscriptionType.Key_Shared)
+                        .subscriptionMode(SubscriptionMode.Durable)
+                        .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+                        .subscribe()) {
+                    Message<GenericRecord> msg;
+                    while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null &&
+                            mutationTable2.values().stream().mapToInt(i -> i).sum() < 4) {
+                        GenericObject genericObject = msg.getValue();
+                        assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
+                        KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
+                        GenericRecord key = kv.getKey();
+                        GenericRecord value = kv.getValue();
+                        System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
+                                " key=" + genericRecordToString(key) +
+                                " value=" + genericRecordToString(value));
+                        assertEquals((Integer) 0, mutationTable2.computeIfAbsent((String) key.getField("a"), k -> 0));
+                        assertEquals(1, key.getField("b"));
+                        assertEquals(1, value.getField("c"));
+                        mutationTable2.compute((String) key.getField("a"), (k, v) -> v + 1);
+                        consumer.acknowledge(msg);
+                    }
+                    assertEquals((Integer) 1, mutationTable2.get("1"));
+                    assertEquals((Integer) 1, mutationTable2.get("2"));
+                    assertEquals((Integer) 1, mutationTable2.get("3"));
+
+                    // trigger a schema update
+                    // TODO: only work for AVO supported types, properly decoded in JSON.
+                    try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                        cqlSession.execute("CREATE TYPE " + ksName + ".type2 (a2 int, b2 boolean);");
+                        cqlSession.execute("ALTER TABLE " + ksName + ".table2 ADD d type2");
+                        cqlSession.execute("INSERT INTO " + ksName + ".table2 (a,b,c,d) VALUES('1',1,1,{a2:1,b2:true})");
+                    }
+                    Thread.sleep(15000);    // wait commitlogs sync on disk
+                    while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null &&
+                            mutationTable2.values().stream().mapToInt(i -> i).sum() < 5) {
+                        GenericObject genericObject = msg.getValue();
+                        assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
+                        KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
+                        GenericRecord key = kv.getKey();
+                        GenericRecord value = kv.getValue();
+                        System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
+                                " key=" + genericRecordToString(key) +
+                                " value=" + genericRecordToString(value));
+                        assertEquals("1", key.getField("a"));
+                        assertEquals(1, key.getField("b"));
+                        assertEquals(1, value.getField("c"));
+                        GenericRecord udtGenericRecord = (GenericRecord) value.getField("d");
+                        assertEquals(1, udtGenericRecord.getField("a2"));
+                        assertEquals(true, udtGenericRecord.getField("b2"));
+                        mutationTable2.compute((String) key.getField("a"), (k, v) -> v + 1);
+                        consumer.acknowledge(msg);
+                    }
+                    assertEquals((Integer) 2, mutationTable2.get("1"));
+                    assertEquals((Integer) 1, mutationTable2.get("2"));
+                    assertEquals((Integer) 1, mutationTable2.get("3"));
+
+                    // delete a row
+                    try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                        cqlSession.execute("DELETE FROM " + ksName + ".table2 WHERE a = '1' AND b = 1");
+                    }
+                    Thread.sleep(11000);    // wait commitlogs sync on disk
+                    while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null &&
+                            mutationTable2.values().stream().mapToInt(i -> i).sum() < 6) {
+                        GenericObject genericObject = msg.getValue();
+                        assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
+                        KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
+                        GenericRecord key = kv.getKey();
+                        GenericRecord value = kv.getValue();
+                        System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
+                                " key=" + genericRecordToString(key) +
+                                " value=" + value);
+                        assertEquals("1", key.getField("a"));
+                        assertEquals(1, key.getField("b"));
+                        assertNull(value);
+                        mutationTable2.compute((String) key.getField("a"), (k, v) -> v + 1);
+                        consumer.acknowledge(msg);
+                    }
+                    assertEquals((Integer) 3, mutationTable2.get("1"));
+                    assertEquals((Integer) 1, mutationTable2.get("2"));
+                    assertEquals((Integer) 1, mutationTable2.get("3"));
                 }
-                assertEquals((Integer) 3, mutationTable2.get("1"));
-                assertEquals((Integer) 1, mutationTable2.get("2"));
-                assertEquals((Integer) 1, mutationTable2.get("3"));
             }
+        } finally {
+            dumpFunctionLogs("cassandra-source-ks1-table1");
+            dumpFunctionLogs("cassandra-source-ks1-table2");
         }
 
         undeployConnector(ksName, "table1");
@@ -352,5 +358,17 @@ public class PulsarCassandraSourceTests {
             }
         }
         return sb.append("}").toString();
+    }
+
+    protected void dumpFunctionLogs(String name) {
+        try {
+            String logFile = "/pulsar/logs/functions/public/default/" + name + "/" + name + "-0.log";
+            String logs = pulsarContainer.<String>copyFileFromContainer(logFile, (inputStream) -> {
+                return IOUtils.toString(inputStream, "utf-8");
+            });
+            log.info("Function {} logs {}", name, logs);
+        } catch (Throwable err) {
+            log.info("Cannot download {} logs", name, err);
+        }
     }
 }

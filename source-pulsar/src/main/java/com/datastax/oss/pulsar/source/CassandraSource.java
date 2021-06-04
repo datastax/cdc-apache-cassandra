@@ -83,7 +83,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
     Schema<KeyValue<GenericRecord, MutationValue>> eventsSchema = Schema.KeyValue(
             Schema.AUTO_CONSUME(),
-            AvroSchema.of(MutationValue.class),
+            Schema.AVRO(MutationValue.class),
             KeyValueEncodingType.SEPARATED);
 
     @Override
