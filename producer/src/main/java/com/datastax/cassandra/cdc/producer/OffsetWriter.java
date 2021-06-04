@@ -16,36 +16,37 @@
 package com.datastax.cassandra.cdc.producer;
 
 import java.io.IOException;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Periodically persist the last sent offset to recover from that checkpoint.
  */
 public interface OffsetWriter {
 
-    public void maybeCommitOffset(Mutation<?> record);
-
-    /**
-     * Increment the number of mutation not acked.
-     * @return
-     */
-    public long incNotCommittedEvents();
-
     /**
      * Set the current offset.
-     * @param sourceOffset
+     * @param mutation
      */
-    public void markOffset(CommitLogPosition sourceOffset);
+    public void markOffset(Mutation<?> mutation);
 
     /**
      * Get the current offset.
      * @return
      */
-    public CommitLogPosition offset();
+    public CommitLogPosition offset(Optional<UUID> nodeId);
+
+    default  CommitLogPosition offset() {
+        return offset(Optional.empty());
+    }
 
     /**
      * Persist the offset
      * @throws IOException
      */
-    public void flush() throws IOException;
+    public void flush(Optional<UUID> nodeId) throws IOException;
 
+    default void flush() throws IOException {
+        flush(Optional.empty());
+    }
 }

@@ -21,6 +21,8 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
@@ -41,22 +43,28 @@ public class OffsetFileWriter implements OffsetWriter, AutoCloseable {
     }
 
     @Override
-    public CommitLogPosition offset() {
+    public CommitLogPosition offset(Optional<UUID> nodeId) {
         return this.fileOffsetRef.get();
     }
 
     @Override
-    public void markOffset(CommitLogPosition sourceOffset) {
-        this.fileOffsetRef.set(sourceOffset);
+    public void markOffset(Mutation<?> mutation) {
+        this.fileOffsetRef.set(mutation.getCommitLogPosition());
+        notCommittedEvents++;
+        long now = System.currentTimeMillis();
+        long timeSinceLastFlush = now - timeOfLastFlush;
+        if(offsetFlushPolicy.shouldFlush(Duration.ofMillis(timeSinceLastFlush), notCommittedEvents)) {
+            flush(Optional.empty());
+        }
     }
 
     @Override
-    public void flush() throws IOException {
+    public void flush(Optional<UUID> nodeId) {
         saveOffset();
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         saveOffset();
     }
 
@@ -69,18 +77,20 @@ public class OffsetFileWriter implements OffsetWriter, AutoCloseable {
         return new CommitLogPosition(Long.parseLong(segAndPos[0]), Integer.parseInt(segAndPos[1]));
     }
 
-    private synchronized void saveOffset() throws IOException {
+    private synchronized void saveOffset() {
         try(FileWriter out = new FileWriter(this.offsetFile)) {
-            out.write(serializePosition(fileOffsetRef.get()));
+            final CommitLogPosition position = fileOffsetRef.get();
+            out.write(serializePosition(position));
+            notCommittedEvents = 0L;
+            timeOfLastFlush = System.currentTimeMillis();
+            log.debug("Flush offset=" + position);
         } catch (IOException e) {
             log.error("Failed to save offset for file " + offsetFile.getName(), e);
-            throw e;
         }
     }
 
     private synchronized void loadOffset() throws IOException {
-        try(BufferedReader br = new BufferedReader(new FileReader(offsetFile)))
-        {
+        try(BufferedReader br = new BufferedReader(new FileReader(offsetFile))) {
             fileOffsetRef.set(deserializePosition(br.readLine()));
             log.debug("file offset={}", fileOffsetRef.get());
         } catch (IOException e) {
@@ -98,28 +108,5 @@ public class OffsetFileWriter implements OffsetWriter, AutoCloseable {
                 Files.createDirectories(parentPath);
             saveOffset();
         }
-    }
-
-    @Override
-    public void maybeCommitOffset(Mutation<?> record) {
-        try {
-            long now = System.currentTimeMillis();
-            long timeSinceLastFlush = now - timeOfLastFlush;
-            if(offsetFlushPolicy.shouldFlush(Duration.ofMillis(timeSinceLastFlush), notCommittedEvents)) {
-                SourceInfo source = record.getSource();
-                markOffset(source.commitLogPosition);
-                flush();
-                notCommittedEvents = 0L;
-                timeOfLastFlush = now;
-                log.debug("Offset flushed source=" + source);
-            }
-        } catch(IOException e) {
-            log.warn("error:", e);
-        }
-    }
-
-    @Override
-    public long incNotCommittedEvents() {
-        return this.notCommittedEvents++;
     }
 }
