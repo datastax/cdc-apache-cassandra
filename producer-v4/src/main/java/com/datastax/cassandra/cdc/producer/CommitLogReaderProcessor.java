@@ -24,6 +24,8 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
@@ -129,21 +131,18 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
             CommitLogReader commitLogReader = new CommitLogReader();
             try {
                 // hack to use a dummy min position for segment ahead of the offsetFile.
-                CommitLogPosition minPosition = (seg > offsetWriter.offset().segmentId)
+                CommitLogPosition minPosition = (seg > offsetWriter.offset(null).segmentId)
                         ? new CommitLogPosition(seg, 0)
                         : new CommitLogPosition(offsetWriter.offset().getSegmentId(), offsetWriter.offset().getPosition());
 
                 commitLogReader.readCommitLogSegment(commitLogReadHandler, file, minPosition, false);
-                log.debug("Successfully processed commitlog immutable={} minPosition={} file={}",
+                log.debug("Successfully processed commitlog completed={} minPosition={} file={}",
                         seg < this.syncedOffsetRef.get().segmentId, minPosition, file.getName());
-                if (seg < this.syncedOffsetRef.get().segmentId) {
-                    commitLogTransfer.onSuccessTransfer(file.toPath());
-                }
+                offsetWriter.flush(); // flush sent offset after each CL file
+                commitLogTransfer.onSuccessTransfer(file.toPath());
             } catch(Exception e) {
-                log.warn("Failed to read commitlog immutable="+(seg < this.syncedOffsetRef.get().segmentId)+"file="+file.getName(), e);
-                if (seg < this.syncedOffsetRef.get().segmentId) {
-                    commitLogTransfer.onErrorTransfer(file.toPath());
-                }
+                log.warn("Failed to read commitlog completed="+(seg < this.syncedOffsetRef.get().segmentId)+" file="+file.getName(), e);
+                commitLogTransfer.onErrorTransfer(file.toPath());
             }
         }
     }

@@ -562,9 +562,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         return this.mutationSender.sendMutationAsync(mutation)
                 .thenAccept(msgId -> {
                     CdcMetrics.sentMutations.inc();
-                    offsetWriter.markOffset(mutation.getSource().commitLogPosition);
-                    offsetWriter.incNotCommittedEvents();
-                    offsetWriter.maybeCommitOffset(mutation);
+                    offsetWriter.markOffset(mutation);
                     log.info("mutation={} sent", mutation);
                 });
     }
