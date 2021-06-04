@@ -218,7 +218,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
             com.datastax.cassandra.cdc.producer.CommitLogPosition entryPosition =
                     new com.datastax.cassandra.cdc.producer.CommitLogPosition(CommitLogUtil.extractTimestamp(descriptor.fileName()), entryLocation);
 
-            if (offsetWriter.offset().compareTo(entryPosition) > 0) {
+            if (offsetWriter.offset(Optional.of(StorageService.instance.getLocalHostUUID())).compareTo(entryPosition) > 0) {
                 log.debug("Mutation at {} for table {}.{} already processed, skipping...",
                         entryPosition, pu.metadata().keyspace, pu.metadata().name);
                 return;
@@ -533,7 +533,8 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     }
 
     public void blockingSend(Mutation<TableMetadata> mutation) {
-        com.datastax.cassandra.cdc.producer.CommitLogPosition sentOffset = offsetWriter.offset();
+        com.datastax.cassandra.cdc.producer.CommitLogPosition sentOffset =
+                offsetWriter.offset(Optional.of(mutation.getSource().nodeId));
         long seg = sentOffset.segmentId;
         int pos = sentOffset.position;
 
