@@ -18,6 +18,7 @@ package com.datastax.cassandra.cdc.producer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.cassandra.db.commitlog.CommitLogPosition;
 import org.apache.cassandra.db.commitlog.CommitLogReader;
+import org.apache.cassandra.io.util.FileUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -113,6 +114,11 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
         File file = null;
         while(true) {
             file = this.commitLogQueue.take();
+
+            if (!file.exists()) {
+                log.debug("file={} does not exist any more, ignoring", file.getName());
+                continue;
+            }
             long seg = CommitLogUtil.extractTimestamp(file.getName());
 
             // ignore file before the last write offset
@@ -131,7 +137,7 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
             CommitLogReader commitLogReader = new CommitLogReader();
             try {
                 // hack to use a dummy min position for segment ahead of the offsetFile.
-                CommitLogPosition minPosition = (seg > offsetWriter.offset(null).segmentId)
+                CommitLogPosition minPosition = (seg > offsetWriter.offset().segmentId)
                         ? new CommitLogPosition(seg, 0)
                         : new CommitLogPosition(offsetWriter.offset().getSegmentId(), offsetWriter.offset().getPosition());
 
@@ -139,10 +145,16 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
                 log.debug("Successfully processed commitlog completed={} minPosition={} file={}",
                         seg < this.syncedOffsetRef.get().segmentId, minPosition, file.getName());
                 offsetWriter.flush(); // flush sent offset after each CL file
-                commitLogTransfer.onSuccessTransfer(file.toPath());
+                if (seg < this.syncedOffsetRef.get().segmentId) {
+                    // do not transfer the active commitlog on Cassandra 4.x
+                    commitLogTransfer.onSuccessTransfer(file.toPath());
+                }
             } catch(Exception e) {
                 log.warn("Failed to read commitlog completed="+(seg < this.syncedOffsetRef.get().segmentId)+" file="+file.getName(), e);
-                commitLogTransfer.onErrorTransfer(file.toPath());
+                if (seg < this.syncedOffsetRef.get().segmentId) {
+                    // do not transfer the active commitlog on Cassandra 4.x
+                    commitLogTransfer.onErrorTransfer(file.toPath());
+                }
             }
         }
     }
