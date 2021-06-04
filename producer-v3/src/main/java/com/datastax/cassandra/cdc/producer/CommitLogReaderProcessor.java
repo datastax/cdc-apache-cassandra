@@ -62,6 +62,10 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
         File file = null;
         while (true) {
             file = this.commitLogQueue.take();
+            if (!file.exists()) {
+                log.debug("file={} does not exist any more, ignoring", file.getName());
+                continue;
+            }
             long seg = CommitLogUtil.extractTimestamp(file.getName());
 
             // ignore file before the last write offset
