@@ -23,7 +23,7 @@ dependencies {
     implementation "com.datastax.oss:java-driver-core:${ossDriverVersion}"
     implementation "com.datastax.oss:java-driver-query-builder:${ossDriverVersion}"
 
-    implementation("org.apache.pulsar:pulsar-client:${pulsarVersion}")
+    compileOnly("org.apache.pulsar:pulsar-client:${pulsarVersion}")
     compileOnly("org.apache.pulsar:pulsar-io-common:${pulsarVersion}")
     compileOnly("org.apache.pulsar:pulsar-io-core:${pulsarVersion}")
 
