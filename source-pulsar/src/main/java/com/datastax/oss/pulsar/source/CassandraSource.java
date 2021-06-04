@@ -75,7 +75,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
     volatile ConverterAndQuery valueConverterAndQuery;   // modified on schema change
     volatile PreparedStatement selectStatement;
-    volatile int selectHash = -1;
+    volatile String selectQuery = null;
 
     Optional<Pattern> columnPattern = Optional.empty();
 
@@ -162,9 +162,9 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                     cassandraClient.buildSelect(tableMetadata, columns));
             // Invalidate the prepare statement if the query has changed.
             // We cannot build the statement here form a C* driver thread (can cause dead lock)
-            if (valueConverterAndQuery.getQuery().hashCode() != this.selectHash) {
+            if (valueConverterAndQuery.getQuery().equals(selectQuery)) {
                 this.selectStatement = null;
-                this.selectHash = valueConverterAndQuery.getQuery().hashCode();
+                this.selectQuery = valueConverterAndQuery.getQuery();
             }
         } catch (Exception e) {
             log.error("Unexpected error", e);
