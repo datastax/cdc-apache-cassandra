@@ -17,10 +17,13 @@ package com.datastax.cassandra.cdc.producer;
 
 import com.google.common.collect.ImmutableSet;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.cassandra.config.DatabaseDescriptor;
 
+import java.io.DataInput;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.WatchEvent;
 import java.time.Duration;
 import java.util.Arrays;
@@ -82,8 +85,8 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
     @Override
     public void process() throws IOException, InterruptedException {
         if (config.errorCommitLogReprocessEnabled) {
-            log.debug("Moving back error commitlogs for reprocessing");
-            commitLogTransfer.getErrorCommitLogFiles();
+            log.info("Moving back error commitlogs for reprocessing into {}", DatabaseDescriptor.getCDCLogLocation());
+            commitLogTransfer.recycleErrorCommitLogFiles(Paths.get(DatabaseDescriptor.getCDCLogLocation()));
         }
 
         // load existing commitlogs files when initializing

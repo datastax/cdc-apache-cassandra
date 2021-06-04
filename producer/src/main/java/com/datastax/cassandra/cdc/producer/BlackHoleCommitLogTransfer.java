@@ -38,10 +38,16 @@ public class BlackHoleCommitLogTransfer implements CommitLogTransfer {
 
     @Override
     public void onErrorTransfer(Path file) {
-        CommitLogUtil.deleteCommitLog(file.toFile());
+        CommitLogUtil.moveCommitLog(file.toFile(), Paths.get(config.cdcRelocationDir, "error"));
     }
 
+    /**
+     * Move CL on error to the cdc directory
+     */
     @Override
-    public void getErrorCommitLogFiles() {
+    public void recycleErrorCommitLogFiles(Path cdcDir) {
+        for(File file : CommitLogUtil.getCommitLogs(Paths.get(config.cdcRelocationDir, "error").toFile())) {
+            CommitLogUtil.moveCommitLog(file, cdcDir);
+        }
     }
 }

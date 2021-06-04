@@ -47,5 +47,5 @@ public interface CommitLogTransfer extends AutoCloseable {
     /**
      * Get all error commitLog files into cdc_raw directory for re-processing.
      */
-    void getErrorCommitLogFiles();
+    void recycleErrorCommitLogFiles(Path cdcDir);
 }
