@@ -348,13 +348,15 @@ public class PulsarCassandraSourceTests {
     static String genericRecordToString(GenericRecord genericRecord) {
         StringBuilder sb = new StringBuilder("{");
         for(Field field : genericRecord.getFields()) {
-            if (sb.length() > 1)
-                sb.append(",");
-            sb.append(field.getName()).append("=");
-            if (genericRecord.getField(field) instanceof GenericRecord) {
-                sb.append(genericRecordToString((GenericRecord)genericRecord.getField(field)));
-            } else {
-                sb.append(genericRecord.getField(field).toString());
+            if (genericRecord.getField(field) != null) {
+                if (sb.length() > 1)
+                    sb.append(",");
+                sb.append(field.getName()).append("=");
+                if (genericRecord.getField(field) instanceof GenericRecord) {
+                    sb.append(genericRecordToString((GenericRecord) genericRecord.getField(field)));
+                } else {
+                    sb.append(genericRecord.getField(field).toString());
+                }
             }
         }
         return sb.append("}").toString();
