@@ -164,6 +164,33 @@ class CassandraSourceConnectorConfigTest {
     }
 
     @Test
+    void should_error_no_key_converter() {
+        Map<String, String> props =
+                Maps.newHashMap(ImmutableMap.<String, String>builder()
+                        .put(KEYSPACE_NAME_CONFIG, "ks1")
+                        .put(TABLE_NAME_CONFIG, "table1")
+                        .put(EVENTS_TOPIC_NAME_CONFIG, "events-ks1.table1")
+                        .build());
+        assertThatThrownBy(() -> new CassandraSourceConnectorConfig(props))
+                .isInstanceOf(ConfigException.class)
+                .hasMessageContaining(String.format("Missing required configuration \"%s\" which has no default value.", KEY_CONVERTER_CLASS_CONFIG));
+    }
+
+    @Test
+    void should_error_no_value_converter() {
+        Map<String, String> props =
+                Maps.newHashMap(ImmutableMap.<String, String>builder()
+                        .put(KEYSPACE_NAME_CONFIG, "ks1")
+                        .put(TABLE_NAME_CONFIG, "table1")
+                        .put(EVENTS_TOPIC_NAME_CONFIG, "events-ks1.table1")
+                        .put(KEY_CONVERTER_CLASS_CONFIG, "io.confluent.connect.avro.AvroConverter")
+                        .build());
+        assertThatThrownBy(() -> new CassandraSourceConnectorConfig(props))
+                .isInstanceOf(ConfigException.class)
+                .hasMessageContaining(String.format("Missing required configuration \"%s\" which has no default value.", VALUE_CONVERTER_CLASS_CONFIG));
+    }
+
+    @Test
     void should_error_invalid_compression_type() {
         Map<String, String> props =
                 Maps.newHashMap(ImmutableMap.<String, String>builder()
@@ -741,7 +768,8 @@ class CassandraSourceConnectorConfigTest {
                 .put(KEYSPACE_NAME_CONFIG, "ks1")
                 .put(TABLE_NAME_CONFIG, "table1")
                 .put(EVENTS_TOPIC_NAME_CONFIG, "events-ks1.table1")
-                .put(DATA_TOPIC_NAME_CONFIG, "data-ks1.table1")
+                .put(KEY_CONVERTER_CLASS_CONFIG, "io.confluent.connect.avro.AvroConverter")
+                .put(VALUE_CONVERTER_CLASS_CONFIG, "io.confluent.connect.avro.AvroConverter")
                 .build();
     }
 
