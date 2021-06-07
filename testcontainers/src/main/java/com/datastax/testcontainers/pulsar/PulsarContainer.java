@@ -15,6 +15,7 @@
  */
 package com.datastax.testcontainers.pulsar;
 
+import lombok.extern.slf4j.Slf4j;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -26,6 +27,7 @@ import java.time.Duration;
 /**
  * This container wraps Apache Pulsar running in standalone mode
  */
+@Slf4j
 public class PulsarContainer<SELF extends PulsarContainer<SELF>> extends GenericContainer<SELF> {
 
     public static final int BROKER_PORT = 6650;
@@ -52,6 +54,9 @@ public class PulsarContainer<SELF extends PulsarContainer<SELF>> extends Generic
 
         withExposedPorts(BROKER_PORT, BROKER_HTTP_PORT);
         withCommand("/pulsar/bin/pulsar", "standalone", "--no-functions-worker", "-nss");
+        withLogConsumer(o -> {
+            log.info("{}> {}", getContainerName(), o.getUtf8String().trim());
+        });
         waitingFor(new HttpWaitStrategy()
                 .forPort(BROKER_HTTP_PORT)
                 .forStatusCode(200)

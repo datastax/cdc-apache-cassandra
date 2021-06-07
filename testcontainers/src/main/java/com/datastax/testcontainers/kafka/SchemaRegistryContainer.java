@@ -34,7 +34,7 @@ public class SchemaRegistryContainer<SELF extends SchemaRegistryContainer<SELF>>
 
         withExposedPorts(SCHEMA_REGISTRY_INTERNAL_PORT);
         withLogConsumer(o -> {
-            log.info("schemaregistry> {}", o.getUtf8String());
+            log.info("{}> {}", getContainerName(), o.getUtf8String().trim());
         });
         waitingFor(Wait.forHttp("/subjects"));
     }
