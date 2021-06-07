@@ -99,7 +99,9 @@ subprojects {
     }
 
     test {
-        useJUnitPlatform()
+        useJUnitPlatform {
+            includeEngines 'junit-jupiter'
+        }
         finalizedBy jacocoTestReport // report is always generated after tests run
     }
 
