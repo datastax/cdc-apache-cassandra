@@ -128,7 +128,7 @@ public class PulsarCassandraSourceTests {
                 "--destination-topic-name", "data-" + ksName + "." + tableName,
                 "--source-config",
                 String.format(Locale.ROOT, "{\"%s\":\"%s\", \"%s\":\"%s\", \"%s\":\"%s\", \"%s\":\"%s\", \"%s\": \"%s\", \"%s\":\"%s\", \"%s\":\"%s\",\"%s\":\"%s\"}",
-                        ContactPointsValidator.CONTACT_POINTS_OPT, "cassandra-1",
+                        CassandraSourceConnectorConfig.CONTACT_POINTS_OPT, "cassandra-1",
                         CassandraSourceConnectorConfig.DC_OPT, "datacenter1",
                         CassandraSourceConnectorConfig.KEYSPACE_NAME_CONFIG, ksName,
                         CassandraSourceConnectorConfig.TABLE_NAME_CONFIG, tableName,

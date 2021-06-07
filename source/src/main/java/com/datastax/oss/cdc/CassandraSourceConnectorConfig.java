@@ -17,6 +17,7 @@ package com.datastax.oss.cdc;
 
 import com.datastax.oss.common.sink.ConfigException;
 import com.datastax.oss.common.sink.config.AuthenticatorConfig;
+import com.datastax.oss.common.sink.config.CassandraSinkConfig;
 import com.datastax.oss.common.sink.config.ContactPointsValidator;
 import com.datastax.oss.common.sink.config.SslConfig;
 import com.datastax.oss.common.sink.util.SinkUtil;
@@ -70,6 +71,8 @@ public class CassandraSourceConnectorConfig {
     static final String SSL_OPT_PREFIX = "ssl.";
     private static final String AUTH_OPT_PREFIX = "auth.";
 
+    public static final String CONTACT_POINTS_OPT = "contactPoints";
+
     public static final String PORT_OPT = "port";
 
     public static final String DC_OPT = "loadBalancing.localDc";
@@ -121,12 +124,10 @@ public class CassandraSourceConnectorConfig {
             new ConfigDef()
                     .define(KEYSPACE_NAME_CONFIG,
                             ConfigDef.Type.STRING,
-                            "",
                             ConfigDef.Importance.HIGH,
                             "Cassandra keyspace name")
                     .define(TABLE_NAME_CONFIG,
                             ConfigDef.Type.STRING,
-                            "",
                             ConfigDef.Importance.HIGH,
                             "Cassandra table name")
                     .define(COLUMNS_REGEXP_CONFIG,
@@ -136,12 +137,10 @@ public class CassandraSourceConnectorConfig {
                             "Regular expression of the Cassandra replicated column names")
                     .define(EVENTS_TOPIC_NAME_CONFIG,
                             ConfigDef.Type.STRING,
-                            "",
                             ConfigDef.Importance.HIGH,
                             "The topic to listen cassandra mutation events to")
                     .define(DATA_TOPIC_NAME_CONFIG,
                             ConfigDef.Type.STRING,
-                            "",
                             ConfigDef.Importance.HIGH,
                             "The topic to publish cassandra data to")
                     .define(EVENTS_SUBSCRIPTION_NAME_CONFIG,
@@ -166,10 +165,12 @@ public class CassandraSourceConnectorConfig {
                             "The mutation cache entry duration in milliseconds, with a default value of 60 seconds.")
                     .define(KEY_CONVERTER_CLASS_CONFIG,
                             ConfigDef.Type.CLASS,
+                            "io.confluent.connect.avro.AvroConverter",
                             ConfigDef.Importance.HIGH,
                             "Converter class used to write the message key to the data topic")
                     .define(VALUE_CONVERTER_CLASS_CONFIG,
                             ConfigDef.Type.CLASS,
+                            "io.confluent.connect.avro.AvroConverter",
                             ConfigDef.Importance.HIGH,
                             "Converter class used to write the message value to the data topic")
                     .define(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
@@ -183,7 +184,7 @@ public class CassandraSourceConnectorConfig {
                             ConfigDef.Importance.HIGH,
                             "Schema registry URL")
                     .define(
-                            ContactPointsValidator.CONTACT_POINTS_OPT,
+                            CassandraSinkConfig.CONTACT_POINTS_OPT,
                             ConfigDef.Type.LIST,
                             Collections.EMPTY_LIST,
                             ConfigDef.Importance.HIGH,
@@ -345,7 +346,7 @@ public class CassandraSourceConnectorConfig {
             log.debug("contactPoints: {}", contactPoints);
             if (!contactPoints.isEmpty() && !getLocalDc().isPresent()) {
                 throw new ConfigException(
-                        ContactPointsValidator.CONTACT_POINTS_OPT,
+                        CassandraSinkConfig.CONTACT_POINTS_OPT,
                         contactPoints,
                         String.format("When contact points is provided, %s must also be specified", DC_OPT));
             }
@@ -520,7 +521,7 @@ public class CassandraSourceConnectorConfig {
             throw new ConfigException(
                     String.format(
                             "When %s parameter is specified you should not provide %s.",
-                            SECURE_CONNECT_BUNDLE_OPT, ContactPointsValidator.CONTACT_POINTS_OPT));
+                            SECURE_CONNECT_BUNDLE_OPT, CassandraSinkConfig.CONTACT_POINTS_OPT));
         }
 
         if (getLocalDc().isPresent()) {
@@ -649,7 +650,7 @@ public class CassandraSourceConnectorConfig {
     }
 
     public List<String> getContactPoints() {
-        return globalConfig.getList(ContactPointsValidator.CONTACT_POINTS_OPT);
+        return globalConfig.getList(CassandraSinkConfig.CONTACT_POINTS_OPT);
     }
 
     public Optional<String> getLocalDc() {
