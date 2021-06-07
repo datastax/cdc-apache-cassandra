@@ -58,7 +58,7 @@ public class KafkaConnectContainer<SELF extends KafkaConnectContainer<SELF>> ext
 
         withExposedPorts(KAFKA_CONNECT_INTERNAL_PORT);
         withLogConsumer(o -> {
-            log.info("{}> {}", getContainerName(), o.getUtf8String().trim());
+            log.info("[{}] {}", getContainerName(), o.getUtf8String().trim());
         });
         waitingFor(Wait.forHttp("/connectors"));
     }

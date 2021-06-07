@@ -55,7 +55,7 @@ public class PulsarContainer<SELF extends PulsarContainer<SELF>> extends Generic
         withExposedPorts(BROKER_PORT, BROKER_HTTP_PORT);
         withCommand("/pulsar/bin/pulsar", "standalone", "--no-functions-worker", "-nss");
         withLogConsumer(o -> {
-            log.info("{}> {}", getContainerName(), o.getUtf8String().trim());
+            log.info("[{}] {}", getContainerName(), o.getUtf8String().trim());
         });
         waitingFor(new HttpWaitStrategy()
                 .forPort(BROKER_HTTP_PORT)
