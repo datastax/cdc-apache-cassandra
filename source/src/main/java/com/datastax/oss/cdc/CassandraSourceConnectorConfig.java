@@ -27,6 +27,7 @@ import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableList;
 import com.google.common.base.Splitter;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.Nullable;
+import jdk.internal.joptsimple.internal.Strings;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.config.AbstractConfig;
@@ -138,16 +139,17 @@ public class CassandraSourceConnectorConfig {
                     .define(EVENTS_TOPIC_NAME_CONFIG,
                             ConfigDef.Type.STRING,
                             ConfigDef.Importance.HIGH,
-                            "The topic to listen cassandra mutation events to")
-                    .define(DATA_TOPIC_NAME_CONFIG,
-                            ConfigDef.Type.STRING,
-                            ConfigDef.Importance.HIGH,
-                            "The topic to publish cassandra data to")
+                            "The topic name to listen cassandra mutation events to")
                     .define(EVENTS_SUBSCRIPTION_NAME_CONFIG,
                             ConfigDef.Type.STRING,
                             "sub",
                             ConfigDef.Importance.HIGH,
                             "The pulsar events topic subscription name, with a default set to 'sub'")
+                    .define(DATA_TOPIC_NAME_CONFIG,
+                            ConfigDef.Type.STRING,
+                            "data-topic",
+                            ConfigDef.Importance.HIGH,
+                            "The topic name to publish cassandra data to")
                     .define(CACHE_MAX_DIGESTS_CONFIG,
                             ConfigDef.Type.LONG,
                             "3",
@@ -165,12 +167,10 @@ public class CassandraSourceConnectorConfig {
                             "The mutation cache entry duration in milliseconds, with a default value of 60 seconds.")
                     .define(KEY_CONVERTER_CLASS_CONFIG,
                             ConfigDef.Type.CLASS,
-                            "io.confluent.connect.avro.AvroConverter",
                             ConfigDef.Importance.HIGH,
                             "Converter class used to write the message key to the data topic")
                     .define(VALUE_CONVERTER_CLASS_CONFIG,
                             ConfigDef.Type.CLASS,
-                            "io.confluent.connect.avro.AvroConverter",
                             ConfigDef.Importance.HIGH,
                             "Converter class used to write the message value to the data topic")
                     .define(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
