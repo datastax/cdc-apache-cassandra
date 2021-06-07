@@ -52,7 +52,10 @@ class CassandraSourceConnectorConfigTest {
     @Test
     void should_error_invalid_port() {
         Map<String, String> props =
-                Maps.newHashMap(ImmutableMap.<String, String>builder().put(PORT_OPT, "foo").build());
+                Maps.newHashMap(ImmutableMap.<String, String>builder()
+                        .putAll(requiredSettings())
+                        .put(PORT_OPT, "foo")
+                        .build());
         assertThatThrownBy(() -> new CassandraSourceConnectorConfig(props))
                 .isInstanceOf(ConfigException.class)
                 .hasMessageContaining("Invalid value foo for configuration port");
@@ -72,7 +75,10 @@ class CassandraSourceConnectorConfigTest {
     void should_error_invalid_queryExecutionTimeout() {
         Map<String, String> props =
                 Maps.newHashMap(
-                        ImmutableMap.<String, String>builder().put(QUERY_EXECUTION_TIMEOUT_OPT, "foo").build());
+                        ImmutableMap.<String, String>builder()
+                                .putAll(requiredSettings())
+                                .put(QUERY_EXECUTION_TIMEOUT_OPT, "foo")
+                                .build());
         assertThatThrownBy(() -> new CassandraSourceConnectorConfig(props))
                 .isInstanceOf(ConfigException.class)
                 .hasMessageContaining("Invalid value foo for configuration queryExecutionTimeout");
@@ -92,7 +98,10 @@ class CassandraSourceConnectorConfigTest {
     void should_error_invalid_metricsHighestLatency() {
         Map<String, String> props =
                 Maps.newHashMap(
-                        ImmutableMap.<String, String>builder().put(METRICS_HIGHEST_LATENCY_OPT, "foo").build());
+                        ImmutableMap.<String, String>builder()
+                                .putAll(requiredSettings())
+                                .put(METRICS_HIGHEST_LATENCY_OPT, "foo")
+                                .build());
         assertThatThrownBy(() -> new CassandraSourceConnectorConfig(props))
                 .isInstanceOf(ConfigException.class)
                 .hasMessageContaining("Invalid value foo for configuration metricsHighestLatency");
@@ -112,7 +121,10 @@ class CassandraSourceConnectorConfigTest {
     void should_error_invalid_connectionPoolLocalSize() {
         Map<String, String> props =
                 Maps.newHashMap(
-                        ImmutableMap.<String, String>builder().put(CassandraSourceConnectorConfig.CONNECTION_POOL_LOCAL_SIZE, "foo").build());
+                        ImmutableMap.<String, String>builder()
+                                .putAll(requiredSettings())
+                                .put(CassandraSourceConnectorConfig.CONNECTION_POOL_LOCAL_SIZE, "foo")
+                                .build());
         assertThatThrownBy(() -> new CassandraSourceConnectorConfig(props))
                 .isInstanceOf(ConfigException.class)
                 .hasMessageContaining("Invalid value foo for configuration connectionPoolLocalSize");
@@ -132,7 +144,10 @@ class CassandraSourceConnectorConfigTest {
     void should_error_invalid_maxConcurrentRequests() {
         Map<String, String> props =
                 Maps.newHashMap(
-                        ImmutableMap.<String, String>builder().put(CONCURRENT_REQUESTS_OPT, "foo").build());
+                        ImmutableMap.<String, String>builder()
+                                .putAll(requiredSettings())
+                                .put(CONCURRENT_REQUESTS_OPT, "foo")
+                                .build());
         assertThatThrownBy(() -> new CassandraSourceConnectorConfig(props))
                 .isInstanceOf(ConfigException.class)
                 .hasMessageContaining("Invalid value foo for configuration maxConcurrentRequests");
@@ -151,7 +166,10 @@ class CassandraSourceConnectorConfigTest {
     @Test
     void should_error_invalid_compression_type() {
         Map<String, String> props =
-                Maps.newHashMap(ImmutableMap.<String, String>builder().put(COMPRESSION_OPT, "foo").build());
+                Maps.newHashMap(ImmutableMap.<String, String>builder()
+                        .putAll(requiredSettings())
+                        .put(COMPRESSION_OPT, "foo")
+                        .build());
         assertThatThrownBy(() -> new CassandraSourceConnectorConfig(props))
                 .isInstanceOf(ConfigException.class)
                 .hasMessageContaining(
@@ -163,7 +181,10 @@ class CassandraSourceConnectorConfigTest {
     @Test
     void should_error_missing_dc_with_contactPoints() {
         Map<String, String> props =
-                ImmutableMap.<String, String>builder().put(CONTACT_POINTS_OPT, "127.0.0.1").build();
+                ImmutableMap.<String, String>builder()
+                        .putAll(requiredSettings())
+                        .put(CONTACT_POINTS_OPT, "127.0.0.1")
+                        .build();
         assertThatThrownBy(() -> new CassandraSourceConnectorConfig(props))
                 .isInstanceOf(ConfigException.class)
                 .hasMessageContaining(
@@ -174,6 +195,7 @@ class CassandraSourceConnectorConfigTest {
     void should_error_empty_dc_with_contactPoints() {
         Map<String, String> props =
                 ImmutableMap.<String, String>builder()
+                        .putAll(requiredSettings())
                         .put(CONTACT_POINTS_OPT, "127.0.0.1")
                         .put(DC_OPT, "")
                         .build();
@@ -187,6 +209,7 @@ class CassandraSourceConnectorConfigTest {
     void should_handle_dc_with_contactPoints() {
         Map<String, String> props =
                 ImmutableMap.<String, String>builder()
+                        .putAll(requiredSettings())
                         .put(CONTACT_POINTS_OPT, "127.0.0.1, 127.0.1.1")
                         .put(DC_OPT, "local")
                         .build();
@@ -200,6 +223,7 @@ class CassandraSourceConnectorConfigTest {
     void should_handle_dc_with_contactPoints_driver_prefix() {
         Map<String, String> props =
                 ImmutableMap.<String, String>builder()
+                        .putAll(requiredSettings())
                         .put(CONTACT_POINTS_OPT, "127.0.0.1, 127.0.1.1")
                         .put(LOCAL_DC_DRIVER_SETTING, "local")
                         .build();
@@ -212,7 +236,10 @@ class CassandraSourceConnectorConfigTest {
     @Test
     void should_handle_port() {
         Map<String, String> props =
-                ImmutableMap.<String, String>builder().put(PORT_OPT, "5725").build();
+                ImmutableMap.<String, String>builder()
+                        .putAll(requiredSettings())
+                        .put(PORT_OPT, "5725")
+                        .build();
 
         CassandraSourceConnectorConfig d = new CassandraSourceConnectorConfig(props);
         assertThat(d.getPort()).isEqualTo(5725);
@@ -221,7 +248,10 @@ class CassandraSourceConnectorConfigTest {
     @Test
     void should_handle_maxConcurrentRequests() {
         Map<String, String> props =
-                ImmutableMap.<String, String>builder().put(CONCURRENT_REQUESTS_OPT, "129").build();
+                ImmutableMap.<String, String>builder()
+                        .putAll(requiredSettings())
+                        .put(CONCURRENT_REQUESTS_OPT, "129")
+                        .build();
 
         CassandraSourceConnectorConfig d = new CassandraSourceConnectorConfig(props);
         assertThat(d.getMaxConcurrentRequests()).isEqualTo(129);
@@ -231,10 +261,7 @@ class CassandraSourceConnectorConfigTest {
     void should_handle_instance_name() {
         Map<String, String> props =
                 ImmutableMap.<String, String>builder()
-                        .put(KEYSPACE_NAME_CONFIG, "ks1")
-                        .put(TABLE_NAME_CONFIG, "table1")
-                        .put(EVENTS_TOPIC_NAME_CONFIG, "events-ks1.table1")
-                        .put(DATA_TOPIC_NAME_CONFIG, "data-ks1.table1")
+                        .putAll(requiredSettings())
                         .put(SinkUtil.NAME_OPT, "myinst")
                         .build();
 
@@ -246,10 +273,7 @@ class CassandraSourceConnectorConfigTest {
     void should_handle_secure_connect_bundle() {
         Map<String, String> props =
                 ImmutableMap.<String, String>builder()
-                        .put(KEYSPACE_NAME_CONFIG, "ks1")
-                        .put(TABLE_NAME_CONFIG, "table1")
-                        .put(EVENTS_TOPIC_NAME_CONFIG, "events-ks1.table1")
-                        .put(DATA_TOPIC_NAME_CONFIG, "data-ks1.table1")
+                        .putAll(requiredSettings())
                         .put(SECURE_CONNECT_BUNDLE_OPT, "/location/to/bundle")
                         .build();
 
@@ -262,10 +286,7 @@ class CassandraSourceConnectorConfigTest {
     void should_throw_when_secure_connect_bundle_and_contact_points_provided() {
         Map<String, String> props =
                 ImmutableMap.<String, String>builder()
-                        .put(KEYSPACE_NAME_CONFIG, "ks1")
-                        .put(TABLE_NAME_CONFIG, "table1")
-                        .put(EVENTS_TOPIC_NAME_CONFIG, "events-ks1.table1")
-                        .put(DATA_TOPIC_NAME_CONFIG, "data-ks1.table1")
+                        .putAll(requiredSettings())
                         .put(SECURE_CONNECT_BUNDLE_OPT, "/location/to/bundle")
                         .put(CONTACT_POINTS_OPT, "127.0.0.1")
                         .build();
@@ -282,10 +303,7 @@ class CassandraSourceConnectorConfigTest {
     void should_throw_when_secure_connect_bundle_and_local_dc_provided() {
         Map<String, String> props =
                 ImmutableMap.<String, String>builder()
-                        .put(KEYSPACE_NAME_CONFIG, "ks1")
-                        .put(TABLE_NAME_CONFIG, "table1")
-                        .put(EVENTS_TOPIC_NAME_CONFIG, "events-ks1.table1")
-                        .put(DATA_TOPIC_NAME_CONFIG, "data-ks1.table1")
+                        .putAll(requiredSettings())
                         .put(SECURE_CONNECT_BUNDLE_OPT, "/location/to/bundle")
                         .put(DC_OPT, "dc1")
                         .build();
@@ -302,10 +320,7 @@ class CassandraSourceConnectorConfigTest {
     void should_throw_when_secure_connect_bundle_and_local_dc_driver_setting_provided() {
         Map<String, String> props =
                 ImmutableMap.<String, String>builder()
-                        .put(KEYSPACE_NAME_CONFIG, "ks1")
-                        .put(TABLE_NAME_CONFIG, "table1")
-                        .put(EVENTS_TOPIC_NAME_CONFIG, "events-ks1.table1")
-                        .put(DATA_TOPIC_NAME_CONFIG, "data-ks1.table1")
+                        .putAll(requiredSettings())
                         .put(SECURE_CONNECT_BUNDLE_OPT, "/location/to/bundle")
                         .put(LOCAL_DC_DRIVER_SETTING, "dc1")
                         .build();
@@ -322,10 +337,7 @@ class CassandraSourceConnectorConfigTest {
     void should_throw_when_secure_connect_bundle_and_ssl_setting_provided() {
         Map<String, String> props =
                 ImmutableMap.<String, String>builder()
-                        .put(KEYSPACE_NAME_CONFIG, "ks1")
-                        .put(TABLE_NAME_CONFIG, "table1")
-                        .put(EVENTS_TOPIC_NAME_CONFIG, "events-ks1.table1")
-                        .put(DATA_TOPIC_NAME_CONFIG, "data-ks1.table1")
+                        .putAll(requiredSettings())
                         .put(SECURE_CONNECT_BUNDLE_OPT, "/location/to/bundle")
                         .put(PROVIDER_OPT, "JDK")
                         .build();
@@ -342,7 +354,10 @@ class CassandraSourceConnectorConfigTest {
     void should_fill_with_default_metrics_settings_if_jmx_enabled() {
         // given
         Map<String, String> props =
-                Maps.newHashMap(ImmutableMap.<String, String>builder().put("jmx", "true").build());
+                Maps.newHashMap(ImmutableMap.<String, String>builder()
+                        .putAll(requiredSettings())
+                        .put("jmx", "true")
+                        .build());
         // when
         CassandraSourceConnectorConfig CassandraSourceConnectorConfig = new CassandraSourceConnectorConfig(props);
 
@@ -370,10 +385,7 @@ class CassandraSourceConnectorConfigTest {
         Map<String, String> props =
                 Maps.newHashMap(
                         ImmutableMap.<String, String>builder()
-                                .put(KEYSPACE_NAME_CONFIG, "ks1")
-                                .put(TABLE_NAME_CONFIG, "table1")
-                                .put(EVENTS_TOPIC_NAME_CONFIG, "events-ks1.table1")
-                                .put(DATA_TOPIC_NAME_CONFIG, "data-ks1.table1")
+                                .putAll(requiredSettings())
                                 .put("jmx", "true")
                                 .put(withDriverPrefix(METRICS_SESSION_ENABLED) + ".0", "bytes-sent")
                                 .put(withDriverPrefix(METRICS_SESSION_CQL_REQUESTS_INTERVAL), "5 seconds")
@@ -396,10 +408,12 @@ class CassandraSourceConnectorConfigTest {
 
     @ParameterizedTest
     @MethodSource("deprecatedSettingsProvider")
-    void should_handle_deprecated_settings(
-            Map<String, String> inputSettings, String driverSettingName, String expected) {
+    void should_handle_deprecated_settings(Map<String, String> inputSettings, String driverSettingName, String expected) {
+        Map<String, String> settings = new HashMap<>(requiredSettings());
+        settings.putAll(inputSettings);
+
         // when
-        CassandraSourceConnectorConfig CassandraSourceConnectorConfig = new CassandraSourceConnectorConfig(inputSettings);
+        CassandraSourceConnectorConfig CassandraSourceConnectorConfig = new CassandraSourceConnectorConfig(settings);
 
         // then
         assertThat(CassandraSourceConnectorConfig.getJavaDriverSettings().get(driverSettingName))
@@ -408,10 +422,12 @@ class CassandraSourceConnectorConfigTest {
 
     @ParameterizedTest
     @MethodSource("javaDriverSettingProvider")
-    void should_use_java_driver_setting(
-            Map<String, String> inputSettings, String driverSettingName, String expected) {
+    void should_use_java_driver_setting(Map<String, String> inputSettings, String driverSettingName, String expected) {
+        Map<String, String> settings = new HashMap<>(requiredSettings());
+        settings.putAll(inputSettings);
+
         // when
-        CassandraSourceConnectorConfig CassandraSourceConnectorConfig = new CassandraSourceConnectorConfig(inputSettings);
+        CassandraSourceConnectorConfig CassandraSourceConnectorConfig = new CassandraSourceConnectorConfig(settings);
 
         // then
         assertThat(CassandraSourceConnectorConfig.getJavaDriverSettings().get(driverSettingName))
@@ -422,7 +438,7 @@ class CassandraSourceConnectorConfigTest {
     @MethodSource("defaultSettingProvider")
     void should_set_default_driver_setting(String driverSettingName, String expectedDefault) {
         // when
-        CassandraSourceConnectorConfig CassandraSourceConnectorConfig = new CassandraSourceConnectorConfig(Collections.emptyMap());
+        CassandraSourceConnectorConfig CassandraSourceConnectorConfig = new CassandraSourceConnectorConfig(requiredSettings());
 
         // then
         assertThat(CassandraSourceConnectorConfig.getJavaDriverSettings().get(driverSettingName))
@@ -499,7 +515,7 @@ class CassandraSourceConnectorConfigTest {
 
         byte[] zipFileContents = "foo".getBytes(UTF_8);
         String encoded = "base64:" + Base64.getEncoder().encodeToString(zipFileContents);
-        Map<String, String> inputSettings = new HashMap<>();
+        Map<String, String> inputSettings = new HashMap<>(requiredSettings());
         inputSettings.put(entryName, encoded);
         CassandraSourceConnectorConfig CassandraSourceConnectorConfig = new CassandraSourceConnectorConfig(inputSettings);
 
@@ -519,7 +535,7 @@ class CassandraSourceConnectorConfigTest {
     @Test
     void should_transform_list_setting_to_indexed_typesafe_setting() {
         // given
-        Map<String, String> connectorSettings = new HashMap<>();
+        Map<String, String> connectorSettings = new HashMap<>(requiredSettings());
         for (String listSettingName : JAVA_DRIVER_SETTINGS_LIST_TYPE) {
             connectorSettings.put(listSettingName, "a,b");
         }
@@ -552,7 +568,7 @@ class CassandraSourceConnectorConfigTest {
             List<String> expected,
             Map<String, String> expectedDriverSettings) {
         // given
-        Map<String, String> connectorSettings = new HashMap<>();
+        Map<String, String> connectorSettings = new HashMap<>(requiredSettings());
         if (connectorContactPoints != null) {
             connectorSettings.put(CONTACT_POINTS_OPT, connectorContactPoints);
         }
@@ -685,7 +701,7 @@ class CassandraSourceConnectorConfigTest {
             String expectedDeprecationLogWarning,
             LogInterceptor logs) {
         // given
-        Map<String, String> connectorSettings = new HashMap<>();
+        Map<String, String> connectorSettings = new HashMap<>(requiredSettings());
         connectorSettings.put(IGNORE_ERRORS, ignoreErrors);
 
         // when
@@ -719,4 +735,14 @@ class CassandraSourceConnectorConfigTest {
                         IgnoreErrorsPolicy.NONE,
                         "Setting ignoreErrors=false is deprecated, please replace with ignoreErrors=None"));
     }
+
+    Map<String, String> requiredSettings() {
+        return ImmutableMap.<String, String>builder()
+                .put(KEYSPACE_NAME_CONFIG, "ks1")
+                .put(TABLE_NAME_CONFIG, "table1")
+                .put(EVENTS_TOPIC_NAME_CONFIG, "events-ks1.table1")
+                .put(DATA_TOPIC_NAME_CONFIG, "data-ks1.table1")
+                .build();
+    }
+
 }
