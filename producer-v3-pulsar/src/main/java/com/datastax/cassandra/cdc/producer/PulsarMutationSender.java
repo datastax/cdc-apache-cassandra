@@ -24,7 +24,6 @@ import org.apache.cassandra.db.marshal.*;
 import org.apache.cassandra.service.StorageService;
 import org.apache.pulsar.client.api.*;
 import org.apache.pulsar.client.api.schema.*;
-import org.apache.pulsar.client.impl.schema.generic.GenericSchemaImpl;
 import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.common.schema.KeyValueEncodingType;
 import org.apache.pulsar.common.schema.SchemaInfo;
@@ -91,7 +90,7 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
                         .type(schemaTypes.get(primaryKeyColumns.get(i++).type.asCQL3Type().toString()));
             }
             SchemaInfo schemaInfo = schemaBuilder.build(SchemaType.AVRO);
-            return GenericSchemaImpl.of(schemaInfo);
+            return Schema.generic(schemaInfo);
         });
     }
 

@@ -26,7 +26,6 @@ import org.apache.pulsar.client.api.schema.GenericRecord;
 import org.apache.pulsar.client.api.schema.RecordSchemaBuilder;
 import org.apache.pulsar.client.api.schema.SchemaBuilder;
 import org.apache.pulsar.client.impl.schema.KeyValueSchema;
-import org.apache.pulsar.client.impl.schema.generic.GenericSchemaImpl;
 import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.common.schema.KeyValueEncodingType;
 import org.apache.pulsar.common.schema.SchemaInfo;
@@ -117,7 +116,7 @@ public class PulsarProducerV4Tests {
                 RecordSchemaBuilder recordSchemaBuilder1 = SchemaBuilder.record("ks1.table1");
                 recordSchemaBuilder1.field("id").type(SchemaType.STRING).optional().defaultValue(null);
                 SchemaInfo keySchemaInfo1 = recordSchemaBuilder1.build(SchemaType.AVRO);
-                Schema<GenericRecord> keySchema1 = GenericSchemaImpl.of(keySchemaInfo1);
+                Schema<GenericRecord> keySchema1 = Schema.generic(keySchemaInfo1);
                 Schema<KeyValue<GenericRecord, MutationValue>> schema1 = KeyValueSchema.of(
                         keySchema1,
                         Schema.AVRO(MutationValue.class),
@@ -165,7 +164,7 @@ public class PulsarProducerV4Tests {
                 recordSchemaBuilder2.field("a").type(SchemaType.STRING).optional().defaultValue(null);
                 recordSchemaBuilder2.field("b").type(SchemaType.INT32).optional().defaultValue(null);
                 SchemaInfo keySchemaInfo2 = recordSchemaBuilder2.build(SchemaType.AVRO);
-                Schema<GenericRecord> keySchema2 = GenericSchemaImpl.of(keySchemaInfo2);
+                Schema<GenericRecord> keySchema2 = Schema.generic(keySchemaInfo2);
                 Schema<KeyValue<GenericRecord, MutationValue>> schema2 = KeyValueSchema.of(
                         keySchema2,
                         Schema.AVRO(MutationValue.class),

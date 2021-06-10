@@ -15,9 +15,10 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
+import org.apache.pulsar.client.api.Schema;
+import org.apache.pulsar.client.api.schema.GenericRecord;
 import org.apache.pulsar.client.api.schema.RecordSchemaBuilder;
 import org.apache.pulsar.client.api.schema.SchemaBuilder;
-import org.apache.pulsar.client.impl.schema.generic.GenericSchemaImpl;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
 import org.junit.jupiter.api.Test;
@@ -39,6 +40,6 @@ public class PulsarGenericSchemaTests {
             i++;
         }
         SchemaInfo schemaInfo = schemaBuilder.build(SchemaType.AVRO);
-        GenericSchemaImpl.of(schemaInfo);
+        Schema.getSchema(schemaInfo);
     }
 }

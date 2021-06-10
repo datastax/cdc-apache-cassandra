@@ -34,7 +34,6 @@ import org.apache.pulsar.client.api.schema.GenericRecordBuilder;
 import org.apache.pulsar.client.api.schema.GenericSchema;
 import org.apache.pulsar.client.api.schema.RecordSchemaBuilder;
 import org.apache.pulsar.client.api.schema.SchemaBuilder;
-import org.apache.pulsar.client.impl.schema.generic.GenericSchemaImpl;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
 
@@ -52,7 +51,7 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
     public final SchemaInfo schemaInfo;
     public final SchemaType schemaType;
 
-    public final Map<String, GenericSchema> udtSchemas = new HashMap<>();
+    public final Map<String, GenericSchema<GenericRecord>> udtSchemas = new HashMap<>();
 
     public AbstractGenericConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns, SchemaType schemaType) {
         RecordSchemaBuilder recordSchemaBuilder = SchemaBuilder.record(ksm.getName() + "." + tm.getName());
@@ -60,11 +59,11 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
             addFieldSchema(recordSchemaBuilder, ksm, cm.getName().toString(), cm.getType(), schemaType);
         }
         this.schemaInfo = recordSchemaBuilder.build(schemaType);
-        this.schema = GenericSchemaImpl.of(schemaInfo);
+        this.schema = Schema.generic(schemaInfo);
         this.schemaType = schemaType;
         if (log.isInfoEnabled()) {
             log.info("schema={}", schemaToString(this.schema));
-            for(Map.Entry<String, GenericSchema> entry : udtSchemas.entrySet()) {
+            for(Map.Entry<String, GenericSchema<GenericRecord>> entry : udtSchemas.entrySet()) {
                 log.info("type={} schema={}", entry.getKey(), schemaToString(entry.getValue()));
             }
         }
@@ -134,7 +133,7 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
         return recordSchemaBuilder;
     }
 
-    GenericSchema buildUDTSchema(KeyspaceMetadata ksm, String typeName, SchemaType schemaType) {
+    GenericSchema<GenericRecord> buildUDTSchema(KeyspaceMetadata ksm, String typeName, SchemaType schemaType) {
         UserDefinedType userDefinedType = ksm.getUserDefinedType(CqlIdentifier.fromCql(typeName.substring(typeName.indexOf(".") + 1)))
                 .orElseThrow(() -> new IllegalStateException("UDT " + typeName + " not found"));
         RecordSchemaBuilder udtSchemaBuilder = SchemaBuilder.record(typeName);
@@ -143,7 +142,7 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
             addFieldSchema(udtSchemaBuilder, ksm, field.toString(), userDefinedType.getFieldTypes().get(i++), schemaType);
         }
         SchemaInfo pcGenericSchemaInfo = udtSchemaBuilder.build(schemaType);
-        GenericSchema genericSchema = GenericSchemaImpl.of(pcGenericSchemaInfo);
+        GenericSchema<GenericRecord> genericSchema = Schema.generic(pcGenericSchemaInfo);
         udtSchemas.put(typeName, genericSchema);
         return genericSchema;
     }

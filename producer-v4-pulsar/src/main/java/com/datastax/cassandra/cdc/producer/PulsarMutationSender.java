@@ -24,7 +24,6 @@ import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.service.StorageService;
 import org.apache.pulsar.client.api.*;
 import org.apache.pulsar.client.api.schema.*;
-import org.apache.pulsar.client.impl.schema.generic.GenericSchemaImpl;
 import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.common.schema.KeyValueEncodingType;
 import org.apache.pulsar.common.schema.SchemaInfo;
@@ -77,7 +76,7 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
                 .build();
     }
 
-    @SuppressWarnings("rawtypes")
+    @SuppressWarnings({"rawtypes","unchecked"})
     public Schema getKeySchema(final TableMetadata tm) {
         final String key = tm.keyspace + "." + tm.name;
         return schemas.computeIfAbsent(key, k -> {
@@ -91,7 +90,7 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
                         .type(schemaTypes.get(primaryKeyColumns.get(i++).type.asCQL3Type().toString()));
             }
             SchemaInfo schemaInfo = schemaBuilder.build(SchemaType.AVRO);
-            return GenericSchemaImpl.of(schemaInfo);
+            return Schema.generic(schemaInfo);
         });
     }
 
