@@ -72,6 +72,18 @@ class CassandraSourceConnectorConfigTest {
     }
 
     @Test
+    void should_error_invalid_cache_only_if_coordinator_match() {
+        Map<String, String> props =
+                Maps.newHashMap(ImmutableMap.<String, String>builder()
+                        .putAll(requiredSettings())
+                        .put(CACHE_ONLY_IF_COORDINATOR_MATCH, "foo")
+                        .build());
+        assertThatThrownBy(() -> new CassandraSourceConnectorConfig(props))
+                .isInstanceOf(ConfigException.class)
+                .hasMessageContaining("Invalid value foo for configuration cache.only_if_coordinator_match");
+    }
+
+    @Test
     void should_error_invalid_queryExecutionTimeout() {
         Map<String, String> props =
                 Maps.newHashMap(

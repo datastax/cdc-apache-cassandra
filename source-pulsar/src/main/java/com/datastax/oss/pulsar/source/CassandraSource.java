@@ -248,7 +248,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                         }
                     };
                     acknowledge(consumer, msg);
-                    if (tuple._3 != null && tuple._3.equals(mutationValue.getNodeId())) {
+                    if (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._3 != null && tuple._3.equals(mutationValue.getNodeId()))) {
                         // cache the mutation digest if the coordinator is the source of this event.
                         mutationCache.addMutationMd5(msg.getKey(), mutationValue.getMd5Digest());
                     }

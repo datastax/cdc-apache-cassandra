@@ -294,7 +294,7 @@ public class CassandraSourceTask extends SourceTask implements SchemaChangeListe
                             cassandraConverterAndStatementFinal.getConverter().getSchema(),
                             value);
                     sourceRecords.add(sourceRecord);
-                    if (tuple._3 != null && tuple._3.equals(UUID.fromString(nodeId))) {
+                    if (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._3 != null && tuple._3.equals(UUID.fromString(nodeId)))) {
                         // cache the mutation digest if the coordinator is the source of this event.
                         mutationCache.addMutationMd5(mutationKey, md5Digest);
                     }

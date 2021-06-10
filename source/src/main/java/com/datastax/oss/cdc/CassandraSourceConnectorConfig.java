@@ -58,6 +58,7 @@ public class CassandraSourceConnectorConfig {
     public static final String TABLE_NAME_CONFIG = "table";
     public static final String COLUMNS_REGEXP_CONFIG = "columns";
 
+    public static final String CACHE_ONLY_IF_COORDINATOR_MATCH = "cache.only_if_coordinator_match";
     public static final String CACHE_MAX_DIGESTS_CONFIG = "cache.max.digest";
     public static final String CACHE_MAX_CAPACITY_CONFIG = "cache.max.capacity";
     public static final String CACHE_EXPIRE_AFTER_MS_CONFIG = "cache.expire.after.ms";
@@ -153,6 +154,11 @@ public class CassandraSourceConnectorConfig {
                             "3",
                             ConfigDef.Importance.HIGH,
                             "The maximum number of digest per mutation cache entry, with a default set to 3")
+                    .define(CACHE_ONLY_IF_COORDINATOR_MATCH,
+                            ConfigDef.Type.BOOLEAN,
+                            "true",
+                            ConfigDef.Importance.HIGH,
+                            "Cache the mutation digest only if the coordinator node is the originator node.")
                     .define(CACHE_MAX_CAPACITY_CONFIG,
                             ConfigDef.Type.LONG,
                             "32767",
@@ -587,6 +593,10 @@ public class CassandraSourceConnectorConfig {
 
     public int getMaxConcurrentRequests() {
         return globalConfig.getInt(CONCURRENT_REQUESTS_OPT);
+    }
+
+    public boolean getCacheOnlyIfCoordinatorMatch() {
+        return globalConfig.getBoolean(CACHE_ONLY_IF_COORDINATOR_MATCH);
     }
 
     public long getCacheMaxDigests() {
