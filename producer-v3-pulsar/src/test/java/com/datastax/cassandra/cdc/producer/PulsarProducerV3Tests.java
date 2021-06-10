@@ -23,7 +23,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.api.*;
 import org.apache.pulsar.client.api.schema.Field;
 import org.apache.pulsar.client.api.schema.GenericRecord;
-import org.apache.pulsar.client.api.schema.KeyValueSchema;
 import org.apache.pulsar.client.api.schema.RecordSchemaBuilder;
 import org.apache.pulsar.client.api.schema.SchemaBuilder;
 import org.apache.pulsar.common.schema.KeyValue;
@@ -120,11 +119,10 @@ public class PulsarProducerV3Tests {
                 recordSchemaBuilder1.field("id").type(SchemaType.STRING).optional().defaultValue(null);
                 SchemaInfo keySchemaInfo1 = recordSchemaBuilder1.build(SchemaType.AVRO);
                 Schema<GenericRecord> keySchema1 = (Schema<GenericRecord>) Schema.getSchema(keySchemaInfo1);
-                Schema<KeyValue<GenericRecord, MutationValue>> schema1 = KeyValueSchema.of(
+                Schema<KeyValue<GenericRecord, MutationValue>> schema1 = Schema.KeyValue(
                         keySchema1,
                         Schema.AVRO(MutationValue.class),
                         KeyValueEncodingType.SEPARATED);
-
                 // pulsar-admin schemas get "persistent://public/default/events-ks1.table1"
                 // pulsar-admin topics peek-messages persistent://public/default/events-ks1.table1-partition-0 --count 3 --subscription sub1
                 try (Consumer<KeyValue<GenericRecord, MutationValue>> consumer = pulsarClient.newConsumer(schema1)
@@ -168,7 +166,7 @@ public class PulsarProducerV3Tests {
                 recordSchemaBuilder2.field("b").type(SchemaType.INT32).optional().defaultValue(null);
                 SchemaInfo keySchemaInfo2 = recordSchemaBuilder2.build(SchemaType.AVRO);
                 Schema<GenericRecord> keySchema2 = Schema.generic(keySchemaInfo2);
-                Schema<KeyValue<GenericRecord, MutationValue>> schema2 = KeyValueSchema.of(
+                Schema<KeyValue<GenericRecord, MutationValue>> schema2 = Schema.KeyValue(
                         keySchema2,
                         Schema.AVRO(MutationValue.class),
                         KeyValueEncodingType.SEPARATED);
