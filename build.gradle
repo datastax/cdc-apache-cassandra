@@ -22,6 +22,7 @@ allprojects {
         maven { url "https://oss.sonatype.org/content/repositories/snapshots" }
         maven { url "https://packages.confluent.io/maven/" }
         maven { url "https://repo.typesafe.com/typesafe/releases/" }
+        maven { url "https://repo.sjc.dsinternal.org/artifactory/datastax-releases-local" }
         maven { url "${pulsarRepoUrl}" }
     }
 
