@@ -55,7 +55,7 @@ public class PulsarCassandraSourceTests {
     ).asCompatibleSubstituteFor("cassandra");
 
     public static final DockerImageName PULSAR_IMAGE = DockerImageName.parse(
-            Optional.ofNullable(System.getenv("PULSAR_IMAGE")).orElse("harbor.sjc.dsinternal.org/pulsar/lunastreaming-all:latest")
+            Optional.ofNullable(System.getenv("PULSAR_IMAGE")).orElse("harbor.sjc.dsinternal.org/pulsar/lunastreaming-all:latest-272")
     ).asCompatibleSubstituteFor("pulsar");
 
     private static Network testNetwork;
