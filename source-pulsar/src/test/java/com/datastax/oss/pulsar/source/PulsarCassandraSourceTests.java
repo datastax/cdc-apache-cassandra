@@ -168,7 +168,6 @@ public class PulsarCassandraSourceTests {
             }
             deployConnector(ksName, "table1", keyConverter, valueConverter);
             deployConnector(ksName, "table2", keyConverter, valueConverter);
-            Thread.sleep(11000);    // wait commitlogs sync on disk
 
             try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
                 Map<String, Integer> mutationTable1 = new HashMap<>();

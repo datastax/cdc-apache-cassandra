@@ -105,8 +105,6 @@ public class PulsarProducerV4Tests {
                 cqlSession.execute("INSERT INTO ks1.table2 (a,b,c) VALUES('3',1,1)");
             }
 
-            Thread.sleep(15000);    // wait CL sync on disk
-
             Map<String, List<UUID>> nodesTable1 = new HashMap<>();
             Map<String, List<UUID>> nodesTable2 = new HashMap<>();
             Map<String, List<String>> digestsTable1 = new HashMap<>();
