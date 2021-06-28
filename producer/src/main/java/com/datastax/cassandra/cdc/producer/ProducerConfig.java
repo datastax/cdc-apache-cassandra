@@ -199,6 +199,11 @@ public class ProducerConfig {
         settingMap = Collections.unmodifiableMap(map);
     }
 
+    public static ProducerConfig create(Plateform plateform, Map<String, Object> tenantConfiguration)
+    {
+        return new ProducerConfig().configure(plateform, tenantConfiguration);
+    }
+
     public static ProducerConfig create(Plateform plateform, String agentParams)
     {
         return new ProducerConfig().configure(plateform, agentParams);
@@ -210,6 +215,7 @@ public class ProducerConfig {
      * @param agentParameters
      */
     public ProducerConfig configure(Plateform plateform, String agentParameters) {
+        Map<String, Object> parameters = new HashMap<>();
         if (agentParameters != null) {
             for (String token : agentParameters.split("(?<!\\\\),\\s*")) {
                 String param = token.replace("\\,", ",");
@@ -217,18 +223,42 @@ public class ProducerConfig {
                 if (i > 0) {
                     String key = param.substring(0, i);
                     String value = param.substring(i + 1);
-                    Setting<?> setting = settingMap.get(key);
-                    if (setting != null) {
-                        if (!setting.plateform.equals(Plateform.ALL) && !setting.plateform.equals(plateform)) {
-                            throw new IllegalArgumentException(String.format("Unsupported parameter '%s' for the %s platform ", key, plateform));
-                        }
-                        setting.initializer.apply(this, value);
-                    } else {
-                        throw new RuntimeException(String.format("Unknown parameter '%s'", key));
-                    }
+                    parameters.put(key, value);
                 }
             }
         }
+        return configure(plateform, parameters);
+    }
+
+    /**
+     * Override the system properties with agent parameters.
+     *
+     * @param agentParameters
+     */
+    public ProducerConfig configure(Plateform plateform, Map<String, Object> agentParameters) {
+        if (agentParameters == null) {
+            agentParameters = new HashMap<>();
+        }
+        for (Map.Entry<String, Object> entry : agentParameters.entrySet()) {
+            String key = entry.getKey();
+            if (entry.getValue() == null) {
+                continue;
+            }
+            if (! (entry.getValue() instanceof String)) {
+                throw new IllegalArgumentException(String.format("Unsupported parameter '%s' of type, only String values are allowed ", key, entry.getValue().getClass()));
+            }
+            String value = (String) entry.getValue();
+            Setting<?> setting = settingMap.get(key);
+            if (setting != null) {
+                if (!setting.plateform.equals(Plateform.ALL) && !setting.plateform.equals(plateform)) {
+                    throw new IllegalArgumentException(String.format("Unsupported parameter '%s' for the %s platform ", key, plateform));
+                }
+                setting.initializer.apply(this, value);
+            } else {
+                throw new RuntimeException(String.format("Unknown parameter '%s'", key));
+            }
+        }
+
         if (log.isInfoEnabled()) {
             StringBuilder sb = new StringBuilder();
             settings.forEach(s -> {

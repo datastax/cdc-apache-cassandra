@@ -16,7 +16,6 @@
 package com.datastax.oss.pulsar.source;
 
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
-import com.datastax.oss.common.sink.config.ContactPointsValidator;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.pulsar.source.converters.AvroConverter;
 import com.datastax.oss.pulsar.source.converters.JsonConverter;

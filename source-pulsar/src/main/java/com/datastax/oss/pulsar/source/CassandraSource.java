@@ -56,7 +56,7 @@ import java.util.stream.Collectors;
  * and publish rows on the data topic.
  */
 @Connector(
-        name = "cassandra",
+        name = "cassandra-source",
         type = IOType.SOURCE,
         help = "The CassandraSource is used for moving data from Cassandra to Pulsar.",
         configClass = CassandraSourceConfig.class)
