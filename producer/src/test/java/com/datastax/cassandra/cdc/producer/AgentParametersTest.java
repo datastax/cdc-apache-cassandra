@@ -67,9 +67,9 @@ public class AgentParametersTest {
                 ;
 
         ProducerConfig config = new ProducerConfig();
-        config.configure(Plateform.PULSAR, (String) null);     // test NPE
-        config.configure(Plateform.PULSAR, (Map<String, Object>) null);     // test NPE
-        config.configure(Plateform.PULSAR, agentArgs);
+        config.configure(Platform.PULSAR, (String) null);     // test NPE
+        config.configure(Platform.PULSAR, (Map<String, Object>) null);     // test NPE
+        config.configure(Platform.PULSAR, agentArgs);
         assertCommonConfig(config);
 
         assertEquals("pulsar+ssl://mypulsar:6650,localhost:6651,localhost:6652", config.pulsarServiceUrl);
@@ -88,7 +88,7 @@ public class AgentParametersTest {
         tenantInfo.put(SSL_ALLOW_INSECURE_CONNECTION, "true");
         tenantInfo.put(SSL_HOSTNAME_VERIFICATION_ENABLE, "true");
 
-        ProducerConfig config = ProducerConfig.create(Plateform.PULSAR, tenantInfo);
+        ProducerConfig config = ProducerConfig.create(Platform.PULSAR, tenantInfo);
         assertEquals("pulsar+ssl://mypulsar:6650,localhost:6651,localhost:6652", config.pulsarServiceUrl);
 
         // Pulsar Auth
@@ -105,9 +105,9 @@ public class AgentParametersTest {
                 SSL_ENDPOINT_IDENTIFICATION_ALGORITHM + "=none,";
 
         ProducerConfig config = new ProducerConfig();
-        config.configure(Plateform.KAFKA, (String) null);     // test NPE
-        config.configure(Plateform.KAFKA, (Map<String, Object>) null);     // test NPE
-        config.configure(Plateform.KAFKA, agentArgs);
+        config.configure(Platform.KAFKA, (String) null);     // test NPE
+        config.configure(Platform.KAFKA, (Map<String, Object>) null);     // test NPE
+        config.configure(Platform.KAFKA, agentArgs);
 
         assertCommonConfig(config);
 

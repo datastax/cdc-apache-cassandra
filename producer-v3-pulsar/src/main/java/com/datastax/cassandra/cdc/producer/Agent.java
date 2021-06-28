@@ -58,7 +58,7 @@ public class Agent {
 
     static void startCdcProducer(String agentArgs) throws IOException {
         log.info("Starting CDC producer agent, cdc_raw_directory={}", DatabaseDescriptor.getCDCLogLocation());
-        ProducerConfig config = ProducerConfig.create(ProducerConfig.Plateform.PULSAR, agentArgs);
+        ProducerConfig config = ProducerConfig.create(ProducerConfig.Platform.PULSAR, agentArgs);
 
         OffsetFileWriter offsetFileWriter = new OffsetFileWriter(DatabaseDescriptor.getCDCLogLocation());
         PulsarMutationSender pulsarMutationSender = new PulsarMutationSender(config);
