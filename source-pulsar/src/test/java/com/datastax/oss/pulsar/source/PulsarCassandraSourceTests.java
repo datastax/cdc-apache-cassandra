@@ -16,7 +16,6 @@
 package com.datastax.oss.pulsar.source;
 
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
-import com.datastax.oss.common.sink.config.ContactPointsValidator;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.pulsar.source.converters.AvroConverter;
 import com.datastax.oss.pulsar.source.converters.JsonConverter;
@@ -55,7 +54,7 @@ public class PulsarCassandraSourceTests {
     ).asCompatibleSubstituteFor("cassandra");
 
     public static final DockerImageName PULSAR_IMAGE = DockerImageName.parse(
-            Optional.ofNullable(System.getenv("PULSAR_IMAGE")).orElse("harbor.sjc.dsinternal.org/pulsar/lunastreaming-all:latest-272")
+            Optional.ofNullable(System.getenv("PULSAR_IMAGE")).orElse("harbor.sjc.dsinternal.org/pulsar/lunastreaming:latest-272")
     ).asCompatibleSubstituteFor("pulsar");
 
     private static Network testNetwork;

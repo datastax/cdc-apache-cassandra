@@ -152,7 +152,7 @@ public class KafkaProducerV3Tests {
             Thread.sleep(11000);
 
             KafkaConsumer<byte[], GenericRecord> consumer = createConsumer("test-consumer-avro-group");
-            ProducerConfig config = ProducerConfig.create(ProducerConfig.Plateform.KAFKA, null); // default config
+            ProducerConfig config = ProducerConfig.create(ProducerConfig.Platform.KAFKA, null); // default config
             consumer.subscribe(ImmutableList.of(config.topicPrefix + "ks1.table1", config.topicPrefix + "ks1.table2"));
             int noRecordsCount = 0;
 

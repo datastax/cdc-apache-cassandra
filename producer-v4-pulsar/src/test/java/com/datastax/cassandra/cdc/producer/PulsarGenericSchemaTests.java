@@ -16,7 +16,6 @@
 package com.datastax.cassandra.cdc.producer;
 
 import org.apache.pulsar.client.api.Schema;
-import org.apache.pulsar.client.api.schema.GenericRecord;
 import org.apache.pulsar.client.api.schema.RecordSchemaBuilder;
 import org.apache.pulsar.client.api.schema.SchemaBuilder;
 import org.apache.pulsar.common.schema.SchemaInfo;
@@ -28,7 +27,7 @@ public class PulsarGenericSchemaTests {
 
     @Test
     public void testGenericSchema() {
-        ProducerConfig config = ProducerConfig.create(ProducerConfig.Plateform.PULSAR, null);
+        ProducerConfig config = ProducerConfig.create(ProducerConfig.Platform.PULSAR, "");
         PulsarMutationSender pulsarMutationSender = new PulsarMutationSender(config);
 
         RecordSchemaBuilder schemaBuilder = SchemaBuilder.record("testrecord");

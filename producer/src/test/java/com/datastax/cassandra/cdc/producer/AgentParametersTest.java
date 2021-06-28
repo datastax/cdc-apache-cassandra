@@ -17,6 +17,9 @@ package com.datastax.cassandra.cdc.producer;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static com.datastax.cassandra.cdc.producer.ProducerConfig.*;
 
@@ -64,8 +67,9 @@ public class AgentParametersTest {
                 ;
 
         ProducerConfig config = new ProducerConfig();
-        config.configure(Plateform.PULSAR, null);     // test NPE
-        config.configure(Plateform.PULSAR, agentArgs);
+        config.configure(Platform.PULSAR, (String) null);     // test NPE
+        config.configure(Platform.PULSAR, (Map<String, Object>) null);     // test NPE
+        config.configure(Platform.PULSAR, agentArgs);
         assertCommonConfig(config);
 
         assertEquals("pulsar+ssl://mypulsar:6650,localhost:6651,localhost:6652", config.pulsarServiceUrl);
@@ -73,6 +77,23 @@ public class AgentParametersTest {
         // Pulsar Auth
         assertEquals("MyAuthPlugin", config.pulsarAuthPluginClassName);
         assertEquals("x:y,z:t", config.pulsarAuthParams);
+    }
+
+    @Test
+    public void testConfigurePulsarFromMap() {
+        Map<String, Object> tenantInfo = new HashMap<>();
+        tenantInfo.put(PULSAR_SERVICE_URL, "pulsar+ssl://mypulsar:6650\\,localhost:6651\\,localhost:6652");
+        tenantInfo.put(PULSAR_AUTH_PLUGIN_CLASS_NAME, "MyAuthPlugin");
+        tenantInfo.put(PULSAR_AUTH_PARAMS, "sdds");
+        tenantInfo.put(SSL_ALLOW_INSECURE_CONNECTION, "true");
+        tenantInfo.put(SSL_HOSTNAME_VERIFICATION_ENABLE, "true");
+
+        ProducerConfig config = ProducerConfig.create(Platform.PULSAR, tenantInfo);
+        assertEquals("pulsar+ssl://mypulsar:6650,localhost:6651,localhost:6652", config.pulsarServiceUrl);
+
+        // Pulsar Auth
+        assertEquals("MyAuthPlugin", config.pulsarAuthPluginClassName);
+        assertEquals("sdds", config.pulsarAuthParams);
     }
 
     @Test
@@ -84,8 +105,9 @@ public class AgentParametersTest {
                 SSL_ENDPOINT_IDENTIFICATION_ALGORITHM + "=none,";
 
         ProducerConfig config = new ProducerConfig();
-        config.configure(Plateform.KAFKA, null);     // test NPE
-        config.configure(Plateform.KAFKA, agentArgs);
+        config.configure(Platform.KAFKA, (String) null);     // test NPE
+        config.configure(Platform.KAFKA, (Map<String, Object>) null);     // test NPE
+        config.configure(Platform.KAFKA, agentArgs);
 
         assertCommonConfig(config);
 
