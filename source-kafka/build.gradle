@@ -58,6 +58,10 @@ shadowJar {
 
 jar.enabled = false
 assemble.dependsOn(shadowJar)
+project.afterEvaluate {
+    project.tasks.generatePomFileForMavenPublication.enabled = false
+    project.tasks.publishMavenPublicationToMavenRepository.enabled = false
+}
 
 test {
     // Add dependency on jar task, since it will be main target for testing
