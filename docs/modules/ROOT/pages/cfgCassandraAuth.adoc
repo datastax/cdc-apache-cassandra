@@ -1,0 +1,47 @@
+= Cassandra Authentication Configuration
+
+== Parameters
+
+[#auth.gssapi.keyTab]
+Kerberos keytab file for GSSAPI provider authentication
++
+Type: string
+Default: ""
+Importance: high
+
+[#auth.gssapi.principal]
+Kerberos principal for GSSAPI provider authentication
++
+Type: string
+Default: ""
+Importance: high
+
+[#auth.gssapi.service]
+SASL service name to use for GSSAPI provider authentication
++
+Type: string
+Default: dse
+Importance: high
+
+[#auth.password]
+Password for PLAIN (username/password) provider authentication
++
+Type: password
+Default: [hidden]
+Importance: high
+
+[#auth.provider]
+Authentication provider
++
+Type: string
+Default: None
+Valid Values: [None, PLAIN, GSSAPI]
+Importance: high
+
+[#auth.username]
+Username for PLAIN (username/password) provider authentication
++
+Type: string
+Default: ""
+Importance: high
+
