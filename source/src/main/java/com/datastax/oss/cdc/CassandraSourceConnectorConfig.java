@@ -146,7 +146,8 @@ public class CassandraSourceConnectorConfig {
                             ConfigDef.Type.STRING,
                             "sub",
                             ConfigDef.Importance.HIGH,
-                            "The pulsar events topic subscription name, with a default set to 'sub'")
+                            "The pulsar events topic subscription name, with a default set to 'sub'",
+                            "Pulsar only", 1, ConfigDef.Width.NONE, "SubscriptionName")
                     .define(DATA_TOPIC_NAME_CONFIG,
                             ConfigDef.Type.STRING,
                             "data-topic",
@@ -165,23 +166,30 @@ public class CassandraSourceConnectorConfig {
                     .define(CACHE_MAX_DIGESTS_CONFIG,
                             ConfigDef.Type.LONG,
                             "3",
+                            ConfigDef.Range.atLeast(1),
                             ConfigDef.Importance.HIGH,
-                            "The maximum number of digest per mutation cache entry, with a default set to 3")
+                            "The maximum number of digest per mutation cache entry, with a default set to 3",
+                            "CQL Read cache", 1, ConfigDef.Width.NONE, "CacheMaxDigest")
+                    .define(CACHE_MAX_CAPACITY_CONFIG,
+                            ConfigDef.Type.LONG,
+                            "32767",
+                            ConfigDef.Range.atLeast(1),
+                            ConfigDef.Importance.HIGH,
+                            "The maximum capacity of the mutation cache, with a default size of 32767",
+                            "CQL Read cache", 2, ConfigDef.Width.NONE, "CacheMaxDigest")
+                    .define(CACHE_EXPIRE_AFTER_MS_CONFIG,
+                            ConfigDef.Type.LONG,
+                            "600000",
+                            ConfigDef.Range.atLeast(1000),
+                            ConfigDef.Importance.HIGH,
+                            "The mutation cache entry duration in milliseconds, with a default value of 60 seconds.",
+                            "CQL Read cache", 3, ConfigDef.Width.NONE, "CacheExpireAfter")
                     .define(CACHE_ONLY_IF_COORDINATOR_MATCH,
                             ConfigDef.Type.BOOLEAN,
                             "true",
                             ConfigDef.Importance.HIGH,
-                            "Cache the mutation digest only if the coordinator node is the originator node.")
-                    .define(CACHE_MAX_CAPACITY_CONFIG,
-                            ConfigDef.Type.LONG,
-                            "32767",
-                            ConfigDef.Importance.HIGH,
-                            "The maximum capacity of the mutation cache, with a default size of 32767")
-                    .define(CACHE_EXPIRE_AFTER_MS_CONFIG,
-                            ConfigDef.Type.LONG,
-                            "600000",
-                            ConfigDef.Importance.HIGH,
-                            "The mutation cache entry duration in milliseconds, with a default value of 60 seconds.")
+                            "Cache the mutation digest only if the coordinator node is the originator node.",
+                            "CQL Read cache", 4, ConfigDef.Width.NONE, "CacheExpireAfter")
                     .define(KEY_CONVERTER_CLASS_CONFIG,
                             ConfigDef.Type.CLASS,
                             ConfigDef.Importance.HIGH,
@@ -194,12 +202,14 @@ public class CassandraSourceConnectorConfig {
                             ConfigDef.Type.STRING,
                             "localhost:9092",
                             ConfigDef.Importance.HIGH,
-                            "Kafka bootstrap servers")
+                            "Kafka bootstrap servers",
+                            "Kafka only", 1, ConfigDef.Width.NONE, "BootstrapServers")
                     .define(SCHEMA_REGISTRY_URL_CONFIG,
                             ConfigDef.Type.STRING,
                             "http://localhost:8081",
                             ConfigDef.Importance.HIGH,
-                            "Schema registry URL")
+                            "Schema registry URL",
+                            "Kafka only", 2, ConfigDef.Width.NONE, "SchemaRegistryUrl")
                     .define(
                             CassandraSinkConfig.CONTACT_POINTS_OPT,
                             ConfigDef.Type.LIST,
@@ -242,8 +252,9 @@ public class CassandraSourceConnectorConfig {
                             COMPRESSION_OPT,
                             ConfigDef.Type.STRING,
                             "None",
+                            ConfigDef.CaseInsensitiveValidString.in("NONE", "LZ4", "SNAPPY"),
                             ConfigDef.Importance.HIGH,
-                            "None | LZ4 | Snappy")
+                            "Compression algorithm to use when issuing requests to the database server")
                     .define(
                             QUERY_EXECUTION_TIMEOUT_OPT,
                             ConfigDef.Type.INT,
