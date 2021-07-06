@@ -27,4 +27,5 @@ include 'producer-v3-kafka'
 include 'producer-v4-kafka'
 include 'source-kafka'
 include 'distribution'
+include 'docs'
 
