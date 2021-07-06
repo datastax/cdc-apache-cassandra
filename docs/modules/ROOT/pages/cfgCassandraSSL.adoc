@@ -1,78 +1,68 @@
-= SSL encrypted connection
-
-When the cluster has client encryption enabled, configure the SSL keys and certificates for the DataStax Apache® Pulsar Connector.
+= Cassandra SSL/TLS Configuration
 
 == Parameters
 
-[source,language-yaml]
-----
-ssl:
-  provider: None
-  cipherSuites:
-  hostnameValidation: true
-  keystore:
-    password:
-    path:
-  truststore:
-    password:
-    path:
-  openssl:
-    keyCertChain:
-    privateKey:
-----
-
-[#provider]
-provider::
-SSL provider to use, if any.
-Valid choices:
--   None
--   JDK
--   OpenSSL
+[#ssl.cipherSuites]
+The cipher suites to enable
 +
-Defaults to None
+Type: list
+Default: ""
+Importance: high
 
-[#hostnameValidation]
-hostnameValidation:: Whether to validate node hostnames when using SSL.
+[#ssl.hostnameValidation]
+Whether or not to validate node hostnames when using SSL
 +
-Defaults to true
+Type: boolean
+Default: true
+Importance: high
 
-[#cipherSuites]
-cipherSuites:: The cipher suites to enable.
+[#ssl.keystore.password]
+Keystore password
 +
-Defaults to none, resulting in a "minimal quality of service" according to JDK documentation.
+Type: password
+Default: [hidden]
+Importance: high
 
-[#keystore-password]
-keystore: password:: Keystore password.
+[#ssl.keystore.path]
+The path to the keystore file
++
+Type: string
+Default: ""
+Importance: high
 
-[#keystore-path]
-keystore: path:: Path to the keystore file.
+[#ssl.openssl.keyCertChain]
+The path to the certificate chain file
++
+Type: string
+Default: ""
+Importance: high
 
-[#openssl-keycertchain]
-openssl: keyCertChain:: Path to the SSL certificate file, when using OpenSSL.
+[#ssl.openssl.privateKey]
+The path to the private key file
++
+Type: string
+Default: ""
+Importance: high
 
-[#openssl-privatekey]
-openssl: privateKey:: Path to the private key file, when using OpenSSL.
+[#ssl.provider]
+SSL/TLS provider
++
+Type: string
+Default: None
+Valid Values: [None, JDK, OpenSSL]
+Importance: high
 
-[#truststore-password]
-truststore: password:: Truststore password.
+[#ssl.truststore.password]
+Truststore password
++
+Type: password
+Default: [hidden]
+Importance: high
 
-[#trustore-path]
-truststore: path:: Path to the truststore file.
+[#ssl.truststore.path]
+The path to the truststore file
++
+Type: string
+Default: ""
+Importance: high
 
-
-== Using a base64 encoded file
-
-For `keystore.path`, `truststore.path`, `openssl.privateKey`, and `openssl.keyCertChain` you can encode the target file using the standard base64 tool, include it directly in the Pulsar configuration file, and the Pulsar function framework will take care of deploying it to additional Pulsar machines:
-
-[source,language-bash]
-----
-base64 -i trust-store-key
-----
-
-Add the output of the command to `truststore: path:`:
-
-[source,language-yaml]
-----
-truststore:
-  path: base64:UEsDBBQACAAIADmJJ1IAAAAAAAAAAAAAAAAGAAkAY2EuY3J0VVQFAAFeQPdfZJTJjvI4HMTveYq5t0bZoTl8Bzt2giEOOGQh3Mi+sgVw4qcf0a25zPj2L0s/VUml+vvzIHaI95eF/YDYxAIB/lElSgi2kGWBt1UBTiCoiAUvIUcs2WyvJ1K/Mw8w7EIGeHVmkyXABlZeBEESgD4KJMpGbrEERYwRzDeIBTikkDhADTGcqBtq9it3cMW0qc4GPOEA7H8B18DCfi3ljh3kjm1QZnAEfkAu5hFKnZV6QvaeYuUHBibPSTT8OsWblmqbJgm6pzfQWaKNo......
-----

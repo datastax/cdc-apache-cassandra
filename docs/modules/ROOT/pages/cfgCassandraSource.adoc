@@ -1,0 +1,198 @@
+= Cassandra Source Connector Configuration
+
+== Parameters
+
+[#events.topic]
+The topic name to listen cassandra mutation events to
++
+Type: string
+Importance: high
+
+[#key.converter]
+Converter class used to write the message key to the data topic
++
+Type: class
+Importance: high
+
+[#keyspace]
+Cassandra keyspace name
++
+Type: string
+Importance: high
+
+[#table]
+Cassandra table name
++
+Type: string
+Importance: high
+
+[#value.converter]
+Converter class used to write the message value to the data topic
++
+Type: class
+Importance: high
+
+[#cloud.secureConnectBundle]
+The location of the cloud secure bundle used to connect to Datastax Apache Cassandra as a service.
++
+Type: string
+Default: ""
+Importance: high
+
+[#compression]
+Compression algorithm to use when issuing requests to the database server
++
+Type: string
+Default: None
+Valid Values: (case insensitive) [LZ4, NONE, SNAPPY]
+Importance: high
+
+[#connectionPoolLocalSize]
+Number of connections that driver maintains within a connection pool to each node in local dc
++
+Type: int
+Default: 4
+Valid Values: [1,...]
+Importance: high
+
+[#contactPoints]
+Initial contact points
++
+Type: list
+Default: ""
+Importance: high
+
+[#data.topic]
+The topic name to publish cassandra data to
++
+Type: string
+Default: data-topic
+Importance: high
+
+[#ignoreErrors]
+Specifies which errors the connector should ignore when processing the record. Valid values are: None (never ignore errors), All (ignore all errors), Driver (ignore driver errors only, i.e. errors when writing to the database).
++
+Type: string
+Default: None
+Importance: high
+
+[#jmx]
+Whether to enable JMX reporting
++
+Type: boolean
+Default: true
+Importance: high
+
+[#loadBalancing.localDc]
+The datacenter name (commonly dc1, dc2, etc.) local to the machine on which the connector is running
++
+Type: string
+Default: ""
+Importance: high
+
+[#maxConcurrentRequests]
+The maximum number of requests to send at once
++
+Type: int
+Default: 500
+Valid Values: [1,...]
+Importance: high
+
+[#maxNumberOfRecordsInBatch]
+Maximum number of records that could be send in one batch request
++
+Type: int
+Default: 32
+Valid Values: [1,...]
+Importance: high
+
+[#metricsHighestLatency]
+This is used to scale internal data structures for gathering metrics. It should be higher than queryExecutionTimeout. This parameter should be expressed in seconds.
++
+Type: int
+Default: 35
+Valid Values: [1,...]
+Importance: high
+
+[#port]
+Port to connect to nodes
++
+Type: int
+Default: 9042
+Valid Values: [1,...]
+Importance: high
+
+[#queryExecutionTimeout]
+CQL statement execution timeout, in seconds
++
+Type: int
+Default: 30
+Valid Values: [1,...]
+Importance: high
+
+[#columns]
+Regular expression of the Cassandra replicated column names
++
+Type: string
+Default: .*
+Importance: low
+
+[#jmxConnectorDomain]
+Domain for JMX reporting
++
+Type: string
+Default: com.datastax.oss.cdc
+Importance: low
+
+[#events.subscription.name]
+The pulsar events topic subscription name, with a default set to 'sub'
++
+Type: string
+Default: sub
+Importance: high
+
+[#cache.max.digest]
+The maximum number of digest per mutation cache entry, with a default set to 3
++
+Type: long
+Default: 3
+Valid Values: [1,...]
+Importance: high
+
+[#cache.max.capacity]
+The maximum capacity of the mutation cache, with a default size of 32767
++
+Type: long
+Default: 32767
+Valid Values: [1,...]
+Importance: high
+
+[#cache.expire.after.ms]
+The mutation cache entry duration in milliseconds, with a default value of 60 seconds.
++
+Type: long
+Default: 600000
+Valid Values: [1000,...]
+Importance: high
+
+[#cache.only_if_coordinator_match]
+Cache the mutation digest only if the coordinator node is the originator node.
++
+Type: boolean
+Default: true
+Importance: high
+
+[#bootstrap.servers]
+Kafka bootstrap servers
++
+Type: string
+Default: localhost:9092
+Importance: high
+
+[#schema.registry.url]
+Schema registry URL
++
+Type: string
+Default: http://localhost:8081
+Importance: high
+
