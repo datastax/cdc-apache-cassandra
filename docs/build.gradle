@@ -1,0 +1,16 @@
+plugins {
+    id 'application'
+}
+
+compileTestJava {
+    options.compilerArgs += '-parameters'
+}
+
+dependencies {
+    implementation project(':source')
+    implementation("org.apache.kafka:kafka-clients:${kafkaVersion}")
+    implementation("com.datastax.oss:messaging-connectors-commons-core:${messagingConnectorsCommonsVersion}")
+}
+
+
+
