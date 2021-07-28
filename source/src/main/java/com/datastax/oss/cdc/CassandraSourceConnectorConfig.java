@@ -548,7 +548,7 @@ public class CassandraSourceConnectorConfig {
     }
 
     public String getEventsSubscriptionName() {
-        return globalConfig.getString(EVENTS_TOPIC_NAME_CONFIG);
+        return globalConfig.getString(EVENTS_SUBSCRIPTION_NAME_CONFIG);
     }
 
     public String getKeyspaceName() {
