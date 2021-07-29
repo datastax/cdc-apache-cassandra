@@ -44,10 +44,12 @@ import org.apache.pulsar.io.core.Source;
 import org.apache.pulsar.io.core.SourceContext;
 import org.apache.pulsar.io.core.annotations.Connector;
 import org.apache.pulsar.io.core.annotations.IOType;
+import org.eclipse.jetty.util.BlockingArrayQueue;
 
 import java.lang.reflect.InvocationTargetException;
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -87,65 +89,71 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
     @Override
     public void open(Map<String, Object> config, SourceContext sourceContext) throws Exception {
-        Map<String, String> processorConfig = ConfigUtil.flatString(config);
-        this.config = new CassandraSourceConnectorConfig(processorConfig);
-        this.cassandraClient = new CassandraClient(this.config, Version.getVersion(), sourceContext.getSourceName(), this);
+        try {
+            Map<String, String> processorConfig = ConfigUtil.flatString(config);
+            log.info("openCassadraSource {}", config);
+            this.config = new CassandraSourceConnectorConfig(processorConfig);
+            this.cassandraClient = new CassandraClient(this.config, Version.getVersion(), sourceContext.getSourceName(), this);
 
-        if (Strings.isNullOrEmpty(this.config.getEventsTopic())) {
-            throw new IllegalArgumentException("Events topic not set.");
-        }
+            if (Strings.isNullOrEmpty(this.config.getEventsTopic())) {
+                throw new IllegalArgumentException("Events topic not set.");
+            }
 
-        Tuple2<KeyspaceMetadata, TableMetadata> tuple =
-                cassandraClient.getTableMetadata(
+            Tuple2<KeyspaceMetadata, TableMetadata> tuple =
+                    cassandraClient.getTableMetadata(
+                            this.config.getKeyspaceName(),
+                            this.config.getTableName());
+            if (tuple._2 == null) {
+                throw new IllegalArgumentException(String.format(Locale.ROOT, "Table %s.%s does not exist.",
                         this.config.getKeyspaceName(),
-                        this.config.getTableName());
-        if (tuple._2 == null) {
-            throw new IllegalArgumentException(String.format(Locale.ROOT, "Table %s.%s does not exist.",
-                    this.config.getKeyspaceName(),
-                    this.config.getTableName()));
+                        this.config.getTableName()));
+            }
+            this.pkColumns = tuple._2.getPrimaryKey().stream().map(c -> c.getName().asInternal()).collect(Collectors.toList());
+            if (this.config.getKeyConverterClass() == null) {
+                throw new IllegalArgumentException("Key converter not defined.");
+            }
+            this.keyConverter = createConverter(this.config.getKeyConverterClass(),
+                    tuple._1,
+                    tuple._2,
+                    tuple._2.getPrimaryKey());
+            this.mutationKeyConverter = new AvroConverter(
+                    tuple._1,
+                    tuple._2,
+                    tuple._2.getPrimaryKey());
+
+            if (this.config.getValueConverterClass() == null) {
+                throw new IllegalArgumentException("Value converter not defined.");
+            }
+            setValueConverterAndQuery(tuple._1, tuple._2);
+
+            if (!Strings.isNullOrEmpty(this.config.getColumnsRegexp()) &&
+                    !".*".equals(this.config.getColumnsRegexp())) {
+                this.columnPattern = Optional.of(Pattern.compile(this.config.getColumnsRegexp()));
+            }
+
+            this.dirtyTopicName = this.config.getEventsTopic();
+            ConsumerBuilder<KeyValue<GenericRecord, MutationValue>> consumerBuilder = sourceContext.newConsumerBuilder(eventsSchema)
+                    .consumerName("CDC Consumer")
+                    .topic(dirtyTopicName)
+                    .subscriptionName(this.config.getEventsSubscriptionName())
+                    .subscriptionType(SubscriptionType.Key_Shared)
+                    .subscriptionMode(SubscriptionMode.Durable)
+                    .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+                    .keySharedPolicy(KeySharedPolicy.autoSplitHashRange());
+            this.consumer = consumerBuilder.subscribe();
+
+            this.mutationCache = new MutationCache<>(
+                    this.config.getCacheMaxDigests(),
+                    this.config.getCacheMaxCapacity(),
+                    Duration.ofMillis(this.config.getCacheExpireAfterMs()));
+
+            log.debug("Starting source connector topic={} subscription={}",
+                    dirtyTopicName,
+                    this.config.getEventsSubscriptionName());
+        } catch (Throwable err) {
+            log.error("error on open", err);
+            throw new RuntimeException(err);
         }
-        this.pkColumns = tuple._2.getPrimaryKey().stream().map(c -> c.getName().asInternal()).collect(Collectors.toList());
-        if (this.config.getKeyConverterClass() == null) {
-            throw new IllegalArgumentException("Key converter not defined.");
-        }
-        this.keyConverter = createConverter(this.config.getKeyConverterClass(),
-                tuple._1,
-                tuple._2,
-                tuple._2.getPrimaryKey());
-        this.mutationKeyConverter = new AvroConverter(
-                tuple._1,
-                tuple._2,
-                tuple._2.getPrimaryKey());
-
-        if (this.config.getValueConverterClass() == null) {
-            throw new IllegalArgumentException("Value converter not defined.");
-        }
-        setValueConverterAndQuery(tuple._1, tuple._2);
-
-        if (!Strings.isNullOrEmpty(this.config.getColumnsRegexp()) &&
-                !".*".equals(this.config.getColumnsRegexp())) {
-            this.columnPattern = Optional.of(Pattern.compile(this.config.getColumnsRegexp()));
-        }
-
-        this.dirtyTopicName = this.config.getEventsTopic();
-        ConsumerBuilder<KeyValue<GenericRecord, MutationValue>> consumerBuilder = sourceContext.newConsumerBuilder(eventsSchema)
-                .consumerName("CDC Consumer")
-                .topic(dirtyTopicName)
-                .subscriptionName(this.config.getEventsSubscriptionName())
-                .subscriptionType(SubscriptionType.Key_Shared)
-                .subscriptionMode(SubscriptionMode.Durable)
-                .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
-                .keySharedPolicy(KeySharedPolicy.autoSplitHashRange());
-        this.consumer = consumerBuilder.subscribe();
-
-        this.mutationCache = new MutationCache<>(
-                this.config.getCacheMaxDigests(),
-                this.config.getCacheMaxCapacity(),
-                Duration.ofMillis(this.config.getCacheExpireAfterMs()));
-
-        log.debug("Starting source connector topic={} subscription={}",
-                dirtyTopicName,
-                this.config.getEventsSubscriptionName());
     }
 
     synchronized void setValueConverterAndQuery(KeyspaceMetadata ksm, TableMetadata tableMetadata) {
@@ -167,13 +175,14 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             }
         } catch (Exception e) {
             log.error("Unexpected error", e);
+            throw new RuntimeException(e);
         }
     }
 
     // Build the prepared statement if needed
-    synchronized PreparedStatement getSelectStatement() {
+    synchronized PreparedStatement getSelectStatement(ConverterAndQuery valueConverterAndQuery) {
         if (this.selectStatement == null) {
-            this.selectStatement = cassandraClient.prepareSelect(this.valueConverterAndQuery.getQuery());
+            this.selectStatement = cassandraClient.prepareSelect(valueConverterAndQuery.getQuery());
         }
         return this.selectStatement;
     }
@@ -192,6 +201,8 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         this.mutationCache = null;
     }
 
+    private final BlockingArrayQueue<MyKVRecord> buffer = new BlockingArrayQueue<>();
+
     /**
      * Reads the next message from source.
      * If source does not have any new messages, this call should block.
@@ -200,78 +211,95 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
      * @throws Exception
      */
     @SuppressWarnings("unchecked")
-    public Record<GenericRecord> read() throws Exception {
+    public Record<GenericRecord> read() throws Exception
+    {
         log.debug("reading from topic={}", dirtyTopicName);
-        while (true) {
-            final Message<KeyValue<GenericRecord, MutationValue>> msg = consumer.receive();
+        MyKVRecord fromBuffer = buffer.poll();
+        if (fromBuffer != null) {
+            consumer.acknowledge(fromBuffer.msg);
+            return (Record) fromBuffer;
+        }
+        // this methods returns only if the buffer holds at least one record
+        fillBuffer();
+        fromBuffer = buffer.poll();
+        consumer.acknowledge(fromBuffer.msg);
+        return fromBuffer;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void fillBuffer() throws Exception {
+        if (!buffer.isEmpty()) {
+            throw new IllegalStateException("Buffer is not empty");
+        }
+        List<MyKVRecord> newBuffer = new ArrayList<>();
+        // we want to fill the buffer
+        // this method will block until we receive at least one record
+        while (newBuffer.size() <= 200) {
+            final Message<KeyValue<GenericRecord, MutationValue>> msg = consumer.receive(1, TimeUnit.SECONDS);
+            if (msg == null) {
+                if (!newBuffer.isEmpty()) {
+                    log.debug("no message received, buffer size {}", newBuffer.size());
+                    // no more records within the timeout, but we have at least one record
+                    break;
+                } else {
+                    log.debug("no message received, buffer size {}", newBuffer.size());
+                    continue;
+                }
+            }
             final KeyValue<GenericRecord, MutationValue> kv = msg.getValue();
             final GenericRecord mutationKey = kv.getKey();
             final MutationValue mutationValue = kv.getValue();
 
-            log.debug("Message from producer={} msgId={} key={} value={}\n",
-                    msg.getProducerName(), msg.getMessageId(), kv.getKey(), kv.getValue());
+            log.info("Message from producer={} msgId={} key={} value={} schema {}\n",
+                    msg.getProducerName(), msg.getMessageId(), kv.getKey(), kv.getValue(), msg.getReaderSchema().orElse(null));
 
-            if (mutationCache.isMutationProcessed(msg.getKey(), mutationValue.getMd5Digest()) == false) {
-                try {
-                    List<Object> pk = (List<Object>) mutationKeyConverter.fromConnectData(mutationKey);
-                    // ensure the schema is the one used when building the struct.
-                    final ConverterAndQuery converterAndQueryFinal = this.valueConverterAndQuery;
+            if (mutationCache.isMutationProcessed(msg.getKey(), mutationValue.getMd5Digest())) {
+                log.info("message {} already processed", msg.getKey());
+                // discard duplicated mutation
+                consumer.acknowledge(msg);
+                continue;
+            }
 
-                    Tuple3<Row, ConsistencyLevel, UUID> tuple = cassandraClient.selectRow(
-                            pk,
-                            mutationValue.getNodeId(),
-                            Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE),
-                            getSelectStatement(),
-                            mutationValue.getMd5Digest());
+            try {
+                List<Object> pk = (List<Object>) mutationKeyConverter.fromConnectData(mutationKey);
+                // ensure the schema is the one used when building the struct.
+                final ConverterAndQuery converterAndQueryFinal = this.valueConverterAndQuery;
 
-                    Object value = tuple._1 == null ? null : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
-                    KeyValue<Object, Object> keyValue = new KeyValue(mutationKey, value);
-                    final KVRecord record = new KVRecord() {
-                        @Override
-                        public Schema getKeySchema() {
-                            return keyConverter.getSchema();
-                        }
+                Tuple3<Row, ConsistencyLevel, UUID> tuple = cassandraClient.selectRow(
+                        pk,
+                        mutationValue.getNodeId(),
+                        Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE),
+                        getSelectStatement(converterAndQueryFinal),
+                        mutationValue.getMd5Digest());
 
-                        @Override
-                        public Schema getValueSchema() {
-                            return converterAndQueryFinal.getConverter().getSchema();
-                        }
+                Object value = tuple._1 == null ? null : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
+                KeyValue<Object, Object> keyValue = new KeyValue(mutationKey, value);
+                final MyKVRecord record = new MyKVRecord(converterAndQueryFinal, keyValue, msg);
 
-                        @Override
-                        public KeyValueEncodingType getKeyValueEncodingType() {
-                            return KeyValueEncodingType.SEPARATED;
-                        }
+                newBuffer.add(record);
 
-                        @Override
-                        public KeyValue getValue() {
-                            return keyValue;
-                        }
-                    };
-                    acknowledge(consumer, msg);
-                    if (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._3 != null && tuple._3.equals(mutationValue.getNodeId()))) {
-                        // cache the mutation digest if the coordinator is the source of this event.
-                        mutationCache.addMutationMd5(msg.getKey(), mutationValue.getMd5Digest());
-                    }
-                    return record;
-                } catch (Exception e) {
-                    log.error("error", e);
-                    negativeAcknowledge(consumer, msg);
-                    throw e;
+                if (!config.getCacheOnlyIfCoordinatorMatch()
+                        || (tuple._3 != null && tuple._3.equals(mutationValue.getNodeId()))) {
+                    // cache the mutation digest if the coordinator is the source of this event.
+                    mutationCache.addMutationMd5(msg.getKey(), mutationValue.getMd5Digest());
                 }
-            } else {
-                acknowledge(consumer, msg);
-            }
-        }
-    }
 
-    <T> java.util.function.Consumer<T> acknowledgeConsumer(final Consumer<KeyValue<GenericRecord, MutationValue>> consumer,
-                                                           final Message<KeyValue<GenericRecord, MutationValue>> message) {
-        return new java.util.function.Consumer<T>() {
-            @Override
-            public void accept(T t) {
-                acknowledge(consumer, message);
+            } catch (Exception e) {
+                log.error("error", e);
+                // fail every message in the buffer
+                for (MyKVRecord record : newBuffer) {
+                    negativeAcknowledge(consumer, record.getMsg());
+                }
+                negativeAcknowledge(consumer, msg);
+                throw e;
             }
-        };
+
+        }
+        if (newBuffer.isEmpty()) {
+            throw new IllegalStateException("Buffer cannot be empty here");
+        }
+
+        buffer.addAll(newBuffer);
     }
 
     // Acknowledge the message so that it can be deleted by the message broker
@@ -318,6 +346,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     @SneakyThrows
     @Override
     public void onTableUpdated(@NonNull TableMetadata current, @NonNull TableMetadata previous) {
+        log.info("onTableUpdated {} {}", current, previous);
         if (current.getKeyspace().asInternal().equals(config.getKeyspaceName())
                 && current.getName().asInternal().equals(config.getTableName())) {
             KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(current.getKeyspace()).get();
@@ -328,6 +357,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     @SneakyThrows
     @Override
     public void onUserDefinedTypeCreated(@NonNull UserDefinedType type) {
+        log.info("onUserDefinedTypeCreated {} {}", type);
         if (type.getKeyspace().asInternal().equals(config.getKeyspaceName())) {
             KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(type.getKeyspace()).get();
             setValueConverterAndQuery(ksm, ksm.getTable(config.getTableName()).get());
@@ -342,6 +372,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     @SneakyThrows
     @Override
     public void onUserDefinedTypeUpdated(@NonNull UserDefinedType userDefinedType, @NonNull UserDefinedType userDefinedType1) {
+        log.info("onUserDefinedTypeUpdated {} {}", userDefinedType, userDefinedType1);
         if (userDefinedType.getKeyspace().asCql(true).equals(config.getKeyspaceName())) {
             KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(userDefinedType.getKeyspace()).get();
             setValueConverterAndQuery(ksm, ksm.getTable(config.getTableName()).get());
@@ -391,5 +422,41 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     @Override
     public void onViewUpdated(@NonNull ViewMetadata current, @NonNull ViewMetadata previous) {
 
+    }
+
+    private class MyKVRecord implements KVRecord {
+        private final ConverterAndQuery converterAndQueryFinal;
+        private final KeyValue<Object, Object> keyValue;
+        private final Message<KeyValue<GenericRecord, MutationValue>> msg;
+
+        public MyKVRecord(ConverterAndQuery converterAndQueryFinal, KeyValue<Object, Object> keyValue, Message<KeyValue<GenericRecord, MutationValue>> msg) {
+            this.converterAndQueryFinal = converterAndQueryFinal;
+            this.keyValue = keyValue;
+            this.msg = msg;
+        }
+
+        public Message<KeyValue<GenericRecord, MutationValue>> getMsg() {
+            return msg;
+        }
+
+        @Override
+        public Schema getKeySchema() {
+            return keyConverter.getSchema();
+        }
+
+        @Override
+        public Schema getValueSchema() {
+            return converterAndQueryFinal.getConverter().getSchema();
+        }
+
+        @Override
+        public KeyValueEncodingType getKeyValueEncodingType() {
+            return KeyValueEncodingType.SEPARATED;
+        }
+
+        @Override
+        public KeyValue getValue() {
+            return keyValue;
+        }
     }
 }
