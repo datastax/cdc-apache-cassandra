@@ -50,6 +50,9 @@ public class CassandraSourceConnectorConfig {
 
     public static final String SCHEMA_REGISTRY_URL_CONFIG = "schema.registry.url";
 
+    public static final String BATCH_SIZE_CONFIG = "batch.size";
+    public static final String QUERY_EXECUTORS_CONFIG = "query.executors";
+
     public static final String EVENTS_TOPIC_NAME_CONFIG = "events.topic";
     public static final String EVENTS_SUBSCRIPTION_NAME_CONFIG = "events.subscription.name";
     public static final String DATA_TOPIC_NAME_CONFIG = "data.topic";
@@ -149,6 +152,16 @@ public class CassandraSourceConnectorConfig {
                             "data-topic",
                             ConfigDef.Importance.HIGH,
                             "The topic name to publish cassandra data to")
+                    .define(BATCH_SIZE_CONFIG,
+                            ConfigDef.Type.INT,
+                            200,
+                            ConfigDef.Importance.MEDIUM,
+                            "The batch size for grouping mutations before sending them to the data topic")
+                    .define(QUERY_EXECUTORS_CONFIG,
+                            ConfigDef.Type.INT,
+                            10,
+                            ConfigDef.Importance.MEDIUM,
+                            "The number of concurrent queries to be sent to Cassandra")
                     .define(CACHE_MAX_DIGESTS_CONFIG,
                             ConfigDef.Type.LONG,
                             "3",
@@ -585,6 +598,14 @@ public class CassandraSourceConnectorConfig {
 
     public String getSchemaRegistryUrl() {
         return globalConfig.getString(SCHEMA_REGISTRY_URL_CONFIG);
+    }
+
+    public int getBatchSize() {
+        return globalConfig.getInt(BATCH_SIZE_CONFIG);
+    }
+
+    public int getQueryExecutors() {
+        return globalConfig.getInt(QUERY_EXECUTORS_CONFIG);
     }
 
     public int getPort() {

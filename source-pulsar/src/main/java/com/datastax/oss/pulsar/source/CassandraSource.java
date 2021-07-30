@@ -49,7 +49,7 @@ import org.eclipse.jetty.util.BlockingArrayQueue;
 import java.lang.reflect.InvocationTargetException;
 import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -73,6 +73,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     Converter mutationKeyConverter;
     Converter keyConverter;
     List<String> pkColumns;
+    int batchSize = 200; // overridden in "open"
 
     volatile ConverterAndQuery valueConverterAndQuery;   // modified on schema change
     volatile PreparedStatement selectStatement;
@@ -87,12 +88,24 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             Schema.AVRO(MutationValue.class),
             KeyValueEncodingType.SEPARATED);
 
+    ExecutorService[] queryExecutors;
+
+
+    private <T> Future<T> executeOrdered(Object key, Callable<T> task) {
+        return queryExecutors[Math.abs(Objects.hashCode(key)) % queryExecutors.length].submit(task);
+    }
+
     @Override
     public void open(Map<String, Object> config, SourceContext sourceContext) throws Exception {
         try {
             Map<String, String> processorConfig = ConfigUtil.flatString(config);
             log.info("openCassadraSource {}", config);
             this.config = new CassandraSourceConnectorConfig(processorConfig);
+            this.queryExecutors = new ExecutorService[this.config.getQueryExecutors()];
+            this.batchSize = this.config.getBatchSize();
+            for (int i = 0; i < queryExecutors.length; i++) {
+                queryExecutors[i] = Executors.newSingleThreadExecutor();
+            }
             this.cassandraClient = new CassandraClient(this.config, Version.getVersion(), sourceContext.getSourceName(), this);
 
             if (Strings.isNullOrEmpty(this.config.getEventsTopic())) {
@@ -199,6 +212,11 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         if (this.cassandraClient != null)
             this.cassandraClient.close();
         this.mutationCache = null;
+        if (queryExecutors != null) {
+            for (ExecutorService thread : queryExecutors) {
+                thread.shutdownNow();
+            }
+        }
     }
 
     private final BlockingArrayQueue<MyKVRecord> buffer = new BlockingArrayQueue<>();
@@ -220,21 +238,30 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             return (Record) fromBuffer;
         }
         // this methods returns only if the buffer holds at least one record
-        fillBuffer();
+        ensureBuffer();
         fromBuffer = buffer.poll();
         consumer.acknowledge(fromBuffer.msg);
         return fromBuffer;
     }
 
-    @SuppressWarnings("unchecked")
-    private void fillBuffer() throws Exception {
+    private void ensureBuffer() throws Exception {
         if (!buffer.isEmpty()) {
             throw new IllegalStateException("Buffer is not empty");
         }
+        List<MyKVRecord> newRecords = fillBuffer();
+        while (newRecords.isEmpty()) {
+            newRecords = fillBuffer();
+        }
+        buffer.addAll(newRecords);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<MyKVRecord> fillBuffer() throws Exception {
+
         List<MyKVRecord> newBuffer = new ArrayList<>();
         // we want to fill the buffer
         // this method will block until we receive at least one record
-        while (newBuffer.size() <= 200) {
+        while (newBuffer.size() <= batchSize) {
             final Message<KeyValue<GenericRecord, MutationValue>> msg = consumer.receive(1, TimeUnit.SECONDS);
             if (msg == null) {
                 if (!newBuffer.isEmpty()) {
@@ -253,37 +280,48 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             log.info("Message from producer={} msgId={} key={} value={} schema {}\n",
                     msg.getProducerName(), msg.getMessageId(), kv.getKey(), kv.getValue(), msg.getReaderSchema().orElse(null));
 
-            if (mutationCache.isMutationProcessed(msg.getKey(), mutationValue.getMd5Digest())) {
-                log.info("message {} already processed", msg.getKey());
-                // discard duplicated mutation
-                consumer.acknowledge(msg);
-                continue;
-            }
 
             try {
                 List<Object> pk = (List<Object>) mutationKeyConverter.fromConnectData(mutationKey);
                 // ensure the schema is the one used when building the struct.
                 final ConverterAndQuery converterAndQueryFinal = this.valueConverterAndQuery;
 
-                Tuple3<Row, ConsistencyLevel, UUID> tuple = cassandraClient.selectRow(
-                        pk,
-                        mutationValue.getNodeId(),
-                        Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE),
-                        getSelectStatement(converterAndQueryFinal),
-                        mutationValue.getMd5Digest());
+                CompletableFuture<KeyValue<Object, Object>> queryResult = new CompletableFuture<>();
+                // we have to process sequentially the records from the same key
+                // otherwise our mutation cache will not be enough efficient
+                // in deduplicating mutations coming from different nodes
+                executeOrdered(msg.getKey(), () -> {
+                    try {
+                        if (mutationCache.isMutationProcessed(msg.getKey(), mutationValue.getMd5Digest())) {
+                            log.info("message {} already processed", msg.getKey());
+                            // discard duplicated mutation
+                            consumer.acknowledge(msg);
+                            queryResult.complete(null);
+                            return null;
+                        }
 
-                Object value = tuple._1 == null ? null : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
-                KeyValue<Object, Object> keyValue = new KeyValue(mutationKey, value);
-                final MyKVRecord record = new MyKVRecord(converterAndQueryFinal, keyValue, msg);
+                        Tuple3<Row, ConsistencyLevel, UUID> tuple = cassandraClient.selectRow(
+                                pk,
+                                mutationValue.getNodeId(),
+                                Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE),
+                                getSelectStatement(converterAndQueryFinal),
+                                mutationValue.getMd5Digest());
+                        Object value = tuple._1 == null ? null : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
+                        if (!config.getCacheOnlyIfCoordinatorMatch()
+                                || (tuple._3 != null && tuple._3.equals(mutationValue.getNodeId()))) {
+                            log.info("addMutationMd5 "+msg.getKey()+" ("+pk+") on thread "+Thread.currentThread().getName());
+                            // cache the mutation digest if the coordinator is the source of this event.
+                            mutationCache.addMutationMd5(msg.getKey(), mutationValue.getMd5Digest());
+                        }
+                        queryResult.complete(new KeyValue(mutationKey, value));
+                    } catch (Throwable err) {
+                        queryResult.completeExceptionally(err);
+                    }
+                    return null;
+                });
+                final MyKVRecord record = new MyKVRecord(converterAndQueryFinal, queryResult, msg);
 
                 newBuffer.add(record);
-
-                if (!config.getCacheOnlyIfCoordinatorMatch()
-                        || (tuple._3 != null && tuple._3.equals(mutationValue.getNodeId()))) {
-                    // cache the mutation digest if the coordinator is the source of this event.
-                    mutationCache.addMutationMd5(msg.getKey(), mutationValue.getMd5Digest());
-                }
-
             } catch (Exception e) {
                 log.error("error", e);
                 // fail every message in the buffer
@@ -299,18 +337,33 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             throw new IllegalStateException("Buffer cannot be empty here");
         }
 
-        buffer.addAll(newBuffer);
-    }
-
-    // Acknowledge the message so that it can be deleted by the message broker
-    void acknowledge(final Consumer<KeyValue<GenericRecord, MutationValue>> consumer,
-                     final Message<KeyValue<GenericRecord, MutationValue>> message) {
+        List<MyKVRecord> useFullRecords = new ArrayList<>(newBuffer.size());
         try {
-            consumer.acknowledge(message);
-        } catch (PulsarClientException e) {
-            log.error("acknowledge error", e);
-            consumer.negativeAcknowledge(message);
+            int countDiscarded = 0;
+            long start = System.currentTimeMillis();
+            // wait for all queries to complete
+            for (MyKVRecord record : newBuffer) {
+                KeyValue res = record.keyValue.join();
+                if (res != null) {
+                    // if the result is "null" the mutation has been discarded
+                    useFullRecords.add(record);
+                } else {
+                    countDiscarded++;
+                }
+            }
+            long time = System.currentTimeMillis() - start;
+            long speed = (long) (time * 1000.0 / newBuffer.size());
+            log.info("Query time for {} msgs {} ms {} msgs/s discarded {} duplicate mutations", newBuffer.size(), time, speed, countDiscarded);
+        } catch (Exception e) {
+            log.error("error", e);
+            // fail every message in the buffer
+            for (MyKVRecord record : newBuffer) {
+                negativeAcknowledge(consumer, record.getMsg());
+            }
+            throw e;
         }
+
+        return useFullRecords;
     }
 
     void negativeAcknowledge(final Consumer<KeyValue<GenericRecord, MutationValue>> consumer,
@@ -426,10 +479,10 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
     private class MyKVRecord implements KVRecord {
         private final ConverterAndQuery converterAndQueryFinal;
-        private final KeyValue<Object, Object> keyValue;
+        private final CompletableFuture<KeyValue<Object, Object>> keyValue;
         private final Message<KeyValue<GenericRecord, MutationValue>> msg;
 
-        public MyKVRecord(ConverterAndQuery converterAndQueryFinal, KeyValue<Object, Object> keyValue, Message<KeyValue<GenericRecord, MutationValue>> msg) {
+        public MyKVRecord(ConverterAndQuery converterAndQueryFinal, CompletableFuture<KeyValue<Object, Object>> keyValue, Message<KeyValue<GenericRecord, MutationValue>> msg) {
             this.converterAndQueryFinal = converterAndQueryFinal;
             this.keyValue = keyValue;
             this.msg = msg;
@@ -456,7 +509,12 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
         @Override
         public KeyValue getValue() {
-            return keyValue;
+            // this is guaranteed not to fail
+            try {
+                return keyValue.toCompletableFuture().get();
+            } catch (Exception err) {
+                throw new RuntimeException(err);
+            }
         }
     }
 }
