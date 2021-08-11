@@ -224,7 +224,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
             try {
                 DataOutputBuffer dataOutputBuffer = new DataOutputBuffer();
-                org.apache.cassandra.db.Mutation.serializer.serialize(mutation, dataOutputBuffer, MessagingService.VERSION_3014);
+                org.apache.cassandra.db.Mutation.serializer.serialize(mutation, dataOutputBuffer, descriptor.getMessagingVersion());
                 String md5Digest = DigestUtils.md5Hex(dataOutputBuffer.getData());
                 process(pu, entryPosition, md5Digest);
             }

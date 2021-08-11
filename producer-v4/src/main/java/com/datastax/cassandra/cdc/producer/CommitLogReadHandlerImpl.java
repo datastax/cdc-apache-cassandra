@@ -29,6 +29,7 @@ import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.ValueAccessor;
 import org.apache.cassandra.db.partitions.PartitionUpdate;
 import org.apache.cassandra.db.rows.Row;
+import org.apache.cassandra.db.rows.SerializationHelper;
 import org.apache.cassandra.db.rows.Unfiltered;
 import org.apache.cassandra.db.rows.UnfilteredRowIterator;
 import org.apache.cassandra.io.util.DataOutputBuffer;
@@ -226,7 +227,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
             try {
                 DataOutputBuffer dataOutputBuffer = new DataOutputBuffer();
-                org.apache.cassandra.db.Mutation.serializer.serialize(mutation, dataOutputBuffer, MessagingService.VERSION_40);
+                org.apache.cassandra.db.Mutation.serializer.serialize(mutation, dataOutputBuffer, descriptor.getMessagingVersion());
                 String md5Digest = DigestUtils.md5Hex(dataOutputBuffer.getData());
                 process(pu, entryPosition, md5Digest);
             }
