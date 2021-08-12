@@ -18,9 +18,11 @@ include 'producer'
 include 'source'
 include 'producer-v3'
 include 'producer-v4'
+include 'producer-dse'
 
 include 'producer-v3-pulsar'
 include 'producer-v4-pulsar'
+include 'producer-dse-pulsar'
 include 'source-pulsar'
 
 include 'producer-v3-kafka'

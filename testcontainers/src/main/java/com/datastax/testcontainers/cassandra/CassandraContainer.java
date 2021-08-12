@@ -56,16 +56,17 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
     public static final String IMAGE = DEFAULT_IMAGE_NAME.getUnversionedPart();
 
     public static final Integer CQL_PORT = 9042;
-    private static final String CONTAINER_CONFIG_LOCATION = "/etc/cassandra";
+    public static final String LOCAL_DC = "datacenter1";
     private static final String USERNAME = "cassandra";
     private static final String PASSWORD = "cassandra";
-    protected static final String LOCAL_DC = "datacenter1";
 
     private String configLocation;
     private String initScriptPath;
     private Object metricRegistry;
+    private String containerConfigLocation = "/etc/cassandra";
 
     /**
+     *
      * @deprecated use {@link #CassandraContainer(DockerImageName)} instead
      */
     @Deprecated
@@ -91,7 +92,7 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
 
     @Override
     protected void configure() {
-        optionallyMapResourceParameterAsVolume(CONTAINER_CONFIG_LOCATION, configLocation);
+        optionallyMapResourceParameterAsVolume(containerConfigLocation, configLocation);
     }
 
     @Override
@@ -147,6 +148,11 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
      */
     public SELF withConfigurationOverride(String configLocation) {
         this.configLocation = configLocation;
+        return self();
+    }
+
+    public SELF withContainerConfigLocation(String containerConfigLocation) {
+        this.containerConfigLocation = containerConfigLocation;
         return self();
     }
 
@@ -294,9 +300,11 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
                         String.format(Locale.ROOT, "%s/libs/%s", producerBuildDir, jarFile),
                         String.format(Locale.ROOT, "/%s", jarFile))
                 .withEnv("JVM_EXTRA_OPTS", String.format(Locale.ROOT, "-javaagent:/%s=%s", jarFile, agentParams))
+                .withEnv("DS_LICENSE", "accept")
                 .withStartupTimeout(Duration.ofSeconds(120));
         if (nodeIndex > 1) {
-            cassandraContainer.withEnv("CASSANDRA_SEEDS", "cassandra-1");
+            cassandraContainer.withEnv("CASSANDRA_SEEDS", "cassandra-1"); // for cassandra
+            cassandraContainer.withEnv("SEEDS", "cassandra-1");           // for DSE
         }
         return cassandraContainer;
     }
