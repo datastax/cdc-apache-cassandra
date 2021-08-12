@@ -82,7 +82,7 @@ public class AgentParametersTest {
     @Test
     public void testConfigurePulsarFromMap() {
         Map<String, Object> tenantInfo = new HashMap<>();
-        tenantInfo.put(PULSAR_SERVICE_URL, "pulsar+ssl://mypulsar:6650\\,localhost:6651\\,localhost:6652");
+        tenantInfo.put(PULSAR_SERVICE_URL, "pulsar+ssl://mypulsar:6650,localhost:6651,localhost:6652");
         tenantInfo.put(PULSAR_AUTH_PLUGIN_CLASS_NAME, "MyAuthPlugin");
         tenantInfo.put(PULSAR_AUTH_PARAMS, "sdds");
         tenantInfo.put(SSL_ALLOW_INSECURE_CONNECTION, "true");
