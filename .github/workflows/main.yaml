@@ -26,7 +26,7 @@ jobs:
       - name: Test with Gradle
         env:
           PULSAR_IMAGE: "strapdata/pulsar-all:latest"
-        run: ./gradlew test -PpulsarVersion=2.8.0 -PpulsarRepoUrl=https://nexus.repo.strapdata.com/repository/maven-snapshots -x producer-dse -x producer-dse-pulsar
+        run: ./gradlew test -PpulsarVersion=2.8.0 -PpulsarRepoUrl=https://nexus.repo.strapdata.com/repository/maven-snapshots -x producer-dse:test -x producer-dse-pulsar:test
 
       - name: Build with Gradle
         run: ./gradlew assemble -PpulsarVersion=2.8.0 -PpulsarRepoUrl=https://nexus.repo.strapdata.com/repository/maven-snapshots
