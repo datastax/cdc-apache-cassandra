@@ -13,10 +13,10 @@ If you agree, enable the *Terms* checkbox and click the download icon.
 +
 [source,language-bash]
 ----
-tar zxf cassandra-source-connector-0.1.0.tar.gz
+tar zxf cassandra-source-connector-<version>.tar.gz
 ----
 +
-The following files are unpacked into a directory such as `cassandra-source-connector-0.1.0`:
+The following files are unpacked into a directory such as `cassandra-source-connector-<version>`:
 +
 [source,no-highlight]
 ----
@@ -35,17 +35,22 @@ your streaming software. Start your Cassandra nodes with the appropriate produce
 Cassandra version (3.11 or 4.0) and your streaming platform (Apache Pulsar).
 
 Example for Apache Pulsar on Cassandra version 4.0 nodes:
+=======
+Cassandra version (3.11 or 4.0) and your streaming platform (Apache Pulsar or Apache Kafka).
+
+As a java agent, the CDC producer parameters take place after the jar file name in the form of a comma separated list of paramName=paramValue. Here is an example for Apache Kafka on Cassandra version 4.0 nodes:
 
 [source,language-bash]
 ----
 export JVM_EXTRA_OPTS="-javaagent:/path/to/producer-v4-pulsar-0.1-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
 ----
 
+
 == Producer configuration
 
 include::pages/cfgConfigProducer.adoc[]
 
-== Deploy the Cassandra Source Connector
+== Deploy the Kafka Cassandra Source Connector
 
 In order to the Cassandra Source Connector NAR file in your Pulsar cluster, you can copy it into
 the pulsar connectors directory or upload it. You have to specify th following parameters:

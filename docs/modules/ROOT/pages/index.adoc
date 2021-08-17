@@ -10,8 +10,14 @@ for table having the CDC enabled to Apache Pulsar&reg;.
 * Support Apache Pulsar.
 * Propagate Cassandra schema change to the Pulsar schema registry
 * Support JSON or AVRO message format.
-* Distributed mode, high availability (HA) support.
-* Standalone mode support for development.
+
+== Limitations
+
+* Does not manage table truncates
+* Does not replay batch updates
+* Does not sync data available before starting the CDC producer.
+* Does not manage time-to-live
+* Does not support range deletes
 
 == Architecture
 
@@ -38,16 +44,18 @@ Deployment matrix:
 [#supported-databases]
 == Supported databases
 
-* Open source Apache® Cassandra® 3.11.x and later databases
+* Open source Apache® Cassandra® 3.11.x and 4.x databases
 
 == Supported Cassandra data structures
 
 Cassandra supported CQL3 data types:
 
 * text, ascii
-* tinyint, smallint, int, bigint, double, float
+* tinyint, smallint, int, bigint, double, float, inet
+* blob
 * boolean
-* timestamp
+* timestamp, time, date, duration
+* uuid, timeuuid
 * User Defined Types
 
 == Supported streaming platform
