@@ -19,6 +19,11 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -39,112 +44,206 @@ public class ProducerConfig {
         public final Platform platform;
         public final BiFunction<ProducerConfig, String, T> initializer;
         public final Function<ProducerConfig, T> supplier;
+        public final String documentation;
+
+        // for doc only
+        public final T defaultValue;
+        public final String type;
+        public final String group;
+        public final int orderInGroup;
+
+        protected void getAsciiDoc(StringBuilder b) {
+            b.append("[#").append(name).append("]").append("\n");
+            for (String docLine : documentation.split("\n")) {
+                if (docLine.length() == 0) {
+                    continue;
+                }
+                b.append(docLine).append("\n+\n");
+            }
+            b.append("Platform: ").append(getConfigValue("Platform")).append("\n");
+            b.append("Type: ").append(getConfigValue("Type")).append("\n");
+            if (defaultValue != null) {
+                b.append("Default: ").append(getConfigValue("Default")).append("\n");
+            }
+        }
+
+        protected String getConfigValue(String headerName) {
+            switch (headerName) {
+                case "Name":
+                    return name;
+                case "Description":
+                    return documentation;
+                case "Platform":
+                    return platform.name();
+                case "Type":
+                    return type.toLowerCase(Locale.ROOT);
+                case "Default":
+                    return (defaultValue != null) ? defaultValue.toString() : "";
+                default:
+                    throw new RuntimeException("Can't find value for header '" + headerName + "' in " + name);
+            }
+        }
     }
 
     public static final String CDC_RELOCATION_DIR = "cdcRelocationDir";
     public String cdcRelocationDir = System.getProperty(CDC_PROPERTY_PREFIX + CDC_RELOCATION_DIR, storageDir + File.separator + "cdc_backup");
     public static final Setting<String> CDC_RELOCATION_DIR_SETTING =
-            new Setting<>(CDC_RELOCATION_DIR, Platform.ALL, (c, s) -> c.cdcRelocationDir = s, c -> c.cdcRelocationDir);
+            new Setting<>(CDC_RELOCATION_DIR, Platform.ALL, (c, s) -> c.cdcRelocationDir = s, c -> c.cdcRelocationDir,
+                    "The directory where processed commitlog files are copied.",
+                    "cdc_backup","String",
+                    "main", 1);
 
     public static final String CDC_DIR_POOL_INTERVAL_MS = "cdcPoolIntervalMs";
     public long cdcDirPollIntervalMs = Long.getLong(CDC_PROPERTY_PREFIX + CDC_DIR_POOL_INTERVAL_MS, 60000L);
     public static final Setting<Long> CDC_DIR_POOL_INTERVAL_MS_SETTING =
-            new Setting<>(CDC_DIR_POOL_INTERVAL_MS, Platform.ALL, (c, s) -> c.cdcDirPollIntervalMs = Long.parseLong(s), c -> c.cdcDirPollIntervalMs);
+            new Setting<>(CDC_DIR_POOL_INTERVAL_MS, Platform.ALL, (c, s) -> c.cdcDirPollIntervalMs = Long.parseLong(s), c -> c.cdcDirPollIntervalMs,
+                    "The pool interval in milliseconds for watching new commit log files in the CDC raw directory.",
+                    60000L, "Long",
+                    "main", 2);
 
     public static final String ERROR_COMMITLOG_REPROCESS_ENABLED = "errorCommitLogReprocessEnabled";
     public boolean errorCommitLogReprocessEnabled = Boolean.getBoolean(CDC_PROPERTY_PREFIX + ERROR_COMMITLOG_REPROCESS_ENABLED);
     public static final Setting<Boolean> ERROR_COMMITLOG_REPROCESS_ENABLED_SETTING =
-            new Setting<>(ERROR_COMMITLOG_REPROCESS_ENABLED, Platform.ALL, (c, s) -> c.errorCommitLogReprocessEnabled = Boolean.parseBoolean(s), c -> c.errorCommitLogReprocessEnabled);
-
-    public static final String EMIT_TOMBSTONE_ON_DELETE = "emitTombstoneOnDelete";
-    public boolean emitTombstoneOnDelete = Boolean.getBoolean(CDC_PROPERTY_PREFIX + EMIT_TOMBSTONE_ON_DELETE);
-    public static final Setting<Boolean> EMIT_TOMBSTONE_ON_DELETE_SETTING =
-            new Setting<>(EMIT_TOMBSTONE_ON_DELETE, Platform.ALL, (c, s) -> c.emitTombstoneOnDelete = Boolean.parseBoolean(s), c -> c.emitTombstoneOnDelete);
+            new Setting<>(ERROR_COMMITLOG_REPROCESS_ENABLED, Platform.ALL, (c, s) -> c.errorCommitLogReprocessEnabled = Boolean.parseBoolean(s), c -> c.errorCommitLogReprocessEnabled,
+                    "Enable the re-processing of error commit logs files.",
+                    false, "Boolean",
+                    "main", 3);
 
     public static final String TOPIC_PREFIX = "topicPrefix";
     public String topicPrefix = System.getProperty(CDC_PROPERTY_PREFIX + TOPIC_PREFIX, "events-");
     public static final Setting<String> TOPIC_PREFIX_SETTING =
-            new Setting<>(TOPIC_PREFIX, Platform.ALL, (c, s) -> c.topicPrefix = s, c -> c.topicPrefix);
+            new Setting<>(TOPIC_PREFIX, Platform.ALL, (c, s) -> c.topicPrefix = s, c -> c.topicPrefix,
+                    "The event topic prefix. The keyspace and table names are appended to that prefix to build the topic name.",
+                    "events-", "String",
+                    "main", 4);
 
     public static final String PULSAR_SERVICE_URL = "pulsarServiceUrl";
     public String pulsarServiceUrl = System.getProperty(CDC_PROPERTY_PREFIX + PULSAR_SERVICE_URL, "pulsar://localhost:6650");
     public static final Setting<String> PULSAR_SERVICE_URL_SETTING =
-            new Setting<>(PULSAR_SERVICE_URL, Platform.PULSAR, (c, s) -> c.pulsarServiceUrl = s, c -> c.pulsarServiceUrl);
+            new Setting<>(PULSAR_SERVICE_URL, Platform.PULSAR, (c, s) -> c.pulsarServiceUrl = s, c -> c.pulsarServiceUrl,
+                    "The Pulsar broker service URL.",
+                    "pulsar://localhost:6650", "String",
+                    "pulsar", 1);
 
     public static final String KAFKA_BROKERS = "kafkaBrokers";
     public String kafkaBrokers = System.getProperty(CDC_PROPERTY_PREFIX + KAFKA_BROKERS, "localhost:9092");
     public static final Setting<String> KAFKA_BROKERS_SETTING =
-            new Setting<>(KAFKA_BROKERS, Platform.KAFKA, (c, s) -> c.kafkaBrokers = s, c -> c.kafkaBrokers);
+            new Setting<>(KAFKA_BROKERS, Platform.KAFKA, (c, s) -> c.kafkaBrokers = s, c -> c.kafkaBrokers,
+                    "The Kafka broker host and port.",
+                    "localhost:9092", "String",
+                    "kafka", 1);
 
     public static final String KAFKA_SCHEMA_REGISTRY_URL = "kafkaSchemaRegistryUrl";
     public String kafkaSchemaRegistryUrl = System.getProperty(CDC_PROPERTY_PREFIX + KAFKA_SCHEMA_REGISTRY_URL, "http://localhost:8081");
     public static final Setting<String> KAFKA_SCHEMA_REGISTRY_URL_SETTING =
-            new Setting<>(KAFKA_SCHEMA_REGISTRY_URL, Platform.KAFKA, (c, s) -> c.kafkaSchemaRegistryUrl = s, c -> c.kafkaSchemaRegistryUrl);
+            new Setting<>(KAFKA_SCHEMA_REGISTRY_URL, Platform.KAFKA, (c, s) -> c.kafkaSchemaRegistryUrl = s, c -> c.kafkaSchemaRegistryUrl,
+                    "The Kafka schema registry URL.",
+                    "http://localhost:8081", "String",
+                    "kafka", 2);
 
     public static final String SSL_PROVIDER = "sslProvider";
     public String sslProvider = System.getProperty(CDC_PROPERTY_PREFIX + SSL_PROVIDER);
     public static final Setting<String> SSL_PROVIDER_SETTING =
-            new Setting<>(SSL_PROVIDER, Platform.ALL, (c, s) -> c.sslProvider = s, c -> c.sslProvider);
+            new Setting<>(SSL_PROVIDER, Platform.ALL, (c, s) -> c.sslProvider = s, c -> c.sslProvider,
+                    "The SSL/TLS provider to use.",
+                    null, "String",
+                    "ssl", 1);
 
     public static final String SSL_TRUSTSTORE_PATH = "sslTruststorePath";
     public String sslTruststorePath = System.getProperty(CDC_PROPERTY_PREFIX + SSL_TRUSTSTORE_PATH);
     public static final Setting<String> SSL_TRUSTSTORE_PATH_SETTING =
-            new Setting<>(SSL_TRUSTSTORE_PATH, Platform.ALL, (c, s) -> c.sslTruststorePath = s, c -> c.sslTruststorePath);
+            new Setting<>(SSL_TRUSTSTORE_PATH, Platform.ALL, (c, s) -> c.sslTruststorePath = s, c -> c.sslTruststorePath,
+                    "The path to the SSL/TLS truststore file.",
+                    null, "String",
+                    "ssl", 2);
 
     public static final String SSL_TRUSTSTORE_PASSWORD = "sslTruststorePassword";
     public String sslTruststorePassword = System.getProperty(CDC_PROPERTY_PREFIX + SSL_TRUSTSTORE_PASSWORD);
     public static final Setting<String> SSL_TRUSTSTORE_PASSWORD_SETTING =
-            new Setting<>(SSL_TRUSTSTORE_PASSWORD, Platform.ALL, (c, s) -> c.sslTruststorePassword = s, c -> c.sslTruststorePassword);
+            new Setting<>(SSL_TRUSTSTORE_PASSWORD, Platform.ALL, (c, s) -> c.sslTruststorePassword = s, c -> c.sslTruststorePassword,
+                    "The password for the SSL/TLS truststore.",
+                    null, "String",
+                    "ssl", 3);
 
     public static final String SSL_TRUSTSTORE_TYPE = "sslTruststoreType";
     public String sslTruststoreType = System.getProperty(CDC_PROPERTY_PREFIX + SSL_TRUSTSTORE_TYPE, "JKS");
     public static final Setting<String> SSL_TRUSTSTORE_TYPE_SETTING =
-            new Setting<>(SSL_TRUSTSTORE_TYPE, Platform.ALL, (c, s) -> c.sslTruststoreType = s, c -> c.sslTruststoreType);
+            new Setting<>(SSL_TRUSTSTORE_TYPE, Platform.ALL, (c, s) -> c.sslTruststoreType = s, c -> c.sslTruststoreType,
+                    "The type of the SSL/TLS truststore.",
+                    "JKS", "String",
+                    "ssl", 4);
 
     public static final String SSL_KEYSTORE_PATH = "sslKeystorePath";
     public String sslKeystorePath = System.getProperty(CDC_PROPERTY_PREFIX + SSL_KEYSTORE_PATH);
     public static final Setting<String> SSL_KEYSTORE_PATH_SETTING =
-            new Setting<>(SSL_KEYSTORE_PATH, Platform.ALL, (c, s) -> c.sslKeystorePath = s, c -> c.sslKeystorePath);
+            new Setting<>(SSL_KEYSTORE_PATH, Platform.ALL, (c, s) -> c.sslKeystorePath = s, c -> c.sslKeystorePath,
+                    "The path to the SSL/TLS keystore file.",
+                    null, "String",
+                    "ssl", 5);
 
     public static final String SSL_KEYSTORE_PASSWORD = "sslKeystorePassword";
     public String sslKeystorePassword = System.getProperty(CDC_PROPERTY_PREFIX + SSL_KEYSTORE_PASSWORD);
     public static final Setting<String> SSL_KEYSTORE_PASSWORD_SETTING =
-            new Setting<>(SSL_KEYSTORE_PASSWORD, Platform.ALL, (c, s) -> c.sslKeystorePassword = s, c -> c.sslKeystorePassword);
+            new Setting<>(SSL_KEYSTORE_PASSWORD, Platform.ALL, (c, s) -> c.sslKeystorePassword = s, c -> c.sslKeystorePassword,
+                    "The password for the SSL/TLS keystore.",
+                    null, "String",
+                    "ssl", 6);
 
     public static final String SSL_CIPHER_SUITES = "sslCipherSuites";
     public String sslCipherSuites = System.getProperty(CDC_PROPERTY_PREFIX + SSL_CIPHER_SUITES);
     public static final Setting<String> SSL_CIPHER_SUITES_SETTING =
-            new Setting<>(SSL_CIPHER_SUITES, Platform.ALL, (c, s) -> c.sslCipherSuites = s, c -> c.sslCipherSuites);
+            new Setting<>(SSL_CIPHER_SUITES, Platform.ALL, (c, s) -> c.sslCipherSuites = s, c -> c.sslCipherSuites,
+                    "Defines one or more cipher suites to use for negotiating the SSL/TLS connection.",
+                    null, "String",
+                    "ssl", 7);
 
     public static final String SSL_ENABLED_PROTOCOLS = "sslEnabledProtocols";
     public String sslEnabledProtocols = System.getProperty(CDC_PROPERTY_PREFIX + SSL_ENABLED_PROTOCOLS, "TLSv1.2,TLSv1.1,TLSv1");
     public static final Setting<String> SSL_ENABLED_PROTOCOLS_SETTING =
-            new Setting<>(SSL_ENABLED_PROTOCOLS, Platform.ALL, (c, s) -> c.sslEnabledProtocols = s, c -> c.sslEnabledProtocols);
+            new Setting<>(SSL_ENABLED_PROTOCOLS, Platform.ALL, (c, s) -> c.sslEnabledProtocols = s, c -> c.sslEnabledProtocols,
+                    "Enabled SSL/TLS protocols",
+                    "TLSv1.2,TLSv1.1,TLSv1", "String",
+                    "ssl", 8);
 
     public static final String SSL_ENDPOINT_IDENTIFICATION_ALGORITHM = "sslEndpointIdentificationAlgorithm";
     public String sslEndpointIdentificationAlgorithm = System.getProperty(CDC_PROPERTY_PREFIX + SSL_ENDPOINT_IDENTIFICATION_ALGORITHM, "https");
     public static final Setting<String> SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_SETTING =
-            new Setting<>(SSL_ENDPOINT_IDENTIFICATION_ALGORITHM, Platform.KAFKA, (c, s) -> c.sslEndpointIdentificationAlgorithm = s, c -> c.sslEndpointIdentificationAlgorithm);
+            new Setting<>(SSL_ENDPOINT_IDENTIFICATION_ALGORITHM, Platform.KAFKA, (c, s) -> c.sslEndpointIdentificationAlgorithm = s, c -> c.sslEndpointIdentificationAlgorithm,
+                    "The endpoint identification algorithm used by clients to validate server host name.",
+                    "https", "String",
+                    "ssl", 9);
 
     public static final String SSL_ALLOW_INSECURE_CONNECTION = "sslAllowInsecureConnection";
     public boolean sslAllowInsecureConnection = Boolean.getBoolean(CDC_PROPERTY_PREFIX + SSL_ALLOW_INSECURE_CONNECTION);
     public static final Setting<Boolean> SSL_ALLOW_INSECURE_CONNECTION_SETTING =
-            new Setting<>(SSL_ALLOW_INSECURE_CONNECTION, Platform.PULSAR, (c, s) -> c.sslAllowInsecureConnection = Boolean.parseBoolean(s), c -> c.sslAllowInsecureConnection);
+            new Setting<>(SSL_ALLOW_INSECURE_CONNECTION, Platform.PULSAR, (c, s) -> c.sslAllowInsecureConnection = Boolean.parseBoolean(s), c -> c.sslAllowInsecureConnection,
+                    "Allows insecure connections to servers whose cert has not been signed by an approved CA. You should always disable sslAllowInsecureConnection in production environments.",
+                    false, "Boolean",
+                    "ssl", 10);
 
     public static final String SSL_HOSTNAME_VERIFICATION_ENABLE = "sslHostnameVerificationEnable";
     public boolean sslHostnameVerificationEnable = Boolean.getBoolean(CDC_PROPERTY_PREFIX + SSL_HOSTNAME_VERIFICATION_ENABLE);
     public static final Setting<Boolean> SSL_HOSTNAME_VERIFICATION_ENABLE_SETTING =
-            new Setting<>(SSL_HOSTNAME_VERIFICATION_ENABLE, Platform.PULSAR, (c, s) -> c.sslHostnameVerificationEnable = Boolean.parseBoolean(s), c -> c.sslHostnameVerificationEnable);
+            new Setting<>(SSL_HOSTNAME_VERIFICATION_ENABLE, Platform.PULSAR, (c, s) -> c.sslHostnameVerificationEnable = Boolean.parseBoolean(s), c -> c.sslHostnameVerificationEnable,
+                    "Enable the server hostname verification.",
+                    false, "Boolean",
+                    "ssl", 11);
 
     public static final String PULSAR_AUTH_PLUGIN_CLASS_NAME = "pulsarAuthPluginClassName";
     public String pulsarAuthPluginClassName = System.getProperty(CDC_PROPERTY_PREFIX + PULSAR_AUTH_PLUGIN_CLASS_NAME);
     public static final Setting<String> PULSAR_AUTH_PLUGIN_CLASS_NAME_SETTING =
-            new Setting<>(PULSAR_AUTH_PLUGIN_CLASS_NAME, Platform.PULSAR, (c, s) -> c.pulsarAuthPluginClassName = s, c -> c.pulsarAuthPluginClassName);
+            new Setting<>(PULSAR_AUTH_PLUGIN_CLASS_NAME, Platform.PULSAR, (c, s) -> c.pulsarAuthPluginClassName = s, c -> c.pulsarAuthPluginClassName,
+                    "The Pulsar authentication plugin class name.",
+                    null, "String",
+                    "pulsar", 2);
 
     public static final String PULSAR_AUTH_PARAMS = "pulsarAuthParams";
     public String pulsarAuthParams = System.getProperty(CDC_PROPERTY_PREFIX + PULSAR_AUTH_PARAMS);
     public static final Setting<String> PULSAR_AUTH_PARAMS_SETTING =
-            new Setting<>(PULSAR_AUTH_PARAMS, Platform.PULSAR, (c, s) -> c.pulsarAuthParams = s, c -> c.pulsarAuthParams);
+            new Setting<>(PULSAR_AUTH_PARAMS, Platform.PULSAR, (c, s) -> c.pulsarAuthParams = s, c -> c.pulsarAuthParams,
+                    "The Pulsar authentication parameters.",
+                    null, "String",
+                    "pulsar", 3);
 
     // generic properties for kafka client
     public static final String KAFKA_PROPERTIES = "kafkaProperties";
@@ -160,7 +259,10 @@ public class ProducerConfig {
                         }
                         return c.kafkaProperties;
                     },
-                    c -> c.kafkaProperties);
+                    c -> c.kafkaProperties,
+                    "The Kafka properties.",
+                    null, "Map",
+                    "kafka", 3);
 
     public static final Set<Setting<?>> settings;
     public static final Map<String, Setting<?>> settingMap;
@@ -171,7 +273,6 @@ public class ProducerConfig {
         set.add(CDC_RELOCATION_DIR_SETTING);
         set.add(CDC_DIR_POOL_INTERVAL_MS_SETTING);
         set.add(ERROR_COMMITLOG_REPROCESS_ENABLED_SETTING);
-        set.add(EMIT_TOMBSTONE_ON_DELETE_SETTING);
         set.add(TOPIC_PREFIX_SETTING);
         set.add(PULSAR_SERVICE_URL_SETTING);
         set.add(KAFKA_SCHEMA_REGISTRY_URL_SETTING);
@@ -198,13 +299,73 @@ public class ProducerConfig {
         settingMap = Collections.unmodifiableMap(map);
     }
 
-    public static ProducerConfig create(Platform platform, Map<String, Object> tenantConfiguration)
-    {
+    public static void main(String[] args) {
+        try {
+            generateAsciiDoc(Paths.get("docs/modules/ROOT/pages"), "producerParams.adoc", "Producer Parameters");
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void generateAsciiDoc(Path path, String name, String title) throws IOException {
+        // build ordered settings (ordered by group)
+        List<String> groups = new LinkedList<>();
+        List<Setting<?>> orderedSettings = new ArrayList<>(settings.size());
+        settings.forEach(s -> {
+            if (!groups.contains(s.group))
+                groups.add(s.group);
+            orderedSettings.add(s);
+        });
+
+        final Map<String, Integer> groupOrd = new HashMap<>();
+        int ord = 0;
+        for (String group : groups) {
+            groupOrd.put(group, ord++);
+        }
+        Collections.sort(orderedSettings, (k1, k2) -> compare(k1, k2, groupOrd));
+
+        try (FileWriter fileWriter = new FileWriter(path.resolve(name).toFile())) {
+            PrintWriter pw = new PrintWriter(fileWriter);
+            pw.append("= ").append(title).append("\n\n");
+            pw.append("== Parameters").append("\n\n");
+
+            StringBuilder b = new StringBuilder();
+            for (Setting<?> setting: orderedSettings) {
+                setting.getAsciiDoc(b);
+                b.append("\n");
+            }
+
+            pw.append(b.toString());
+            pw.flush();
+        }
+    }
+
+    protected static int compare(Setting<?> k1, Setting<?> k2, Map<String, Integer> groupOrd) {
+        int cmp =
+                k1.group == null
+                        ? (k2.group == null ? 0 : -1)
+                        : (k2.group == null
+                        ? 1
+                        : Integer.compare(groupOrd.get(k1.group), groupOrd.get(k2.group)));
+        if (cmp == 0) {
+            cmp = Integer.compare(k1.orderInGroup, k2.orderInGroup);
+            if (cmp == 0) {
+                // first take anything with no default value
+                if (k1.defaultValue != null && k2.defaultValue == null) cmp = -1;
+                else if (k2.defaultValue != null && k1.defaultValue == null) cmp = 1;
+                else {
+                    return k1.name.compareTo(k2.name);
+                }
+            }
+        }
+        return cmp;
+    }
+
+    public static ProducerConfig create(Platform platform, Map<String, Object> tenantConfiguration) {
         return new ProducerConfig().configure(platform, tenantConfiguration);
     }
 
-    public static ProducerConfig create(Platform platform, String agentParams)
-    {
+    public static ProducerConfig create(Platform platform, String agentParams) {
         return new ProducerConfig().configure(platform, agentParams);
     }
 
