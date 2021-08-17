@@ -13,10 +13,10 @@ If you agree, enable the *Terms* checkbox and click the download icon.
 +
 [source,language-bash]
 ----
-tar zxf cassandra-source-connector-0.1.0.tar.gz
+tar zxf cassandra-source-connector-<version>.tar.gz
 ----
 +
-The following files are unpacked into a directory such as `cassandra-source-connector-0.1.0`:
+The following files are unpacked into a directory such as `cassandra-source-connector-<version>`:
 +
 [source,no-highlight]
 ----
@@ -35,51 +35,14 @@ source-pulsar-0.1.0-SNAPSHOT.nar
 
 All data node of your Cassandra datacenter must run the producer JVM agent to send mutations into the events topic of
 your streaming software. Start your Cassandra nodes with the appropriate producer binary matching your
-Cassandra version (3.11 or 4.0) and your streaming platform (Apache Pulsar or Kafka).
+Cassandra version (3.11 or 4.0) and your streaming platform (Apache Pulsar or Apache Kafka).
 
-Example for Apache Kafka on Cassandra version 4.0 nodes:
+As a java agent, the CDC producer parameters take place after the jar file name in the form of a comma separated list of paramName=paramValue. Here is an example for Apache Kafka on Cassandra version 4.0 nodes:
 
 [source,language-bash]
 ----
 export JVM_EXTRA_OPTS="-javaagent:/path/to/producer-v4-kafka-0.1-all.jar=kafkaBrokers=brockers:9092,kafkaRegistryUrl=http://schemaregistry:8081"
 ----
-
-=== Producer configuration
-
-The producer JVM agent takes the following settings:
-
-[cols="1,1,1"]
-|===
-|Setting |Default |Description
-
-|cdcRelocationDir
-|$cassandra.storagedir/cdc_backup
-|The location where Cassandra commitlog files are relocated.
-
-|cdcPoolIntervalMs
-|60000
-|Watching timeout when watching for commitlog files on disk.
-
-|errorCommitLogReprocessEnabled
-|false
-|When true, reprocessed errored commitlogs files located in the cdcRelocationDir.
-
-|topicPrefix
-|events-
-|Prefix used to build the events topic name. The keyspace name dot the table name are appended to this prefix to build the topic name.
-
-|pulsarServiceUrl
-|pulsar://localhost:6650
-|Pulsar service URL
-
-|kafakaBrokers
-|localhost:9092
-|Kafka brokers address
-
-|kafkaSchemaRegistryUrl
-|http://localhost:8081
-|Kafka registry URL
-|===
 
 == Deploy the Kafka Cassandra Source Connector
 

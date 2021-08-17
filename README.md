@@ -18,4 +18,5 @@ The following diagram describes the general architecture. The CDC replication en
 * Does not replay batch updates
 * Does not manage table truncates
 * Does not sync data available before starting the CDC producer.
-* Does not track TTL
+* Does not manage TTL
+* Does not support range deletes
