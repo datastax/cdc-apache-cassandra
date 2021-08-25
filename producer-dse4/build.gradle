@@ -1,0 +1,34 @@
+plugins {
+    id 'java-library'
+}
+
+application {
+    mainClassName = "$mainClassName"
+}
+
+jar {
+    manifest {
+        attributes 'Premain-Class': "$mainClassName"
+    }
+    zip64=true
+    from {
+        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+
+tasks.jar.dependsOn project(':producer').jar
+
+compileTestJava {
+    options.compilerArgs += '-parameters'
+}
+
+sourceSets {
+    // Make the compileOnly dependencies available when compiling/running tests
+    test.compileClasspath += configurations.compileOnly
+    test.runtimeClasspath += configurations.compileOnly
+}
+
+dependencies {
+    api project(':producer')
+    compileOnly("com.datastax.dse:dse-db:${dse4Version}")
+}

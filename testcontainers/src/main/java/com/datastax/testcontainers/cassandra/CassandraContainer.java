@@ -301,7 +301,7 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
                         String.format(Locale.ROOT, "/%s", jarFile))
                 .withEnv("JVM_EXTRA_OPTS", String.format(Locale.ROOT, "-javaagent:/%s=%s", jarFile, agentParams))
                 .withEnv("DS_LICENSE", "accept")
-                .withStartupTimeout(Duration.ofSeconds(120));
+                .withStartupTimeout(Duration.ofSeconds(180));
         if (nodeIndex > 1) {
             cassandraContainer.withEnv("CASSANDRA_SEEDS", "cassandra-1"); // for cassandra
             cassandraContainer.withEnv("SEEDS", "cassandra-1");           // for DSE
