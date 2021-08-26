@@ -129,7 +129,7 @@ public class PulsarProducerDse4Tests {
 
             try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
                 RecordSchemaBuilder recordSchemaBuilder1 = SchemaBuilder.record("ks1.table1");
-                recordSchemaBuilder1.field("id").type(SchemaType.STRING).optional().defaultValue(null);
+                recordSchemaBuilder1.field("id").type(SchemaType.STRING);
                 SchemaInfo keySchemaInfo1 = recordSchemaBuilder1.build(SchemaType.AVRO);
                 Schema<GenericRecord> keySchema1 = Schema.generic(keySchemaInfo1);
                 Schema<KeyValue<GenericRecord, MutationValue>> schema1 = Schema.KeyValue(
@@ -177,8 +177,8 @@ public class PulsarProducerDse4Tests {
                 // pulsar-admin schemas get "persistent://public/default/events-ks1.table2"
                 // pulsar-admin topics peek-messages persistent://public/default/events-ks1.table2-partition-0 --count 3 --subscription sub1
                 RecordSchemaBuilder recordSchemaBuilder2 = SchemaBuilder.record("ks1.table2");
-                recordSchemaBuilder2.field("a").type(SchemaType.STRING).optional().defaultValue(null);
-                recordSchemaBuilder2.field("b").type(SchemaType.INT32).optional().defaultValue(null);
+                recordSchemaBuilder2.field("a").type(SchemaType.STRING);
+                recordSchemaBuilder2.field("b").type(SchemaType.INT32);
                 SchemaInfo keySchemaInfo2 = recordSchemaBuilder2.build(SchemaType.AVRO);
                 Schema<GenericRecord> keySchema2 = Schema.generic(keySchemaInfo2);
                 Schema<KeyValue<GenericRecord, MutationValue>> schema2 = Schema.KeyValue(
