@@ -31,6 +31,7 @@ import org.apache.cassandra.db.partitions.PartitionUpdate;
 import org.apache.cassandra.db.rows.Row;
 import org.apache.cassandra.db.rows.Unfiltered;
 import org.apache.cassandra.db.rows.UnfilteredRowIterator;
+import org.apache.cassandra.io.util.DataInputBuffer;
 import org.apache.cassandra.io.util.DataOutputBuffer;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
@@ -207,7 +208,12 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     }
 
     @Override
-    public void handleMutation(org.apache.cassandra.db.Mutation mutation, int size, int entryLocation, CommitLogDescriptor descriptor) {
+    public void handleMutation(org.apache.cassandra.db.Mutation m, int size, int entryLocation, CommitLogDescriptor desc) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void handleMutation(org.apache.cassandra.db.Mutation mutation, int size, int entryLocation, CommitLogDescriptor descriptor, byte[] inputBuffer) {
         if (!mutation.trackedByCDC()) {
             return;
         }
@@ -223,9 +229,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
             }
 
             try {
-                DataOutputBuffer dataOutputBuffer = new DataOutputBuffer();
-                org.apache.cassandra.db.Mutation.serializers.get(WriteVerbs.WriteVersion.DSE_68).serialize(mutation, dataOutputBuffer);
-                String md5Digest = DigestUtils.md5Hex(dataOutputBuffer.getData());
+                String md5Digest = DigestUtils.md5Hex(new DataInputBuffer(inputBuffer, 0, size));
                 process(pu, entryPosition, md5Digest);
             }
             catch (Exception e) {
