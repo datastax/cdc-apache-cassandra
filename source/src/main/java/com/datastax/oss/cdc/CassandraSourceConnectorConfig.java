@@ -198,18 +198,6 @@ public class CassandraSourceConnectorConfig {
                             ConfigDef.Type.CLASS,
                             ConfigDef.Importance.HIGH,
                             "Converter class used to write the message value to the data topic")
-                    .define(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                            ConfigDef.Type.STRING,
-                            "localhost:9092",
-                            ConfigDef.Importance.HIGH,
-                            "Kafka bootstrap servers",
-                            "Kafka only", 1, ConfigDef.Width.NONE, "BootstrapServers")
-                    .define(SCHEMA_REGISTRY_URL_CONFIG,
-                            ConfigDef.Type.STRING,
-                            "http://localhost:8081",
-                            ConfigDef.Importance.HIGH,
-                            "Schema registry URL",
-                            "Kafka only", 2, ConfigDef.Width.NONE, "SchemaRegistryUrl")
                     .define(
                             CassandraSinkConfig.CONTACT_POINTS_OPT,
                             ConfigDef.Type.LIST,

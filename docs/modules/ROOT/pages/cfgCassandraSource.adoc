@@ -182,17 +182,3 @@ Type: boolean
 Default: true
 Importance: high
 
-[#bootstrap.servers]
-Kafka bootstrap servers
-+
-Type: string
-Default: localhost:9092
-Importance: high
-
-[#schema.registry.url]
-Schema registry URL
-+
-Type: string
-Default: http://localhost:8081
-Importance: high
-

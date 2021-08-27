@@ -23,9 +23,6 @@ include 'producer-v3-pulsar'
 include 'producer-v4-pulsar'
 include 'source-pulsar'
 
-include 'producer-v3-kafka'
-include 'producer-v4-kafka'
-include 'source-kafka'
 include 'distribution'
 include 'docs'
 

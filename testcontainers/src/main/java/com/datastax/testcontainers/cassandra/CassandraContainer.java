@@ -255,29 +255,6 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
                 String.format("pulsarServiceUrl=%s", pulsarServiceUrl));
     }
 
-    public static CassandraContainer<?> createCassandraContainerWithKafkaProducer(DockerImageName image,
-                                                                                  Network network,
-                                                                                  int nodeIndex,
-                                                                                  String version,
-                                                                                  String kafkaBrokers,
-                                                                                  String kafkaSchemaRegistryUrl) {
-        return createCassandraContainerWithProducer(image, network, nodeIndex, System.getProperty("buildDir"),
-                String.format("producer-%s-kafka", version),
-                String.format("kafkaBrokers=%s,kafkaSchemaRegistryUrl=%s", kafkaBrokers, kafkaSchemaRegistryUrl));
-    }
-
-    public static CassandraContainer<?> createCassandraContainerWithKafkaProducer(DockerImageName image,
-                                                                                  Network network,
-                                                                                  int nodeIndex,
-                                                                                  String producerBuildDir,
-                                                                                  String version,
-                                                                                  String kafkaBrokers,
-                                                                                  String kafkaSchemaRegistryUrl) {
-        return createCassandraContainerWithProducer(image, network, nodeIndex, producerBuildDir,
-                String.format("producer-%s-kafka", version),
-                String.format("kafkaBrokers=%s,kafkaSchemaRegistryUrl=%s", kafkaBrokers, kafkaSchemaRegistryUrl));
-    }
-
     public static CassandraContainer<?> createCassandraContainerWithProducer(DockerImageName image,
                                                                              Network network,
                                                                              int nodeIndex,

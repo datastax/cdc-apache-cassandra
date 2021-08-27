@@ -30,7 +30,7 @@ public class ProducerConfig {
     public static final String storageDir = System.getProperty("cassandra.storagedir", null);
 
     public enum Platform {
-        ALL, PULSAR, KAFKA;
+        ALL, PULSAR;
     }
 
     @AllArgsConstructor
@@ -70,16 +70,6 @@ public class ProducerConfig {
     public String pulsarServiceUrl = System.getProperty(CDC_PROPERTY_PREFIX + PULSAR_SERVICE_URL, "pulsar://localhost:6650");
     public static final Setting<String> PULSAR_SERVICE_URL_SETTING =
             new Setting<>(PULSAR_SERVICE_URL, Platform.PULSAR, (c, s) -> c.pulsarServiceUrl = s, c -> c.pulsarServiceUrl);
-
-    public static final String KAFKA_BROKERS = "kafkaBrokers";
-    public String kafkaBrokers = System.getProperty(CDC_PROPERTY_PREFIX + KAFKA_BROKERS, "localhost:9092");
-    public static final Setting<String> KAFKA_BROKERS_SETTING =
-            new Setting<>(KAFKA_BROKERS, Platform.KAFKA, (c, s) -> c.kafkaBrokers = s, c -> c.kafkaBrokers);
-
-    public static final String KAFKA_SCHEMA_REGISTRY_URL = "kafkaSchemaRegistryUrl";
-    public String kafkaSchemaRegistryUrl = System.getProperty(CDC_PROPERTY_PREFIX + KAFKA_SCHEMA_REGISTRY_URL, "http://localhost:8081");
-    public static final Setting<String> KAFKA_SCHEMA_REGISTRY_URL_SETTING =
-            new Setting<>(KAFKA_SCHEMA_REGISTRY_URL, Platform.KAFKA, (c, s) -> c.kafkaSchemaRegistryUrl = s, c -> c.kafkaSchemaRegistryUrl);
 
     public static final String SSL_PROVIDER = "sslProvider";
     public String sslProvider = System.getProperty(CDC_PROPERTY_PREFIX + SSL_PROVIDER);
@@ -121,11 +111,6 @@ public class ProducerConfig {
     public static final Setting<String> SSL_ENABLED_PROTOCOLS_SETTING =
             new Setting<>(SSL_ENABLED_PROTOCOLS, Platform.ALL, (c, s) -> c.sslEnabledProtocols = s, c -> c.sslEnabledProtocols);
 
-    public static final String SSL_ENDPOINT_IDENTIFICATION_ALGORITHM = "sslEndpointIdentificationAlgorithm";
-    public String sslEndpointIdentificationAlgorithm = System.getProperty(CDC_PROPERTY_PREFIX + SSL_ENDPOINT_IDENTIFICATION_ALGORITHM, "https");
-    public static final Setting<String> SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_SETTING =
-            new Setting<>(SSL_ENDPOINT_IDENTIFICATION_ALGORITHM, Platform.KAFKA, (c, s) -> c.sslEndpointIdentificationAlgorithm = s, c -> c.sslEndpointIdentificationAlgorithm);
-
     public static final String SSL_ALLOW_INSECURE_CONNECTION = "sslAllowInsecureConnection";
     public boolean sslAllowInsecureConnection = Boolean.getBoolean(CDC_PROPERTY_PREFIX + SSL_ALLOW_INSECURE_CONNECTION);
     public static final Setting<Boolean> SSL_ALLOW_INSECURE_CONNECTION_SETTING =
@@ -146,21 +131,6 @@ public class ProducerConfig {
     public static final Setting<String> PULSAR_AUTH_PARAMS_SETTING =
             new Setting<>(PULSAR_AUTH_PARAMS, Platform.PULSAR, (c, s) -> c.pulsarAuthParams = s, c -> c.pulsarAuthParams);
 
-    // generic properties for kafka client
-    public static final String KAFKA_PROPERTIES = "kafkaProperties";
-    public Map<String, String> kafkaProperties = new HashMap<>();
-    public static final Setting<Map<String, String>> KAFKA_PROPERTIES_SETTINGS =
-            new Setting<>(KAFKA_PROPERTIES, Platform.KAFKA,
-                    (c,s) -> {
-                        for (String param : s.split(",")) {
-                            int i = param.indexOf("=");
-                            if (i > 0) {
-                                c.kafkaProperties.put(param.substring(0, i), param.substring(i + 1));
-                            }
-                        }
-                        return c.kafkaProperties;
-                    },
-                    c -> c.kafkaProperties);
 
     public static final Set<Setting<?>> settings;
     public static final Map<String, Setting<?>> settingMap;
@@ -174,9 +144,6 @@ public class ProducerConfig {
         set.add(EMIT_TOMBSTONE_ON_DELETE_SETTING);
         set.add(TOPIC_PREFIX_SETTING);
         set.add(PULSAR_SERVICE_URL_SETTING);
-        set.add(KAFKA_SCHEMA_REGISTRY_URL_SETTING);
-        set.add(KAFKA_BROKERS_SETTING);
-        set.add(KAFKA_SCHEMA_REGISTRY_URL_SETTING);
         set.add(SSL_PROVIDER_SETTING);
         set.add(SSL_TRUSTSTORE_PATH_SETTING);
         set.add(SSL_TRUSTSTORE_PASSWORD_SETTING);
@@ -185,12 +152,10 @@ public class ProducerConfig {
         set.add(SSL_KEYSTORE_PASSWORD_SETTING);
         set.add(SSL_CIPHER_SUITES_SETTING);
         set.add(SSL_ENABLED_PROTOCOLS_SETTING);
-        set.add(SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_SETTING);
         set.add(SSL_ALLOW_INSECURE_CONNECTION_SETTING);
         set.add(SSL_HOSTNAME_VERIFICATION_ENABLE_SETTING);
         set.add(PULSAR_AUTH_PLUGIN_CLASS_NAME_SETTING);
         set.add(PULSAR_AUTH_PARAMS_SETTING);
-        set.add(KAFKA_PROPERTIES_SETTINGS);
         settings = Collections.unmodifiableSet(set);
 
         Map<String, Setting<?>> map = new HashMap<>();
@@ -270,30 +235,5 @@ public class ProducerConfig {
             log.info(sb.toString());
         }
         return this;
-    }
-
-    public void configureKafkaTls(Properties props) {
-        // TLS, see https://docs.confluent.io/platform/current/kafka/authentication_ssl.html#clients
-        if (sslTruststorePath != null) {
-            props.put("ssl.truststore.location",sslTruststorePath);
-            props.put("ssl.truststore.password", sslTruststorePassword);
-            props.put("ssl.truststore.type", sslTruststoreType);
-        }
-        if (sslKeystorePath != null) {
-            props.put("ssl.keystore.location", sslKeystorePath);
-            props.put("ssl.keystore.password", sslKeystorePassword);
-        }
-        if (sslProvider != null && sslProvider.length() > 0) {
-            props.put("ssl.provider", sslProvider);
-        }
-        if (sslCipherSuites != null && sslCipherSuites.length() > 0) {
-            props.put("ssl.cipher.suites", sslCipherSuites);
-        }
-        if (sslEnabledProtocols != null && sslEnabledProtocols.length() > 0) {
-            props.put("ssl.enabled.protocols", sslEnabledProtocols);
-        }
-        if (sslEndpointIdentificationAlgorithm != null && sslEndpointIdentificationAlgorithm.length() > 0) {
-            props.put("ssl.endpoint.identification.algorithm", sslEndpointIdentificationAlgorithm);
-        }
     }
 }

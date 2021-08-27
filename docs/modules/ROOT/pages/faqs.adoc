@@ -12,7 +12,7 @@ With CDC, Cassyour apps can consume data from an Apache Cassandra&reg; table and
 === What are the system requirements for Cassandra Data Connector?
 
 Cassandra Source Connector requires additional resources depending on your write throughput.
-For each cassandra write, each Cassandra replica send one message to your streaming platform (Pulsar or Kafka), and
+For each cassandra write, each Cassandra replica send one message to your streaming platform (Pulsar
 execute at least one QUORUM read on your
 
 === What components and features are provided by Cassandra Data Connector?
@@ -93,7 +93,7 @@ https://grafana.com/[Grafana] is a visualization tool that helps you make sense 
 
 == Pulsar Connector
 
-=== What are the features provided by Cassandra Data Connector that are not supported in `pulsar-sink` or `kafka-sink`?
+=== What are the features provided by Cassandra Data Connector that are not supported in `pulsar-sink` ?
 
 * Single record acknowledgement and negative acknowledgements.
 * The https://pulsar.apache.org/docs/en/2.6.2/io-overview/[Pulsar IO framework] provides many features that are not possible in Kafka, and has different compression formats and auth/security features. The features are handled by Pulsar.
@@ -113,4 +113,4 @@ The same as for Apache Pulsar. See https://pulsar.apache.org/docs/en/client-libr
 
 == Next
 
-If you haven't already, build your first app to consume data from a Cassandra table and put the updates onto a Pulsar topic. See the xref:quickstart-kafka.adoc[quick start].
+If you haven't already, build your first app to consume data from a Cassandra table and put the updates onto a Pulsar topic.

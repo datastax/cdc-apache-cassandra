@@ -30,7 +30,6 @@ dependencies {
 
 
     api "org.testcontainers:testcontainers:${testContainersVersion}"
-    api "org.testcontainers:kafka:${testContainersVersion}"
     api "org.testcontainers:database-commons:${testContainersVersion}"
 
     implementation("commons-io:commons-io:2.8.0")

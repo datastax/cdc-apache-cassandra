@@ -95,28 +95,4 @@ public class AgentParametersTest {
         assertEquals("MyAuthPlugin", config.pulsarAuthPluginClassName);
         assertEquals("sdds", config.pulsarAuthParams);
     }
-
-    @Test
-    public void testConfigureKafka() {
-        String agentArgs = commonConfig +
-                KAFKA_BROKERS + "=mykafka:9092," +
-                KAFKA_SCHEMA_REGISTRY_URL + "=http://myregistry:8081," +
-                KAFKA_PROPERTIES + "=security.protocol=SASL_SSL\\,sasl.mechanism=PLAIN," +
-                SSL_ENDPOINT_IDENTIFICATION_ALGORITHM + "=none,";
-
-        ProducerConfig config = new ProducerConfig();
-        config.configure(Platform.KAFKA, (String) null);     // test NPE
-        config.configure(Platform.KAFKA, (Map<String, Object>) null);     // test NPE
-        config.configure(Platform.KAFKA, agentArgs);
-
-        assertCommonConfig(config);
-
-        assertEquals("mykafka:9092", config.kafkaBrokers);
-        assertEquals("http://myregistry:8081", config.kafkaSchemaRegistryUrl);
-
-        // Kafka custom TLS settings
-        assertEquals("SASL_SSL", config.kafkaProperties.get("security.protocol"));
-        assertEquals("PLAIN", config.kafkaProperties.get("sasl.mechanism"));
-        assertEquals("none", config.sslEndpointIdentificationAlgorithm);
-    }
 }

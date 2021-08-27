@@ -1,14 +1,14 @@
 = About DataStax Cassandra Source Connector
 
 DataStax Cassandra® Source Connector is open-source software (OSS) that send Cassandra mutations
-for table having the CDC enabled to Apache Pulsar&reg; or Apache Kafka&reg;.
+for table having the CDC enabled to Apache Pulsar&reg;.
 , which in turn can write the data to platforms such as Elasticsearch&reg; or Snowflake&reg;.
 
 == Key Features
 
 * Support both Apache Cassandra 3.11.x and 4.0.x
-* Support Apache Pulsar or Apache Kafka.
-* Propagate Cassandra schema change to the Apache/Kafka schema registry
+* Support Apache Pulsar.
+* Propagate Cassandra schema change to the Pulsar schema registry
 * Support JSON or AVRO message format.
 * Distributed mode, high availability (HA) support.
 * Standalone mode support for development.
@@ -34,7 +34,6 @@ Deployment matrix:
 | Streaming platform | Cassandra v3.x producer | Cassandra v4.x producer  | Source connector |
 | ---                | ---                     | ---                      | ---              |
 | Apache Pulsar      | [producer-v3-pulsar](producer-v3-pulsar) | [producer-v4-pulsar](producer-v4-pulsar) | [source-pulsar](source-pulsar) |
-| Apache Kafka       | [producer-v3-kafka](producer-v3-kafka)   | [producer-v4-kafka](producer-v4-kafka)   | [source-kafka](source-kafka)   |
 
 [#supported-databases]
 == Supported databases
@@ -54,12 +53,10 @@ Cassandra supported CQL3 data types:
 == Supported streaming platform
 
 * Apache Pulsar® 2.8.0 and later
-* Apache Kafka® 5.5.1 and later
 
 == Getting started
 
 * xref:quickstart-pulsar.adoc[] A quick introduction connecting a Cassandra table to a Pulsar cluster.
-* xref:quickstart-kafka.adoc[] A quick introduction connecting a Cassandra table to a Kafka cluster.
 
 == Where to go next
 
