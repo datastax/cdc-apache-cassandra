@@ -13,6 +13,13 @@ Antora requires NodeJS. Install NodeJS, then update project dependencies:
 brew install node
 ----
 
+Install Antora:
+
+[source,bash]
+----
+npm i -g @antora/cli@2.3 @antora/site-generator-default@2.3
+----
+
 == Generating and viewing the HTML output locally
 
 The docs can be generated locally during development, to check work. 
@@ -22,7 +29,7 @@ The docs can be generated locally during development, to check work.
 npm run build:local
 ----
 
-Output files are located in the build directory.
+Output files are located in the build/site directory.
 
 == Publishing the HTML output
 

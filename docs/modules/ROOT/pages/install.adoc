@@ -41,34 +41,9 @@ Example for Apache Pulsar on Cassandra version 4.0 nodes:
 export JVM_EXTRA_OPTS="-javaagent:/path/to/producer-v4-pulsar-0.1-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
 ----
 
-=== Producer configuration
+== Producer configuration
 
-The producer JVM agent takes the following settings:
-
-[cols="1,1,1"]
-|===
-|Setting |Default |Description
-
-|cdcRelocationDir
-|$cassandra.storagedir/cdc_backup
-|The location where Cassandra commitlog files are relocated.
-
-|cdcPoolIntervalMs
-|60000
-|Watching timeout when watching for commitlog files on disk.
-
-|errorCommitLogReprocessEnabled
-|false
-|When true, reprocessed errored commitlogs files located in the cdcRelocationDir.
-
-|topicPrefix
-|events-
-|Prefix used to build the events topic name. The keyspace name dot the table name are appended to this prefix to build the topic name.
-
-|pulsarServiceUrl
-|pulsar://localhost:6650
-|Pulsar service URL
-|===
+include::pages/cfgConfigProducer.adoc[]
 
 == Deploy the Cassandra Source Connector
 
