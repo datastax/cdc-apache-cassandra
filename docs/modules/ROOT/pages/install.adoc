@@ -30,13 +30,8 @@ source-pulsar-0.1.0-SNAPSHOT.nar
 
 == Starting Cassandra with the producer agent.
 
-All data node of your Cassandra datacenter must run the producer JVM agent to send mutations into the events topic of
-your streaming software. Start your Cassandra nodes with the appropriate producer binary matching your
+All data node of your Cassandra datacenter must run the producer JVM agent to send mutations into the events topic of your streaming software. Start your Cassandra nodes with the appropriate producer binary matching your
 Cassandra version (3.11 or 4.0) and your streaming platform (Apache Pulsar).
-
-Example for Apache Pulsar on Cassandra version 4.0 nodes:
-=======
-Cassandra version (3.11 or 4.0) and your streaming platform (Apache Pulsar or Apache Kafka).
 
 As a java agent, the CDC producer parameters take place after the jar file name in the form of a comma separated list of paramName=paramValue. Here is an example for Apache Kafka on Cassandra version 4.0 nodes:
 
@@ -45,10 +40,7 @@ As a java agent, the CDC producer parameters take place after the jar file name 
 export JVM_EXTRA_OPTS="-javaagent:/path/to/producer-v4-pulsar-0.1-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
 ----
 
-
-== Producer configuration
-
-include::pages/cfgConfigProducer.adoc[]
+include::producerParams.adoc[]
 
 == Deploy the Kafka Cassandra Source Connector
 
@@ -70,3 +62,6 @@ pulsar-admin source localrun \
 --source-config '{"contactPoints":"localhost:9042", "localDc":"datacenter1", "keyspace":"ks1", "table":"table1", "eventsTopicPrefix": "persistent://public/default/events-", "eventsSubscriptionName":"sub1", "keyConverter":"com.datastax.oss.pulsar.source.converters.AvroConverter","valueConverter":"com.datastax.oss.pulsar.source.converters.JsonConverter"}'
 ----
 
+include::cfgCassandraSource.adoc[]
+
+include::cfgCassandraSSL.adoc[]

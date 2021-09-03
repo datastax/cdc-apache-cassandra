@@ -2,34 +2,6 @@
 
 == Parameters
 
-[#cdcRelocationDir]
-The directory where processed commitlog files are copied.
-+
-Platform: ALL
-Type: string
-Default: cdc_backup
-
-[#cdcPoolIntervalMs]
-The pool interval in milliseconds for watching new commit log files in the CDC raw directory.
-+
-Platform: ALL
-Type: long
-Default: 60000
-
-[#errorCommitLogReprocessEnabled]
-Enable the re-processing of error commit logs files.
-+
-Platform: ALL
-Type: boolean
-Default: false
-
-[#topicPrefix]
-The event topic prefix. The keyspace and table names are appended to that prefix to build the topic name.
-+
-Platform: ALL
-Type: string
-Default: events-
-
 [#sslProvider]
 The SSL/TLS provider to use.
 +
@@ -80,13 +52,6 @@ Platform: ALL
 Type: string
 Default: TLSv1.2,TLSv1.1,TLSv1
 
-[#sslEndpointIdentificationAlgorithm]
-The endpoint identification algorithm used by clients to validate server host name.
-+
-Platform: KAFKA
-Type: string
-Default: https
-
 [#sslAllowInsecureConnection]
 Allows insecure connections to servers whose cert has not been signed by an approved CA. You should always disable sslAllowInsecureConnection in production environments.
 +
@@ -120,23 +85,31 @@ The Pulsar authentication parameters.
 Platform: PULSAR
 Type: string
 
-[#kafkaBrokers]
-The Kafka broker host and port.
+[#cdcRelocationDir]
+The directory where processed commitlog files are copied.
 +
-Platform: KAFKA
+Platform: ALL
 Type: string
-Default: localhost:9092
+Default: cdc_backup
 
-[#kafkaSchemaRegistryUrl]
-The Kafka schema registry URL.
+[#cdcPoolIntervalMs]
+The pool interval in milliseconds for watching new commit log files in the CDC raw directory.
 +
-Platform: KAFKA
+Platform: ALL
+Type: long
+Default: 60000
+
+[#errorCommitLogReprocessEnabled]
+Enable the re-processing of error commit logs files.
++
+Platform: ALL
+Type: boolean
+Default: false
+
+[#topicPrefix]
+The event topic prefix. The keyspace and table names are appended to that prefix to build the topic name.
++
+Platform: ALL
 Type: string
-Default: http://localhost:8081
-
-[#kafkaProperties]
-The Kafka properties.
-+
-Platform: KAFKA
-Type: map
+Default: events-
 
