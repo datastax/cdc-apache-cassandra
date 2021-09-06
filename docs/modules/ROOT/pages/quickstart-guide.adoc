@@ -1,0 +1,134 @@
+= DataStax Cassandra CDC Replication Quick Start Guide
+
+Users who want to implement CDC (Change Data Capture) from their https://cassandra.apache.org/index.html[Apache Cassandra] cluster can use the https://github.com/datastax/cassandra-source-connector/tree/master[DataStax Cassandra CDC Source Connector] to capture change data events into https://pulsar.apache.org[Apache Pulsar].
+
+For more information on how the Source Connector works, see the link:index.adoc[About] page.
+
+This guide instructions users setting up the DataStax Cassandra CDC Source Connector in the minimum number of steps.  The general outline of these steps are:
+
+* Step 0: Download the DataStax Cassandra CDC Source Connector.
+* Step 1: Install the Cassandra CDC Producer on each Cassandra Node.
+* Step 2. Install Pulsar.
+* Step 3: Configure Pulsar for Cassandra Event Topics and Data Topics.
+* Step 4: Install the Source Connector.
+* Step 5: Read the Data Topics from Apache Pulsar.
+
+== Prerequisites
+
+* Apache Cassandra 3.11 or 4.0
+
+== Step 0: Download the CDC Source Connector
+
+1. Go to the download page at https://downloads.datastax.com/#csc[DataStax downloads site].
+2. Agree to the Terms and Conditions by enabling the Terms checkbox, then selecting **Download**.
+3. Extract the files with the following command:
++
+[source,language-bash]
+----
+tar zxf cassandra-source-connector-<version>.tar.gz
+----
++
+The following files are unpacked into a directory such as `cassandra-source-connector-<version>`:
++
+[source,no-highlight]
+----
+LICENSE
+README.md
+THIRD-PARTY.txt
+producer-v3-pulsar-0.1.0-SNAPSHOT-all.jar
+producer-v4-pulsar-0.1.0-SNAPSHOT-all.jar
+source-pulsar-0.1.0-SNAPSHOT.nar
+----
+
+== Step 1: Install the Cassandra CDC Producer
+
+To install the Cassandra CDC Producer, follow these steps:
+
+1. For each download the appropriate Cassandra Producer binary based on your version of Cassandra to each Cassandra node:
+
+[cols=2*,options=header]
+|===
+|Cassandra Version
+|CDC Pulsar Producer
+
+|3.11 
+|producer-v3-pulsar-0.1.0-SNAPSHOT-all.jar
+|4.0 
+|producer-v4-pulsar-0.1.0-SNAPSHOT-all.jar
+|===
+
+1. Restart Cassandra and specify the Producer parameters in the `JVM_EXTRA_OPTS` setting, which each parameter .  For more information on the producer parameters, see link:producerParams.adoc[Producer Parameters].  The following are examples of the Cassandra Producer parameters depending on your Cassandra version:
+
+[cols="2,2a",options=header]
+|===
+|Cassandra Version
+|CDC Pulsar Producer
+
+|3.11 
+|[source,language-bash]
+----
+export JVM_EXTRA_OPTS="-javaagent:/path/to/producer-v3-pulsar-0.1.0-SNAPSHOT-all.jar=pulsarServiceUrl=http://schemaregistry:6650"
+----
+
+| 4.0 
+| [source,language-bash]
+----
+export JVM_EXTRA_OPTS="-javaagent:/path/to/producer-v4-pulsar-0.1.0-SNAPSHOT-all.jar=pulsarServiceUrl=http://schemaregistry:6650"
+----
+|===
+
+== Step 2: Install Pulsar
+
+Depending on your organizations needs, there are different distributions of Apache Pulsar to use.  One is the official Apache Pulsar.  For high availability production systems, another option is Luna Streaming, based on Apache Pulsar.
+
+=== Install Apache Pulsar
+
+Apache Pulsar has provided installation instructions for local, Docker, and Kubernetes based installations.  These are available on the https://pulsar.apache.org/docs/en/standalone/[Pulsar Documentation site].
+
+=== Install Luna Streaming
+
+Another alternative is the DataStax Luna Streaming service provides a production level, secure distribution of Apache Pulsar.  For instructions on how to install Luna Streaming, see either of the following based on your environment:
+
+* https://docs.datastax.com/en/luna/streaming/2.7/quickstart-helm-installs.html[Quick Start for Helm Chart installs]
+* https://docs.datastax.com/en/luna/streaming/2.7/quickstart-server-installs.html[Quick Start for Server/VM installs]
+
+== Step 3: Configure Pulsar for Cassandra Event Topics and Data Topics
+
+Asking how this is going to work.
+
+Questions:
+
+1. Connector Name? Topics?  We have one Connector per Cassandra table.  Do we need a different Topic per Table as well for events/data?
+2. Recommendations on the Connector Name?  Is it best to go with `cassandra-source-tableName`?
+
+== Step 4: Install the Source Connector
+
+To install the Pulsar Source Connector:
+
+. Add the Source Connector file `source-pulsar-0.1.0-SNAPSHOT.nar` to your Pulsar service by one of two methods:
+.. Use a default Connector directory for your Pulsar server.  For more information, see the Apache Pulsar documentation article  https://pulsar.apache.org/docs/en/io-use/#configure-a-default-storage-location-for-a-connector[Configure a default storage location for a connector].
+.. Upload the Source Connector file anywhere on the Pulsar server.  Note the exact path of the file.
+. Start Pulsar with the following options.  The most important of these are the following:
+.. The Connector Name.  There will be one Connector per replicated Cassandra table.
+.. The Destination Topic for the Cassandra Data.
+.. The Connector Configuration including:???
+
+For example, if we have the following:
+
+NOTE:  I will likely rename these to be more reader-friendly.
+
+* Connector Name: cassandra-source-1
+* Destination Topic: data-ks1.table1
+* Connector Configuration Settings:
+** (Get the list here)
+
+Then this will be used to launch the Pulsar server with the Source Connector enabled:
+
+|[source,language-bash]
+----
+export JVM_EXTRA_OPTS="-javaagent:/path/to/producer-v3-pulsar-0.1.0-SNAPSHOT-all.jar=pulsarServiceUrl=http://schemaregistry:6650"
+----
+
+== Step 5: Read the Cassandra Data
+
+To read from the gathered data from the Cassandra cluster, create a Pulsar Consumer directed at the specific Destination Topic detailed above.  For more information, see the https://pulsar.apache.org/docs/en/concepts-messaging/#consumers[Apache Pulsar Consumer guide].

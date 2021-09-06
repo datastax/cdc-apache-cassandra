@@ -11,6 +11,7 @@ Antora requires NodeJS. Install NodeJS, then update project dependencies:
 [source,bash]
 ----
 brew install node
+npm install
 ----
 
 == Generating and viewing the HTML output locally
