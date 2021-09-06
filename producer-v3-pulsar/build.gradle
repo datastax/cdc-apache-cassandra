@@ -31,11 +31,6 @@ shadowJar {
 jar.enabled = false
 assemble.dependsOn(shadowJar)
 
-project.afterEvaluate {
-    project.tasks.generatePomFileForMavenPublication.enabled = false
-    project.tasks.publishMavenPublicationToMavenRepository.enabled = false
-}
-
 dependencies {
     api project(':producer-v3')
     implementation("org.apache.pulsar:pulsar-client:${pulsarVersion}")
