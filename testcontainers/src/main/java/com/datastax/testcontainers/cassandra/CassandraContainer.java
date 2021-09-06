@@ -56,14 +56,15 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
     public static final String IMAGE = DEFAULT_IMAGE_NAME.getUnversionedPart();
 
     public static final Integer CQL_PORT = 9042;
-    private static final String CONTAINER_CONFIG_LOCATION = "/etc/cassandra";
-    private static final String USERNAME = "cassandra";
-    private static final String PASSWORD = "cassandra";
-    protected static final String LOCAL_DC = "datacenter1";
+    public static final String CONTAINER_CONFIG_LOCATION = "/etc/cassandra";
+    public static final String USERNAME = "cassandra";
+    public static final String PASSWORD = "cassandra";
+    public static final String LOCAL_DC = "datacenter1";
 
     private String configLocation;
     private String initScriptPath;
     private Object metricRegistry;
+    private String containerConfigLocation = CONTAINER_CONFIG_LOCATION;
 
     /**
      * @deprecated use {@link #CassandraContainer(DockerImageName)} instead
@@ -91,7 +92,7 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
 
     @Override
     protected void configure() {
-        optionallyMapResourceParameterAsVolume(CONTAINER_CONFIG_LOCATION, configLocation);
+        optionallyMapResourceParameterAsVolume(containerConfigLocation, configLocation);
     }
 
     @Override
@@ -147,6 +148,11 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
      */
     public SELF withConfigurationOverride(String configLocation) {
         this.configLocation = configLocation;
+        return self();
+    }
+
+    public SELF withContainerConfigLocation(String containerConfigLocation) {
+        this.containerConfigLocation = containerConfigLocation;
         return self();
     }
 
