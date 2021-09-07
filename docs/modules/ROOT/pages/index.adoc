@@ -1,7 +1,7 @@
 = About DataStax Cassandra Source Connector
 
 DataStax Cassandra® Source Connector is open-source software (OSS) that send Cassandra mutations
-for table having the CDC enabled to https://pulsar.apache.org/[Apache Pulsar&reg];, which in turn can write the data to platforms such as Elasticsearch&reg; or Snowflake&reg;.
+for table having the CDC enabled to https://pulsar.apache.org/[Apache Pulsar]®, which in turn can write the data to platforms such as Elasticsearch&reg; or Snowflake&reg;.
 
 == Key Features
 

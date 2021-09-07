@@ -15,7 +15,7 @@ The following table identifies functionally equivalent DataStax Apache Pulsar Co
 NOTE: If you define both in your configuration, the Pulsar Connector setting take precedence over the `datastax-java-driver.property-name`.
 If you do not provide either in your configuration, Pulsar Connector defaults are in effect.
 
-For information about the Java properties, refer to the link:https://docs.datastax.com/en/developer/java-driver-dse/2.3/manual/core/configuration/[DataStax Java driver documentation.] For information about the Pulsar Connector settings, refer to xref:cfgRefPulsarDseConnection.adoc[].
+For information about the Java properties, refer to the link:https://docs.datastax.com/en/developer/java-driver-dse/2.3/manual/core/configuration/[DataStax Java driver documentation.]
 
 |===
 | DataStax Apache Pulsar Connector setting | Using datastax-java-driver prefix
