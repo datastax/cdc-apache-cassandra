@@ -1,6 +1,6 @@
 site:
   title: DataStax Cassandra Source Connector documentation
-  url: /docs/cass-data-connector
+  url: /docs/cass-source-connector
   start_page: cass-source-connector::index.adoc
 
 content:

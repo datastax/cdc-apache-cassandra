@@ -40,22 +40,52 @@ public class AsciiDocGenerator {
         return b.toString();
     }
 
-    private void getConfigKeyAsciiDoc(ConfigDef configDef, ConfigDef.ConfigKey key, StringBuilder b) {
-        b.append("[#").append(key.name).append("]").append("\n");
+    protected static void getConfigKeyAsciiDoc(
+            ConfigDef configDef, ConfigDef.ConfigKey key, StringBuilder b) {
+        b.append("| *").append(key.name).append("*").append("\n");
+        b.append("| ");
         for (String docLine : key.documentation.split("\n")) {
             if (docLine.length() == 0) {
                 continue;
             }
-            b.append(docLine).append("\n+\n");
+            b.append(docLine);
         }
-        b.append("Type: ").append(configDef.getConfigValue(key, "Type")).append("\n");
-        if (key.hasDefault()) {
-            b.append("Default: ").append(configDef.getConfigValue(key, "Default")).append("\n");
-        }
+        b.append("\n| ").append(getConfigValue(key, "Type"));
+        b.append("\n| ");
         if (key.validator != null) {
-            b.append("Valid Values: ").append(configDef.getConfigValue(key, "Valid Values")).append("\n");
+           b.append(getConfigValue(key, "Valid Values"));
         }
-        b.append("Importance: ").append(configDef.getConfigValue(key, "Importance")).append("\n");
+        b.append("\n| ");
+        if (key.hasDefault()) {
+            b.append(getConfigValue(key, "Default"));
+        }
+        //b.append("* Importance: ").append(getConfigValue(key, "Importance")).append("\n");
+        b.append("\n");
+    }
+
+    protected static String getConfigValue(ConfigDef.ConfigKey key, String headerName) {
+        switch (headerName) {
+            case "Name":
+                return key.name;
+            case "Description":
+                return key.documentation;
+            case "Type":
+                return key.type.toString().toLowerCase(Locale.ROOT);
+            case "Default":
+                if (key.hasDefault()) {
+                    if (key.defaultValue == null) return "null";
+                    String defaultValueStr = ConfigDef.convertToString(key.defaultValue, key.type);
+                    if (defaultValueStr.isEmpty()) return "\"\"";
+                    else return defaultValueStr;
+                } else return "";
+            case "Valid Values":
+                return key.validator != null ? key.validator.toString() : "";
+            case "Importance":
+                return key.importance.toString().toLowerCase(Locale.ROOT);
+            default:
+                throw new RuntimeException(
+                        "Can't find value for header '" + headerName + "' in " + key.name);
+        }
     }
 
     private List<ConfigDef.ConfigKey> sortedConfigs(ConfigDef configDef) {
@@ -95,9 +125,13 @@ public class AsciiDocGenerator {
     public void generateConfigDefDoc(Path path, String name, String title, ConfigDef configDef) throws IOException {
         try (FileWriter fileWriter = new FileWriter(path.resolve(name).toFile())) {
             PrintWriter pw = new PrintWriter(fileWriter);
-            pw.append("= ").append(title).append("\n\n");
-            pw.append("== Parameters").append("\n\n");
+            pw.append("== ").append(title).append("\n\n");
+            pw.append(".Table ").append(title).append("\n")
+                    .append("[cols=\"2,3,1,1,1\"]\n")
+                    .append("|===\n")
+                    .append("|Name | Description | Type | Validator | Default\n\n");
             pw.append(toAscidoc(configDef));
+            pw.append("|===\n");
             pw.flush();
         }
     }
@@ -105,17 +139,17 @@ public class AsciiDocGenerator {
     public void generateCassourceSourceDocs(String outputDir) throws IOException {
         generateConfigDefDoc(Paths.get(outputDir),
                 "cfgCassandraSource.adoc",
-                "Cassandra Source Connector Configuration",
+                "Cassandra Source Connector settings",
                 CassandraSourceConnectorConfig.GLOBAL_CONFIG_DEF);
 
         generateConfigDefDoc(Paths.get(outputDir),
                 "cfgCassandraAuth.adoc",
-                "Cassandra Authentication Configuration",
+                "Cassandra Authentication settings",
                 AuthenticatorConfig.CONFIG_DEF);
 
         generateConfigDefDoc(Paths.get(outputDir),
                 "cfgCassandraSsl.adoc",
-                "Cassandra SSL/TLS Configuration",
+                "Cassandra SSL/TLS settings",
                 SslConfig.CONFIG_DEF);
     }
 

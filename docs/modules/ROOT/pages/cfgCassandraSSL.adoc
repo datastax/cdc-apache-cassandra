@@ -1,68 +1,62 @@
-= Cassandra SSL/TLS Configuration
+== Cassandra SSL/TLS settings
 
-== Parameters
+.Table Cassandra SSL/TLS settings
+[cols="2,3,1,1,1"]
+|===
+|Name | Description | Type | Validator | Default
 
-[#ssl.cipherSuites]
-The cipher suites to enable
-+
-Type: list
-Default: ""
-Importance: high
+| *ssl.cipherSuites*
+| The cipher suites to enable
+| list
+| 
+| ""
 
-[#ssl.hostnameValidation]
-Whether or not to validate node hostnames when using SSL
-+
-Type: boolean
-Default: true
-Importance: high
+| *ssl.hostnameValidation*
+| Whether or not to validate node hostnames when using SSL
+| boolean
+| 
+| true
 
-[#ssl.keystore.password]
-Keystore password
-+
-Type: password
-Default: [hidden]
-Importance: high
+| *ssl.keystore.password*
+| Keystore password
+| password
+| 
+| [hidden]
 
-[#ssl.keystore.path]
-The path to the keystore file
-+
-Type: string
-Default: ""
-Importance: high
+| *ssl.keystore.path*
+| The path to the keystore file
+| string
+| 
+| ""
 
-[#ssl.openssl.keyCertChain]
-The path to the certificate chain file
-+
-Type: string
-Default: ""
-Importance: high
+| *ssl.openssl.keyCertChain*
+| The path to the certificate chain file
+| string
+| 
+| ""
 
-[#ssl.openssl.privateKey]
-The path to the private key file
-+
-Type: string
-Default: ""
-Importance: high
+| *ssl.openssl.privateKey*
+| The path to the private key file
+| string
+| 
+| ""
 
-[#ssl.provider]
-SSL/TLS provider
-+
-Type: string
-Default: None
-Valid Values: [None, JDK, OpenSSL]
-Importance: high
+| *ssl.provider*
+| SSL/TLS provider
+| string
+| [None, JDK, OpenSSL]
+| None
 
-[#ssl.truststore.password]
-Truststore password
-+
-Type: password
-Default: [hidden]
-Importance: high
+| *ssl.truststore.password*
+| Truststore password
+| password
+| 
+| [hidden]
 
-[#ssl.truststore.path]
-The path to the truststore file
-+
-Type: string
-Default: ""
-Importance: high
+| *ssl.truststore.path*
+| The path to the truststore file
+| string
+| 
+| ""
 
+|===

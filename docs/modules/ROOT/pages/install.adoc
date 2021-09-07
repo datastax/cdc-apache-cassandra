@@ -1,4 +1,4 @@
-= Installing DataStax Cassandra Source Connector
+= Installing the DataStax Cassandra Source Connector
 
 == Download the Datastax Cassandra Source Connector
 
@@ -33,18 +33,20 @@ source-pulsar-0.1.0-SNAPSHOT.nar
 All data node of your Cassandra datacenter must run the producer JVM agent to send mutations into the events topic of your streaming software. Start your Cassandra nodes with the appropriate producer binary matching your
 Cassandra version (3.11 or 4.0) and your streaming platform (Apache Pulsar).
 
-As a java agent, the CDC producer parameters take place after the jar file name in the form of a comma separated list of paramName=paramValue. Here is an example for Apache Kafka on Cassandra version 4.0 nodes:
+As a java agent, the CDC producer parameters take place after the jar file name in the form of a comma separated list of paramName=paramValue. Here is an example for Apache Pulsar on Cassandra version 4.0 nodes:
 
 [source,language-bash]
 ----
-export JVM_EXTRA_OPTS="-javaagent:/path/to/producer-v4-pulsar-0.1-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
+export JVM_EXTRA_OPTS="-javaagent:/path/to/producer-v4-pulsar-<version>-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
 ----
+
+== Producer Parameters
 
 include::producerParams.adoc[]
 
 == Deploy the Kafka Cassandra Source Connector
 
-In order to the Cassandra Source Connector NAR file in your Pulsar cluster, you can copy it into
+In order to deploy the Cassandra Source Connector NAR file in your Pulsar cluster, you can copy it into
 the pulsar connectors directory or upload it. You have to specify th following parameters:
 
 * The connector name, remember you have one connector per replicated cassandra table.
@@ -62,6 +64,16 @@ pulsar-admin source localrun \
 --source-config '{"contactPoints":"localhost:9042", "localDc":"datacenter1", "keyspace":"ks1", "table":"table1", "eventsTopicPrefix": "persistent://public/default/events-", "eventsSubscriptionName":"sub1", "keyConverter":"com.datastax.oss.pulsar.source.converters.AvroConverter","valueConverter":"com.datastax.oss.pulsar.source.converters.JsonConverter"}'
 ----
 
+Then check your connector is properly running with no error:
+[source,language-bash]
+----
+pulsar-admin source status --name cassandra-source-1
+----
+
 include::cfgCassandraSource.adoc[]
 
+include::cfgCassandraAuth.adoc[]
+
 include::cfgCassandraSSL.adoc[]
+
+include::cfgCassandraJavaDriverSettings.adoc[]

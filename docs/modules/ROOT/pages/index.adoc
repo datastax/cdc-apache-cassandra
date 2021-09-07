@@ -1,13 +1,12 @@
 = About DataStax Cassandra Source Connector
 
 DataStax Cassandra® Source Connector is open-source software (OSS) that send Cassandra mutations
-for table having the CDC enabled to Apache Pulsar&reg;.
-, which in turn can write the data to platforms such as Elasticsearch&reg; or Snowflake&reg;.
+for table having the CDC enabled to https://pulsar.apache.org/[Apache Pulsar&reg];, which in turn can write the data to platforms such as Elasticsearch&reg; or Snowflake&reg;.
 
 == Key Features
 
-* Support both Apache Cassandra 3.11.x and 4.0.x
-* Support Apache Pulsar.
+* Support both Apache Cassandra 3.11+ and 4.0+
+* Support Apache Pulsar 2.8.1+.
 * Propagate Cassandra schema change to the Pulsar schema registry
 * Support JSON or AVRO message format.
 
@@ -22,29 +21,46 @@ for table having the CDC enabled to Apache Pulsar&reg;.
 == Architecture
 
 The DataStax Cassandra® Source Connector two components:
+
 * A event producer deployed as a JVM agent on each Cassandra data node.
 * A Cassandra source connector deployed in your streaming platform.
 
 The following diagram describes the general architecture.
 
-image::images/cassandra-source-connector.png[Cassandra-source-connector-architecture]
+image::cassandra-source-connector.png[]
 
-When CDC is enabled for a given Cassandra table, the event producer emit a message for each Cassandra mutation
-in a per-table events topic. Then the source connector process these events, it fetches the mutated Cassandra row,
-and writes it to the data topic. This ensures the most recent state of the Cassandra table is replicated into
+1. When CDC is enabled for a given Cassandra table, the event producer running on each nodes reads the Cassandra commitlog files and emit a message for each Cassandra mutation
+in a per-table events topic.
+2. Then the source connector process these events, it fetches the mutated Cassandra row,
+3. and writes the row into the data topic. This ensures the most recent state of the Cassandra table is replicated into
 the data topic without the need to time re-order Cassandra mutations.
-The Cassandra Source Connector also update the schema-registry to reflects the Cassandra table schema.
 
-Deployment matrix:
+The Cassandra Source Connector also update the schema-registry to dynamically reflects the Cassandra table schema.
 
-| Streaming platform | Cassandra v3.x producer | Cassandra v4.x producer  | Source connector |
-| ---                | ---                     | ---                      | ---              |
-| Apache Pulsar      | [producer-v3-pulsar](producer-v3-pulsar) | [producer-v4-pulsar](producer-v4-pulsar) | [source-pulsar](source-pulsar) |
+You can then deploy various sink connectors (see https://pulsar.apache.org/docs/en/io-connectors/#sink-connector[Pulsar built-in sink connectors]) to replicate data into the backends of your choice.
+
+=== Deployment matrix
+
+[cols="1,1,1,1"]
+|===
+| Streaming platform | Cassandra v3.x producer | Cassandra v4.x producer  | Source connector
+
+| Apache Pulsar
+| https://github.com/datastax/cassandra-source-connector/tree/master/producer-v3-pulsar[producer-v3-pulsar]
+| https://github.com/datastax/cassandra-source-connector/tree/master/producer-v4-pulsar[producer-v4-pulsar]
+| https://github.com/datastax/cassandra-source-connector/tree/master/source-pulsar[source-pulsar]
+
+|===
+
+== Supported streaming platform
+
+* Apache Pulsar® 2.8.1 and later
 
 [#supported-databases]
 == Supported databases
 
 * Open source Apache® Cassandra® 3.11.x and 4.x databases
+* Datastax Server Enterprise 6.8.16+
 
 == Supported Cassandra data structures
 
@@ -57,14 +73,6 @@ Cassandra supported CQL3 data types:
 * timestamp, time, date, duration
 * uuid, timeuuid
 * User Defined Types
-
-== Supported streaming platform
-
-* Apache Pulsar® 2.8.0 and later
-
-== Getting started
-
-* xref:quickstart-pulsar.adoc[] A quick introduction connecting a Cassandra table to a Pulsar cluster.
 
 == Where to go next
 

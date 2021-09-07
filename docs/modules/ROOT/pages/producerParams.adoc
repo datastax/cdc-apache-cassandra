@@ -1,115 +1,99 @@
-= Producer Parameters
+.Table Producer Parameters
+[cols="2,3,1,1"]
+|===
+|Name | Description | Type | Default
+| *sslProvider*
+| The SSL/TLS provider to use.
+| string
+| 
 
-== Parameters
+| *sslTruststorePath*
+| The path to the SSL/TLS truststore file.
+| string
+| 
 
-[#sslProvider]
-The SSL/TLS provider to use.
-+
-Platform: ALL
-Type: string
+| *sslTruststorePassword*
+| The password for the SSL/TLS truststore.
+| string
+| 
 
-[#sslTruststorePath]
-The path to the SSL/TLS truststore file.
-+
-Platform: ALL
-Type: string
+| *sslTruststoreType*
+| The type of the SSL/TLS truststore.
+| string
+| JKS
 
-[#sslTruststorePassword]
-The password for the SSL/TLS truststore.
-+
-Platform: ALL
-Type: string
 
-[#sslTruststoreType]
-The type of the SSL/TLS truststore.
-+
-Platform: ALL
-Type: string
-Default: JKS
+| *sslKeystorePath*
+| The path to the SSL/TLS keystore file.
+| string
+| 
 
-[#sslKeystorePath]
-The path to the SSL/TLS keystore file.
-+
-Platform: ALL
-Type: string
+| *sslKeystorePassword*
+| The password for the SSL/TLS keystore.
+| string
+| 
 
-[#sslKeystorePassword]
-The password for the SSL/TLS keystore.
-+
-Platform: ALL
-Type: string
+| *sslCipherSuites*
+| Defines one or more cipher suites to use for negotiating the SSL/TLS connection.
+| string
+| 
 
-[#sslCipherSuites]
-Defines one or more cipher suites to use for negotiating the SSL/TLS connection.
-+
-Platform: ALL
-Type: string
+| *sslEnabledProtocols*
+| Enabled SSL/TLS protocols
+| string
+| TLSv1.2,TLSv1.1,TLSv1
 
-[#sslEnabledProtocols]
-Enabled SSL/TLS protocols
-+
-Platform: ALL
-Type: string
-Default: TLSv1.2,TLSv1.1,TLSv1
 
-[#sslAllowInsecureConnection]
-Allows insecure connections to servers whose cert has not been signed by an approved CA. You should always disable sslAllowInsecureConnection in production environments.
-+
-Platform: PULSAR
-Type: boolean
-Default: false
+| *sslAllowInsecureConnection*
+| Allows insecure connections to servers whose cert has not been signed by an approved CA. You should always disable sslAllowInsecureConnection in production environments.
+| boolean
+| false
 
-[#sslHostnameVerificationEnable]
-Enable the server hostname verification.
-+
-Platform: PULSAR
-Type: boolean
-Default: false
 
-[#pulsarServiceUrl]
-The Pulsar broker service URL.
-+
-Platform: PULSAR
-Type: string
-Default: pulsar://localhost:6650
+| *sslHostnameVerificationEnable*
+| Enable the server hostname verification.
+| boolean
+| false
 
-[#pulsarAuthPluginClassName]
-The Pulsar authentication plugin class name.
-+
-Platform: PULSAR
-Type: string
 
-[#pulsarAuthParams]
-The Pulsar authentication parameters.
-+
-Platform: PULSAR
-Type: string
+| *pulsarServiceUrl*
+| The Pulsar broker service URL.
+| string
+| pulsar://localhost:6650
 
-[#cdcRelocationDir]
-The directory where processed commitlog files are copied.
-+
-Platform: ALL
-Type: string
-Default: cdc_backup
 
-[#cdcPoolIntervalMs]
-The pool interval in milliseconds for watching new commit log files in the CDC raw directory.
-+
-Platform: ALL
-Type: long
-Default: 60000
+| *pulsarAuthPluginClassName*
+| The Pulsar authentication plugin class name.
+| string
+| 
 
-[#errorCommitLogReprocessEnabled]
-Enable the re-processing of error commit logs files.
-+
-Platform: ALL
-Type: boolean
-Default: false
+| *pulsarAuthParams*
+| The Pulsar authentication parameters.
+| string
+| 
 
-[#topicPrefix]
-The event topic prefix. The keyspace and table names are appended to that prefix to build the topic name.
-+
-Platform: ALL
-Type: string
-Default: events-
+| *cdcRelocationDir*
+| The directory where processed commitlog files are copied.
+| string
+| cdc_backup
 
+
+| *cdcPoolIntervalMs*
+| The pool interval in milliseconds for watching new commit log files in the CDC raw directory.
+| long
+| 60000
+
+
+| *errorCommitLogReprocessEnabled*
+| Enable the re-processing of error commit logs files.
+| boolean
+| false
+
+
+| *topicPrefix*
+| The event topic prefix. The keyspace and table names are appended to that prefix to build the topic name.
+| string
+| events-
+
+
+|===

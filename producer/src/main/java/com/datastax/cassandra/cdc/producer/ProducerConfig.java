@@ -53,18 +53,21 @@ public class ProducerConfig {
         public final int orderInGroup;
 
         protected void getAsciiDoc(StringBuilder b) {
-            b.append("[#").append(name).append("]").append("\n");
+            b.append("| *").append(name).append("*").append("\n");
+            b.append("| ");
             for (String docLine : documentation.split("\n")) {
                 if (docLine.length() == 0) {
                     continue;
                 }
-                b.append(docLine).append("\n+\n");
+                b.append(docLine).append("\n");
             }
-            b.append("Platform: ").append(getConfigValue("Platform")).append("\n");
-            b.append("Type: ").append(getConfigValue("Type")).append("\n");
+            //b.append("Platform: ").append(getConfigValue("Platform")).append("\n");
+            b.append("| ").append(getConfigValue("Type")).append("\n");
+            b.append("| ");
             if (defaultValue != null) {
-                b.append("Default: ").append(getConfigValue("Default")).append("\n");
+                b.append(getConfigValue("Default")).append("\n");
             }
+            b.append("\n");
         }
 
         protected String getConfigValue(String headerName) {
@@ -278,8 +281,10 @@ public class ProducerConfig {
 
         try (FileWriter fileWriter = new FileWriter(path.resolve(name).toFile())) {
             PrintWriter pw = new PrintWriter(fileWriter);
-            pw.append("= ").append(title).append("\n\n");
-            pw.append("== Parameters").append("\n\n");
+            pw.append(".Table ").append(title).append("\n")
+                    .append("[cols=\"2,3,1,1\"]\n")
+                    .append("|===\n")
+                    .append("|Name | Description | Type | Default\n");
 
             StringBuilder b = new StringBuilder();
             for (Setting<?> setting: orderedSettings) {
@@ -288,6 +293,7 @@ public class ProducerConfig {
             }
 
             pw.append(b.toString());
+            pw.append("|===\n");
             pw.flush();
         }
     }

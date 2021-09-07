@@ -1,47 +1,44 @@
-= Cassandra Authentication Configuration
+== Cassandra Authentication settings
 
-== Parameters
+.Table Cassandra Authentication settings
+[cols="2,3,1,1,1"]
+|===
+|Name | Description | Type | Validator | Default
 
-[#auth.gssapi.keyTab]
-Kerberos keytab file for GSSAPI provider authentication
-+
-Type: string
-Default: ""
-Importance: high
+| *auth.gssapi.keyTab*
+| Kerberos keytab file for GSSAPI provider authentication
+| string
+| 
+| ""
 
-[#auth.gssapi.principal]
-Kerberos principal for GSSAPI provider authentication
-+
-Type: string
-Default: ""
-Importance: high
+| *auth.gssapi.principal*
+| Kerberos principal for GSSAPI provider authentication
+| string
+| 
+| ""
 
-[#auth.gssapi.service]
-SASL service name to use for GSSAPI provider authentication
-+
-Type: string
-Default: dse
-Importance: high
+| *auth.gssapi.service*
+| SASL service name to use for GSSAPI provider authentication
+| string
+| 
+| dse
 
-[#auth.password]
-Password for PLAIN (username/password) provider authentication
-+
-Type: password
-Default: [hidden]
-Importance: high
+| *auth.password*
+| Password for PLAIN (username/password) provider authentication
+| password
+| 
+| [hidden]
 
-[#auth.provider]
-Authentication provider
-+
-Type: string
-Default: None
-Valid Values: [None, PLAIN, GSSAPI]
-Importance: high
+| *auth.provider*
+| Authentication provider
+| string
+| [None, PLAIN, GSSAPI]
+| None
 
-[#auth.username]
-Username for PLAIN (username/password) provider authentication
-+
-Type: string
-Default: ""
-Importance: high
+| *auth.username*
+| Username for PLAIN (username/password) provider authentication
+| string
+| 
+| ""
 
+|===

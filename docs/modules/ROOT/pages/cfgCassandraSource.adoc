@@ -1,184 +1,170 @@
-= Cassandra Source Connector Configuration
+== Cassandra Source Connector settings
 
-== Parameters
+.Table Cassandra Source Connector settings
+[cols="2,3,1,1,1"]
+|===
+|Name | Description | Type | Validator | Default
 
-[#events.topic]
-The topic name to listen cassandra mutation events to
-+
-Type: string
-Importance: high
+| *events.topic*
+| The topic name to listen cassandra mutation events to
+| string
+| 
+| 
 
-[#key.converter]
-Converter class used to write the message key to the data topic
-+
-Type: class
-Importance: high
+| *key.converter*
+| Converter class used to write the message key to the data topic
+| class
+| 
+| 
 
-[#keyspace]
-Cassandra keyspace name
-+
-Type: string
-Importance: high
+| *keyspace*
+| Cassandra keyspace name
+| string
+| 
+| 
 
-[#table]
-Cassandra table name
-+
-Type: string
-Importance: high
+| *table*
+| Cassandra table name
+| string
+| 
+| 
 
-[#value.converter]
-Converter class used to write the message value to the data topic
-+
-Type: class
-Importance: high
+| *value.converter*
+| Converter class used to write the message value to the data topic
+| class
+| 
+| 
 
-[#cloud.secureConnectBundle]
-The location of the cloud secure bundle used to connect to Datastax Apache Cassandra as a service.
-+
-Type: string
-Default: ""
-Importance: high
+| *cloud.secureConnectBundle*
+| The location of the cloud secure bundle used to connect to Datastax Apache Cassandra as a service.
+| string
+| 
+| ""
 
-[#compression]
-Compression algorithm to use when issuing requests to the database server
-+
-Type: string
-Default: None
-Valid Values: (case insensitive) [LZ4, NONE, SNAPPY]
-Importance: high
+| *compression*
+| Compression algorithm to use when issuing requests to the database server
+| string
+| (case insensitive) [LZ4, NONE, SNAPPY]
+| None
 
-[#connectionPoolLocalSize]
-Number of connections that driver maintains within a connection pool to each node in local dc
-+
-Type: int
-Default: 4
-Valid Values: [1,...]
-Importance: high
+| *connectionPoolLocalSize*
+| Number of connections that driver maintains within a connection pool to each node in local dc
+| int
+| [1,...]
+| 4
 
-[#contactPoints]
-Initial contact points
-+
-Type: list
-Default: ""
-Importance: high
+| *contactPoints*
+| Initial contact points
+| list
+| 
+| ""
 
-[#data.topic]
-The topic name to publish cassandra data to
-+
-Type: string
-Default: data-topic
-Importance: high
+| *data.topic*
+| The topic name to publish cassandra data to
+| string
+| 
+| data-topic
 
-[#ignoreErrors]
-Specifies which errors the connector should ignore when processing the record. Valid values are: None (never ignore errors), All (ignore all errors), Driver (ignore driver errors only, i.e. errors when writing to the database).
-+
-Type: string
-Default: None
-Importance: high
+| *ignoreErrors*
+| Specifies which errors the connector should ignore when processing the record. Valid values are: None (never ignore errors), All (ignore all errors), Driver (ignore driver errors only, i.e. errors when writing to the database).
+| string
+| 
+| None
 
-[#jmx]
-Whether to enable JMX reporting
-+
-Type: boolean
-Default: true
-Importance: high
+| *jmx*
+| Whether to enable JMX reporting
+| boolean
+| 
+| true
 
-[#loadBalancing.localDc]
-The datacenter name (commonly dc1, dc2, etc.) local to the machine on which the connector is running
-+
-Type: string
-Default: ""
-Importance: high
+| *loadBalancing.localDc*
+| The datacenter name (commonly dc1, dc2, etc.) local to the machine on which the connector is running
+| string
+| 
+| ""
 
-[#maxConcurrentRequests]
-The maximum number of requests to send at once
-+
-Type: int
-Default: 500
-Valid Values: [1,...]
-Importance: high
+| *maxConcurrentRequests*
+| The maximum number of requests to send at once
+| int
+| [1,...]
+| 500
 
-[#maxNumberOfRecordsInBatch]
-Maximum number of records that could be send in one batch request
-+
-Type: int
-Default: 32
-Valid Values: [1,...]
-Importance: high
+| *maxNumberOfRecordsInBatch*
+| Maximum number of records that could be send in one batch request
+| int
+| [1,...]
+| 32
 
-[#metricsHighestLatency]
-This is used to scale internal data structures for gathering metrics. It should be higher than queryExecutionTimeout. This parameter should be expressed in seconds.
-+
-Type: int
-Default: 35
-Valid Values: [1,...]
-Importance: high
+| *metricsHighestLatency*
+| This is used to scale internal data structures for gathering metrics. It should be higher than queryExecutionTimeout. This parameter should be expressed in seconds.
+| int
+| [1,...]
+| 35
 
-[#port]
-Port to connect to nodes
-+
-Type: int
-Default: 9042
-Valid Values: [1,...]
-Importance: high
+| *port*
+| Port to connect to nodes
+| int
+| [1,...]
+| 9042
 
-[#queryExecutionTimeout]
-CQL statement execution timeout, in seconds
-+
-Type: int
-Default: 30
-Valid Values: [1,...]
-Importance: high
+| *queryExecutionTimeout*
+| CQL statement execution timeout, in seconds
+| int
+| [1,...]
+| 30
 
-[#columns]
-Regular expression of the Cassandra replicated column names
-+
-Type: string
-Default: .*
-Importance: low
+| *batch.size*
+| The batch size for grouping mutations before sending them to the data topic
+| int
+| 
+| 200
 
-[#jmxConnectorDomain]
-Domain for JMX reporting
-+
-Type: string
-Default: com.datastax.oss.cdc
-Importance: low
+| *query.executors*
+| The number of concurrent queries to be sent to Cassandra
+| int
+| 
+| 10
 
-[#events.subscription.name]
-The pulsar events topic subscription name, with a default set to 'sub'
-+
-Type: string
-Default: sub
-Importance: high
+| *columns*
+| Regular expression of the Cassandra replicated column names
+| string
+| 
+| .*
 
-[#cache.max.digest]
-The maximum number of digest per mutation cache entry, with a default set to 3
-+
-Type: long
-Default: 3
-Valid Values: [1,...]
-Importance: high
+| *jmxConnectorDomain*
+| Domain for JMX reporting
+| string
+| 
+| com.datastax.oss.cdc
 
-[#cache.max.capacity]
-The maximum capacity of the mutation cache, with a default size of 32767
-+
-Type: long
-Default: 32767
-Valid Values: [1,...]
-Importance: high
+| *events.subscription.name*
+| The pulsar events topic subscription name, with a default set to 'sub'
+| string
+| 
+| sub
 
-[#cache.expire.after.ms]
-The mutation cache entry duration in milliseconds, with a default value of 60 seconds.
-+
-Type: long
-Default: 600000
-Valid Values: [1000,...]
-Importance: high
+| *cache.max.digest*
+| The maximum number of digest per mutation cache entry, with a default set to 3
+| long
+| [1,...]
+| 3
 
-[#cache.only_if_coordinator_match]
-Cache the mutation digest only if the coordinator node is the originator node.
-+
-Type: boolean
-Default: true
-Importance: high
+| *cache.max.capacity*
+| The maximum capacity of the mutation cache, with a default size of 32767
+| long
+| [1,...]
+| 32767
 
+| *cache.expire.after.ms*
+| The mutation cache entry duration in milliseconds, with a default value of 60 seconds.
+| long
+| [1000,...]
+| 600000
+
+| *cache.only_if_coordinator_match*
+| Cache the mutation digest only if the coordinator node is the originator node.
+| boolean
+| 
+| true
+
+|===
