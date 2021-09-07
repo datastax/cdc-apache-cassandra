@@ -35,9 +35,7 @@ in a per-table events topic.
 3. and writes the row into the data topic. This ensures the most recent state of the Cassandra table is replicated into
 the data topic without the need to time re-order Cassandra mutations.
 
-The Cassandra Source Connector also update the schema-registry to dynamically reflects the Cassandra table schema.
-
-You can then deploy various sink connectors (see https://pulsar.apache.org/docs/en/io-connectors/#sink-connector[Pulsar built-in sink connectors]) to replicate data into the backends of your choice.
+The Cassandra Source Connector also updates the schema-registry to dynamically reflects the Cassandra table schema. You can then deploy various sink connectors (see https://pulsar.apache.org/docs/en/io-connectors/#sink-connector[Pulsar built-in sink connectors]) to replicate data into the backends of your choice.
 
 === Deployment matrix
 
