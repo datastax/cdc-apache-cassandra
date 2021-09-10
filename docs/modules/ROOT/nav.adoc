@@ -1,7 +1,7 @@
 * xref:index.adoc[]
+* xref:quickstart-guide.adoc[]
 * xref:install.adoc[]
 * xref:monitor.adoc[]
 * xref:faqs.adoc[]
-* xref:quickstart-guide.adoc[]
-* xref:kafka.adoc[]
+
 

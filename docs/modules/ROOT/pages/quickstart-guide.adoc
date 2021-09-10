@@ -1,13 +1,13 @@
 = DataStax Cassandra CDC Replication Quick Start Guide
 
-Users who want to implement CDC (Change Data Capture) from their https://cassandra.apache.org/index.html[Apache Cassandra] cluster can use the https://github.com/datastax/cassandra-source-connector/tree/master[DataStax Cassandra CDC Source Connector] to capture change data events into https://pulsar.apache.org[Apache Pulsar].
+Users who want to implement CDC (Change Data Capture) from their https://cassandra.apache.org/index.html[Apache Cassandra] cluster can use the https://github.com/datastax/cassandra-source-connector/tree/master[DataStax Cassandra Source Connector (CSC)] to capture change data events into https://pulsar.apache.org[Apache Pulsar].
 
-For more information on how the Source Connector works, see the link:index.adoc[About] page.
+For more information on how the CSC works, see the link:index.adoc[About] page.
 
-This guide instructions users setting up the DataStax Cassandra CDC Source Connector in the minimum number of steps.  The general outline of these steps are:
+This guide instructions users setting up the CSC in the minimum number of steps.  The general outline of these steps are:
 
-* Step 0: Download the DataStax Cassandra CDC Source Connector.
-* Step 1: Install the Cassandra CDC Producer on each Cassandra Node.
+* Step 0: Download the CSC.
+* Step 1: Install the CSC Cassandra Node.
 * Step 2. Install Pulsar.
 * Step 3: Configure Pulsar for Cassandra Event Topics and Data Topics.
 * Step 4: Install the Source Connector.
@@ -17,7 +17,7 @@ This guide instructions users setting up the DataStax Cassandra CDC Source Conne
 
 * Apache Cassandra 3.11 or 4.0
 
-== Step 0: Download the CDC Source Connector
+== Step 0: Download the CSC
 
 1. Go to the download page at https://downloads.datastax.com/#csc[DataStax downloads site].
 2. Agree to the Terms and Conditions by enabling the Terms checkbox, then selecting **Download**.
@@ -35,12 +35,12 @@ The following files are unpacked into a directory such as `cassandra-source-conn
 LICENSE
 README.md
 THIRD-PARTY.txt
-producer-v3-pulsar-0.1.0-SNAPSHOT-all.jar
-producer-v4-pulsar-0.1.0-SNAPSHOT-all.jar
-source-pulsar-0.1.0-SNAPSHOT.nar
+producer-v3-pulsar-<version>-SNAPSHOT-all.jar
+producer-v4-pulsar-<version>-SNAPSHOT-all.jar
+source-pulsar-<version>-SNAPSHOT.nar
 ----
 
-== Step 1: Install the Cassandra CDC Producer
+== Step 1: Install the CSC
 
 To install the Cassandra CDC Producer, follow these steps:
 
@@ -52,9 +52,9 @@ To install the Cassandra CDC Producer, follow these steps:
 |CDC Pulsar Producer
 
 |3.11 
-|producer-v3-pulsar-0.1.0-SNAPSHOT-all.jar
+|producer-v3-pulsar-<version>-SNAPSHOT-all.jar
 |4.0 
-|producer-v4-pulsar-0.1.0-SNAPSHOT-all.jar
+|producer-v4-pulsar-<version>-SNAPSHOT-all.jar
 |===
 
 1. Restart Cassandra and specify the Producer parameters in the `JVM_EXTRA_OPTS` setting, which each parameter .  For more information on the producer parameters, see link:producerParams.adoc[Producer Parameters].  The following are examples of the Cassandra Producer parameters depending on your Cassandra version:
@@ -79,7 +79,7 @@ export JVM_EXTRA_OPTS="-javaagent:/path/to/producer-v4-pulsar-0.1.0-SNAPSHOT-all
 
 == Step 2: Install Pulsar
 
-Depending on your organizations needs, there are different distributions of Apache Pulsar to use.  One is the official Apache Pulsar.  For high availability production systems, another option is Luna Streaming, based on Apache Pulsar.
+Depending on your organizations needs, there are different distributions of Apache Pulsar to use.  One is the official Apache Pulsar.  For high availability production systems, another option is Luna Streaming, based on Apache Pulsar and engineered to run on Kubernetes.
 
 === Install Apache Pulsar
 
@@ -87,7 +87,7 @@ Apache Pulsar has provided installation instructions for local, Docker, and Kube
 
 === Install Luna Streaming
 
-Another alternative is the DataStax Luna Streaming service provides a production level, secure distribution of Apache Pulsar.  For instructions on how to install Luna Streaming, see either of the following based on your environment:
+The DataStax Luna Streaming service provides a production level, secure distribution of Apache Pulsar.  For instructions on how to install Luna Streaming, see either of the following based on your environment:
 
 * https://docs.datastax.com/en/luna/streaming/2.7/quickstart-helm-installs.html[Quick Start for Helm Chart installs]
 * https://docs.datastax.com/en/luna/streaming/2.7/quickstart-server-installs.html[Quick Start for Server/VM installs]

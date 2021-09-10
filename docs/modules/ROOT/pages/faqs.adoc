@@ -1,25 +1,32 @@
 = Cassandra Source Connector FAQs
 
-If you are new to DataStax Cassandra Source Connector, these FAQs are for you.
+If you are new to DataStax Cassandra Source Connector (CSC), please read the following FAQs.
 
 == Introduction
 
-=== What is DataStax Cassandra Source Connector?
+=== What is DataStax CSC?
 
-The Alpha release of Cassandra Source Connector is a new, open-source product from DataStax.
-With CDC, Cassyour apps can consume data from an Apache Cassandra&reg; table and put the updates onto a Pulsar topic, which in turn can write the data to external targets such as Elastic, Snowflake, and other platforms. By design, the Source component is simple, with a 1:1 correspondence between the Cassandra table and a single Pulsar topic.
+The Alpha release of the Cassandra Source Connector (CSC) is a new, open-source product from DataStax.
 
-=== What are the system requirements for Cassandra Data Connector?
+With CDC, your apps can consume data from an Apache Cassandra table and submit the updates onto a Pulsar topic.  This topic can then be consumed by external targets such as Elastic, Snowflake, and other platforms. By design, the CSC is meant to be a simple connector with a 1:1 correspondence between a Cassandra table and a single Pulsar topic.
 
-Cassandra Source Connector requires additional resources depending on your write throughput.
-For each cassandra write, each Cassandra replica send one message to your streaming platform (Pulsar or Kafka), and
-execute at least one QUORUM read on your
+The CSC is composed of two parts:
+
+* The Cassandra Data Connector, which transmits Change Data Capture (CDC) updates from the Cassandra table to the streaming service.
+* The Pulsar CSC Connector, which verifies the CSC events and stores the final data changes into a Data topic.
+
+=== What are the system requirements for the CSC?
+
+The CSC requires additional resources depending on your write throughput.
+
+For each Cassandra write, each Cassandra replica sends one message to your Pulsar service, and executes at least one QUORUM read on your Cassandra cluster.
 
 === What components and features are provided by Cassandra Data Connector?
 
 Cassandra Data Connector provides:
 
 * Cassandra, Elastic, Snowflake, Kinesis, Kafka, and JDBC connectors
+** @TODO: Is this accurate?
 * A management dashboard
 * A monitoring and alerting system
 
@@ -27,22 +34,29 @@ Cassandra Data Connector provides:
 
 Cassandra Data Connector supports Apache Pulsar 2.7.0 and later.
 
-=== What does Cassandra Data Connector provide that I cannot get with open-source Apache Pulsar?
+=== What does the CSC provide that is not provided by Apache Pulsar?
 
-DataStax Cassandra Data Connector implements, in effect, the reverse of Apache Pulsar or DataStax CassaNdra data Connector. With CSC, the Source takes data from Cassandra and puts that date onto onto a Pulsar topic. From there, the data can be published to external platforms like Snowflake, Elastic, and so on.
+DataStax Cassandra Data Connector implements the reverse of the DataStax Cassandra Data Connector, which stores Pulsar topic updates into Cassandra.  The CSC takes data from a Cassanra table and stores that data into a Pulsar topic.  From there, the data can be published to external platforms like Snowflake, Elastic, and so on.
 
 === Is DataStax Cassandra Data Connector an open-source project?
 
-Yes, DataStax Cassandra Data Connector is open source. See the <<gitHubRepos,repos FAQ>>.
+Yes, DataStax Cassandra Data Connector is open source under the Apache 2.0 License. See the <<gitHubRepos,repos FAQ>>.
 
-=== Which Kubernetes platforms are supported by DataStax Cassandra Data Connector?
+=== Which Kubernetes platforms are supported by the CSC?
 
-They include Minikube, K8d, Kind, Google Kubernetes Engine (GKE), Microsoft Azure Kubernetes Service, Amazon Kubernetes Service (AKS), and other commonly used platforms.
+The CSC supports most commonly used Kubernetes platforms, including:
+
+* Minikube
+* K8d
+* Kind
+* Google Kubernetes Engine (GKE)
+* Microsoft Azure Kubernetes Service
+* Amazon Kubernetes Service (AKS), and other commonly used platforms.
 
 [#gitHubRepos]
-=== Where is the DataStax Cassandra Data Connector public GitHub repo?
+=== Where is the CSC public GitHub repo?
 
-The source for this FAQs document is co-located with the Cassandra Data Connector repo code, examples, and additional documentation: access the [repo here](https://github.com/riptano/cdcrep).
+The source for this FAQ and related CSC documents are co-located with the Cassandra Data Connector repo code, examples, and additional documentation: access the [repo here](https://github.com/riptano/cdcrep).
 
 == Installation
 
@@ -60,24 +74,24 @@ Download the tar file from the DataStax [Downloads site](https://downloads.datas
 
 From the Installation Console, you can:
 
-* Configure the DataStax Cassandra Data Connector environment
-* View and update the DataStax Cassandra Data Connector version and application status
-* Get the host URL and generated password to launch the DataStax Cassandra Data Connector Admin Console
-* Set up and view Grafana graphs, which display metrics collected by the provided Prometheus Operator
-* Analyze DataStax Cassandra Data Connector to collect information you could provide for Support
-* Sync the license that enables DataStax Cassandra Data Connector software
-* View upstream, midstream, and downstream files used by DataStax Cassandra Data Connector
+* Configure the CSC environment.
+* View and update the CSC version and application status.
+* Retrieve the host URL and generated password to launch the CSC Admin Console
+* Set up and view Grafana graphs, which display metrics collected by the provided Prometheus Operator.
+* Analyze the CSC to collect information you could provide for support functions.
+* Sync the license that enables CSC software.
+* View upstream, midstream, and downstream files used by the CSC.
 
-=== What task can I perform in the DataStax Cassandra Data Connector Admin Console?
+=== What task can I perform in the CSC Admin Console?
 
-From the Admin Console, you can:
+From the CSC Admin Console, you can:
 
-* Add and run Pulsar clients
-* Establish credentials for secure connections
-* Define topics that can be published for streaming apps
-* Set up Pulsar sinks that publish topics and make them available to subscribers, such as for a Cassandra database table
-* Control namespaces used by Pulsar
-* Use the Admin API
+* Add and run Pulsar clients.
+* Establish credentials for secure connections.
+* Define topics that can be published for streaming apps.
+* Set up Pulsar sinks that publish topics and make them available to subscribers, such as Cassandra Tables.
+* Control namespaces used by Pulsar.
+* Use the Admin API.
 
 === What is Pulsar Heartbeat?
 
@@ -93,15 +107,15 @@ https://grafana.com/[Grafana] is a visualization tool that helps you make sense 
 
 == Pulsar Connector
 
-=== What are the features provided by Cassandra Data Connector that are not supported in `pulsar-sink` or `kafka-sink`?
+=== What are the features provided by Cassandra Data Connector that are not supported in `pulsar-sink`?
 
 * Single record acknowledgement and negative acknowledgements.
 * The https://pulsar.apache.org/docs/en/2.6.2/io-overview/[Pulsar IO framework] provides many features that are not possible in Kafka, and has different compression formats and auth/security features. The features are handled by Pulsar.
 
-=== What features are missing in Cassandra Data Connector that are provided in `pulsar-sink` or `kafka-sink`?
+=== What features are missing in Cassandra Data Connector that are provided in `pulsar-sink`?
 
 * No support for `tinyint` (`int8bit`) and `smallint` (`int16bit`).
-* The key is always a String, but you can write JSON inside it; the support is implemented in pulsar-sink, but not in Pulsar IO.
+* The key is always a String, but you can write JSON inside of it.  This is supported by pulsar-sink, but not Pulsar IO.
 * The “value” of a “message property” is always a String; for example, you cannot map the message property to `__ttl` or to `__timestamp`.
 * Field names inside structures must be valid for Avro, even in case of JSON structures. For example, field names like `Int.field` (with dot) or `int field` (with space) are not valid.
 
@@ -113,4 +127,4 @@ The same as for Apache Pulsar. See https://pulsar.apache.org/docs/en/client-libr
 
 == Next
 
-If you haven't already, build your first app to consume data from a Cassandra table and put the updates onto a Pulsar topic. See the xref:quickstart-kafka.adoc[quick start].
+If you haven't already, build try the CSC for yourself to to consume data from a Cassandra table and transmit the updates onto a Pulsar topic. See the xref:quickstart-guide.adoc[Quick Start Guide].
