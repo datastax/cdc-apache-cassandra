@@ -1,4 +1,4 @@
-= DataStax Cassandra CDC Replication Quick Start Guide
+= DataStax Cassandra Source Connector Quick Start Guide
 
 Users who want to implement CDC (Change Data Capture) from their https://cassandra.apache.org/index.html[Apache Cassandra] cluster can use the https://github.com/datastax/cassandra-source-connector/tree/master[DataStax Cassandra Source Connector (CSC)] to capture change data events into https://pulsar.apache.org[Apache Pulsar].
 
@@ -19,9 +19,10 @@ This guide instructions users setting up the CSC in the minimum number of steps.
 
 == Step 0: Download the CSC
 
-1. Go to the download page at https://downloads.datastax.com/#csc[DataStax downloads site].
-2. Agree to the Terms and Conditions by enabling the Terms checkbox, then selecting **Download**.
-3. Extract the files with the following command:
+. Go to the download page at https://downloads.datastax.com/#csc[DataStax downloads site].
+. Select **Tools**, then **DataStax Cassandra Source Connector**. 
+. Agree to the Terms and Conditions by enabling the Terms checkbox, then selecting **Download**.
+. Extract the files with the following command:
 +
 [source,language-bash]
 ----
@@ -94,12 +95,29 @@ The DataStax Luna Streaming service provides a production level, secure distribu
 
 == Step 3: Configure Pulsar for Cassandra Event Topics and Data Topics
 
-Asking how this is going to work.
+The CSC requires two topics for each Cassandra table that export the CDC data:
 
-Questions:
+* Events:  This tracks the CDC events for each node that updates the table we are capturing CDC data for.
+* Data:  The final version that removes duplications, and will be used by consumers to synchronize the CDC events to other services.
 
-1. Connector Name? Topics?  We have one Connector per Cassandra table.  Do we need a different Topic per Table as well for events/data?
-2. Recommendations on the Connector Name?  Is it best to go with `cassandra-source-tableName`?
+For more information on Pulsar topics, see the Pulsar documentation page https://pulsar.apache.org/docs/en/admin-api-topics/[Manage topics].
+
+The following examples show how to create the topics for your CSC environment using `pulsar-admin`, the Pulsar command line client.  For this example, we will be capturing the CDC data for the table `cycling`
+
+. Create the Pulsar **tenant** `cassandra` with `pulsar-admin tenants create cassandra`.
+. Create the Pulsar **namespace** `csc` with `pulsar-admin namespaces create cassandra/csc`.
+. Create the Pulsar **topics** that will be used for CDC capture with the following:
+|[source,language-bash]
+----
+bin/pulsar-admin topics create persistent:cassandra/csc/cycling-events
+bin/pulsar-admin topics create persistent:cassandra/csc/cycling-data
+----
+. Verify the topics have been created by listing them:
+----
+pulsar-admin list cassandra/csc
+"persistent://cassandra/csc/cycling-events"
+"persistent://cassandra/csc/cycling-data"
+----
 
 == Step 4: Install the Source Connector
 
