@@ -26,7 +26,6 @@ For each Cassandra write, each Cassandra replica sends one message to your Pulsa
 Cassandra Data Connector provides:
 
 * Cassandra, Elastic, Snowflake, Kinesis, Kafka, and JDBC connectors
-** @TODO: Is this accurate?
 * A management dashboard
 * A monitoring and alerting system
 
@@ -36,7 +35,7 @@ Cassandra Data Connector supports Apache Pulsar 2.7.0 and later.
 
 === What does the CSC provide that is not provided by Apache Pulsar?
 
-DataStax Cassandra Data Connector implements the reverse of the DataStax Cassandra Data Connector, which stores Pulsar topic updates into Cassandra.  The CSC takes data from a Cassanra table and stores that data into a Pulsar topic.  From there, the data can be published to external platforms like Snowflake, Elastic, and so on.
+DataStax Cassandra Data Connector implements the reverse of the DataStax Cassandra Data Connector, which stores Pulsar topic updates into Cassandra.  The CSC takes data from a Cassandra table and stores that data into a Pulsar topic.  From there, the data can be published to external platforms like Snowflake, Elastic, and so on.
 
 === Is DataStax Cassandra Data Connector an open-source project?
 
@@ -66,7 +65,7 @@ The DataStax Cassandra Data Connector distribution is designed for Java 11. Howe
 
 === How do I install Cassandra Data Connector?
 
-Download the tar file from the DataStax [Downloads site](https://downloads.datastax.com/#cdc). Then follow the xref:install.adoc[install] instructions. The tarball contains the Cassandra Data Connector distribution's NAR file.
+Download the tar file from the DataStax [Downloads site](https://downloads.datastax.com/#csc). Then follow the xref:install.adoc[install] instructions. The tarball contains the Cassandra Data Connector distribution's NAR file.
 
 == Tasks
 

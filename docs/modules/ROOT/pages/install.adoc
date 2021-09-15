@@ -1,4 +1,4 @@
-= Installing DataStax Cassandra Source Connector
+= Installation Guide
 
 == Download the Datastax Cassandra Source Connector
 
@@ -7,8 +7,7 @@ By downloading this DataStax product, you agree to the terms of the open-source 
 
 Perform the following steps on a Pulsar Connect node:
 
-. Download the tar file from the https://downloads.datastax.com/#csc[DataStax downloads site].
-If you agree, enable the *Terms* checkbox and click the download icon.
+. Download the tar file from the https://downloads.datastax.com/#csc[DataStax downloads site].  If you agree, enable the *Terms* checkbox and click the download icon.
 . Extract the files:
 +
 [source,language-bash]
@@ -23,35 +22,29 @@ The following files are unpacked into a directory such as `cassandra-source-conn
 LICENSE
 README.md
 THIRD-PARTY.txt
-producer-v3-kafka-0.1.0-SNAPSHOT-all.jar
 producer-v3-pulsar-0.1.0-SNAPSHOT-all.jar
-producer-v4-kafka-0.1.0-SNAPSHOT-all.jar
 producer-v4-pulsar-0.1.0-SNAPSHOT-all.jar
-source-kafka-0.1.0-SNAPSHOT-all.jar
 source-pulsar-0.1.0-SNAPSHOT.nar
 ----
 
 == Starting Cassandra with the producer agent.
 
-All data node of your Cassandra datacenter must run the producer JVM agent to send mutations into the events topic of
-your streaming software. Start your Cassandra nodes with the appropriate producer binary matching your
-Cassandra version (3.11 or 4.0) and your streaming platform (Apache Pulsar or Apache Kafka).
+Each data nodes of your Cassandra data center must run the producer JVM agent to send mutations into the events topic of your streaming software. Start your Cassandra nodes with the appropriate producer binary matching your Cassandra version (3.11 or 4.0) and your streaming platform, in this case Apache Pulsar.
 
-As a java agent, the CDC producer parameters take place after the jar file name in the form of a comma separated list of paramName=paramValue. Here is an example for Apache Kafka on Cassandra version 4.0 nodes:
+As a Java agent, the CDC producer parameters take place after the jar file name in the form of a comma separated list of `paramName=paramValue`. The following example is for Apache Pulsar on Cassandra version 4.0 nodes with the Pulsar service available on host `schemaregistry`:
 
 [source,language-bash]
 ----
-export JVM_EXTRA_OPTS="-javaagent:/path/to/producer-v4-kafka-0.1-all.jar=kafkaBrokers=brockers:9092,kafkaRegistryUrl=http://schemaregistry:8081"
+export JVM_EXTRA_OPTS="-javaagent:/path/to/producer-v4-pulsar-<version>-SNAPSHOT-all.jar=pulsarServiceUrl=http://schemaregistry:6650"
 ----
 
-== Deploy the Kafka Cassandra Source Connector
+== Deploy the Pulsar Cassandra Source Connector
 
-In order to the Cassandra Source Connector NAR file in your Pulsar cluster, you can copy it into
-the pulsar connectors directory or upload it. You have to specify th following parameters:
+To deploy the Cassandra Source Connector NAR file in your Pulsar cluster, you can copy it into the Pulsar connectors directory or upload it anywhere on the node and specify it. The following parameters are required:
 
-* The connector name, remember you have one connector per replicated cassandra table.
-* The destination topic for Cassandra data
-* The connector configuration, see LINK
+* The connector name.  There must be one connector per replicated Cassandra table.
+* The destination topic for Cassandra data.
+* The connector configuration.  See xref:cfgCassandraConnection.adoc[].
 
 [source,language-bash]
 ----
@@ -61,39 +54,5 @@ pulsar-admin source localrun \
 --namespace default \
 --name cassandra-source-1 \
 --destination-topic-name data-ks1.table1 \
---source-config '{"contactPoints":"localhost:9042", "localDc":"datacenter1", "keyspace":"ks1", "table":"table1", "eventsTopicPrefix": "persistent://public/default/events-", "eventsSubscriptionName":"sub1", "keyConverter":"com.datastax.oss.pulsar.source.converters.AvroConverter","valueConverter":"com.datastax.oss.pulsar.source.converters.JsonConverter"}'
+--source-config '{"contactPoints":"localhost:9042", "localDc":"datacenter1", "keyspace":"ks1", "table":"table1", "events.topic":"events-ks1.table1", "keyConverter":"com.datastax.oss.pulsar.source.converters.AvroConverter","valueConverter":"com.datastax.oss.pulsar.source.converters.JsonConverter"}'
 ----
-
-== Deploy the Pulsar Cassandra Source Connector
-
-In order to deploy the Cassandra Source Connector in Kafka Connect, the connector jar file
-must be deployed in a plugin directory, usually /usr/local/share/kafka/plugins. Alternatively, you can specify your plugin directory with the plugin.path, see Kafka Connect documentation https://docs.confluent.io/home/connect/userguide.html#installing-kconnect-plugins.
-
-[source,language-bash]
-----
-curl -XPOST -H "Content-Type: application/json" "http://localhost:8083/connectors" -d '{
-"name": "cassandra-source-1",
-  "config": {
-    "connector.class": "com.datastax.oss.kafka.source.CassandraSourceConnector",
-    "tasks.max": "1",
-    "bootstrap.servers": "broker:29092",
-    "schema.registry.url": "http://schema-registry:8081",
-    "errors.log.enable": true,
-    "errors.log.include.messages": true,
-    "events.topic": "events-ks1.table1",
-    "data.topic": "data-ks1.table1",
-    "keyspace": "ks1",
-    "table": "table1",
-    "contactPoints": "host.docker.internal",
-    "loadBalancing.localDc": "datacenter1",
-    "key.converter": "io.confluent.connect.avro.AvroConverter",
-    "value.converter": "io.confluent.connect.avro.AvroConverter",
-    "key.converter.schema.registry.url": "http://schema-registry:8081",
-    "value.converter.schema.registry.url": "http://schema-registry:8081"
-  }
-}'
-----
-
-
-== Cassandra Source Connector configuration
-

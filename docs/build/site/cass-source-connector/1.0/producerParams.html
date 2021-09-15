@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Producer Parameters :: DataStax Cassandra Source Connector documentation</title>
+    <meta name="generator" content="Antora 2.3.4">
+    <link rel="stylesheet" href="../../assets/css/site.css">
+    <link rel="icon" href="https://www.datastax.com/favicon.ico" type="image/x-icon">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <a href="/docs/cass-data-connector">
+        <img width="223px" height="43px" src="../../assets/img/logo.svg"/>
+      </a>
+      <button class="navbar-burger" data-target="topbar-nav">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
+      <div class="navbar-end">
+        <div class="navbar-end__group">
+          <a class="navbar-item" href="/en/landing_page/doc/landing_page/current.html">Docs</a>
+          <!--<a class="navbar-item" href="/community">Community</a>-->
+          <!--<a class="navbar-item" href="/blog">Blog</a>-->
+          <!-- <a class="navbar-item search" href="/results">
+            <img width="34px" height="34px" src="../../assets/img/search.svg"/>
+          </a>-->
+        </div>
+        <div class="navbar-end__group">
+          <!--<a class="navbar-item social-icon" href="https://twitter.com/stargateio" target="_blank" rel="noopener noreferrer">
+            <img width="34px" height="34px" src="../../assets/img/twitter.svg"/>
+          </a>-->
+          <!--<a class="navbar-item social-icon" href="https://groups.google.com/a/lists.stargate.io/g/stargate-users" target="_blank">
+            <img width="34px" height="34px" src="../../assets/img/groups.svg"/>
+          </a>-->
+          <!--<a class="navbar-item social-icon" href="https://github.com/riptano/pulsar-distro" target="_blank" rel="noopener noreferrer">
+            <img width="34px" height="34px" src="../../assets/img/github.svg"/>
+          </a>-->
+        </div>
+      </div>
+    </div>
+  </nav>
+</header>
+<div class="body">
+<div class="nav-container" data-component="cass-source-connector" data-version="1.0">
+  <aside class="nav">
+    <div class="panels">
+<div class="nav-panel-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <h3 class="title"><a href="index.html">DataStax Cassandra Source Connector (beta) documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item toggler" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="index.html">About DataStax Cassandra Source Connector</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="quickstart-guide.html">Quick Start Guide</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="install.html">Installation Guide</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="faqs.html">Cassandra Source Connector FAQs</a>
+  </li>
+  <li class="nav-item toggler" data-depth="1">
+    <span class="nav-text">References</span>
+    <button class="nav-item-toggle">
+      <svg width="14" height="9" viewBox="0 0 14 9" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M1 1L7 7L13 1" stroke="currentColor" stroke-width="2" />
+      </svg>
+    </button>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="cfgCassandraAuth.html">Cassandra Authentication Configuration</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="cfgCassandraConnection.html">Cassandra connection</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="cfgCassandraJavaDriverSettings.html">Pass Pulsar Connector settings directly to the DataStax Java driver</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="cfgCassandraSource.html">Cassandra Source Connector Configuration</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="cfgCassandraSSL.html">Cassandra SSL/TLS Configuration</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="monitor.html">Monitor DataStax Cassandra Source Connector</a>
+  </li>
+  <li class="nav-item is-current-page" data-depth="2">
+    <a class="nav-link" href="producerParams.html">Producer Parameters</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="nav-panel-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">DataStax Cassandra Source Connector (beta) documentation</span>
+    <span class="version">1.0</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <span class="title">DataStax Cassandra Source Connector (beta) documentation</span>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="index.html">1.0</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+<main class="article">
+<div class="toolbar" role="navigation">
+<button class="nav-toggle"></button>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="index.html">DataStax Cassandra Source Connector (beta) documentation</a></li>
+    <li>References</li>
+    <li><a href="producerParams.html">Producer Parameters</a></li>
+  </ul>
+</nav>
+  <!--<div class="edit-this-page"><a href="">Edit this Page</a></div>-->
+</div>
+  <div class="content">
+<article class="doc">
+<h1 class="page">Producer Parameters</h1>
+<div class="sect1">
+<h2 id="_parameters"><a class="anchor" href="#_parameters"></a>Parameters</h2>
+<div class="sectionbody">
+<div id="cdcRelocationDir" class="paragraph">
+<p>The directory where processed commitlog files are copied.</p>
+</div>
+<div class="paragraph">
+<p>+
+Platform: ALL
+Type: string
+Default: cdc_backup</p>
+</div>
+<div id="cdcPoolIntervalMs" class="paragraph">
+<p>The pool interval in milliseconds for watching new commit log files in the CDC raw directory.</p>
+</div>
+<div class="paragraph">
+<p>+
+Platform: ALL
+Type: long
+Default: 60000</p>
+</div>
+<div id="errorCommitLogReprocessEnabled" class="paragraph">
+<p>Enable the re-processing of error commit logs files.</p>
+</div>
+<div class="paragraph">
+<p>+
+Platform: ALL
+Type: boolean
+Default: false</p>
+</div>
+<div id="topicPrefix" class="paragraph">
+<p>The event topic prefix. The keyspace and table names are appended to that prefix to build the topic name.</p>
+</div>
+<div class="paragraph">
+<p>+
+Platform: ALL
+Type: string
+Default: events-</p>
+</div>
+<div id="sslProvider" class="paragraph">
+<p>The SSL/TLS provider to use.</p>
+</div>
+<div class="paragraph">
+<p>+
+Platform: ALL
+Type: string</p>
+</div>
+<div id="sslTruststorePath" class="paragraph">
+<p>The path to the SSL/TLS truststore file.</p>
+</div>
+<div class="paragraph">
+<p>+
+Platform: ALL
+Type: string</p>
+</div>
+<div id="sslTruststorePassword" class="paragraph">
+<p>The password for the SSL/TLS truststore.</p>
+</div>
+<div class="paragraph">
+<p>+
+Platform: ALL
+Type: string</p>
+</div>
+<div id="sslTruststoreType" class="paragraph">
+<p>The type of the SSL/TLS truststore.</p>
+</div>
+<div class="paragraph">
+<p>+
+Platform: ALL
+Type: string
+Default: JKS</p>
+</div>
+<div id="sslKeystorePath" class="paragraph">
+<p>The path to the SSL/TLS keystore file.</p>
+</div>
+<div class="paragraph">
+<p>+
+Platform: ALL
+Type: string</p>
+</div>
+<div id="sslKeystorePassword" class="paragraph">
+<p>The password for the SSL/TLS keystore.</p>
+</div>
+<div class="paragraph">
+<p>+
+Platform: ALL
+Type: string</p>
+</div>
+<div id="sslCipherSuites" class="paragraph">
+<p>Defines one or more cipher suites to use for negotiating the SSL/TLS connection.</p>
+</div>
+<div class="paragraph">
+<p>+
+Platform: ALL
+Type: string</p>
+</div>
+<div id="sslEnabledProtocols" class="paragraph">
+<p>Enabled SSL/TLS protocols</p>
+</div>
+<div class="paragraph">
+<p>+
+Platform: ALL
+Type: string
+Default: TLSv1.2,TLSv1.1,TLSv1</p>
+</div>
+<div id="sslEndpointIdentificationAlgorithm" class="paragraph">
+<p>The endpoint identification algorithm used by clients to validate server host name.</p>
+</div>
+<div class="paragraph">
+<p>+
+Platform: KAFKA
+Type: string
+Default: https</p>
+</div>
+<div id="sslAllowInsecureConnection" class="paragraph">
+<p>Allows insecure connections to servers whose cert has not been signed by an approved CA. You should always disable sslAllowInsecureConnection in production environments.</p>
+</div>
+<div class="paragraph">
+<p>+
+Platform: PULSAR
+Type: boolean
+Default: false</p>
+</div>
+<div id="sslHostnameVerificationEnable" class="paragraph">
+<p>Enable the server hostname verification.</p>
+</div>
+<div class="paragraph">
+<p>+
+Platform: PULSAR
+Type: boolean
+Default: false</p>
+</div>
+<div id="pulsarServiceUrl" class="paragraph">
+<p>The Pulsar broker service URL.</p>
+</div>
+<div class="paragraph">
+<p>+
+Platform: PULSAR
+Type: string
+Default: pulsar://localhost:6650</p>
+</div>
+<div id="pulsarAuthPluginClassName" class="paragraph">
+<p>The Pulsar authentication plugin class name.</p>
+</div>
+<div class="paragraph">
+<p>+
+Platform: PULSAR
+Type: string</p>
+</div>
+<div id="pulsarAuthParams" class="paragraph">
+<p>The Pulsar authentication parameters.</p>
+</div>
+<div class="paragraph">
+<p>+
+Platform: PULSAR
+Type: string</p>
+</div>
+<div id="kafkaBrokers" class="paragraph">
+<p>The Kafka broker host and port.</p>
+</div>
+<div class="paragraph">
+<p>+
+Platform: KAFKA
+Type: string
+Default: localhost:9092</p>
+</div>
+<div id="kafkaSchemaRegistryUrl" class="paragraph">
+<p>The Kafka schema registry URL.</p>
+</div>
+<div class="paragraph">
+<p>+
+Platform: KAFKA
+Type: string
+Default: <a href="http://localhost:8081" class="bare">http://localhost:8081</a></p>
+</div>
+<div id="kafkaProperties" class="paragraph">
+<p>The Kafka properties.</p>
+</div>
+<div class="paragraph">
+<p>+
+Platform: KAFKA
+Type: map</p>
+</div>
+</div>
+</div>
+</article>
+<aside class="toc sidebar" data-title="Contents" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
+  </div>
+</main></div>
+<footer class="footer">
+  <div class="footer-row">
+    <div class="footer__notice align-items-center row">
+      <div class="order-1 order-lg-0 col-lg col-12">
+        <p class="small mb-0">
+          © 2021 DataStax |
+          <a href="https://www.datastax.com/legal/datastax-website-privacy-policy">Privacy Policy</a> |
+          <a href="https://www.datastax.com/legal/datastax-website-terms-use">Terms of Use</a>
+              <!-- UNCOMMENT IF USING ONETRUST FOR COOKIES
+                <span><a href="#" id="ot-sdk-btn" class="ot-sdk-show-settings">Do Not Sell My Personal Information</a></span>
+              -->
+        </p>
+      </div>
+    <div class="text-center text-lg-left mb-5 mb-lg-0 col-lg-auto col-12">
+        <a class="ml-1" href="https://www.facebook.com/datastax" target="_blank" rel="noreferrer"><img
+            src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTMyIDBIMHYzMS42NWgxNy4wOTVWMTkuNDM2aC00LjE4MlYxNC42Mmg0LjE2di0zLjUxNWMwLTQuMDkzIDIuNTItNi4zMiA2LjIwOS02LjMyYTM1LjI3IDM1LjI3IDAgMDEzLjc1LjIxMnY0LjI3aC0yLjU0OWMtMi4wMDQgMC0yLjM5MS45MzgtMi4zOTEgMi4zMnYzLjA1NWg0LjhsLS42MjMgNC43OTJoLTQuMTc3VjMxLjY1SDMyVjB6IiBmaWxsPSIjMUU3MUQ0Ii8+PC9zdmc+"
+            alt="Facebook logo" loading="lazy"></a>
+        <a class="ml-1" href="https://twitter.com/datastax" target="_blank" rel="noreferrer"><img
+            src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTMyLjAwMSAzMS42NWgtMzJWMGgzMnYzMS42NXptLTE5LjcxMi03Ljc4NWM3LjU0NCAwIDExLjY3Mi02LjE4OCAxMS42NzItMTEuNTQ1IDAtLjE3NCAwLS4zNDgtLjAwOC0uNTIyLjgtLjU3IDEuNDk2LTEuMjkgMi4wNDgtMi4xMDVhOC4zODcgOC4zODcgMCAwMS0yLjM2LjY0MSA0LjA5IDQuMDkgMCAwMDEuODA4LTIuMjQ3IDguMjExIDguMjExIDAgMDEtMi42MDguOTgxIDQuMTE2IDQuMTE2IDAgMDAtMi45OTItMS4yODJjLTIuMjY0IDAtNC4xMDQgMS44Mi00LjEwNCA0LjA2IDAgLjMxNi4wNC42MjQuMTA0LjkyNUExMS42OTIgMTEuNjkyIDAgMDE3LjM5MyA4LjUzYTQuMDI0IDQuMDI0IDAgMDAtLjU1MiAyLjA0MSA0LjA2IDQuMDYgMCAwMDEuODI0IDMuMzggNC4xODQgNC4xODQgMCAwMS0xLjg1Ni0uNTA3di4wNTVjMCAxLjk2MiAxLjQxNiAzLjYwOCAzLjI4OCAzLjk4YTQuMDQgNC4wNCAwIDAxLTEuMDguMTQzYy0uMjY0IDAtLjUyLS4wMjQtLjc2OC0uMDcyYTQuMDk3IDQuMDk3IDAgMDAzLjgzMiAyLjgxNyA4LjI4NSA4LjI4NSAwIDAxLTUuMDk2IDEuNzQxYy0uMzI4IDAtLjY1Ni0uMDE2LS45NzYtLjA1NWExMS43NjMgMTEuNzYzIDAgMDA2LjI4IDEuODEyeiIgZmlsbD0iIzFFNzFENCIvPjwvc3ZnPg=="
+            alt="Twitter logo" loading="lazy"></a>
+        <a class="ml-1" href="https://www.linkedin.com/company/datastax/" target="_blank" rel="noreferrer"><img
+            src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTS4wMDEgMHYzMS42NWgzMlYwaC0zMnptOS40ODEgMjYuOTYyaC00Ljc0VjExLjg0aDQuNzR2MTUuMTIyek03LjExMiA5Ljc4OGEyLjcwNCAyLjcwNCAwIDAxLTIuNzI2LTIuNjk2YzAtMS41MjQgMS4yNDUtMi42OTYgMi43MjYtMi42OTYgMS41NCAwIDIuNzI2IDEuMjMgMi43MjYgMi42OTYuMDYgMS40NjUtMS4xODUgMi42OTYtMi43MjYgMi42OTZ6TTI3LjI2IDI2Ljk2MmgtNC43NHYtNy4zMjdjMC0xLjc1OC0uMDYtMy45ODUtMi40OS0zLjk4NS0yLjQ4OCAwLTIuODQ0IDEuOTM0LTIuODQ0IDMuODY4djcuNDQ0aC00Ljc0VjExLjg0aDQuNTYydjIuMDUxaC4wNmMuNjUxLTEuMTcyIDIuMTkyLTIuNDYxIDQuNTAzLTIuNDYxIDQuOCAwIDUuNjkgMy4xMDYgNS42OSA3LjIwOXY4LjMyM3oiIGZpbGw9IiMxRTcxRDQiLz48L3N2Zz4="
+            alt="LinkedIn logo" loading="lazy"></a>
+        <a class="ml-1" href="https://github.com/datastax/" target="_blank" rel="noreferrer"><img
+            src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0zMiAwSDB2MzEuNjVoMzJWMHpNNCAxNS44MDVDNCA5LjI4NyA5LjM1OCA0IDE1Ljk2MyA0IDIyLjU3IDQgMjcuOTI3IDkuMjg3IDI4IDE1LjgwNWMwIDUuMjE1LTMuMzc2IDkuNjMyLTguMTQ3IDExLjIyNi0uNTg3LjA3Mi0uODA3LS4yOS0uODA3LS41OHYtMy4yNTljMC0xLjA4Ni0uMzY3LTEuODEtLjgwOC0yLjE3MiAyLjY0My0uMjkgNS40MzItMS4yMzIgNS40MzItNS43OTRhNC42NSA0LjY1IDAgMDAtMS4yNDgtMy4xODdsLjAyMy0uMDg1YTQuNDQgNC40NCAwIDAwLS4xNy0zLjAzcy0xLjAyNy0uMjg5LTMuMzAyIDEuMjMyYTEzLjY4MSAxMy42ODEgMCAwMC0zLjAxLS4zNjJjLTEuMDI3IDAtMi4wNTUuMDcyLTMuMDA5LjM2Mi0yLjI3NS0xLjUyLTMuMzAzLTEuMjMxLTMuMzAzLTEuMjMxLS42NDggMS41NjQtLjIzNSAyLjc4LS4xNSAzLjAyOSAwIC4wMDQuMDAyLjAwOS4wMDQuMDEzLS44MDguODY5LTEuMjQ4IDEuODgzLTEuMjQ4IDMuMTg2IDAgNC41NjMgMi43ODkgNS41NzcgNS40MzEgNS44NjctLjI5My4yOS0uNjYuNzk2LS43MzQgMS41OTMtLjY2LjI5LTIuMzQ5Ljc5Ny0zLjQ1LTEuMDE0IDAgMC0uNjYtMS4xNTktMS44MzQtMS4yMzEgMCAwLTEuMTc1IDAtLjA3NC43MjQgMCAwIC44MDguMzYyIDEuMzIxIDEuNzM4IDAgMCAuNzM0IDIuMzE4IDQuMDM3IDEuNTkzdjIuMDI4YzAgLjI5LS4yMi42NTItLjgwNy41OEM3LjQ1IDI1LjQzNyA0IDIxLjAyIDQgMTUuODA1eiIgZmlsbD0iIzFFNzFENCIvPjwvc3ZnPg=="
+            alt="GitHub logo" loading="lazy"></a>
+    </div>
+   </div>
+  </div>
+</footer>
+<script src="../../assets/js/site.js"></script>
+<script async src="../../assets/js/vendor/highlight.js"></script>
+  </body>
+</html>

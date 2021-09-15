@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>About DataStax Cassandra Source Connector :: DataStax Cassandra Source Connector documentation</title>
+    <meta name="generator" content="Antora 2.3.4">
+    <link rel="stylesheet" href="../../assets/css/site.css">
+    <link rel="icon" href="https://www.datastax.com/favicon.ico" type="image/x-icon">
+  </head>
+  <body class="article">
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <a href="/docs/cass-data-connector">
+        <img width="223px" height="43px" src="../../assets/img/logo.svg"/>
+      </a>
+      <button class="navbar-burger" data-target="topbar-nav">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
+      <div class="navbar-end">
+        <div class="navbar-end__group">
+          <a class="navbar-item" href="/en/landing_page/doc/landing_page/current.html">Docs</a>
+          <!--<a class="navbar-item" href="/community">Community</a>-->
+          <!--<a class="navbar-item" href="/blog">Blog</a>-->
+          <!-- <a class="navbar-item search" href="/results">
+            <img width="34px" height="34px" src="../../assets/img/search.svg"/>
+          </a>-->
+        </div>
+        <div class="navbar-end__group">
+          <!--<a class="navbar-item social-icon" href="https://twitter.com/stargateio" target="_blank" rel="noopener noreferrer">
+            <img width="34px" height="34px" src="../../assets/img/twitter.svg"/>
+          </a>-->
+          <!--<a class="navbar-item social-icon" href="https://groups.google.com/a/lists.stargate.io/g/stargate-users" target="_blank">
+            <img width="34px" height="34px" src="../../assets/img/groups.svg"/>
+          </a>-->
+          <!--<a class="navbar-item social-icon" href="https://github.com/riptano/pulsar-distro" target="_blank" rel="noopener noreferrer">
+            <img width="34px" height="34px" src="../../assets/img/github.svg"/>
+          </a>-->
+        </div>
+      </div>
+    </div>
+  </nav>
+</header>
+<div class="body">
+<div class="nav-container" data-component="cass-source-connector" data-version="1.0">
+  <aside class="nav">
+    <div class="panels">
+<div class="nav-panel-menu is-active" data-panel="menu">
+  <nav class="nav-menu">
+    <h3 class="title"><a href="index.html">DataStax Cassandra Source Connector (beta) documentation</a></h3>
+<ul class="nav-list">
+  <li class="nav-item toggler" data-depth="0">
+<ul class="nav-list">
+  <li class="nav-item is-current-page" data-depth="1">
+    <a class="nav-link" href="index.html">About DataStax Cassandra Source Connector</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="quickstart-guide.html">Quick Start Guide</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="install.html">Installation Guide</a>
+  </li>
+  <li class="nav-item" data-depth="1">
+    <a class="nav-link" href="faqs.html">Cassandra Source Connector FAQs</a>
+  </li>
+  <li class="nav-item toggler" data-depth="1">
+    <span class="nav-text">References</span>
+    <button class="nav-item-toggle">
+      <svg width="14" height="9" viewBox="0 0 14 9" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M1 1L7 7L13 1" stroke="currentColor" stroke-width="2" />
+      </svg>
+    </button>
+<ul class="nav-list">
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="cfgCassandraAuth.html">Cassandra Authentication Configuration</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="cfgCassandraConnection.html">Cassandra connection</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="cfgCassandraJavaDriverSettings.html">Pass Pulsar Connector settings directly to the DataStax Java driver</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="cfgCassandraSource.html">Cassandra Source Connector Configuration</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="cfgCassandraSSL.html">Cassandra SSL/TLS Configuration</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="monitor.html">Monitor DataStax Cassandra Source Connector</a>
+  </li>
+  <li class="nav-item" data-depth="2">
+    <a class="nav-link" href="producerParams.html">Producer Parameters</a>
+  </li>
+</ul>
+  </li>
+</ul>
+  </li>
+</ul>
+  </nav>
+</div>
+<div class="nav-panel-explore" data-panel="explore">
+  <div class="context">
+    <span class="title">DataStax Cassandra Source Connector (beta) documentation</span>
+    <span class="version">1.0</span>
+  </div>
+  <ul class="components">
+    <li class="component is-current">
+      <span class="title">DataStax Cassandra Source Connector (beta) documentation</span>
+      <ul class="versions">
+        <li class="version is-current is-latest">
+          <a href="index.html">1.0</a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+    </div>
+  </aside>
+</div>
+<main class="article">
+<div class="toolbar" role="navigation">
+<button class="nav-toggle"></button>
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  <ul>
+    <li><a href="index.html">DataStax Cassandra Source Connector (beta) documentation</a></li>
+    <li><a href="index.html">About DataStax Cassandra Source Connector</a></li>
+  </ul>
+</nav>
+  <!--<div class="edit-this-page"><a href="">Edit this Page</a></div>-->
+</div>
+  <div class="content">
+<article class="doc">
+<h1 class="page">About DataStax Cassandra Source Connector</h1>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>DataStax Cassandra&reg; Source Connector (CSC) is open-source software (OSS) that send Cassandra mutations for a table that has Change Data Capture (CDC) enabled to Apache Pulsar&reg;.  This can then be written to other platforms such as Elasticsearch&reg; or Snowflake&reg;.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_key_features"><a class="anchor" href="#_key_features"></a>Key Features</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Supports Apache Cassandra 3.11.x and 4.0.x</p>
+</li>
+<li>
+<p>Supports Apache Pulsar</p>
+</li>
+<li>
+<p>Propagate Cassandra schema changes to the Apache Pulsar schema registry</p>
+</li>
+<li>
+<p>Support JSON or AVRO message format.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_limitations"><a class="anchor" href="#_limitations"></a>Limitations</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Does not manage table truncates.</p>
+</li>
+<li>
+<p>Does not replay batch updates.</p>
+</li>
+<li>
+<p>Does not sync data available before starting the CDC producer.</p>
+</li>
+<li>
+<p>Does not manage time-to-live.</p>
+</li>
+<li>
+<p>Does not support range deletes.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_architecture"><a class="anchor" href="#_architecture"></a>Architecture</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The DataStax Cassandra® Source Connector two components:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>A event producer deployed as a JVM agent on each Cassandra data node.</p>
+</li>
+<li>
+<p>A Cassandra source connector deployed in your streaming platform.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The following diagram describes the general architecture.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img src="_images/cassandra-source-connector.png" alt="Cassandra-source-connector-architecture">
+</div>
+</div>
+<div class="paragraph">
+<p>When CDC is enabled for a given Cassandra table, the event producer emits a message for each Cassandra mutation in a per-table <strong>events topic</strong>. Then the source connector process these events, fetches the mutated Cassandra row, and writes it to the <strong>data topic</strong>.</p>
+</div>
+<div class="paragraph">
+<p>This ensures the most recent state of the Cassandra table is replicated into the data topic without the need to time re-order Cassandra mutations.</p>
+</div>
+<div class="paragraph">
+<p>The Cassandra Source Connector also updates the schema-registry to reflects the Cassandra table schema.</p>
+</div>
+<div class="paragraph">
+<p>Deployment matrix:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 20%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Streaming platform</th>
+<th class="tableblock halign-left valign-top">Cassandra v3.x producer</th>
+<th class="tableblock halign-left valign-top">Cassandra v4.x producer</th>
+<th class="tableblock halign-left valign-top">Source connector</th>
+<th class="tableblock halign-left valign-top"></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Apache Pulsar</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">producer-v3-pulsar</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">producer-v4-pulsar</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">source-pulsar</p></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect1">
+<h2 id="supported-databases"><a class="anchor" href="#supported-databases"></a>Supported databases</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Open source Apache® Cassandra® 3.11.x and 4.x databases</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_supported_cassandra_data_structures"><a class="anchor" href="#_supported_cassandra_data_structures"></a>Supported Cassandra data structures</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Cassandra supported CQL3 data types:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>text, ascii</p>
+</li>
+<li>
+<p>tinyint, smallint, int, bigint, double, float, inet</p>
+</li>
+<li>
+<p>blob</p>
+</li>
+<li>
+<p>boolean</p>
+</li>
+<li>
+<p>timestamp, time, date, duration</p>
+</li>
+<li>
+<p>uuid, timeuuid</p>
+</li>
+<li>
+<p>User Defined Types</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_supported_streaming_platform"><a class="anchor" href="#_supported_streaming_platform"></a>Supported streaming platform</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Apache Pulsar® 2.8.0 and later</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_getting_started"><a class="anchor" href="#_getting_started"></a>Getting started</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p><a href="quickstart-guide.html" class="page">Quick Start Guide</a> A quick introduction connecting a Cassandra table to a Pulsar cluster.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_where_to_go_next"><a class="anchor" href="#_where_to_go_next"></a>Where to go next</h2>
+<div class="sectionbody">
+<div class="dlist">
+<dl>
+<dt class="hdlist1">If you&#8217;ve got more questions&#8230;&#8203;</dt>
+<dd>
+<p>For additional information about Cassandra Source Connector, see <a href="faqs.html" class="page">Cassandra Source Connector FAQs</a>.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</article>
+<aside class="toc sidebar" data-title="Contents" data-levels="2">
+  <div class="toc-menu"></div>
+</aside>
+  </div>
+</main></div>
+<footer class="footer">
+  <div class="footer-row">
+    <div class="footer__notice align-items-center row">
+      <div class="order-1 order-lg-0 col-lg col-12">
+        <p class="small mb-0">
+          © 2021 DataStax |
+          <a href="https://www.datastax.com/legal/datastax-website-privacy-policy">Privacy Policy</a> |
+          <a href="https://www.datastax.com/legal/datastax-website-terms-use">Terms of Use</a>
+              <!-- UNCOMMENT IF USING ONETRUST FOR COOKIES
+                <span><a href="#" id="ot-sdk-btn" class="ot-sdk-show-settings">Do Not Sell My Personal Information</a></span>
+              -->
+        </p>
+      </div>
+    <div class="text-center text-lg-left mb-5 mb-lg-0 col-lg-auto col-12">
+        <a class="ml-1" href="https://www.facebook.com/datastax" target="_blank" rel="noreferrer"><img
+            src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTMyIDBIMHYzMS42NWgxNy4wOTVWMTkuNDM2aC00LjE4MlYxNC42Mmg0LjE2di0zLjUxNWMwLTQuMDkzIDIuNTItNi4zMiA2LjIwOS02LjMyYTM1LjI3IDM1LjI3IDAgMDEzLjc1LjIxMnY0LjI3aC0yLjU0OWMtMi4wMDQgMC0yLjM5MS45MzgtMi4zOTEgMi4zMnYzLjA1NWg0LjhsLS42MjMgNC43OTJoLTQuMTc3VjMxLjY1SDMyVjB6IiBmaWxsPSIjMUU3MUQ0Ii8+PC9zdmc+"
+            alt="Facebook logo" loading="lazy"></a>
+        <a class="ml-1" href="https://twitter.com/datastax" target="_blank" rel="noreferrer"><img
+            src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTMyLjAwMSAzMS42NWgtMzJWMGgzMnYzMS42NXptLTE5LjcxMi03Ljc4NWM3LjU0NCAwIDExLjY3Mi02LjE4OCAxMS42NzItMTEuNTQ1IDAtLjE3NCAwLS4zNDgtLjAwOC0uNTIyLjgtLjU3IDEuNDk2LTEuMjkgMi4wNDgtMi4xMDVhOC4zODcgOC4zODcgMCAwMS0yLjM2LjY0MSA0LjA5IDQuMDkgMCAwMDEuODA4LTIuMjQ3IDguMjExIDguMjExIDAgMDEtMi42MDguOTgxIDQuMTE2IDQuMTE2IDAgMDAtMi45OTItMS4yODJjLTIuMjY0IDAtNC4xMDQgMS44Mi00LjEwNCA0LjA2IDAgLjMxNi4wNC42MjQuMTA0LjkyNUExMS42OTIgMTEuNjkyIDAgMDE3LjM5MyA4LjUzYTQuMDI0IDQuMDI0IDAgMDAtLjU1MiAyLjA0MSA0LjA2IDQuMDYgMCAwMDEuODI0IDMuMzggNC4xODQgNC4xODQgMCAwMS0xLjg1Ni0uNTA3di4wNTVjMCAxLjk2MiAxLjQxNiAzLjYwOCAzLjI4OCAzLjk4YTQuMDQgNC4wNCAwIDAxLTEuMDguMTQzYy0uMjY0IDAtLjUyLS4wMjQtLjc2OC0uMDcyYTQuMDk3IDQuMDk3IDAgMDAzLjgzMiAyLjgxNyA4LjI4NSA4LjI4NSAwIDAxLTUuMDk2IDEuNzQxYy0uMzI4IDAtLjY1Ni0uMDE2LS45NzYtLjA1NWExMS43NjMgMTEuNzYzIDAgMDA2LjI4IDEuODEyeiIgZmlsbD0iIzFFNzFENCIvPjwvc3ZnPg=="
+            alt="Twitter logo" loading="lazy"></a>
+        <a class="ml-1" href="https://www.linkedin.com/company/datastax/" target="_blank" rel="noreferrer"><img
+            src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTS4wMDEgMHYzMS42NWgzMlYwaC0zMnptOS40ODEgMjYuOTYyaC00Ljc0VjExLjg0aDQuNzR2MTUuMTIyek03LjExMiA5Ljc4OGEyLjcwNCAyLjcwNCAwIDAxLTIuNzI2LTIuNjk2YzAtMS41MjQgMS4yNDUtMi42OTYgMi43MjYtMi42OTYgMS41NCAwIDIuNzI2IDEuMjMgMi43MjYgMi42OTYuMDYgMS40NjUtMS4xODUgMi42OTYtMi43MjYgMi42OTZ6TTI3LjI2IDI2Ljk2MmgtNC43NHYtNy4zMjdjMC0xLjc1OC0uMDYtMy45ODUtMi40OS0zLjk4NS0yLjQ4OCAwLTIuODQ0IDEuOTM0LTIuODQ0IDMuODY4djcuNDQ0aC00Ljc0VjExLjg0aDQuNTYydjIuMDUxaC4wNmMuNjUxLTEuMTcyIDIuMTkyLTIuNDYxIDQuNTAzLTIuNDYxIDQuOCAwIDUuNjkgMy4xMDYgNS42OSA3LjIwOXY4LjMyM3oiIGZpbGw9IiMxRTcxRDQiLz48L3N2Zz4="
+            alt="LinkedIn logo" loading="lazy"></a>
+        <a class="ml-1" href="https://github.com/datastax/" target="_blank" rel="noreferrer"><img
+            src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0zMiAwSDB2MzEuNjVoMzJWMHpNNCAxNS44MDVDNCA5LjI4NyA5LjM1OCA0IDE1Ljk2MyA0IDIyLjU3IDQgMjcuOTI3IDkuMjg3IDI4IDE1LjgwNWMwIDUuMjE1LTMuMzc2IDkuNjMyLTguMTQ3IDExLjIyNi0uNTg3LjA3Mi0uODA3LS4yOS0uODA3LS41OHYtMy4yNTljMC0xLjA4Ni0uMzY3LTEuODEtLjgwOC0yLjE3MiAyLjY0My0uMjkgNS40MzItMS4yMzIgNS40MzItNS43OTRhNC42NSA0LjY1IDAgMDAtMS4yNDgtMy4xODdsLjAyMy0uMDg1YTQuNDQgNC40NCAwIDAwLS4xNy0zLjAzcy0xLjAyNy0uMjg5LTMuMzAyIDEuMjMyYTEzLjY4MSAxMy42ODEgMCAwMC0zLjAxLS4zNjJjLTEuMDI3IDAtMi4wNTUuMDcyLTMuMDA5LjM2Mi0yLjI3NS0xLjUyLTMuMzAzLTEuMjMxLTMuMzAzLTEuMjMxLS42NDggMS41NjQtLjIzNSAyLjc4LS4xNSAzLjAyOSAwIC4wMDQuMDAyLjAwOS4wMDQuMDEzLS44MDguODY5LTEuMjQ4IDEuODgzLTEuMjQ4IDMuMTg2IDAgNC41NjMgMi43ODkgNS41NzcgNS40MzEgNS44NjctLjI5My4yOS0uNjYuNzk2LS43MzQgMS41OTMtLjY2LjI5LTIuMzQ5Ljc5Ny0zLjQ1LTEuMDE0IDAgMC0uNjYtMS4xNTktMS44MzQtMS4yMzEgMCAwLTEuMTc1IDAtLjA3NC43MjQgMCAwIC44MDguMzYyIDEuMzIxIDEuNzM4IDAgMCAuNzM0IDIuMzE4IDQuMDM3IDEuNTkzdjIuMDI4YzAgLjI5LS4yMi42NTItLjgwNy41OEM3LjQ1IDI1LjQzNyA0IDIxLjAyIDQgMTUuODA1eiIgZmlsbD0iIzFFNzFENCIvPjwvc3ZnPg=="
+            alt="GitHub logo" loading="lazy"></a>
+    </div>
+   </div>
+  </div>
+</footer>
+<script src="../../assets/js/site.js"></script>
+<script async src="../../assets/js/vendor/highlight.js"></script>
+  </body>
+</html>

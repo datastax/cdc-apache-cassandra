@@ -1,7 +1,6 @@
 * xref:index.adoc[]
 * xref:quickstart-guide.adoc[]
 * xref:install.adoc[]
-* xref:monitor.adoc[]
 * xref:faqs.adoc[]
 * References
 ** xref:cfgCassandraAuth.adoc[]
@@ -9,5 +8,7 @@
 ** xref:cfgCassandraJavaDriverSettings.adoc[]
 ** xref:cfgCassandraSource.adoc[]
 ** xref:cfgCassandraSSL.adoc[]
+** xref:monitor.adoc[]
+** xref:producerParams.adoc[]
 
 
