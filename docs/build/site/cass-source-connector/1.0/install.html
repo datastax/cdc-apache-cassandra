@@ -357,7 +357,7 @@ pulsar-admin namespace create cassandra/csc</code></pre>
 </div>
 </li>
 <li>
-<p><strong>(Optional)</strong>.  Topics can be auto-created with the  <code>set-auto-topic-creation</code> setting for the namespace being used to store Cassandra CDC events.  This allows for the topics to be automatically generated without having to be manually set.  If running <code>pulsar-admin</code> remotely, set the parameter <code>--admin-url $PULSAR_BROKER_HTTP</code> <code>$PULSAR_ADMIN_AUTH</code> to connect to the remote Pulsar service.  The other option is to create the topics manually.</p>
+<p><strong>(Optional)</strong>.  Topics can be auto-created with the  <code>set-auto-topic-creation</code> setting for the namespace being used to store Cassandra CDC events.  This allows for the topics to be automatically generated without having to be manually set.  If running <code>pulsar-admin</code> remotely, set the parameter <code>--admin-url $PULSAR_BROKER_HTTP</code> <code>$PULSAR_ADMIN_AUTH</code> to connect to the remote Pulsar service.  The other option is to create the topics manually.  For more information on creating Pulsar topics, see the Pulsar documentation <a href="https://pulsar.apache.org/docs/en/admin-api-topics">Manage topics</a>.</p>
 <div class="paragraph">
 <p>In this example, the tenant is <code>cassandra</code> and the namespace is <code>csc</code>.</p>
 </div>
@@ -368,7 +368,7 @@ pulsar-admin namespace create cassandra/csc</code></pre>
 </div>
 </li>
 <li>
-<p>Add the Source Connector file <code>source-pulsar-&lt;version&gt;-SNAPSHOT.nar</code> (replacing <code>&lt;version</code> with the version being installed) to your Pulsar service by one of two methods:</p>
+<p>Add the Source Connector file <code>source-pulsar-&lt;version&gt;-SNAPSHOT.nar</code> (replacing <code>&lt;version&gt;</code> with the version being installed) to your Pulsar service by one of two methods:</p>
 <div class="olist loweralpha">
 <ol class="loweralpha" type="a">
 <li>
@@ -391,7 +391,7 @@ pulsar-admin namespace create cassandra/csc</code></pre>
 <p>The <strong>name</strong> of the Source Connector.  Because each Cassandra table requires a Source Connector setting, the <strong>name</strong> of the Source Connector must be unique.</p>
 </li>
 <li>
-<p><strong>destination-topic-name</strong>: The location for the final Cassandra table CDC data.  The format should be <code>data-{cassanra-keyname}.{table-name}</code>.  In the example below, this becomes <code>data-cycling.cyclist_name</code>.</p>
+<p><strong>destination-topic-name</strong>: The location for the final Cassandra table CDC data.  The format should be <code>data-{cassandra-keyname}.{table-name}</code>.  In the example below, this becomes <code>data-cycling.cyclist_name</code>.</p>
 </li>
 <li>
 <p><strong>source-config</strong>: The <strong>*source-config</strong> is in JSON format, and sets the following:</p>
@@ -410,7 +410,7 @@ pulsar-admin namespace create cassandra/csc</code></pre>
 <p><strong>table</strong>: The table CDC data is being captured for.</p>
 </li>
 <li>
-<p><strong>events.topic</strong>: The events topic where the Cassandra CDC data will initially before before verification and deduplication.  The format should be <code>events-{cassanra-keyname}.{table-name}</code>.  In the example below, this becomes <code>events-cycling.cyclist_name</code>.</p>
+<p><strong>events.topic</strong>: The events topic where the Cassandra CDC data will initially before before verification and de-duplication.  The format should be <code>events-{cassanra-keyname}.{table-name}</code>.  In the example below, this becomes <code>events-cycling.cyclist_name</code>.</p>
 </li>
 <li>
 <p><strong>keyConverter</strong> and <strong>valueConverter</strong>:  Specifies the Pulsar converters used to convert Cassandra keys and JSON data into Pulsar format.</p>
@@ -478,9 +478,8 @@ pulsar-admin namespace create cassandra/csc</code></pre>
 </div>
 </div>
 </div>
-</div>
-<div class="sect2">
-<h3 id="_install_connector_with_yaml_file"><a class="anchor" href="#_install_connector_with_yaml_file"></a>Install Connector with YAML File</h3>
+<div class="sect3">
+<h4 id="_install_connector_with_yaml_file"><a class="anchor" href="#_install_connector_with_yaml_file"></a>Install Connector with YAML File</h4>
 <div class="paragraph">
 <p>To run the Source Connector from within your Pulsar server, a YAML file will be used to set the parameters.  For more information, see the Pulsar documentation <a href="http://pulsar.apache.org/docs/en/io-use/#configure-a-connector-with-a-yaml-file">How to use Pulsar connectors</a>.</p>
 </div>
@@ -490,7 +489,7 @@ pulsar-admin namespace create cassandra/csc</code></pre>
 <div class="olist arabic">
 <ol class="arabic">
 <li>
-<p>Store the Source Connector into the <code>./connectors</code> directory of the Pulsar server.</p>
+<p>Store the Source Connector <code>.nab</code> file into the <code>./connectors</code> directory of the Pulsar server.</p>
 </li>
 <li>
 <p>Verify that the <code>./conf/functions_worker.yml</code> file has the <code>connectorsDirectory</code> option set. By default this is <code>connectorsDirectory: ./connectors</code>.</p>
@@ -525,6 +524,7 @@ configs:
 </div>
 </li>
 </ol>
+</div>
 </div>
 </div>
 </div>

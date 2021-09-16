@@ -113,7 +113,7 @@ pulsar-admin tenants create cassandra
 pulsar-admin namespace create cassandra/csc
 ----
 +
-. **(Optional)**.  Topics can be auto-created with the  `set-auto-topic-creation` setting for the namespace being used to store Cassandra CDC events.  This allows for the topics to be automatically generated without having to be manually set.  If running `pulsar-admin` remotely, set the parameter `--admin-url $PULSAR_BROKER_HTTP` `$PULSAR_ADMIN_AUTH` to connect to the remote Pulsar service.  The other option is to create the topics manually.
+. **(Optional)**.  Topics can be auto-created with the  `set-auto-topic-creation` setting for the namespace being used to store Cassandra CDC events.  This allows for the topics to be automatically generated without having to be manually set.  If running `pulsar-admin` remotely, set the parameter `--admin-url $PULSAR_BROKER_HTTP` `$PULSAR_ADMIN_AUTH` to connect to the remote Pulsar service.  The other option is to create the topics manually.  For more information on creating Pulsar topics, see the Pulsar documentation https://pulsar.apache.org/docs/en/admin-api-topics[Manage topics].
 +
 In this example, the tenant is `cassandra` and the namespace is `csc`.
 +
@@ -122,19 +122,19 @@ In this example, the tenant is `cassandra` and the namespace is `csc`.
 pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH namespaces set-auto-topic-creation cassandra/csc --enable
 ----
 +
-. Add the Source Connector file `source-pulsar-<version>-SNAPSHOT.nar` (replacing `<version` with the version being installed) to your Pulsar service by one of two methods:
+. Add the Source Connector file `source-pulsar-<version>-SNAPSHOT.nar` (replacing `<version>` with the version being installed) to your Pulsar service by one of two methods:
 .. Use a default Connector directory for your Pulsar server.  For more information, see the Apache Pulsar documentation article  https://pulsar.apache.org/docs/en/io-use/#configure-a-default-storage-location-for-a-connector[Configure a default storage location for a connector].  By default, this located `./connectors` in the Pulsar root directory.
 .. Upload the Source Connector file anywhere on the Pulsar server.  Note the exact path of the file.
 . Add the Source Connector details.  Note that there will be a Source Connector configuration for **each Cassandra table**.  Two methods are defined below: Using `pulsar-admin` to run the connector locally, and installing the connector with the appropriate YAML configuration file.  Either will require the following information:
 .. **tenant** and **namespace**: The **tenant** and **namespace** where the CDC events from the Cassandra table are stored.
 .. The **name** of the Source Connector.  Because each Cassandra table requires a Source Connector setting, the **name** of the Source Connector must be unique.
-.. **destination-topic-name**: The location for the final Cassandra table CDC data.  The format should be `data-{cassanra-keyname}.{table-name}`.  In the example below, this becomes `data-cycling.cyclist_name`.
+.. **destination-topic-name**: The location for the final Cassandra table CDC data.  The format should be `data-{cassandra-keyname}.{table-name}`.  In the example below, this becomes `data-cycling.cyclist_name`.
 .. **source-config**: The **source-config* is in JSON format, and sets the following:
 ... **contactPoints**: The Cassandra CQL native port to receive Cassandra submissions from.
 ... **localDc**: The data center used for load balancing.
 ... **keyspace**:  The Cassandra keyspace.
 ... **table**: The table CDC data is being captured for.
-... **events.topic**: The events topic where the Cassandra CDC data will initially before before verification and deduplication.  The format should be `events-{cassanra-keyname}.{table-name}`.  In the example below, this becomes `events-cycling.cyclist_name`.
+... **events.topic**: The events topic where the Cassandra CDC data will initially before before verification and de-duplication.  The format should be `events-{cassanra-keyname}.{table-name}`.  In the example below, this becomes `events-cycling.cyclist_name`.
 ... **keyConverter** and **valueConverter**:  Specifies the Pulsar converters used to convert Cassandra keys and JSON data into Pulsar format.
 
 === Examples
@@ -164,13 +164,13 @@ pulsar-admin source localrun \
 --source-config '{"contactPoints":"[localhost]", "loadBalancing.localDc":"datacenter1", "port":"9042", "keyspace":"cycling", "table":"cyclist_name", "events.topic":"events-cycling.cyclist_name", "key.converter":"com.datastax.oss.pulsar.source.converters.AvroConverter","value.converter":"com.datastax.oss.pulsar.source.converters.JsonConverter"}'
 ----
 
-=== Install Connector with YAML File
+==== Install Connector with YAML File
 
 To run the Source Connector from within your Pulsar server, a YAML file will be used to set the parameters.  For more information, see the Pulsar documentation http://pulsar.apache.org/docs/en/io-use/#configure-a-connector-with-a-yaml-file[How to use Pulsar connectors].
 
 For each Cassandra table to capture the CDC data on, a separate YAML file will be specified.  It is recommended to name them `SouceConnector-{Cassandra Table}.yml`, replacing `{Cassandra Table}` with the name of the table to be captured.
 
-. Store the Source Connector into the `./connectors` directory of the Pulsar server.
+. Store the Source Connector `.nab` file into the `./connectors` directory of the Pulsar server.
 . Verify that the `./conf/functions_worker.yml` file has the `connectorsDirectory` option set. By default this is `connectorsDirectory: ./connectors`.
 . Create a YAML file with the configuration details specified in Step 4.  The following example uses the sample data detailed above, and would be stored in the Pulsar servers `conf` directory as `SourceConnector-cyclist_name.yml`:
 +

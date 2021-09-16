@@ -12,7 +12,7 @@ With CDC, your apps can consume data from an Apache Cassandra table and submit t
 
 The CSC is composed of two parts:
 
-* The Cassandra Data Connector, which transmits Change Data Capture (CDC) updates from the Cassandra table to the streaming service.
+* The Cassandra Source Connector, which transmits Change Data Capture (CDC) updates from the Cassandra table to the streaming service.
 * The Pulsar CSC Connector, which verifies the CSC events and stores the final data changes into a Data topic.
 
 === What are the system requirements for the CSC?
@@ -21,25 +21,25 @@ The CSC requires additional resources depending on your write throughput.
 
 For each Cassandra write, each Cassandra replica sends one message to your Pulsar service, and executes at least one QUORUM read on your Cassandra cluster.
 
-=== What components and features are provided by Cassandra Data Connector?
+=== What components and features are provided by Cassandra Source Connector?
 
-Cassandra Data Connector provides:
+Cassandra Source Connector provides:
 
 * Cassandra, Elastic, Snowflake, Kinesis, Kafka, and JDBC connectors
 * A management dashboard
 * A monitoring and alerting system
 
-=== Which versions of Apache Pulsar does DataStax Cassandra Data Connector support?
+=== Which versions of Apache Pulsar does DataStax Cassandra Source Connector support?
 
-Cassandra Data Connector supports Apache Pulsar 2.7.0 and later.
+Cassandra Source Connector supports Apache Pulsar 2.7.0 and later.
 
 === What does the CSC provide that is not provided by Apache Pulsar?
 
-DataStax Cassandra Data Connector implements the reverse of the DataStax Cassandra Data Connector, which stores Pulsar topic updates into Cassandra.  The CSC takes data from a Cassandra table and stores that data into a Pulsar topic.  From there, the data can be published to external platforms like Snowflake, Elastic, and so on.
+DataStax Cassandra Source Connector implements the reverse of the DataStax Cassandra Source Connector, which stores Pulsar topic updates into Cassandra.  The CSC takes data from a Cassandra table and stores that data into a Pulsar topic.  From there, the data can be published to external platforms like Snowflake, Elastic, and so on.
 
-=== Is DataStax Cassandra Data Connector an open-source project?
+=== Is DataStax Cassandra Source Connector an open-source project?
 
-Yes, DataStax Cassandra Data Connector is open source under the Apache 2.0 License. See the <<gitHubRepos,repos FAQ>>.
+Yes, DataStax Cassandra Source Connector is open source under the Apache 2.0 License. See the <<gitHubRepos,repos FAQ>>.
 
 === Which Kubernetes platforms are supported by the CSC?
 
@@ -55,21 +55,25 @@ The CSC supports most commonly used Kubernetes platforms, including:
 [#gitHubRepos]
 === Where is the CSC public GitHub repo?
 
-The source for this FAQ and related CSC documents are co-located with the Cassandra Data Connector repo code, examples, and additional documentation: access the [repo here](https://github.com/riptano/cdcrep).
+The source for this FAQ and related CSC documents are co-located with the Cassandra Source Connector repo code, examples, and additional documentation: access the [repo here](https://github.com/riptano/cdcrep).
 
 == Installation
 
-=== Is there a prerequisite version of Java needed for the DataStax Cassandra Data Connector installation?
+=== Is there a prerequisite version of Java needed for the DataStax Cassandra Source Connector installation?
 
-The DataStax Cassandra Data Connector distribution is designed for Java 11. However, because the product releases Docker images, you do not need to install Java (8 or 11) in advance. Java 11 is bundled in the Docker image.
+The DataStax Cassandra Source Connector distribution is designed for Java 11. However, because the product releases Docker images, you do not need to install Java (8 or 11) in advance. Java 11 is bundled in the Docker image.
 
-=== How do I install Cassandra Data Connector?
+=== How do I install Cassandra Source Connector?
 
-Download the tar file from the DataStax [Downloads site](https://downloads.datastax.com/#csc). Then follow the xref:install.adoc[install] instructions. The tarball contains the Cassandra Data Connector distribution's NAR file.
+Download the tar file from the DataStax [Downloads site](https://downloads.datastax.com/#csc). Then follow the xref:install.adoc[install] instructions. The tarball contains the Cassandra Source Connector distribution's NAR file.
+
+=== How many Cassandra Tables can I track?
+
+As many as your system can handle.  Note that each Cassandra table CDC events must be tracked with a separate Cassandra Source Connector.
 
 == Tasks
 
-=== What task can I perform in the DataStax Cassandra Data Connector Installation Console?
+=== What task can I perform in the DataStax Cassandra Source Connector Installation Console?
 
 From the Installation Console, you can:
 
@@ -106,12 +110,12 @@ https://grafana.com/[Grafana] is a visualization tool that helps you make sense 
 
 == Pulsar Connector
 
-=== What are the features provided by Cassandra Data Connector that are not supported in `pulsar-sink`?
+=== What are the features provided by Cassandra Source Connector that are not supported in `pulsar-sink`?
 
 * Single record acknowledgement and negative acknowledgements.
 * The https://pulsar.apache.org/docs/en/2.6.2/io-overview/[Pulsar IO framework] provides many features that are not possible in Kafka, and has different compression formats and auth/security features. The features are handled by Pulsar.
 
-=== What features are missing in Cassandra Data Connector that are provided in `pulsar-sink`?
+=== What features are missing in Cassandra Source Connector that are provided in `pulsar-sink`?
 
 * No support for `tinyint` (`int8bit`) and `smallint` (`int16bit`).
 * The key is always a String, but you can write JSON inside of it.  This is supported by pulsar-sink, but not Pulsar IO.
@@ -120,7 +124,7 @@ https://grafana.com/[Grafana] is a visualization tool that helps you make sense 
 
 == APIs
 
-=== What client APIs does Cassandra Data Connector provide?
+=== What client APIs does Cassandra Source Connector provide?
 
 The same as for Apache Pulsar. See https://pulsar.apache.org/docs/en/client-libraries/.
 

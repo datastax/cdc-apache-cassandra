@@ -158,7 +158,7 @@
 <div class="ulist">
 <ul>
 <li>
-<p>The Cassandra Data Connector, which transmits Change Data Capture (CDC) updates from the Cassandra table to the streaming service.</p>
+<p>The Cassandra Source Connector, which transmits Change Data Capture (CDC) updates from the Cassandra table to the streaming service.</p>
 </li>
 <li>
 <p>The Pulsar CSC Connector, which verifies the CSC events and stores the final data changes into a Data topic.</p>
@@ -176,9 +176,9 @@
 </div>
 </div>
 <div class="sect2">
-<h3 id="_what_components_and_features_are_provided_by_cassandra_data_connector"><a class="anchor" href="#_what_components_and_features_are_provided_by_cassandra_data_connector"></a>What components and features are provided by Cassandra Data Connector?</h3>
+<h3 id="_what_components_and_features_are_provided_by_cassandra_source_connector"><a class="anchor" href="#_what_components_and_features_are_provided_by_cassandra_source_connector"></a>What components and features are provided by Cassandra Source Connector?</h3>
 <div class="paragraph">
-<p>Cassandra Data Connector provides:</p>
+<p>Cassandra Source Connector provides:</p>
 </div>
 <div class="ulist">
 <ul>
@@ -195,21 +195,21 @@
 </div>
 </div>
 <div class="sect2">
-<h3 id="_which_versions_of_apache_pulsar_does_datastax_cassandra_data_connector_support"><a class="anchor" href="#_which_versions_of_apache_pulsar_does_datastax_cassandra_data_connector_support"></a>Which versions of Apache Pulsar does DataStax Cassandra Data Connector support?</h3>
+<h3 id="_which_versions_of_apache_pulsar_does_datastax_cassandra_source_connector_support"><a class="anchor" href="#_which_versions_of_apache_pulsar_does_datastax_cassandra_source_connector_support"></a>Which versions of Apache Pulsar does DataStax Cassandra Source Connector support?</h3>
 <div class="paragraph">
-<p>Cassandra Data Connector supports Apache Pulsar 2.7.0 and later.</p>
+<p>Cassandra Source Connector supports Apache Pulsar 2.7.0 and later.</p>
 </div>
 </div>
 <div class="sect2">
 <h3 id="_what_does_the_csc_provide_that_is_not_provided_by_apache_pulsar"><a class="anchor" href="#_what_does_the_csc_provide_that_is_not_provided_by_apache_pulsar"></a>What does the CSC provide that is not provided by Apache Pulsar?</h3>
 <div class="paragraph">
-<p>DataStax Cassandra Data Connector implements the reverse of the DataStax Cassandra Data Connector, which stores Pulsar topic updates into Cassandra.  The CSC takes data from a Cassandra table and stores that data into a Pulsar topic.  From there, the data can be published to external platforms like Snowflake, Elastic, and so on.</p>
+<p>DataStax Cassandra Source Connector implements the reverse of the DataStax Cassandra Source Connector, which stores Pulsar topic updates into Cassandra.  The CSC takes data from a Cassandra table and stores that data into a Pulsar topic.  From there, the data can be published to external platforms like Snowflake, Elastic, and so on.</p>
 </div>
 </div>
 <div class="sect2">
-<h3 id="_is_datastax_cassandra_data_connector_an_open_source_project"><a class="anchor" href="#_is_datastax_cassandra_data_connector_an_open_source_project"></a>Is DataStax Cassandra Data Connector an open-source project?</h3>
+<h3 id="_is_datastax_cassandra_source_connector_an_open_source_project"><a class="anchor" href="#_is_datastax_cassandra_source_connector_an_open_source_project"></a>Is DataStax Cassandra Source Connector an open-source project?</h3>
 <div class="paragraph">
-<p>Yes, DataStax Cassandra Data Connector is open source under the Apache 2.0 License. See the <a href="#gitHubRepos">repos FAQ</a>.</p>
+<p>Yes, DataStax Cassandra Source Connector is open source under the Apache 2.0 License. See the <a href="#gitHubRepos">repos FAQ</a>.</p>
 </div>
 </div>
 <div class="sect2">
@@ -243,7 +243,7 @@
 <div class="sect2">
 <h3 id="gitHubRepos"><a class="anchor" href="#gitHubRepos"></a>Where is the CSC public GitHub repo?</h3>
 <div class="paragraph">
-<p>The source for this FAQ and related CSC documents are co-located with the Cassandra Data Connector repo code, examples, and additional documentation: access the [repo here](<a href="https://github.com/riptano/cdcrep" class="bare">https://github.com/riptano/cdcrep</a>).</p>
+<p>The source for this FAQ and related CSC documents are co-located with the Cassandra Source Connector repo code, examples, and additional documentation: access the [repo here](<a href="https://github.com/riptano/cdcrep" class="bare">https://github.com/riptano/cdcrep</a>).</p>
 </div>
 </div>
 </div>
@@ -252,15 +252,21 @@
 <h2 id="_installation"><a class="anchor" href="#_installation"></a>Installation</h2>
 <div class="sectionbody">
 <div class="sect2">
-<h3 id="_is_there_a_prerequisite_version_of_java_needed_for_the_datastax_cassandra_data_connector_installation"><a class="anchor" href="#_is_there_a_prerequisite_version_of_java_needed_for_the_datastax_cassandra_data_connector_installation"></a>Is there a prerequisite version of Java needed for the DataStax Cassandra Data Connector installation?</h3>
+<h3 id="_is_there_a_prerequisite_version_of_java_needed_for_the_datastax_cassandra_source_connector_installation"><a class="anchor" href="#_is_there_a_prerequisite_version_of_java_needed_for_the_datastax_cassandra_source_connector_installation"></a>Is there a prerequisite version of Java needed for the DataStax Cassandra Source Connector installation?</h3>
 <div class="paragraph">
-<p>The DataStax Cassandra Data Connector distribution is designed for Java 11. However, because the product releases Docker images, you do not need to install Java (8 or 11) in advance. Java 11 is bundled in the Docker image.</p>
+<p>The DataStax Cassandra Source Connector distribution is designed for Java 11. However, because the product releases Docker images, you do not need to install Java (8 or 11) in advance. Java 11 is bundled in the Docker image.</p>
 </div>
 </div>
 <div class="sect2">
-<h3 id="_how_do_i_install_cassandra_data_connector"><a class="anchor" href="#_how_do_i_install_cassandra_data_connector"></a>How do I install Cassandra Data Connector?</h3>
+<h3 id="_how_do_i_install_cassandra_source_connector"><a class="anchor" href="#_how_do_i_install_cassandra_source_connector"></a>How do I install Cassandra Source Connector?</h3>
 <div class="paragraph">
-<p>Download the tar file from the DataStax [Downloads site](<a href="https://downloads.datastax.com/#csc" class="bare">https://downloads.datastax.com/#csc</a>). Then follow the <a href="install.html" class="page">install</a> instructions. The tarball contains the Cassandra Data Connector distribution&#8217;s NAR file.</p>
+<p>Download the tar file from the DataStax [Downloads site](<a href="https://downloads.datastax.com/#csc" class="bare">https://downloads.datastax.com/#csc</a>). Then follow the <a href="install.html" class="page">install</a> instructions. The tarball contains the Cassandra Source Connector distribution&#8217;s NAR file.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_how_many_cassandra_tables_can_i_track"><a class="anchor" href="#_how_many_cassandra_tables_can_i_track"></a>How many Cassandra Tables can I track?</h3>
+<div class="paragraph">
+<p>As many as your system can handle.  Note that each Cassandra table CDC events must be tracked with a separate Cassandra Source Connector.</p>
 </div>
 </div>
 </div>
@@ -269,7 +275,7 @@
 <h2 id="_tasks"><a class="anchor" href="#_tasks"></a>Tasks</h2>
 <div class="sectionbody">
 <div class="sect2">
-<h3 id="_what_task_can_i_perform_in_the_datastax_cassandra_data_connector_installation_console"><a class="anchor" href="#_what_task_can_i_perform_in_the_datastax_cassandra_data_connector_installation_console"></a>What task can I perform in the DataStax Cassandra Data Connector Installation Console?</h3>
+<h3 id="_what_task_can_i_perform_in_the_datastax_cassandra_source_connector_installation_console"><a class="anchor" href="#_what_task_can_i_perform_in_the_datastax_cassandra_source_connector_installation_console"></a>What task can I perform in the DataStax Cassandra Source Connector Installation Console?</h3>
 <div class="paragraph">
 <p>From the Installation Console, you can:</p>
 </div>
@@ -351,7 +357,7 @@
 <h2 id="_pulsar_connector"><a class="anchor" href="#_pulsar_connector"></a>Pulsar Connector</h2>
 <div class="sectionbody">
 <div class="sect2">
-<h3 id="_what_are_the_features_provided_by_cassandra_data_connector_that_are_not_supported_in_pulsar_sink"><a class="anchor" href="#_what_are_the_features_provided_by_cassandra_data_connector_that_are_not_supported_in_pulsar_sink"></a>What are the features provided by Cassandra Data Connector that are not supported in <code>pulsar-sink</code>?</h3>
+<h3 id="_what_are_the_features_provided_by_cassandra_source_connector_that_are_not_supported_in_pulsar_sink"><a class="anchor" href="#_what_are_the_features_provided_by_cassandra_source_connector_that_are_not_supported_in_pulsar_sink"></a>What are the features provided by Cassandra Source Connector that are not supported in <code>pulsar-sink</code>?</h3>
 <div class="ulist">
 <ul>
 <li>
@@ -364,7 +370,7 @@
 </div>
 </div>
 <div class="sect2">
-<h3 id="_what_features_are_missing_in_cassandra_data_connector_that_are_provided_in_pulsar_sink"><a class="anchor" href="#_what_features_are_missing_in_cassandra_data_connector_that_are_provided_in_pulsar_sink"></a>What features are missing in Cassandra Data Connector that are provided in <code>pulsar-sink</code>?</h3>
+<h3 id="_what_features_are_missing_in_cassandra_source_connector_that_are_provided_in_pulsar_sink"><a class="anchor" href="#_what_features_are_missing_in_cassandra_source_connector_that_are_provided_in_pulsar_sink"></a>What features are missing in Cassandra Source Connector that are provided in <code>pulsar-sink</code>?</h3>
 <div class="ulist">
 <ul>
 <li>
@@ -388,7 +394,7 @@
 <h2 id="_apis"><a class="anchor" href="#_apis"></a>APIs</h2>
 <div class="sectionbody">
 <div class="sect2">
-<h3 id="_what_client_apis_does_cassandra_data_connector_provide"><a class="anchor" href="#_what_client_apis_does_cassandra_data_connector_provide"></a>What client APIs does Cassandra Data Connector provide?</h3>
+<h3 id="_what_client_apis_does_cassandra_source_connector_provide"><a class="anchor" href="#_what_client_apis_does_cassandra_source_connector_provide"></a>What client APIs does Cassandra Source Connector provide?</h3>
 <div class="paragraph">
 <p>The same as for Apache Pulsar. See <a href="https://pulsar.apache.org/docs/en/client-libraries/" class="bare">https://pulsar.apache.org/docs/en/client-libraries/</a>.</p>
 </div>
