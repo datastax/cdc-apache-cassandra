@@ -161,8 +161,7 @@ For example:</p>
 <i class="fa icon-note" title="Note"></i>
 </td>
 <td class="content">
-If you define both in your configuration, the Pulsar Connector setting take precedence over the <code>datastax-java-driver.property-name</code>.
-If you do not provide either in your configuration, Pulsar Connector defaults are in effect.
+If you define both in your configuration, the Pulsar Connector setting take precedence over the <code>datastax-java-driver.property-name</code>.  If you do not provide either in your configuration, Pulsar Connector defaults are in effect.
 </td>
 </tr>
 </table>
@@ -213,9 +212,13 @@ If you do not provide either in your configuration, Pulsar Connector defaults ar
 </tbody>
 </table>
 <div class="paragraph">
-<p>There is a difference between the Pulsar Connector&#8217;s <code>contactPoints</code> setting and the Java driver&#8217;s <code>datastax-java-driver.basic.contact-points</code>.
-For <code>contactPoints</code>, the value of the <code>port</code> is appended to every host provided by this setting.
-For <code>datastax-java-driver.basic.contact-points</code>, you must provide the fully qualified contact points (<code>host:port</code>).</p>
+<p>There is a difference between the Pulsar Connector&#8217;s <code>contactPoints</code> setting and the Java driver&#8217;s <code>datastax-java-driver.basic.contact-points</code>.</p>
+</div>
+<div class="paragraph">
+<p>For <code>contactPoints</code>, the value of the <code>port</code> is appended to every host provided by this setting.</p>
+</div>
+<div class="paragraph">
+<p>For <code>datastax-java-driver.basic.contact-points</code>, you must provide the fully qualified contact points (<code>host:port</code>).</p>
 </div>
 <div class="paragraph">
 <p>By passing in the Java driver&#8217;s setting, this option gives you more configuration flexibility because you can specify a different port for each host.
@@ -232,7 +235,7 @@ Example:</p>
 <h2 id="_conversion_of_java_driver_properties_of_type_list_to_typesafe_config"><a class="anchor" href="#_conversion_of_java_driver_properties_of_type_list_to_typesafe_config"></a>Conversion of Java driver properties of type List to TypeSafe Config</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>The following properties that are of type <code>List</code>, which you could pass into the driver from your Pulsar Connector configuration via the <code>datastax-java-driver</code> prefix, are converted by the DataStax Java driver to the <code>TypeSafe Config</code> format.</p>
+<p>The following properties are type <code>List</code>.  These can be passed into the driver from your Pulsar Connector configuration via the <code>datastax-java-driver</code> prefix, are converted by the DataStax Java driver to the <code>TypeSafe Config</code> format.</p>
 </div>
 <div class="ulist">
 <ul>
@@ -254,8 +257,10 @@ Example:</p>
 </ul>
 </div>
 <div class="paragraph">
-<p>The conversion by the Java driver will split the comma-separated values provided in those setting to create indexed properties.
-For example, if you passed in <code>datastax-java-driver.advanced.metrics.session.enabled=a,b</code>, the entry is converted to:</p>
+<p>The conversion by the Java driver will split the comma-separated values provided in those setting to create indexed properties.</p>
+</div>
+<div class="paragraph">
+<p>For example, if you passed in <code>datastax-java-driver.advanced.metrics.session.enabled=a,b</code>, the entry is converted to:</p>
 </div>
 <div class="listingblock">
 <div class="content">

@@ -12,8 +12,7 @@ datastax-java-driver.basic.request.consistency=ALL
 
 The following table identifies functionally equivalent DataStax Apache Pulsar Connector and DataStax Java driver settings.
 
-NOTE: If you define both in your configuration, the Pulsar Connector setting take precedence over the `datastax-java-driver.property-name`.
-If you do not provide either in your configuration, Pulsar Connector defaults are in effect.
+NOTE: If you define both in your configuration, the Pulsar Connector setting take precedence over the `datastax-java-driver.property-name`.  If you do not provide either in your configuration, Pulsar Connector defaults are in effect.
 
 For information about the Java properties, refer to the link:https://docs.datastax.com/en/developer/java-driver-dse/2.3/manual/core/configuration/[DataStax Java driver documentation.] For information about the Pulsar Connector settings, refer to xref:cfgRefPulsarDseConnection.adoc[].
 
@@ -43,7 +42,9 @@ For information about the Java properties, refer to the link:https://docs.datast
 |===
 
 There is a difference between the Pulsar Connector's `contactPoints` setting and the Java driver's `datastax-java-driver.basic.contact-points`.
+
 For `contactPoints`, the value of the `port` is appended to every host provided by this setting.
+
 For `datastax-java-driver.basic.contact-points`, you must provide the fully qualified contact points (`host:port`).
 
 By passing in the Java driver's setting, this option gives you more configuration flexibility because you can specify a different port for each host.
@@ -56,7 +57,7 @@ datastax-java-driver.basic.contact-points = 127.0.0.1:9042, 127.0.0.2:90
 
 == Conversion of Java driver properties of type List to TypeSafe Config
 
-The following properties that are of type `List`, which you could pass into the driver from your Pulsar Connector configuration via the `datastax-java-driver` prefix, are converted by the DataStax Java driver to the `TypeSafe Config` format.
+The following properties are type `List`.  These can be passed into the driver from your Pulsar Connector configuration via the `datastax-java-driver` prefix, are converted by the DataStax Java driver to the `TypeSafe Config` format.
 
 * `datastax-java-driver.advanced.ssl-engine-factory.cipher-suites`
 * `datastax-java-driver.advanced.metrics.node.enabled`
@@ -65,6 +66,7 @@ The following properties that are of type `List`, which you could pass into the 
 * `datastax-java-driver.basic.contact-points`
 
 The conversion by the Java driver will split the comma-separated values provided in those setting to create indexed properties.
+
 For example, if you passed in `datastax-java-driver.advanced.metrics.session.enabled=a,b`, the entry is converted to:
 
 [source,no-highlight]
