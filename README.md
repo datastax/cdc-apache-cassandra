@@ -16,9 +16,9 @@ All documentation is available online [here](https://docs.datastax.com/en/cassan
 
 ## Limitations
 
-* Does not replay batch updates
+* Does not replay logged batches
 * Does not manage table truncates
-* Does not manage TTL
+* Does not manage TTLs
 * Does not support range deletes
 * Does not sync data available before starting the CDC producer.
 

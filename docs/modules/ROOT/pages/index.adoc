@@ -72,6 +72,14 @@ Cassandra supported CQL3 data types:
 * uuid, timeuuid
 * User Defined Types
 
+== Limitations
+
+* Does not support logged batches
+* Does not manage table truncates
+* Does not manage TTLs
+* Does not support range deletes
+* Does not sync data available before starting the CDC producer.
+
 == Where to go next
 
 If you've got more questions...:: For additional information about Cassandra Source Connector, see xref::faqs.adoc[].
