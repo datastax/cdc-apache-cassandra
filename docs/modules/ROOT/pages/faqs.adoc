@@ -126,4 +126,4 @@ The same as for Apache Pulsar. See https://pulsar.apache.org/docs/en/client-libr
 
 == Next
 
-If you haven't already, build try the CSC for yourself to to consume data from a Cassandra table and transmit the updates onto a Pulsar topic. See the xref:quickstart-guide.adoc[Quick Start Guide].
+If you haven't already, build try the CSC for yourself to to consume data from a Cassandra table and transmit the updates onto a Pulsar topic. See the xref:install.adoc[Quick Start Guide].

@@ -1,5 +1,4 @@
 * xref:index.adoc[]
-* xref:quickstart-guide.adoc[]
 * xref:install.adoc[]
 * xref:faqs.adoc[]
 * References

@@ -42,7 +42,6 @@ Deployment matrix:
 | Apache Pulsar | producer-v3-pulsar | producer-v4-pulsar | source-pulsar |
 |=======
 
-[#supported-databases]
 == Supported databases
 
 * Open source Apache® Cassandra® 3.11.x and 4.x databases
@@ -65,7 +64,7 @@ Cassandra supported CQL3 data types:
 
 == Getting started
 
-* xref:quickstart-guide.adoc[] A quick introduction connecting a Cassandra table to a Pulsar cluster.
+* xref:install.adoc[] A quick introduction connecting a Cassandra table to a Pulsar cluster.
 
 == Where to go next
 

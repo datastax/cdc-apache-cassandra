@@ -59,9 +59,6 @@
   <li class="nav-item" data-depth="1">
     <a class="nav-link" href="index.html">About DataStax Cassandra Source Connector</a>
   </li>
-  <li class="nav-item" data-depth="1">
-    <a class="nav-link" href="quickstart-guide.html">Quick Start Guide</a>
-  </li>
   <li class="nav-item is-current-page" data-depth="1">
     <a class="nav-link" href="install.html">Installation Guide</a>
   </li>
@@ -137,8 +134,58 @@
   <div class="content">
 <article class="doc">
 <h1 class="page">Installation Guide</h1>
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>Organizations who want to implement CDC (Change Data Capture) from their <a href="https://cassandra.apache.org/index.html">Apache Cassandra</a> cluster can use the <a href="https://github.com/datastax/cassandra-source-connector/tree/master">DataStax Cassandra&reg; Source Connector (CSC)</a> to capture change data events into <a href="https://pulsar.apache.org">Apache Pulsar</a>.</p>
+</div>
+<div class="paragraph">
+<p>For more information on how the CSC works, see the <a href="index.adoc">About</a> page.</p>
+</div>
+<div class="paragraph">
+<p>This guide instructions users setting up the CSC in the minimum number of steps.  For more information about configuration options, see the <strong>References</strong> section.</p>
+</div>
+<div class="paragraph">
+<p>The steps to install the CSC are:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Step 0: Download the CSC.</p>
+</li>
+<li>
+<p>Step 1: Install the Cassandra CDC Producer.</p>
+</li>
+<li>
+<p>Step 2. Install Pulsar.</p>
+</li>
+<li>
+<p>Step 3: Install the Pulsar CSC Source Connector.</p>
+</li>
+<li>
+<p>Step 4: Configure the Cassandra CDC Producer</p>
+</li>
+<li>
+<p>Step 5: Read the Data Topics from Apache Pulsar.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
 <div class="sect1">
-<h2 id="_download_the_datastax_cassandra_source_connector"><a class="anchor" href="#_download_the_datastax_cassandra_source_connector"></a>Download the Datastax Cassandra Source Connector</h2>
+<h2 id="_prerequisites"><a class="anchor" href="#_prerequisites"></a>Prerequisites</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Apache Cassandra 3.11 or 4.0</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_step_0_download_the_csc"><a class="anchor" href="#_step_0_download_the_csc"></a>Step 0: Download the CSC</h2>
 <div class="sectionbody">
 <div class="admonitionblock important">
 <table>
@@ -148,21 +195,24 @@
 </td>
 <td class="content">
 <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache-2.0 license agreement</a>.
-By downloading this DataStax product, you agree to the terms of the open-source Apache-2.0 license agreement.
+By downloading this DataStax product, you agree to the terms of the Open Source Apache-2.0 license agreement.
 </td>
 </tr>
 </table>
 </div>
-<div class="paragraph">
-<p>Perform the following steps on a Pulsar Connect node:</p>
-</div>
 <div class="olist arabic">
 <ol class="arabic">
 <li>
-<p>Download the tar file from the <a href="https://downloads.datastax.com/#csc">DataStax downloads site</a>.  If you agree, enable the <strong>Terms</strong> checkbox and click the download icon.</p>
+<p>Go to the download page at <a href="https://downloads.datastax.com/#csc">DataStax downloads site</a>.</p>
 </li>
 <li>
-<p>Extract the files:</p>
+<p>Select <strong>Tools</strong>, then <strong>DataStax Cassandra Source Connector</strong>.</p>
+</li>
+<li>
+<p>Agree to the Terms and Conditions by enabling the Terms checkbox, then selecting <strong>Download</strong>.</p>
+</li>
+<li>
+<p>Extract the files with the following command:</p>
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-language-bash hljs" data-lang="language-bash">tar zxf cassandra-source-connector-&lt;version&gt;.tar.gz</code></pre>
@@ -176,9 +226,9 @@ By downloading this DataStax product, you agree to the terms of the open-source 
 <pre class="highlightjs highlight"><code class="language-no-highlight hljs" data-lang="no-highlight">LICENSE
 README.md
 THIRD-PARTY.txt
-producer-v3-pulsar-0.1.0-SNAPSHOT-all.jar
-producer-v4-pulsar-0.1.0-SNAPSHOT-all.jar
-source-pulsar-0.1.0-SNAPSHOT.nar</code></pre>
+producer-v3-pulsar-&lt;version&gt;-SNAPSHOT-all.jar
+producer-v4-pulsar-&lt;version&gt;-SNAPSHOT-all.jar
+source-pulsar-&lt;version&gt;-SNAPSHOT.nar</code></pre>
 </div>
 </div>
 </li>
@@ -187,50 +237,303 @@ source-pulsar-0.1.0-SNAPSHOT.nar</code></pre>
 </div>
 </div>
 <div class="sect1">
-<h2 id="_starting_cassandra_with_the_producer_agent"><a class="anchor" href="#_starting_cassandra_with_the_producer_agent"></a>Starting Cassandra with the producer agent.</h2>
+<h2 id="_step_1_install_the_cassandra_cdc_producer"><a class="anchor" href="#_step_1_install_the_cassandra_cdc_producer"></a>Step 1: Install the Cassandra CDC Producer</h2>
 <div class="sectionbody">
+<div class="sect2">
+<h3 id="_install_the_cassandra_cdc_producer"><a class="anchor" href="#_install_the_cassandra_cdc_producer"></a>Install the Cassandra CDC Producer</h3>
 <div class="paragraph">
-<p>Each data nodes of your Cassandra data center must run the producer JVM agent to send mutations into the events topic of your streaming software. Start your Cassandra nodes with the appropriate producer binary matching your Cassandra version (3.11 or 4.0) and your streaming platform, in this case Apache Pulsar.</p>
+<p>To install the Cassandra CDC Producer, follow these steps:</p>
 </div>
-<div class="paragraph">
-<p>As a Java agent, the CDC producer parameters take place after the jar file name in the form of a comma separated list of <code>paramName=paramValue</code>. The following example is for Apache Pulsar on Cassandra version 4.0 nodes with the Pulsar service available on host <code>schemaregistry</code>:</p>
-</div>
-<div class="listingblock">
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Copy the appropriate Cassandra Producer binary based on your version of Cassandra to each Cassandra node:</p>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Cassandra Version</th>
+<th class="tableblock halign-left valign-top">CDC Pulsar Producer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">3.11</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">producer-v3-pulsar-&lt;version&gt;-SNAPSHOT-all.jar</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">4.0</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">producer-v4-pulsar-&lt;version&gt;-SNAPSHOT-all.jar</p></td>
+</tr>
+</tbody>
+</table>
+</li>
+<li>
+<p>Restart each Cassandra node and specify the Producer parameters in the <code>JVM_EXTRA_OPTS</code> setting, with each parameter as a comma separated list in the format <code>parameter=value</code>.  For more information on the producer parameters, see <a href="producerParams.adoc">Producer Parameters</a>.  In this example, the most important setting <code>pulsarServiceUrl</code> is included.  This points the Cassandra CDC Producer at the Pulser service.  In this case, the host name of the Pulsar service is <code>schemaregistry</code> using the <strong>Broker data port</strong> <code>6650</code>:</p>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Cassandra Version</th>
+<th class="tableblock halign-left valign-top">CDC Pulsar Producer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">3.11</p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="listingblock">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-language-bash hljs" data-lang="language-bash">export JVM_EXTRA_OPTS="-javaagent:/path/to/producer-v4-pulsar-&lt;version&gt;-SNAPSHOT-all.jar=pulsarServiceUrl=http://schemaregistry:6650"</code></pre>
+<pre class="highlightjs highlight"><code class="language-language-bash hljs" data-lang="language-bash">export JVM_EXTRA_OPTS="-javaagent:/path/to/producer-v3-pulsar-0.1.0-SNAPSHOT-all.jar=pulsarServiceUrl=http://schemaregistry:6650"</code></pre>
+</div>
+</div></div></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">4.0</p></td>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-language-bash hljs" data-lang="language-bash">export JVM_EXTRA_OPTS="-javaagent:/path/to/producer-v4-pulsar-0.1.0-SNAPSHOT-all.jar=pulsarServiceUrl=http://schemaregistry:6650"</code></pre>
+</div>
+</div></div></td>
+</tr>
+</tbody>
+</table>
+</li>
+</ol>
 </div>
 </div>
 </div>
 </div>
 <div class="sect1">
-<h2 id="_deploy_the_pulsar_cassandra_source_connector"><a class="anchor" href="#_deploy_the_pulsar_cassandra_source_connector"></a>Deploy the Pulsar Cassandra Source Connector</h2>
+<h2 id="_step_2_install_pulsar"><a class="anchor" href="#_step_2_install_pulsar"></a>Step 2: Install Pulsar</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>To deploy the Cassandra Source Connector NAR file in your Pulsar cluster, you can copy it into the Pulsar connectors directory or upload it anywhere on the node and specify it. The following parameters are required:</p>
+<p>Depending on your organizations needs, there are different distributions of Apache Pulsar to use.  One is the <a href="https://pulsar.apache.org/">Apache Pulsar distribution</a> available from the Apache Software Foundation.  For high availability production systems, another option is <a href="https://www.datastax.com/products/luna-streaming">Luna Streaming</a>, a production oriented distribution of Apache Pulsar and engineered to run on Kubernetes.</p>
+</div>
+<div class="sect2">
+<h3 id="_install_apache_pulsar"><a class="anchor" href="#_install_apache_pulsar"></a>Install Apache Pulsar</h3>
+<div class="paragraph">
+<p>Apache Pulsar has provided installation instructions for local, Docker, and Kubernetes based installations.  These are available on the <a href="https://pulsar.apache.org/docs/en/standalone/">Pulsar Documentation site</a>.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_install_luna_streaming"><a class="anchor" href="#_install_luna_streaming"></a>Install Luna Streaming</h3>
+<div class="paragraph">
+<p>The DataStax Luna Streaming service provides a production level, secure distribution of Apache Pulsar.  For instructions on how to install Luna Streaming, see either of the following based on your environment:</p>
 </div>
 <div class="ulist">
 <ul>
 <li>
-<p>The connector name.  There must be one connector per replicated Cassandra table.</p>
+<p><a href="https://docs.datastax.com/en/luna/streaming/2.7/quickstart-helm-installs.html">Quick Start for Helm Chart installs</a></p>
 </li>
 <li>
-<p>The destination topic for Cassandra data.</p>
-</li>
-<li>
-<p>The connector configuration.  See <a href="cfgCassandraConnection.html" class="page">Cassandra connection</a>.</p>
+<p><a href="https://docs.datastax.com/en/luna/streaming/2.7/quickstart-server-installs.html">Quick Start for Server/VM installs</a></p>
 </li>
 </ul>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_step_4_install_the_pulsar_csc_source_connector"><a class="anchor" href="#_step_4_install_the_pulsar_csc_source_connector"></a>Step 4: Install the Pulsar CSC Source Connector</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The following steps will install the Pulsar CSC Source Connector and set up the topics to capture Cassandra CDC events.</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Set the <strong>tenant</strong> and <strong>namespace</strong> where the topics to store the Cassandra CDC events.  For more information, see the Pulsar documentation for <a href="https://pulsar.apache.org/docs/en/admin-api-tenants/">Managing Tenants</a> and <a href="https://pulsar.apache.org/docs/en/admin-api-namespaces/">Managing Namespaces</a>.  For this example, we will use the tenant <code>cassandra</code> with the namespace <code>csc</code> created with the following commands:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-language-bash hljs" data-lang="language-bash">pulsar-admin tenants create cassandra
+pulsar-admin namespace create cassandra/csc</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p><strong>(Optional)</strong>.  Topics can be auto-created with the  <code>set-auto-topic-creation</code> setting for the namespace being used to store Cassandra CDC events.  This allows for the topics to be automatically generated without having to be manually set.  If running <code>pulsar-admin</code> remotely, set the parameter <code>--admin-url $PULSAR_BROKER_HTTP</code> <code>$PULSAR_ADMIN_AUTH</code> to connect to the remote Pulsar service.  The other option is to create the topics manually.</p>
+<div class="paragraph">
+<p>In this example, the tenant is <code>cassandra</code> and the namespace is <code>csc</code>.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-language-bash hljs" data-lang="language-bash">pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH namespaces set-auto-topic-creation cassandra/csc --enable</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Add the Source Connector file <code>source-pulsar-&lt;version&gt;-SNAPSHOT.nar</code> (replacing <code>&lt;version</code> with the version being installed) to your Pulsar service by one of two methods:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p>Use a default Connector directory for your Pulsar server.  For more information, see the Apache Pulsar documentation article  <a href="https://pulsar.apache.org/docs/en/io-use/#configure-a-default-storage-location-for-a-connector">Configure a default storage location for a connector</a>.  By default, this located <code>./connectors</code> in the Pulsar root directory.</p>
+</li>
+<li>
+<p>Upload the Source Connector file anywhere on the Pulsar server.  Note the exact path of the file.</p>
+</li>
+</ol>
+</div>
+</li>
+<li>
+<p>Add the Source Connector details.  Note that there will be a Source Connector configuration for <strong>each Cassandra table</strong>.  Two methods are defined below: Using <code>pulsar-admin</code> to run the connector locally, and installing the connector with the appropriate YAML configuration file.  Either will require the following information:</p>
+<div class="olist loweralpha">
+<ol class="loweralpha" type="a">
+<li>
+<p><strong>tenant</strong> and <strong>namespace</strong>: The <strong>tenant</strong> and <strong>namespace</strong> where the CDC events from the Cassandra table are stored.</p>
+</li>
+<li>
+<p>The <strong>name</strong> of the Source Connector.  Because each Cassandra table requires a Source Connector setting, the <strong>name</strong> of the Source Connector must be unique.</p>
+</li>
+<li>
+<p><strong>destination-topic-name</strong>: The location for the final Cassandra table CDC data.  The format should be <code>data-{cassanra-keyname}.{table-name}</code>.  In the example below, this becomes <code>data-cycling.cyclist_name</code>.</p>
+</li>
+<li>
+<p><strong>source-config</strong>: The <strong>*source-config</strong> is in JSON format, and sets the following:</p>
+<div class="olist lowerroman">
+<ol class="lowerroman" type="i">
+<li>
+<p><strong>contactPoints</strong>: The Cassandra CQL native port to receive Cassandra submissions from.</p>
+</li>
+<li>
+<p><strong>localDc</strong>: The data center used for load balancing.</p>
+</li>
+<li>
+<p><strong>keyspace</strong>:  The Cassandra keyspace.</p>
+</li>
+<li>
+<p><strong>table</strong>: The table CDC data is being captured for.</p>
+</li>
+<li>
+<p><strong>events.topic</strong>: The events topic where the Cassandra CDC data will initially before before verification and deduplication.  The format should be <code>events-{cassanra-keyname}.{table-name}</code>.  In the example below, this becomes <code>events-cycling.cyclist_name</code>.</p>
+</li>
+<li>
+<p><strong>keyConverter</strong> and <strong>valueConverter</strong>:  Specifies the Pulsar converters used to convert Cassandra keys and JSON data into Pulsar format.</p>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
+</li>
+</ol>
+</div>
+<div class="sect2">
+<h3 id="_examples"><a class="anchor" href="#_examples"></a>Examples</h3>
+<div class="paragraph">
+<p>For the following examples, the following settings are used:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Cassandra table</p>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>cluster_name</strong>: 'Documentation'</p>
+</li>
+<li>
+<p><strong>Key</strong>: <code>cycling</code></p>
+</li>
+<li>
+<p><strong>Table</strong>: <code>cyclist_name</code></p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Pulsar</p>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Tenant</strong>: <code>cassandra</code></p>
+</li>
+<li>
+<p><strong>Namespace</strong>: <code>csc</code></p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+<div class="sect3">
+<h4 id="_pulsar_admin_localrun"><a class="anchor" href="#_pulsar_admin_localrun"></a>pulsar-admin localrun</h4>
+<div class="paragraph">
+<p>If using <code>pulsar-admin</code> to run the command from the command line, the following examples can be used, replacing <code>&lt;version&gt;</code> with the version of the <code>.nar</code> file used.</p>
 </div>
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-language-bash hljs" data-lang="language-bash">pulsar-admin source localrun \
---archive /path/to/source-pulsar-&lt;version&gt;.nar \
---tenant public \
---namespace default \
---name cassandra-source-1 \
---destination-topic-name data-ks1.table1 \
---source-config '{"contactPoints":"localhost:9042", "localDc":"datacenter1", "keyspace":"ks1", "table":"table1", "eventsTopicPrefix": "persistent://public/default/events-", "eventsSubscriptionName":"sub1", "keyConverter":"com.datastax.oss.pulsar.source.converters.AvroConverter","valueConverter":"com.datastax.oss.pulsar.source.converters.JsonConverter"}'</code></pre>
+--archive ./connector/source-pulsar-&lt;version&gt;.nar \
+--tenant cassandra \
+--namespace csc \
+--name cassandra-cycling-cyclist-name \
+--destination-topic-name data-cycling.cyclist_name \
+--source-config '{"contactPoints":"[localhost]", "loadBalancing.localDc":"datacenter1", "port":"9042", "keyspace":"cycling", "table":"cyclist_name", "events.topic":"events-cycling.cyclist_name", "key.converter":"com.datastax.oss.pulsar.source.converters.AvroConverter","value.converter":"com.datastax.oss.pulsar.source.converters.JsonConverter"}'</code></pre>
 </div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_install_connector_with_yaml_file"><a class="anchor" href="#_install_connector_with_yaml_file"></a>Install Connector with YAML File</h3>
+<div class="paragraph">
+<p>To run the Source Connector from within your Pulsar server, a YAML file will be used to set the parameters.  For more information, see the Pulsar documentation <a href="http://pulsar.apache.org/docs/en/io-use/#configure-a-connector-with-a-yaml-file">How to use Pulsar connectors</a>.</p>
+</div>
+<div class="paragraph">
+<p>For each Cassandra table to capture the CDC data on, a separate YAML file will be specified.  It is recommended to name them <code>SouceConnector-{Cassandra Table}.yml</code>, replacing <code>{Cassandra Table}</code> with the name of the table to be captured.</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Store the Source Connector into the <code>./connectors</code> directory of the Pulsar server.</p>
+</li>
+<li>
+<p>Verify that the <code>./conf/functions_worker.yml</code> file has the <code>connectorsDirectory</code> option set. By default this is <code>connectorsDirectory: ./connectors</code>.</p>
+</li>
+<li>
+<p>Create a YAML file with the configuration details specified in Step 4.  The following example uses the sample data detailed above, and would be stored in the Pulsar servers <code>conf</code> directory as <code>SourceConnector-cyclist_name.yml</code>:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-language-yaml hljs" data-lang="language-yaml">tenant: cassandra
+namespace: csc
+name: cassandra-cycling-cyclist-name
+destination-topic-name: data-cycling.cyclist_name
+configs:
+  contactPoints: [localhost]
+  loadBalancing.localDc: datacenter1
+  port: 9042
+  keyspace: cycling
+  table: cyclist_name
+  events.topic: events-cycling.cyclist_name
+  key.converter: com.datastax.oss.pulsar.source.converters.AvroConverter
+  value.converter: com.datastax.oss.pulsar.source.converters.JsonConverter</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Install the Source Connector with the following <code>pulsar-admin</code> command:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-language-bash hljs" data-lang="language-bash">pulsar-admin source create -a ./connector/source-pulsar-&lt;version&gt;.nar  \
+    --source-config-file ./conf/SourceConnector-cyclist_name.yml</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_step_4_read_the_cassandra_data"><a class="anchor" href="#_step_4_read_the_cassandra_data"></a>Step 4: Read the Cassandra Data</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>To read from the gathered data from the Cassandra cluster, create a Pulsar Consumer directed at the specific <code>destination-topic-name</code> detailed above.  For more information, see the <a href="https://pulsar.apache.org/docs/en/concepts-messaging/#consumers">Apache Pulsar Consumer guide</a>.</p>
 </div>
 </div>
 </div>
