@@ -118,7 +118,7 @@ https://grafana.com/[Grafana] is a visualization tool that helps you make sense 
 === What features are missing in Cassandra Source Connector that are provided in pulsar-sink?
 
 * No support for `tinyint` (`int8bit`) and `smallint` (`int16bit`).
-* The key is always a String, but you can write JSON inside of it.  This is supported by pulsar-sink, but not Pulsar IO.
+* The key is always a string, but you can write JSON inside of it. This is supported by pulsar-sink, but not Pulsar IO.
 * The value of a “message property” is always a string. For example, you cannot map the message property to `__ttl` or to `__timestamp`.
 * Field names inside structures must be valid for Avro, even in case of JSON structures. For example, field names like `Int.field` (with dot) or `int field` (with space) are not valid.
 
