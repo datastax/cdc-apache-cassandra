@@ -21,8 +21,8 @@ DataStax Cassandra&reg; Source Connector (CSC) is open-source software (OSS) tha
 
 The DataStax Cassandra® Source Connector two components:
 
-* A event producer deployed as a JVM agent on each Cassandra data node.
-* A Cassandra source connector deployed in your streaming platform.
+* An event producer deployed as a JVM agent on each Cassandra data node
+* A Cassandra source connector deployed in your streaming platform
 
 The following diagram describes the general architecture.
 
