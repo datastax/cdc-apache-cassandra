@@ -60,7 +60,7 @@
     <a class="nav-link" href="index.html">About DataStax Cassandra Source Connector</a>
   </li>
   <li class="nav-item" data-depth="1">
-    <a class="nav-link" href="install.html">Installation Guide</a>
+    <a class="nav-link" href="install.html">Installing DataStax Cassandra Source Connector</a>
   </li>
   <li class="nav-item" data-depth="1">
     <a class="nav-link" href="faqs.html">Cassandra Source Connector FAQs</a>
@@ -150,7 +150,7 @@
 <p>Supports Apache Cassandra 3.11.x and 4.0.x</p>
 </li>
 <li>
-<p>Supports Apache Pulsar</p>
+<p>Supports Apache Pulsar 2.8.0 and later</p>
 </li>
 <li>
 <p>Propagates Cassandra schema changes to the Apache Pulsar schema registry</p>
@@ -211,10 +211,10 @@
 </div>
 </div>
 <div class="paragraph">
-<p>When CDC is enabled for a given Cassandra table, the event producer emits a message for each Cassandra mutation in a per-table <strong>events topic</strong>. Then the source connector process these events, fetches the mutated Cassandra row, and writes it to the <strong>data topic</strong>.</p>
+<p>When CDC is enabled for a given Cassandra table, the event producer emits a message for each Cassandra mutation in a per-table events topic. Then the source connector processes these events, fetches the mutated Cassandra row, and writes it to the data topic.</p>
 </div>
 <div class="paragraph">
-<p>This ensures the most recent state of the Cassandra table is replicated into the data topic without the need to time re-order Cassandra mutations.</p>
+<p>This ensures the most recent state of the Cassandra table is replicated into the data topic without reordering Cassandra mutations.</p>
 </div>
 <div class="paragraph">
 <p>The Cassandra Source Connector also updates the schema-registry to reflects the Cassandra table schema.</p>
@@ -223,6 +223,7 @@
 <p>Deployment matrix:</p>
 </div>
 <table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 1. Deployment matrix</caption>
 <colgroup>
 <col style="width: 20%;">
 <col style="width: 20%;">
@@ -314,7 +315,7 @@
 <div class="ulist">
 <ul>
 <li>
-<p><a href="install.html" class="page">Installation Guide</a> A quick introduction connecting a Cassandra table to a Pulsar cluster.</p>
+<p><a href="install.html" class="page">Installing DataStax Cassandra Source Connector</a> A quick introduction connecting a Cassandra table to a Pulsar cluster.</p>
 </li>
 </ul>
 </div>
@@ -323,13 +324,8 @@
 <div class="sect1">
 <h2 id="_where_to_go_next"><a class="anchor" href="#_where_to_go_next"></a>Where to go next</h2>
 <div class="sectionbody">
-<div class="dlist">
-<dl>
-<dt class="hdlist1">If you&#8217;ve got more questions&#8230;&#8203;</dt>
-<dd>
-<p>For additional information about Cassandra Source Connector, see <a href="faqs.html" class="page">Cassandra Source Connector FAQs</a>.</p>
-</dd>
-</dl>
+<div class="paragraph">
+<p>Connect a Cassandra table to a Pulsar cluster. For more, see <a href="install.html" class="page">Installing DataStax Cassandra Source Connector</a>.</p>
 </div>
 </div>
 </div>

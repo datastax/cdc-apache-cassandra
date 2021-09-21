@@ -5,7 +5,7 @@ DataStax Cassandra&reg; Source Connector (CSC) is open-source software (OSS) tha
 == Key Features
 
 * Supports Apache Cassandra 3.11.x and 4.0.x
-* Supports Apache Pulsar
+* Supports Apache Pulsar 2.8.0 and later
 * Propagates Cassandra schema changes to the Apache Pulsar schema registry
 * Supports JSON or AVRO message format
 
@@ -28,15 +28,16 @@ The following diagram describes the general architecture.
 
 image::cassandra-source-connector.png[Cassandra-source-connector-architecture]
 
-When CDC is enabled for a given Cassandra table, the event producer emits a message for each Cassandra mutation in a per-table **events topic**. Then the source connector process these events, fetches the mutated Cassandra row, and writes it to the **data topic**. 
+When CDC is enabled for a given Cassandra table, the event producer emits a message for each Cassandra mutation in a per-table events topic. Then the source connector processes these events, fetches the mutated Cassandra row, and writes it to the data topic.
 
-This ensures the most recent state of the Cassandra table is replicated into the data topic without the need to time re-order Cassandra mutations.
+This ensures the most recent state of the Cassandra table is replicated into the data topic without reordering Cassandra mutations.
 
 The Cassandra Source Connector also updates the schema-registry to reflects the Cassandra table schema.
 
 Deployment matrix:
 
 [options="header"]
+.Deployment matrix
 |=======
 | Streaming platform | Cassandra v3.x producer | Cassandra v4.x producer  | Source connector |
 | Apache Pulsar | producer-v3-pulsar | producer-v4-pulsar | source-pulsar |
@@ -68,4 +69,4 @@ Cassandra supported CQL3 data types:
 
 == Where to go next
 
-If you've got more questions...:: For additional information about Cassandra Source Connector, see xref::faqs.adoc[].
+Connect a Cassandra table to a Pulsar cluster. For more, see xref:install.adoc[].
