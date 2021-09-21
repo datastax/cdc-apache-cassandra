@@ -21,6 +21,7 @@ All documentation is available online [here](https://docs.datastax.com/en/cassan
 * Does not manage TTLs
 * Does not support range deletes
 * Does not sync data available before starting the CDC producer.
+* CQL column names must not match a Pulsar primitive type name (ex: INT32)
 
 ## Build from the sources
 

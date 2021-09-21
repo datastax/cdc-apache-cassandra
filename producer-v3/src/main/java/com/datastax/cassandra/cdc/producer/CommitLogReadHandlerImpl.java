@@ -237,7 +237,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     @Override
     public void handleUnrecoverableError(CommitLogReadException exception) throws IOException {
         log.error("Unrecoverable error when reading commit log", exception);
-        //meterRegistry.counter("errors").increment();
+        CdcMetrics.commitLogReadErrors.inc();
     }
 
     @Override
@@ -303,31 +303,8 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
      */
     private void handlePartitionDeletion(PartitionUpdate pu, com.datastax.cassandra.cdc.producer.CommitLogPosition offsetPosition, String md5Digest) {
         try {
-
             RowData after = new RowData();
-
             populatePartitionColumns(after, pu);
-
-            /*
-            // For partition deletions, the PartitionUpdate only specifies the partition key, it does not
-            // contains any info on regular (non-partition) columns, as if they were not modified. In order
-            // to differentiate deleted columns from unmodified columns, we populate the deleted columns
-            // with null value and timestamps
-            TableMetadata tableMetadata = keyValueSchema.tableMetadata();
-            List<ColumnMetadata> clusteringColumns = tableMetadata.getClusteringColumns();
-            if (!clusteringColumns.isEmpty()) {
-                throw new CassandraConnectorSchemaException("Uh-oh... clustering key should not exist for partition deletion");
-            }
-            for (ColumnMetadata cm : tableMetadata.columns()) {
-                if (!cm.isPrimaryKeyColumn()) {
-                    String name = cm.name.toString();
-                    long deletionTs = pu.deletionInfo().getPartitionDeletion().markedForDeleteAt();
-                    CellData cellData = new CellData(name, null, deletionTs, CellData.ColumnType.REGULAR);
-                    after.addCell(cellData);
-                }
-            }
-            */
-
             mutationMaker.delete(DatabaseDescriptor.getClusterName(), StorageService.instance.getLocalHostUUID(), offsetPosition,
                     pu.metadata().ksName, pu.metadata().cfName, false,
                     Conversions.toInstantFromMicros(pu.maxTimestamp()), after,
@@ -354,14 +331,12 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
      */
     private void handleRowModifications(Row row, RowType rowType, PartitionUpdate pu,
                                         com.datastax.cassandra.cdc.producer.CommitLogPosition offsetPosition, String md5Digest) {
-
         RowData after = new RowData();
         populatePartitionColumns(after, pu);
         populateClusteringColumns(after, row, pu);
         //populateRegularColumns(after, row, rowType);
 
         long ts = rowType == DELETE ? row.deletion().time().markedForDeleteAt() : pu.maxTimestamp();
-
         switch (rowType) {
             case INSERT:
                 mutationMaker.insert(DatabaseDescriptor.getClusterName(), StorageService.instance.getLocalHostUUID(), offsetPosition,
@@ -417,50 +392,6 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
             }
         }
     }
-
-    /*
-    private void populateRegularColumns(RowData after, Row row, RowType rowType) {
-        if (rowType == INSERT || rowType == UPDATE) {
-            for (ColumnMetadata cd : row.columns()) {
-                try {
-                    Object value;
-                    Object deletionTs = null;
-                    AbstractType abstractType = cd.type;
-                    if (abstractType.isCollection() && abstractType.isMultiCell()) {
-                        ComplexColumnData ccd = row.getComplexColumnData(cd);
-                        value = CassandraTypeDeserializer.deserialize((CollectionType) abstractType, ccd);
-                    }
-                    else {
-                        org.apache.cassandra.db.rows.Cell cell = row.getCell(cd);
-                        value = cell.isTombstone() ? null : CassandraTypeDeserializer.deserialize(abstractType, cell.value());
-                        deletionTs = cell.isExpiring() ? TimeUnit.MICROSECONDS.convert(cell.localDeletionTime(), TimeUnit.SECONDS) : null;
-                    }
-                    String name = cd.name.toString();
-                    CellData cellData = new CellData(name, value, deletionTs, CellData.ColumnType.REGULAR);
-                    after.addCell(cellData);
-                }
-                catch (Exception e) {
-                    throw new DebeziumException(String.format("Failed to populate Column %s with Type %s of Table %s in KeySpace %s.",
-                            cd.name.toString(), cd.type.toString(), cd.cfName, cd.ksName), e);
-                }
-            }
-        }
-        else if (rowType == DELETE) {
-            // For row-level deletions, row.columns() will result in an empty list and does not contain
-            // the column definitions for the deleted columns. In order to differentiate deleted columns from
-            // unmodified columns, we populate the deleted columns with null value and timestamps.
-            TableMetadata tableMetadata = schema.tableMetadata();
-            long deletionTs = row.deletion().time().markedForDeleteAt();
-            for (ColumnMetadata cm : tableMetadata.columns()) {
-                if (!cm.isPrimaryKeyColumn()) {
-                    String name = cm.name.toString();
-                    CellData cellData = new CellData(name, null, deletionTs, CellData.ColumnType.REGULAR);
-                    after.addCell(cellData);
-                }
-            }
-        }
-    }
-    */
 
     /**
      * Given a PartitionUpdate, deserialize the partition key byte buffer
@@ -565,5 +496,4 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                     log.info("mutation={} sent", mutation);
                 });
     }
-
 }

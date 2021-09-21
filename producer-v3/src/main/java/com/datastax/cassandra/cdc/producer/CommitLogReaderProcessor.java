@@ -96,9 +96,7 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
 
     @Override
     public void initialize() throws Exception {
-
         File relocationDir = new File(config.cdcRelocationDir);
-
         if (!relocationDir.exists()) {
             if (!relocationDir.mkdir()) {
                 throw new IOException("Failed to create " + config.cdcRelocationDir);

@@ -70,10 +70,7 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
                 }
             }
         };
-
     }
-
-
 
     /**
      * Override destroy to clean up resources after stopping the processor

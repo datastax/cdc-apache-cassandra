@@ -26,7 +26,7 @@ import java.util.Set;
 
 public class AvroConverter extends AbstractGenericConverter {
 
-    public AvroConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
-        super(ksm, tm, columns, SchemaType.AVRO);
+    public AvroConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns, Boolean isKey) {
+        super(ksm, tm, columns, SchemaType.AVRO, isKey);
     }
 }

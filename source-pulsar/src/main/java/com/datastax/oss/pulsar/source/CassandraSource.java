@@ -125,14 +125,8 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             if (this.config.getKeyConverterClass() == null) {
                 throw new IllegalArgumentException("Key converter not defined.");
             }
-            this.keyConverter = createConverter(this.config.getKeyConverterClass(),
-                    tuple._1,
-                    tuple._2,
-                    tuple._2.getPrimaryKey());
-            this.mutationKeyConverter = new AvroConverter(
-                    tuple._1,
-                    tuple._2,
-                    tuple._2.getPrimaryKey());
+            this.keyConverter = createConverter(this.config.getKeyConverterClass(), tuple._1, tuple._2, tuple._2.getPrimaryKey(), true);
+            this.mutationKeyConverter = new AvroConverter(tuple._1, tuple._2, tuple._2.getPrimaryKey(), true);
 
             if (this.config.getValueConverterClass() == null) {
                 throw new IllegalArgumentException("Value converter not defined.");
@@ -178,7 +172,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             log.info("Schema update for table {}.{} replicated columns={}", ksm.getName(), tableMetadata.getName(),
                     columns.stream().map(c -> c.getName().asInternal()).collect(Collectors.toList()));
             this.valueConverterAndQuery = new ConverterAndQuery(
-                    createConverter(config.getValueConverterClass(), ksm, tableMetadata, columns),
+                    createConverter(config.getValueConverterClass(), ksm, tableMetadata, columns, false),
                     cassandraClient.buildSelect(tableMetadata, columns));
             // Invalidate the prepare statement if the query has changed.
             // We cannot build the statement here form a C* driver thread (can cause dead lock)
@@ -200,11 +194,11 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         return this.selectStatement;
     }
 
-    Converter createConverter(Class<?> converterClass, KeyspaceMetadata ksm, TableMetadata tableMetadata, List<ColumnMetadata> columns)
+    Converter createConverter(Class<?> converterClass, KeyspaceMetadata ksm, TableMetadata tableMetadata, List<ColumnMetadata> columns, boolean isKey)
             throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
         return (Converter) converterClass
-                .getDeclaredConstructor(KeyspaceMetadata.class, TableMetadata.class, List.class)
-                .newInstance(ksm, tableMetadata, columns);
+                .getDeclaredConstructor(KeyspaceMetadata.class, TableMetadata.class, List.class, Boolean.class)
+                .newInstance(ksm, tableMetadata, columns, isKey);
     }
 
     @Override

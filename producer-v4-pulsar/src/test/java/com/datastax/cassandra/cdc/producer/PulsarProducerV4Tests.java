@@ -1,12 +1,12 @@
 /**
  * Copyright DataStax, Inc 2021.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -20,6 +20,7 @@ import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
 import com.datastax.testcontainers.pulsar.PulsarContainer;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.cassandra.utils.Pair;
 import org.apache.pulsar.client.api.*;
 import org.apache.pulsar.client.api.schema.Field;
 import org.apache.pulsar.client.api.schema.GenericRecord;
@@ -30,6 +31,7 @@ import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.common.schema.KeyValueEncodingType;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
+import org.junit.Assert;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -38,7 +40,12 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
-import java.time.Duration;
+import java.net.Inet4Address;
+import java.net.Inet6Address;
+import java.nio.ByteBuffer;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAccessor;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -213,9 +220,102 @@ public class PulsarProducerV4Tests {
             if (genericRecord.getField(field) instanceof GenericRecord) {
                 sb.append(genericRecordToString((GenericRecord) genericRecord.getField(field)));
             } else {
-                sb.append(genericRecord.getField(field).toString());
+                sb.append(genericRecord.getField(field) == null ? "null" : genericRecord.getField(field).toString());
             }
         }
         return sb.append("}").toString();
+    }
+
+    static Map<String, Object> genericRecordToMap(GenericRecord genericRecord) {
+        Map<String, Object> map = new HashMap<>();
+        for (Field field : genericRecord.getFields()) {
+            if (genericRecord.getField(field) instanceof GenericRecord) {
+                map.put(field.getName(), genericRecordToString((GenericRecord) genericRecord.getField(field)));
+            } else {
+                map.put(field.getName(), genericRecord.getField(field));
+            }
+        }
+        return map;
+    }
+
+    @Test
+    public void testSchema() throws IOException, InterruptedException {
+        final String pulsarServiceUrl = "pulsar://pulsar:" + pulsarContainer.BROKER_PORT;
+
+        final ZoneId zone = ZoneId.systemDefault();
+        final LocalDate localDate = LocalDate.of(2020, 12, 25);
+        final LocalDateTime localDateTime = localDate.atTime(10, 10, 00);
+
+        // sample values, left=CQL value, right=Pulsar value
+        Map<String, Pair<Object, Object>> values = new HashMap<>();
+        values.put("xtext", Pair.create("a", "a"));
+        values.put("xascii", Pair.create("aa", "aa"));
+        values.put("xboolean", Pair.create(true, true));
+        values.put("xblob", Pair.create(ByteBuffer.wrap(new byte[]{0x00, 0x01}), ByteBuffer.wrap(new byte[]{0x00, 0x01})));
+        values.put("xtimestamp", Pair.create(localDateTime.atZone(zone).toInstant(), localDateTime.atZone(zone).toInstant().toEpochMilli()));
+        values.put("xtime", Pair.create(localDateTime.toLocalTime(), (int) (localDateTime.toLocalTime().toNanoOfDay() / 1000000)));
+        values.put("xdate", Pair.create(localDateTime.toLocalDate(), (int) localDateTime.toLocalDate().toEpochDay()));
+        values.put("xuuid", Pair.create(UUID.fromString("01234567-0123-0123-0123-0123456789ab"), "01234567-0123-0123-0123-0123456789ab"));
+        values.put("xtimeuuid", Pair.create(UUID.fromString("d2177dd0-eaa2-11de-a572-001b779c76e3"), "d2177dd0-eaa2-11de-a572-001b779c76e3"));
+        values.put("xtinyint", Pair.create((byte) 0x01, (int) 0x01)); // Avro only support integer
+        values.put("xsmallint", Pair.create((short) 1, (int) 1));     // Avro only support integer
+        values.put("xint", Pair.create(1, 1));
+        values.put("xbigint", Pair.create(1L, 1L));
+        values.put("xdouble", Pair.create(1.0D, 1.0D));
+        values.put("xfloat", Pair.create(1.0f, 1.0f));
+        values.put("xinet4", Pair.create(Inet4Address.getLoopbackAddress(), Inet4Address.getLoopbackAddress().getHostAddress()));
+        values.put("xinet6", Pair.create(Inet6Address.getLoopbackAddress(), Inet4Address.getLoopbackAddress().getHostAddress()));
+
+        try (CassandraContainer<?> cassandraContainer1 = CassandraContainer.createCassandraContainerWithPulsarProducer(
+                CASSANDRA_IMAGE, testNetwork, 1, "v4", pulsarServiceUrl)) {
+            cassandraContainer1.start();
+            try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS ks2 WITH replication = {'class':'SimpleStrategy','replication_factor':'1'};");
+                cqlSession.execute("CREATE TABLE IF NOT EXISTS ks2.table1 (" +
+                        "xtext text, xascii ascii, xboolean boolean, xblob blob, xtimestamp timestamp, xtime time, xdate date, xuuid uuid, xtimeuuid timeuuid, xtinyint tinyint, xsmallint smallint, xint int, xbigint bigint, xdouble double, xfloat float, xinet4 inet, xinet6 inet, " +
+                        "primary key (xtext, xascii, xboolean, xblob, xtimestamp, xtime, xdate, xuuid, xtimeuuid, xtinyint, xsmallint, xint, xbigint, xdouble, xfloat, xinet4, xinet6)) WITH cdc=true");
+                cqlSession.execute("INSERT INTO ks2.table1 (xtext, xascii, xboolean, xblob, xtimestamp, xtime, xdate, xuuid, xtimeuuid, xtinyint, xsmallint, xint, xbigint, xdouble, xfloat, xinet4, xinet6) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                        values.get("xtext").left,
+                        values.get("xascii").left,
+                        values.get("xboolean").left,
+                        values.get("xblob").left,
+                        values.get("xtimestamp").left,
+                        values.get("xtime").left,
+                        values.get("xdate").left,
+                        values.get("xuuid").left,
+                        values.get("xtimeuuid").left,
+                        values.get("xtinyint").left,
+                        values.get("xsmallint").left,
+                        values.get("xint").left,
+                        values.get("xbigint").left,
+                        values.get("xdouble").left,
+                        values.get("xfloat").left,
+                        values.get("xinet4").left,
+                        values.get("xinet6").left
+                );
+            }
+            Thread.sleep(11000);    // wait CL sync on disk
+
+            try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build();
+                 Consumer<GenericRecord> consumer = pulsarClient.newConsumer(Schema.AUTO_CONSUME())
+                         .topic("events-ks2.table1")
+                         .subscriptionName("sub1")
+                         .subscriptionType(SubscriptionType.Key_Shared)
+                         .subscriptionMode(SubscriptionMode.Durable)
+                         .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+                         .subscribe()) {
+                Message<GenericRecord> msg = consumer.receive(60, TimeUnit.SECONDS);
+                Assert.assertNotNull("Expecting one message, check the producer log", msg);
+                GenericRecord gr = msg.getValue();
+                KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) gr.getNativeObject();
+                GenericRecord key = kv.getKey();
+                System.out.println("Consumer Record: topicName=" + msg.getTopicName() + " key=" + genericRecordToString(key));
+                Map<String, Object> map = genericRecordToMap(key);
+                for (Field field : key.getFields()) {
+                    Assert.assertEquals("Wrong value fo field " + field.getName(), values.get(field.getName()).right, map.get(field.getName()));
+                }
+                consumer.acknowledgeAsync(msg);
+            }
+        }
     }
 }

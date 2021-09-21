@@ -26,8 +26,8 @@ import java.util.Set;
 
 public class JsonConverter extends AbstractGenericConverter {
 
-    public JsonConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
-        super(ksm, tm, columns, SchemaType.JSON);
+    public JsonConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns, boolean isKey) {
+        super(ksm, tm, columns, SchemaType.JSON, isKey);
     }
 
 }

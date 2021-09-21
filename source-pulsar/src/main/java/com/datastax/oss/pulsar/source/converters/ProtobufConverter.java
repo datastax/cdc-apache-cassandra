@@ -26,8 +26,8 @@ import java.util.Set;
 
 public class ProtobufConverter extends AbstractGenericConverter {
 
-    public ProtobufConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
-        super(ksm, tm, columns, SchemaType.JSON);
+    public ProtobufConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns, boolean isKey) {
+        super(ksm, tm, columns, SchemaType.JSON, isKey);
     }
 
 }

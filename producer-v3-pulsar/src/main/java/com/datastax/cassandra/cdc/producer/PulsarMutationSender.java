@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.config.ColumnDefinition;
+import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.db.marshal.*;
 import org.apache.cassandra.service.StorageService;
 import org.apache.pulsar.client.api.*;
@@ -30,6 +31,8 @@ import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
 
 import java.io.Closeable;
+import java.net.InetAddress;
+import java.time.*;
 import java.util.*;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
@@ -57,20 +60,19 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
                 .put(ByteType.instance.asCQL3Type().toString(), SchemaType.INT32)   // INT8 not supported by AVRO
                 .put(ShortType.instance.asCQL3Type().toString(), SchemaType.INT32)  // INT16 not supported by AVRO
                 .put(Int32Type.instance.asCQL3Type().toString(), SchemaType.INT32)
-                .put(IntegerType.instance.asCQL3Type().toString(), SchemaType.INT64)
+                .put(IntegerType.instance.asCQL3Type().toString(), SchemaType.INT32)
                 .put(LongType.instance.asCQL3Type().toString(), SchemaType.INT64)
 
                 .put(FloatType.instance.asCQL3Type().toString(), SchemaType.FLOAT)
                 .put(DoubleType.instance.asCQL3Type().toString(), SchemaType.DOUBLE)
 
-                .put(InetAddressType.instance.asCQL3Type().toString(), SchemaType.INT64)
+                .put(InetAddressType.instance.asCQL3Type().toString(), SchemaType.STRING)
 
                 .put(TimestampType.instance.asCQL3Type().toString(), SchemaType.TIMESTAMP)
                 .put(SimpleDateType.instance.asCQL3Type().toString(), SchemaType.DATE)
                 .put(TimeType.instance.asCQL3Type().toString(), SchemaType.TIME)
                 //schemas.put(DurationType.instance.asCQL3Type().toString(), NanoDuration.builder().optional());
 
-                // convert UUID to String
                 .put(UUIDType.instance.asCQL3Type().toString(), SchemaType.STRING)
                 .put(TimeUUIDType.instance.asCQL3Type().toString(), SchemaType.STRING)
                 .build();
@@ -159,11 +161,37 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
         }
     }
 
+    Object cqlToAvro(ColumnDefinition colDef, Object value)
+    {
+        log.trace("column name={} type={} class={} value={}",
+                colDef.cfName, colDef.type.asCQL3Type(), value.getClass().getName(), value);
+        if (colDef.type instanceof TimestampType && value instanceof Date) {
+            return ((Date)value).getTime();
+        }
+        if (colDef.type instanceof SimpleDateType && value instanceof Integer) {
+            long timeInMillis = Duration.ofDays((Integer)value + Integer.MIN_VALUE).toMillis();
+            Instant instant = Instant.ofEpochMilli(timeInMillis);
+            LocalDate localDate = LocalDateTime.ofInstant(instant, ZoneOffset.UTC).toLocalDate();
+            return localDate.toEpochDay(); // Avro date is epoch day
+        }
+        if (colDef.type instanceof TimeType && value instanceof Long) {
+            return (int) ((Long)value / 1000000); // Avro time is epoch millisecond
+        }
+        if (colDef.type instanceof UUIDType || colDef.type instanceof TimeUUIDType) {
+            return value.toString();
+        }
+        if (colDef.type instanceof InetAddressType) {
+            return ((InetAddress)value).getHostAddress();
+        }
+        return value;
+    }
+
     @SuppressWarnings("rawtypes")
-    Object buildKey(Schema keySchema, List<CellData> primaryKey) {
+    Object buildKey(Schema keySchema, Mutation<CFMetaData> mutation) {
         GenericRecordBuilder genericRecordBuilder = ((GenericSchema) keySchema).newRecordBuilder();
-        for (CellData cell : primaryKey) {
-            genericRecordBuilder.set(cell.name, cell.value);
+        for (CellData cell : mutation.primaryKeyCells()) {
+            ColumnDefinition colDef = mutation.getMetadata().getColumnDefinition(ColumnIdentifier.getInterned(cell.name, false));
+            genericRecordBuilder.set(cell.name, cqlToAvro(colDef, cell.value));
         }
         return genericRecordBuilder.build();
     }
@@ -179,7 +207,7 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
         TypedMessageBuilder<KeyValue<GenericRecord, MutationValue>> messageBuilder = producer.newMessage();
         return messageBuilder
                 .value(new KeyValue(
-                        buildKey(keySchema, mutation.primaryKeyCells()),
+                        buildKey(keySchema, mutation),
                         mutation.mutationValue()))
                 .sendAsync();
     }

@@ -33,7 +33,7 @@ public class StringConverter implements Converter<String, Row, List<Object>> {
 
     List<String> pkColumns;
 
-    public StringConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
+    public StringConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns, boolean isKey) {
         this.pkColumns = tm.getPrimaryKey().stream()
                 .map(c -> c.getName().toString())
                 .collect(Collectors.toList());
