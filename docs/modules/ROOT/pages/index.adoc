@@ -6,8 +6,8 @@ DataStax Cassandra&reg; Source Connector (CSC) is open-source software (OSS) tha
 
 * Supports Apache Cassandra 3.11.x and 4.0.x
 * Supports Apache Pulsar
-* Propagate Cassandra schema changes to the Apache Pulsar schema registry
-* Support JSON or AVRO message format.
+* Propagates Cassandra schema changes to the Apache Pulsar schema registry
+* Supports JSON or AVRO message format
 
 == Limitations
 
