@@ -370,17 +370,17 @@
 </div>
 </div>
 <div class="sect2">
-<h3 id="_what_features_are_missing_in_cassandra_source_connector_that_are_provided_in_pulsar_sink"><a class="anchor" href="#_what_features_are_missing_in_cassandra_source_connector_that_are_provided_in_pulsar_sink"></a>What features are missing in Cassandra Source Connector that are provided in <code>pulsar-sink</code>?</h3>
+<h3 id="_what_features_are_missing_in_cassandra_source_connector_that_are_provided_in_pulsar_sink"><a class="anchor" href="#_what_features_are_missing_in_cassandra_source_connector_that_are_provided_in_pulsar_sink"></a>What features are missing in Cassandra Source Connector that are provided in pulsar-sink?</h3>
 <div class="ulist">
 <ul>
 <li>
 <p>No support for <code>tinyint</code> (<code>int8bit</code>) and <code>smallint</code> (<code>int16bit</code>).</p>
 </li>
 <li>
-<p>The key is always a String, but you can write JSON inside of it.  This is supported by pulsar-sink, but not Pulsar IO.</p>
+<p>The key is always a string, but you can write JSON inside of it. This is supported by pulsar-sink, but not Pulsar IO.</p>
 </li>
 <li>
-<p>The “value” of a “message property” is always a String; for example, you cannot map the message property to <code><em>ttl</code> or to <code></em>timestamp</code>.</p>
+<p>The value of a “message property” is always a string. For example, you cannot map the message property to <code><em>ttl</code> or to <code></em>timestamp</code>.</p>
 </li>
 <li>
 <p>Field names inside structures must be valid for Avro, even in case of JSON structures. For example, field names like <code>Int.field</code> (with dot) or <code>int field</code> (with space) are not valid.</p>
@@ -396,7 +396,7 @@
 <div class="sect2">
 <h3 id="_what_client_apis_does_cassandra_source_connector_provide"><a class="anchor" href="#_what_client_apis_does_cassandra_source_connector_provide"></a>What client APIs does Cassandra Source Connector provide?</h3>
 <div class="paragraph">
-<p>The same as for Apache Pulsar. See <a href="https://pulsar.apache.org/docs/en/client-libraries/" class="bare">https://pulsar.apache.org/docs/en/client-libraries/</a>.</p>
+<p>The same client APIs are available for CSC as for Apache Pulsar. See <a href="https://pulsar.apache.org/docs/en/client-libraries/">Pulsar client libraries</a>.</p>
 </div>
 </div>
 </div>
@@ -405,7 +405,7 @@
 <h2 id="_next"><a class="anchor" href="#_next"></a>Next</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>If you haven&#8217;t already, build try the CSC for yourself to to consume data from a Cassandra table and transmit the updates onto a Pulsar topic. See the <a href="install.html" class="page">Quick Start Guide</a>.</p>
+<p>If you haven&#8217;t already, try the CSC for yourself to consume data from a Cassandra table and transmit the updates into a Pulsar topic. See <a href="install.html" class="page">Installation Guide</a>.</p>
 </div>
 </div>
 </div>
