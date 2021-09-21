@@ -1,6 +1,6 @@
 = About DataStax Cassandra Source Connector
 
-DataStax Cassandra&reg; Source Connector (CSC) is open-source software (OSS) that send Cassandra mutations for a table that has Change Data Capture (CDC) enabled to Apache Pulsar&reg;.  This can then be written to other platforms such as Elasticsearch&reg; or Snowflake&reg;.
+DataStax Cassandra&reg; Source Connector (CSC) is open-source software (OSS) that sends Cassandra mutations for a table that has Change Data Capture (CDC) enabled to Apache Pulsar&reg;.  This can then be written to other platforms such as Elasticsearch&reg; or Snowflake&reg;.
 
 == Key Features
 
