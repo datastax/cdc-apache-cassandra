@@ -14,8 +14,8 @@ DataStax Cassandra&reg; Source Connector (CSC) is open-source software (OSS) tha
 * Does not manage table truncates
 * Does not replay batch updates
 * Does not sync data available before starting the CDC producer.
-* Does not manage time-to-live.
-* Does not support range deletes.
+* Does not manage time-to-live
+* Does not support range deletes
 
 == Architecture
 
