@@ -58,7 +58,9 @@ Download the tarball file from the https://downloads.datastax.com/#csc[DataStax 
 
 === How many Cassandra tables can I track?
 
-As many as your system can handle.  Note that each Cassandra table CDC events must be tracked with a separate Cassandra Source Connector.
+As many as your system can handle.  The primary bottleneck is in additional reads generated against Cassandra for each changed for.  The CSC architecture 
+
+Note that each Cassandra table CDC events must be tracked with a separate Cassandra Source Connector.
 
 == Tasks
 

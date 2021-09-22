@@ -9,5 +9,3 @@
 ** xref:cfgCassandraSSL.adoc[]
 ** xref:monitor.adoc[]
 ** xref:producerParams.adoc[]
-
-
