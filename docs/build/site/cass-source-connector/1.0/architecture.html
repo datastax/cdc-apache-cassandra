@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>About DataStax Cassandra Source Connector :: DataStax Cassandra Source Connector documentation</title>
+    <title>DataStax Cassandra Source Connector Architecture :: DataStax Cassandra Source Connector documentation</title>
     <meta name="generator" content="Antora 2.3.4">
     <link rel="stylesheet" href="../../assets/css/site.css">
     <link rel="icon" href="https://www.datastax.com/favicon.ico" type="image/x-icon">
@@ -56,7 +56,7 @@
 <ul class="nav-list">
   <li class="nav-item toggler" data-depth="0">
 <ul class="nav-list">
-  <li class="nav-item is-current-page" data-depth="1">
+  <li class="nav-item" data-depth="1">
     <a class="nav-link" href="index.html">About DataStax Cassandra Source Connector</a>
   </li>
   <li class="nav-item" data-depth="1">
@@ -126,146 +126,17 @@
 <nav class="breadcrumbs" aria-label="breadcrumbs">
   <ul>
     <li><a href="index.html">DataStax Cassandra Source Connector (beta) documentation</a></li>
-    <li><a href="index.html">About DataStax Cassandra Source Connector</a></li>
+    <li><a href="architecture.html">DataStax Cassandra Source Connector Architecture</a></li>
   </ul>
 </nav>
   <!--<div class="edit-this-page"><a href="">Edit this Page</a></div>-->
 </div>
   <div class="content">
 <article class="doc">
-<h1 class="page">About DataStax Cassandra Source Connector</h1>
-<div id="preamble">
-<div class="sectionbody">
-<div class="paragraph">
-<p>DataStax Cassandra&reg; Source Connector (CSC) is open-source software (OSS) that sends Cassandra mutations for a table that has Change Data Capture (CDC) enabled to Apache Pulsar&reg;. This can then be written to other platforms such as Elasticsearch&reg; or Snowflake&reg;.</p>
-</div>
-<div class="paragraph">
-<p>The Cassandra Source Connector (CSC) is a beta, open-source tool developed by DataStax.</p>
-</div>
-<div class="paragraph">
-<p>With CSC, your apps can consume data from an Apache Cassandra table and submit the updates onto a Pulsar topic. This topic can then be consumed by external targets such as Elasticsearch&reg;, Snowflake&reg;, and other platforms. By design, the CSC is a simple connector with a 1:1 correspondence between a Cassandra table and a single Pulsar topic.</p>
-</div>
-</div>
-</div>
+<h1 class="page">DataStax Cassandra Source Connector Architecture</h1>
 <div class="sect1">
-<h2 id="_key_features"><a class="anchor" href="#_key_features"></a>Key Features</h2>
+<h2 id="_understanding_cassandra_cdc"><a class="anchor" href="#_understanding_cassandra_cdc"></a>Understanding Cassandra CDC</h2>
 <div class="sectionbody">
-<div class="ulist">
-<ul>
-<li>
-<p>Supports Apache Cassandra 3.11.x and 4.0.x</p>
-</li>
-<li>
-<p>Supports Apache Pulsar 2.8.0 and later</p>
-</li>
-<li>
-<p>Propagates Cassandra schema changes to the Apache Pulsar schema registry</p>
-</li>
-<li>
-<p>Supports JSON or AVRO message format</p>
-</li>
-</ul>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_limitations"><a class="anchor" href="#_limitations"></a>Limitations</h2>
-<div class="sectionbody">
-<div class="ulist">
-<ul>
-<li>
-<p>Does not manage table truncates</p>
-</li>
-<li>
-<p>Does not guarantee replay batch updates in the same order</p>
-</li>
-<li>
-<p>Does not sync data available before starting the CDC producer.</p>
-</li>
-<li>
-<p>Does not manage time-to-live</p>
-</li>
-<li>
-<p>Does not support range deletes</p>
-</li>
-</ul>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_supported_databases"><a class="anchor" href="#_supported_databases"></a>Supported databases</h2>
-<div class="sectionbody">
-<div class="ulist">
-<ul>
-<li>
-<p>Open source Apache® Cassandra® 3.11.x and 4.x databases</p>
-</li>
-</ul>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_supported_cassandra_data_structures"><a class="anchor" href="#_supported_cassandra_data_structures"></a>Supported Cassandra data structures</h2>
-<div class="sectionbody">
-<div class="paragraph">
-<p>Cassandra supported CQL3 data types:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>text, ascii</p>
-</li>
-<li>
-<p>tinyint, smallint, int, bigint, double, float, inet</p>
-</li>
-<li>
-<p>blob</p>
-</li>
-<li>
-<p>boolean</p>
-</li>
-<li>
-<p>timestamp, time, date, duration</p>
-</li>
-<li>
-<p>uuid, timeuuid</p>
-</li>
-<li>
-<p>User Defined Types</p>
-</li>
-</ul>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_supported_streaming_platform"><a class="anchor" href="#_supported_streaming_platform"></a>Supported streaming platform</h2>
-<div class="sectionbody">
-<div class="ulist">
-<ul>
-<li>
-<p>Apache Pulsar® 2.8.0 and later, including <a href="https://www.datastax.com/products/luna-streaming" target="_blank" rel="noopener">Luna Streaming</a></p>
-</li>
-</ul>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_getting_started"><a class="anchor" href="#_getting_started"></a>Getting started</h2>
-<div class="sectionbody">
-<div class="ulist">
-<ul>
-<li>
-<p><a href="install.html" class="page">Installing DataStax Cassandra Source Connector</a> A quick introduction connecting a Cassandra table to a Pulsar cluster.</p>
-</li>
-</ul>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_datastax_cassandra_source_connector_architecture"><a class="anchor" href="#_datastax_cassandra_source_connector_architecture"></a>DataStax Cassandra Source Connector Architecture</h2>
-<div class="sectionbody">
-<div class="sect2">
-<h3 id="_understanding_cassandra_cdc"><a class="anchor" href="#_understanding_cassandra_cdc"></a>Understanding Cassandra CDC</h3>
 <div class="paragraph">
 <p>Change Control Data(CDC) is difficult to track from Apache Cassandra&#174; because of the Cassandra&#8217;s cluster architecture. If Cassandra was a single server database, then tracking CDC from a table would be simple:  track the changes to a file, copy those changes into a messaging service like Pulsar, and consume them to other services.</p>
 </div>
@@ -277,77 +148,6 @@
 </div>
 <div class="paragraph">
 <p>The DataStax Cassandra Source Connector solves this problem by tracking all CDC events from each Cassandra node into Pulsar, and then evaluating the raw events, verifying the data, and removing duplicate events logged across nodes.</p>
-</div>
-</div>
-<div class="sect2">
-<h3 id="_datastax_cassandra_source_structure"><a class="anchor" href="#_datastax_cassandra_source_structure"></a>DataStax Cassandra Source Structure</h3>
-<div class="paragraph">
-<p>The DataStax Cassandra® Source Connector consists of two components:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p>An event producer deployed as a JVM agent on each Cassandra data node</p>
-</li>
-<li>
-<p>A Cassandra source connector deployed in your streaming platform</p>
-</li>
-</ul>
-</div>
-<div class="paragraph">
-<p>The following diagram describes the general architecture.</p>
-</div>
-<div class="paragraph">
-<p><span class="image"><img src="_images/cassandra-source-connector.png" alt="Cassandra-source-connector-architecture"></span></p>
-</div>
-<div class="paragraph">
-<p>When CDC is enabled for a given Cassandra table, the event producer emits a message for each Cassandra mutation in a per-table events topic. Then the source connector processes these events, fetches the mutated Cassandra row, and writes it to the data topic.</p>
-</div>
-<div class="paragraph">
-<p>This ensures the most recent state of the Cassandra table is replicated into the data topic without reordering Cassandra mutations.</p>
-</div>
-<div class="paragraph">
-<p>The Cassandra Source Connector also updates the schema-registry to reflects the Cassandra table schema.</p>
-</div>
-<div class="paragraph">
-<p>Deployment matrix:</p>
-</div>
-<table class="tableblock frame-all grid-all stretch">
-<caption class="title">Table 1. Deployment matrix</caption>
-<colgroup>
-<col style="width: 20%;">
-<col style="width: 20%;">
-<col style="width: 20%;">
-<col style="width: 20%;">
-<col style="width: 20%;">
-</colgroup>
-<thead>
-<tr>
-<th class="tableblock halign-left valign-top">Streaming platform</th>
-<th class="tableblock halign-left valign-top">Cassandra v3.x producer</th>
-<th class="tableblock halign-left valign-top">Cassandra v4.x producer</th>
-<th class="tableblock halign-left valign-top">Source connector</th>
-<th class="tableblock halign-left valign-top"></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td class="tableblock halign-left valign-top"><p class="tableblock">Apache Pulsar</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">producer-v3-pulsar</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">producer-v4-pulsar</p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">source-pulsar</p></td>
-<td class="tableblock halign-left valign-top"></td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_where_to_go_next"><a class="anchor" href="#_where_to_go_next"></a>Where to go next</h2>
-<div class="sectionbody">
-<div class="paragraph">
-<p>Connect a Cassandra table to a Pulsar cluster. For more, see <a href="install.html" class="page">Installing DataStax Cassandra Source Connector</a>.</p>
 </div>
 </div>
 </div>

@@ -1,0 +1,11 @@
+= DataStax Cassandra Source Connector Architecture
+
+== Understanding Cassandra CDC
+
+Change Control Data(CDC) is difficult to track from Apache Cassandra(R) because of the Cassandra's cluster architecture. If Cassandra was a single server database, then tracking CDC from a table would be simple:  track the changes to a file, copy those changes into a messaging service like Pulsar, and consume them to other services.
+
+In Cassandra, CDC events are tracked in a specified `<segment_name>_cdc.idx` and `cdc_raw` directory per node. A typical Cassandra cluster with three nodes will have three copies of the same table, and each segment will have its own `<segment_name>_cdc.idx` and `cdc_raw` directories. As each node updates the table where CDC has been enabled, they write to their own CDC files and transmit the information across the cluster.
+
+Changes to a table are synced across the cluster, which causes more writes to individual CDC files. If a node drops out of the cluster and is later restored, the CDC records for that node will be out of sync with the other nodes, even though the table data is accurate. Tracking these changes across multiple nodes and verifying the updates across the clusters becomes a difficult challenge.
+
+The DataStax Cassandra Source Connector solves this problem by tracking all CDC events from each Cassandra node into Pulsar, and then evaluating the raw events, verifying the data, and removing duplicate events logged across nodes.

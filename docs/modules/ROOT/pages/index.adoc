@@ -1,6 +1,10 @@
 = About DataStax Cassandra Source Connector
 
-DataStax Cassandra&reg; Source Connector (CSC) is open-source software (OSS) that sends Cassandra mutations for a table that has Change Data Capture (CDC) enabled to Apache Pulsar&reg;.  This can then be written to other platforms such as Elasticsearch&reg; or Snowflake&reg;.
+DataStax Cassandra&reg; Source Connector (CSC) is open-source software (OSS) that sends Cassandra mutations for a table that has Change Data Capture (CDC) enabled to Apache Pulsar&reg;. This can then be written to other platforms such as Elasticsearch&reg; or Snowflake&reg;.
+
+The Cassandra Source Connector (CSC) is a beta, open-source tool developed by DataStax.
+
+With CSC, your apps can consume data from an Apache Cassandra table and submit the updates onto a Pulsar topic. This topic can then be consumed by external targets such as Elasticsearch&reg;, Snowflake&reg;, and other platforms. By design, the CSC is a simple connector with a 1:1 correspondence between a Cassandra table and a single Pulsar topic.
 
 == Key Features
 
@@ -12,36 +16,10 @@ DataStax Cassandra&reg; Source Connector (CSC) is open-source software (OSS) tha
 == Limitations
 
 * Does not manage table truncates
-* Does not replay batch updates
+* Does not guarantee replay batch updates in the same order
 * Does not sync data available before starting the CDC producer.
 * Does not manage time-to-live
 * Does not support range deletes
-
-== Architecture
-
-The DataStax Cassandra® Source Connector two components:
-
-* An event producer deployed as a JVM agent on each Cassandra data node
-* A Cassandra source connector deployed in your streaming platform
-
-The following diagram describes the general architecture.
-
-image::cassandra-source-connector.png[Cassandra-source-connector-architecture]
-
-When CDC is enabled for a given Cassandra table, the event producer emits a message for each Cassandra mutation in a per-table events topic. Then the source connector processes these events, fetches the mutated Cassandra row, and writes it to the data topic.
-
-This ensures the most recent state of the Cassandra table is replicated into the data topic without reordering Cassandra mutations.
-
-The Cassandra Source Connector also updates the schema-registry to reflects the Cassandra table schema.
-
-Deployment matrix:
-
-[options="header"]
-.Deployment matrix
-|=======
-| Streaming platform | Cassandra v3.x producer | Cassandra v4.x producer  | Source connector |
-| Apache Pulsar | producer-v3-pulsar | producer-v4-pulsar | source-pulsar |
-|=======
 
 == Supported databases
 
@@ -61,11 +39,49 @@ Cassandra supported CQL3 data types:
 
 == Supported streaming platform
 
-* Apache Pulsar® 2.8.0 and later
+* Apache Pulsar® 2.8.0 and later, including link:https://www.datastax.com/products/luna-streaming[Luna Streaming^]
 
 == Getting started
 
 * xref:install.adoc[] A quick introduction connecting a Cassandra table to a Pulsar cluster.
+
+== DataStax Cassandra Source Connector Architecture
+
+=== Understanding Cassandra CDC
+
+Change Control Data(CDC) is difficult to track from Apache Cassandra(R) because of the Cassandra's cluster architecture. If Cassandra was a single server database, then tracking CDC from a table would be simple:  track the changes to a file, copy those changes into a messaging service like Pulsar, and consume them to other services.
+
+In Cassandra, CDC events are tracked in a specified `<segment_name>_cdc.idx` and `cdc_raw` directory per node. A typical Cassandra cluster with three nodes will have three copies of the same table, and each segment will have its own `<segment_name>_cdc.idx` and `cdc_raw` directories. As each node updates the table where CDC has been enabled, they write to their own CDC files and transmit the information across the cluster.
+
+Changes to a table are synced across the cluster, which causes more writes to individual CDC files. If a node drops out of the cluster and is later restored, the CDC records for that node will be out of sync with the other nodes, even though the table data is accurate. Tracking these changes across multiple nodes and verifying the updates across the clusters becomes a difficult challenge.
+
+The DataStax Cassandra Source Connector solves this problem by tracking all CDC events from each Cassandra node into Pulsar, and then evaluating the raw events, verifying the data, and removing duplicate events logged across nodes.
+
+=== DataStax Cassandra Source Structure
+
+The DataStax Cassandra® Source Connector consists of two components:
+
+* An event producer deployed as a JVM agent on each Cassandra data node
+* A Cassandra source connector deployed in your streaming platform
+
+The following diagram describes the general architecture.
+
+image:cassandra-source-connector.png[Cassandra-source-connector-architecture]
+
+When CDC is enabled for a given Cassandra table, the event producer emits a message for each Cassandra mutation in a per-table events topic. Then the source connector processes these events, fetches the mutated Cassandra row, and writes it to the data topic.
+
+This ensures the most recent state of the Cassandra table is replicated into the data topic without reordering Cassandra mutations.
+
+The Cassandra Source Connector also updates the schema-registry to reflects the Cassandra table schema.
+
+Deployment matrix:
+
+[options="header"]
+.Deployment matrix
+|=======
+| Streaming platform | Cassandra v3.x producer | Cassandra v4.x producer  | Source connector |
+| Apache Pulsar | producer-v3-pulsar | producer-v4-pulsar | source-pulsar |
+|=======
 
 == Where to go next
 

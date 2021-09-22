@@ -137,7 +137,7 @@
 <div id="preamble">
 <div class="sectionbody">
 <div class="paragraph">
-<p>Organizations who want to implement Change Data Capture (CDC) from their <a href="https://cassandra.apache.org/index.html">Apache Cassandra</a> cluster can use the <a href="https://github.com/datastax/cassandra-source-connector/tree/master">DataStax Cassandra&reg; Source Connector (CSC)</a> to capture change data events into <a href="https://pulsar.apache.org">Apache Pulsar</a>.</p>
+<p>Organizations who want to implement Change Data Capture (CDC) from their <a href="https://cassandra.apache.org/index.html" target="_blank" rel="noopener">Apache Cassandra</a> cluster can use the <a href="https://github.com/datastax/cassandra-source-connector/tree/master" target="_blank" rel="noopener">DataStax Cassandra&reg; Source Connector (CSC)</a> to capture change data events into <a href="https://pulsar.apache.org" target="_blank" rel="noopener">Apache Pulsar</a>.</p>
 </div>
 <div class="paragraph">
 <p>For more information on how the CSC works, see the <a href="index.html" class="page">About DataStax Cassandra Source Connector</a> page.</p>
@@ -170,7 +170,7 @@
 </td>
 <td class="content">
 <div class="paragraph">
-<p>By downloading this DataStax product, you agree to the terms of the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache-2.0 license agreement</a>.</p>
+<p>By downloading this DataStax product, you agree to the terms of the <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" rel="noopener">Apache-2.0 license agreement</a>.</p>
 </div>
 </td>
 </tr>
@@ -179,7 +179,7 @@
 <div class="olist arabic">
 <ol class="arabic">
 <li>
-<p>Go to the download page at <a href="https://downloads.datastax.com/#csc">DataStax downloads site</a>.</p>
+<p>From the <a href="https://downloads.datastax.com/#csc" target="_blank" rel="noopener">DataStax downloads page</a>, select <strong>Tools</strong> &gt; <strong>DataStax Cassandra Source Connector</strong>.</p>
 </li>
 <li>
 <p>Select <strong>Tools</strong>, then <strong>DataStax Cassandra Source Connector</strong>.</p>
@@ -295,7 +295,7 @@ For more, see <a href="producerParams.adoc">Producer Parameters</a>.</p>
 <h2 id="_step_2_install_pulsar"><a class="anchor" href="#_step_2_install_pulsar"></a>Step 2: Install Pulsar</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>Install Apache Pulsar using the <a href="https://pulsar.apache.org/docs/en/standalone/">installation instructions</a> for local, Docker, or Kubernetes installation.</p>
+<p>Install Apache Pulsar using the <a href="https://pulsar.apache.org/docs/en/standalone/" target="_blank" rel="noopener">installation instructions</a> for local, Docker, or Kubernetes installation.</p>
 </div>
 <div class="admonitionblock note">
 <table>
@@ -310,10 +310,10 @@ For more, see <a href="producerParams.adoc">Producer Parameters</a>.</p>
 <div class="ulist">
 <ul>
 <li>
-<p><a href="https://docs.datastax.com/en/luna/streaming/2.7/quickstart-helm-installs.html">Quick Start for Helm Chart installs</a></p>
+<p><a href="https://docs.datastax.com/en/luna/streaming/2.7/quickstart-helm-installs.html" target="_blank" rel="noopener">Quick Start for Helm Chart installs</a></p>
 </li>
 <li>
-<p><a href="https://docs.datastax.com/en/luna/streaming/2.7/quickstart-server-installs.html">Quick Start for Server/VM installs</a></p>
+<p><a href="https://docs.datastax.com/en/luna/streaming/2.7/quickstart-server-installs.html" target="_blank" rel="noopener">Quick Start for Server/VM installs</a></p>
 </li>
 </ul>
 </div>
@@ -355,7 +355,7 @@ pulsar-admin namespace create cassandra/csc</code></pre>
 </td>
 <td class="content">
 <div class="paragraph">
-<p>Alternatively, create the topics manually. For more, see <a href="https://pulsar.apache.org/docs/en/admin-api-topics">Manage topics</a>.</p>
+<p>Alternatively, create the topics manually. For more, see <a href="https://pulsar.apache.org/docs/en/admin-api-topics" target="_blank" rel="noopener">Manage topics</a>.</p>
 </div>
 </td>
 </tr>
@@ -368,7 +368,7 @@ pulsar-admin namespace create cassandra/csc</code></pre>
 <ul>
 <li>
 <p>Use a default Connector directory for your Pulsar server.
-For more information, see <a href="https://pulsar.apache.org/docs/en/io-use/#configure-a-default-storage-location-for-a-connector">Configure a default storage location for a connector</a>. By default, this creates <code>./connectors</code> in the Pulsar root directory.</p>
+For more information, see <a href="https://pulsar.apache.org/docs/en/io-use/#configure-a-default-storage-location-for-a-connector" target="_blank" rel="noopener">Configure a default storage location for a connector</a>. By default, this creates <code>./connectors</code> in the Pulsar root directory.</p>
 </li>
 <li>
 <p>Upload the Source Connector file anywhere on the Pulsar server, noting the exact filepath.</p>
@@ -466,7 +466,7 @@ For more information, see <a href="https://pulsar.apache.org/docs/en/io-use/#con
 <div class="sect3">
 <h4 id="_install_connector_with_yaml_file"><a class="anchor" href="#_install_connector_with_yaml_file"></a>Install connector with YAML file</h4>
 <div class="paragraph">
-<p>To run the Cassandra Source Connector from within your Pulsar server, use the YAML file to set the parameters.  For more information, see <a href="http://pulsar.apache.org/docs/en/io-use/#configure-a-connector-with-a-yaml-file">How to use Pulsar connectors</a>.</p>
+<p>To run the Cassandra Source Connector from within your Pulsar server, use the YAML file to set the parameters.  For more information, see <a href="http://pulsar.apache.org/docs/en/io-use/#configure-a-connector-with-a-yaml-file" target="_blank" rel="noopener">How to use Pulsar connectors</a>.</p>
 </div>
 <div class="paragraph">
 <p>For each Cassandra table to capture the CDC data on, a separate YAML file will be specified.  It is recommended to name them <code>SouceConnector-{Cassandra Table}.yml</code>, replacing <code>{Cassandra Table}</code> with the name of the table to be captured.</p>
@@ -477,7 +477,7 @@ For more information, see <a href="https://pulsar.apache.org/docs/en/io-use/#con
 <p>Store the Source Connector <code>.nab</code> file in the <code>./connectors</code> directory of the Pulsar server.</p>
 </li>
 <li>
-<p>Verify the <code>./conf/functions_worker.yml</code> file has the <code>connectorsDirectory</code> option set. By default, <code>connectorsDirectory: ./connectors</code>.</p>
+<p>. Verify the <code>./conf/functions_worker.yml</code> file has the <code>connectorsDirectory</code> option set. By default, <code>connectorsDirectory: ./connectors</code>.</p>
 <div class="paragraph">
 <p>The following example would be stored in the Pulsar servers <code>conf</code> directory as <code>SourceConnector-cyclist_name.yml</code>:</p>
 </div>
@@ -518,7 +518,7 @@ configs:
 <h2 id="_read_the_cassandra_data"><a class="anchor" href="#_read_the_cassandra_data"></a>Read the Cassandra data</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>To read the gathered data from the Cassandra cluster, create a Pulsar Consumer directed at the specified <code>destination-topic-name</code>. For more information, see <a href="https://pulsar.apache.org/docs/en/concepts-messaging/#consumers">Messaging</a>.</p>
+<p>To read the gathered data from the Cassandra cluster, create a Pulsar Consumer directed at the specified <code>destination-topic-name</code>. For more information, see <a href="https://pulsar.apache.org/docs/en/concepts-messaging/#consumers" target="_blank" rel="noopener">Messaging</a>.</p>
 </div>
 </div>
 </div>

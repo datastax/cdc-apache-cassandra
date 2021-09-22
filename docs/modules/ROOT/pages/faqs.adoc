@@ -4,18 +4,6 @@ If you are new to DataStax Cassandra Source Connector (CSC), please read the fol
 
 == Introduction
 
-=== What is DataStax CSC?
-
-The Cassandra Source Connector (CSC) is a beta, open-source tool developed by DataStax.
-
-With CSC, your apps can consume data from an Apache Cassandra table and submit the updates onto a Pulsar topic.  This topic can then be consumed by external targets such as Elasticsearch&reg;, Snowflake&reg;, and other platforms. By design, the CSC is a simple connector with a 1:1 correspondence between a Cassandra table and a single Pulsar topic.
-
-
-The CSC is composed of two parts:
-
-* The Cassandra Source Connector, which transmits Change Data Capture (CDC) updates from the Cassandra table to the streaming service.
-* The Pulsar CSC Connector, which verifies the CSC events and stores the final data changes into a Data topic.
-
 === What are the system requirements for the CSC?
 
 The CSC requires additional resources depending on your write throughput.
@@ -36,11 +24,11 @@ Cassandra Source Connector supports Apache Pulsar 2.8.0 and later.
 
 === What does the CSC provide that is not provided by Apache Pulsar?
 
-DataStax Cassandra Source Connector implements the reverse of the https://docs.datastax.com/en/pulsar-connector/1.4/index.html[Datastax Apache Pulsar Connector], which stores Pulsar topic updates into Cassandra.  The CSC takes data from a Cassandra table and stores that data into a Pulsar topic.  From there, the data can be published to external platforms like Snowflake, Elastic, and so on.
+DataStax Cassandra Source Connector implements the reverse of the link:https://docs.datastax.com/en/pulsar-connector/1.4/index.html[Datastax Apache Pulsar Connector^], which stores Pulsar topic updates into Cassandra.  The CSC takes data from a Cassandra table and stores that data into a Pulsar topic.  From there, the data can be published to external platforms like Snowflake, Elastic, and so on.
 
 === Is DataStax Cassandra Source Connector an open-source project?
 
-Yes, DataStax Cassandra Source Connector is open source under the link:https://www.apache.org/licenses/LICENSE-2.0[Apache-2.0 license agreement].
+Yes, DataStax Cassandra Source Connector is open source under the link:https://www.apache.org/licenses/LICENSE-2.0[Apache-2.0 license agreement^].
 
 === Which Kubernetes platforms are supported by the CSC?
 
@@ -56,7 +44,7 @@ The CSC supports most commonly used Kubernetes platforms, including:
 [#gitHubRepos]
 === Where is the CSC public GitHub repo?
 
-The source for this FAQ and related CSC documents are co-located with the Cassandra Source Connector repo code, examples, and additional documentation: access the link:https://github.com/datastax/cassandra-source-connector/[Cassandra Source Connector repo].
+The source for this FAQ and related CSC documents are co-located with the Cassandra Source Connector repo code, examples, and additional documentation: access the link:https://github.com/datastax/cassandra-source-connector/[Cassandra Source Connector repo^].
 
 == Installation
 
@@ -68,7 +56,7 @@ The DataStax Cassandra Source Connector distribution is designed for Java 11. Ho
 
 Download the tarball file from the https://downloads.datastax.com/#csc[DataStax Downloads site]. The tarball contains the Cassandra Source Connector distribution's NAR file. For more, see xref:install.adoc[].
 
-=== How many Cassandra Tables can I track?
+=== How many Cassandra tables can I track?
 
 As many as your system can handle.  Note that each Cassandra table CDC events must be tracked with a separate Cassandra Source Connector.
 
@@ -101,22 +89,22 @@ From the CSC Admin Console, you can:
 
 === What is Pulsar Heartbeat?
 
-https://github.com/datastax/pulsar-heartbeat[Pulsar Heartbeat] monitors the availability, tracks the performance, and reports failures of the Pulsar cluster. It produces synthetic workloads to measure end-to-end message pubsub latency.  Pulsar Heartbeat is a cloud-native application that can be installed by Helm within the Pulsar Kubernetes cluster.
+link:https://github.com/datastax/pulsar-heartbeat[Pulsar Heartbeat^] monitors the availability, tracks the performance, and reports failures of the Pulsar cluster. It produces synthetic workloads to measure end-to-end message pubsub latency.  Pulsar Heartbeat is a cloud-native application that can be installed by Helm within the Pulsar Kubernetes cluster.
 
 === What is Prometheus?
 
-https://prometheus.io/docs/introduction/overview/[Prometheus] is an open-source tool to collect metrics on a running app, providing real-time monitoring and alerts.
+link:https://prometheus.io/docs/introduction/overview/[Prometheus^] is an open-source tool to collect metrics on a running app, providing real-time monitoring and alerts.
 
 === What is Grafana?
 
-https://grafana.com/[Grafana] is a visualization tool that helps you make sense of metrics and related data coming from your apps via Prometheus, for example.
+link:https://grafana.com/[Grafana^] is a visualization tool that helps you make sense of metrics and related data coming from your apps via Prometheus, for example.
 
 == Differences with pulsar-sink
 
 === What are the features provided by Cassandra Source Connector that are not supported in `pulsar-sink`?
 
 * Single record acknowledgement and negative acknowledgements.
-* The https://pulsar.apache.org/docs/en/2.6.2/io-overview/[Pulsar IO framework] provides many features that are not possible in Kafka, and has different compression formats and auth/security features. The features are handled by Pulsar.
+* The link:https://pulsar.apache.org/docs/en/2.6.2/io-overview/[Pulsar IO framework] provides many features that are not possible in Kafka, and has different compression formats and auth/security features. The features are handled by Pulsar.
 
 === What features are missing in Cassandra Source Connector that are provided in pulsar-sink?
 
@@ -129,7 +117,7 @@ https://grafana.com/[Grafana] is a visualization tool that helps you make sense 
 
 === What client APIs does Cassandra Source Connector provide?
 
-The same client APIs are available for CSC as for Apache Pulsar. See https://pulsar.apache.org/docs/en/client-libraries/[Pulsar client libraries].
+The same client APIs are available for CSC as for Apache Pulsar. See link:https://pulsar.apache.org/docs/en/client-libraries/[Pulsar client libraries].
 
 == Next
 

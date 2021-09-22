@@ -1,6 +1,6 @@
 = Installing DataStax Cassandra Source Connector
 
-Organizations who want to implement Change Data Capture (CDC) from their https://cassandra.apache.org/index.html[Apache Cassandra] cluster can use the https://github.com/datastax/cassandra-source-connector/tree/master[DataStax Cassandra&reg; Source Connector (CSC)] to capture change data events into https://pulsar.apache.org[Apache Pulsar].
+Organizations who want to implement Change Data Capture (CDC) from their https://cassandra.apache.org/index.html[Apache Cassandra^] cluster can use the https://github.com/datastax/cassandra-source-connector/tree/master[DataStax Cassandra&reg; Source Connector (CSC)^] to capture change data events into https://pulsar.apache.org[Apache Pulsar^].
 
 For more information on how the CSC works, see the xref:index.adoc[] page.
 
@@ -15,10 +15,10 @@ This guide allows you to set up the CSC with the fewest possible steps.  For mor
 
 [IMPORTANT]
 ====
-By downloading this DataStax product, you agree to the terms of the link:https://www.apache.org/licenses/LICENSE-2.0[Apache-2.0 license agreement].
+By downloading this DataStax product, you agree to the terms of the link:https://www.apache.org/licenses/LICENSE-2.0[Apache-2.0 license agreement^].
 ====
 
-. Go to the download page at https://downloads.datastax.com/#csc[DataStax downloads site].
+. From the link:https://downloads.datastax.com/#csc[DataStax downloads page^], select **Tools** > **DataStax Cassandra Source Connector**.
 . Select **Tools**, then **DataStax Cassandra Source Connector**. 
 . Agree to the Terms and Conditions and **Download** the CSC.
 . Extract the files:
@@ -86,14 +86,14 @@ export JVM_EXTRA_OPTS="-javaagent:/path/to/producer-v4-pulsar-0.1.0-SNAPSHOT-all
 
 == Step 2: Install Pulsar
 
-Install Apache Pulsar using the https://pulsar.apache.org/docs/en/standalone/[installation instructions] for local, Docker, or Kubernetes installation.
+Install Apache Pulsar using the link:https://pulsar.apache.org/docs/en/standalone/[installation instructions^] for local, Docker, or Kubernetes installation.
 
 [NOTE]
 ====
 Alternatively, you can install DataStax Luna Streaming for a production-level, secure distribution of Apache Pulsar.  For instructions on how to install Luna Streaming, see the instructions for your environment:
 
-* https://docs.datastax.com/en/luna/streaming/2.7/quickstart-helm-installs.html[Quick Start for Helm Chart installs]
-* https://docs.datastax.com/en/luna/streaming/2.7/quickstart-server-installs.html[Quick Start for Server/VM installs]
+* https://docs.datastax.com/en/luna/streaming/2.7/quickstart-helm-installs.html[Quick Start for Helm Chart installs^]
+* https://docs.datastax.com/en/luna/streaming/2.7/quickstart-server-installs.html[Quick Start for Server/VM installs^]
 ====
 
 == Step 3: Install the Pulsar Cassandra Source Connector
@@ -121,7 +121,7 @@ pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH namespaces set-a
 +
 [NOTE]
 ====
-Alternatively, create the topics manually. For more, see https://pulsar.apache.org/docs/en/admin-api-topics[Manage topics].
+Alternatively, create the topics manually. For more, see https://pulsar.apache.org/docs/en/admin-api-topics[Manage topics^].
 ====
 
 +
@@ -129,7 +129,7 @@ Alternatively, create the topics manually. For more, see https://pulsar.apache.o
 
 +
 * Use a default Connector directory for your Pulsar server.
-For more information, see https://pulsar.apache.org/docs/en/io-use/#configure-a-default-storage-location-for-a-connector[Configure a default storage location for a connector]. By default, this creates `./connectors` in the Pulsar root directory.
+For more information, see https://pulsar.apache.org/docs/en/io-use/#configure-a-default-storage-location-for-a-connector[Configure a default storage location for a connector^]. By default, this creates `./connectors` in the Pulsar root directory.
 * Upload the Source Connector file anywhere on the Pulsar server, noting the exact filepath.
 +
 . Add the Source Connector details.
@@ -176,12 +176,12 @@ pulsar-admin source localrun \
 
 ==== Install connector with YAML file
 
-To run the Cassandra Source Connector from within your Pulsar server, use the YAML file to set the parameters.  For more information, see http://pulsar.apache.org/docs/en/io-use/#configure-a-connector-with-a-yaml-file[How to use Pulsar connectors].
+To run the Cassandra Source Connector from within your Pulsar server, use the YAML file to set the parameters.  For more information, see link:http://pulsar.apache.org/docs/en/io-use/#configure-a-connector-with-a-yaml-file[How to use Pulsar connectors^].
 
 For each Cassandra table to capture the CDC data on, a separate YAML file will be specified.  It is recommended to name them `SouceConnector-{Cassandra Table}.yml`, replacing `{Cassandra Table}` with the name of the table to be captured.
 
 . Store the Source Connector `.nab` file in the `./connectors` directory of the Pulsar server.
-. Verify the `./conf/functions_worker.yml` file has the `connectorsDirectory` option set. By default, `connectorsDirectory: ./connectors`.
+. . Verify the `./conf/functions_worker.yml` file has the `connectorsDirectory` option set. By default, `connectorsDirectory: ./connectors`.
 +
 The following example would be stored in the Pulsar servers `conf` directory as `SourceConnector-cyclist_name.yml`:
 +
@@ -212,4 +212,4 @@ pulsar-admin source create -a ./connector/source-pulsar-<version>.nar  \
 
 == Read the Cassandra data
 
-To read the gathered data from the Cassandra cluster, create a Pulsar Consumer directed at the specified `destination-topic-name`. For more information, see https://pulsar.apache.org/docs/en/concepts-messaging/#consumers[Messaging].
+To read the gathered data from the Cassandra cluster, create a Pulsar Consumer directed at the specified `destination-topic-name`. For more information, see https://pulsar.apache.org/docs/en/concepts-messaging/#consumers[Messaging^].
