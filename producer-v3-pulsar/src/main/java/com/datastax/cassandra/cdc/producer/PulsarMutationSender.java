@@ -34,6 +34,7 @@ import java.io.Closeable;
 import java.net.InetAddress;
 import java.time.*;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -94,6 +95,21 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
             SchemaInfo schemaInfo = schemaBuilder.build(SchemaType.AVRO);
             return Schema.generic(schemaInfo);
         });
+    }
+
+    /**
+     * Check the primary key has supported columns.
+     * @param tm
+     * @return false if the primary key has unsupported CQL columns
+     */
+    public boolean isSupported(final CFMetaData tm) {
+        for (ColumnDefinition cm : tm.primaryKeyColumns()) {
+            if (!schemaTypes.containsKey(cm.type.asCQL3Type().toString())) {
+                log.warn("Unsupported primary key column={}.{}.{} type={}, skipping mutation", cm.ksName, cm.cfName, cm.name, cm.type.asCQL3Type().toString());
+                return false;
+            }
+        }
+        return true;
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
@@ -199,6 +215,10 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public CompletionStage<MessageId> sendMutationAsync(final Mutation<CFMetaData> mutation) throws PulsarClientException {
+        if (!isSupported(mutation.getMetadata())) {
+            CdcMetrics.skippedMutations.inc();
+            return CompletableFuture.completedFuture(null);
+        }
         if (this.client == null) {
             initialize(config);
         }

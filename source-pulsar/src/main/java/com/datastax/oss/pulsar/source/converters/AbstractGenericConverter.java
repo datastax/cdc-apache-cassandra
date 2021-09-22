@@ -25,17 +25,22 @@ import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import com.datastax.oss.driver.api.core.type.DataType;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
 import com.datastax.oss.protocol.internal.ProtocolConstants;
+import com.datastax.oss.protocol.internal.util.Bytes;
 import com.datastax.oss.pulsar.source.Converter;
+import com.google.common.net.InetAddresses;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.api.schema.*;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.io.ByteArrayInputStream;
+import java.net.InetAddress;
+import java.nio.ByteBuffer;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.*;
 import java.util.stream.Collectors;
 
 
@@ -45,13 +50,15 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
     public final GenericSchema<GenericRecord> schema;
     public final SchemaInfo schemaInfo;
     public final SchemaType schemaType;
-
+    public final TableMetadata tableMetadata;
     public final Map<String, GenericSchema<GenericRecord>> udtSchemas = new HashMap<>();
 
-    public AbstractGenericConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns, SchemaType schemaType, Boolean isKey) {
+    public AbstractGenericConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns, SchemaType schemaType) {
+        this.tableMetadata = tm;
         RecordSchemaBuilder recordSchemaBuilder = SchemaBuilder.record(ksm.getName() + "." + tm.getName());
         for(ColumnMetadata cm : columns) {
-            addFieldSchema(recordSchemaBuilder, ksm, cm.getName().toString(), cm.getType(), schemaType, isKey == false);
+            boolean isPartitionKey = tm.getPartitionKey().contains(cm);
+            addFieldSchema(recordSchemaBuilder, ksm, cm.getName().toString(), cm.getType(), schemaType, !isPartitionKey);
         }
         this.schemaInfo = recordSchemaBuilder.build(schemaType);
         this.schema = Schema.generic(schemaInfo);
@@ -91,18 +98,8 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
                     fieldSchemaBuilder.optional().defaultValue(null);
             }
             break;
-            case ProtocolConstants.DataType.TINYINT: {
-                FieldSchemaBuilder fieldSchemaBuilder = recordSchemaBuilder.field(fieldName).type(SchemaType.INT8);
-                if (optional)
-                    fieldSchemaBuilder.optional().defaultValue(null);
-            }
-            break;
-            case ProtocolConstants.DataType.SMALLINT: {
-                FieldSchemaBuilder fieldSchemaBuilder = recordSchemaBuilder.field(fieldName).type(SchemaType.INT16);
-                if (optional)
-                    fieldSchemaBuilder.optional().defaultValue(null);
-            }
-            break;
+            case ProtocolConstants.DataType.TINYINT:
+            case ProtocolConstants.DataType.SMALLINT:
             case ProtocolConstants.DataType.INT: {
                 FieldSchemaBuilder fieldSchemaBuilder = recordSchemaBuilder.field(fieldName).type(SchemaType.INT32);
                 if (optional)
@@ -140,13 +137,13 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
             }
             break;
             case ProtocolConstants.DataType.DATE: {
-                FieldSchemaBuilder fieldSchemaBuilder = recordSchemaBuilder.field(fieldName).type(SchemaType.LOCAL_DATE);
+                FieldSchemaBuilder fieldSchemaBuilder = recordSchemaBuilder.field(fieldName).type(SchemaType.DATE);
                 if (optional)
                     fieldSchemaBuilder.optional().defaultValue(null);
             }
             break;
             case ProtocolConstants.DataType.TIME: {
-                FieldSchemaBuilder fieldSchemaBuilder = recordSchemaBuilder.field(fieldName).type(SchemaType.LOCAL_TIME);
+                FieldSchemaBuilder fieldSchemaBuilder = recordSchemaBuilder.field(fieldName).type(SchemaType.TIME);
                 if (optional)
                     fieldSchemaBuilder.optional().defaultValue(null);
             }
@@ -160,7 +157,7 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
             }
             break;
             default:
-                throw new UnsupportedOperationException("Unsupported DataType=" + dataType.getProtocolCode());
+                log.debug("Ignoring unsupported type fields name={} type={}", fieldName, dataType.asCql(false, true));
         }
         return recordSchemaBuilder;
     }
@@ -223,17 +220,23 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
                     case ProtocolConstants.DataType.BOOLEAN:
                         genericRecordBuilder.set(cm.getName().toString(), row.getBoolean(cm.getName()));
                         break;
+                    case ProtocolConstants.DataType.TIMESTAMP:
+                        genericRecordBuilder.set(cm.getName().toString(), row.getInstant(cm.getName()).toEpochMilli());
+                        break;
                     case ProtocolConstants.DataType.DATE: // Avro date is epoch days
                         genericRecordBuilder.set(cm.getName().toString(), (int) row.getLocalDate(cm.getName()).toEpochDay());
                         break;
                     case ProtocolConstants.DataType.TIME: // Avro time is epoch milliseconds
-                        genericRecordBuilder.set(cm.getName().toString(), (int) row.getLocalTime(cm.getName()).toNanoOfDay() / 1000000);
+                        genericRecordBuilder.set(cm.getName().toString(), (int) (row.getLocalTime(cm.getName()).toNanoOfDay() / 1000000));
+                        break;
+                    case ProtocolConstants.DataType.BLOB:
+                        genericRecordBuilder.set(cm.getName().toString(), row.getByteBuffer(cm.getName()));
                         break;
                     case ProtocolConstants.DataType.UDT:
                         genericRecordBuilder.set(cm.getName().toString(), buildUDTValue(row.getUdtValue(cm.getName())));
                         break;
                     default:
-                        throw new UnsupportedOperationException("Unsupported DataType=" + cm.getType().getProtocolCode());
+                        log.debug("Ignoring unsupported column name={} type={}", cm.getName(), cm.getType().asCql(false, true));
                 }
             }
         }
@@ -283,19 +286,22 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
                         genericRecordBuilder.set(field.toString(), udtValue.getBoolean(field));
                         break;
                     case ProtocolConstants.DataType.TIMESTAMP:
-                        genericRecordBuilder.set(field.toString(), udtValue.getLocalDate(field).toEpochDay());
+                        genericRecordBuilder.set(field.toString(), udtValue.getInstant(field).toEpochMilli());
                         break;
                     case ProtocolConstants.DataType.DATE:
                         genericRecordBuilder.set(field.toString(), (int) udtValue.getLocalDate(field).toEpochDay());
                         break;
                     case ProtocolConstants.DataType.TIME:
-                        genericRecordBuilder.set(field.toString(), (int) udtValue.getLocalTime(field).toNanoOfDay() / 1000000);
+                        genericRecordBuilder.set(field.toString(), (int) (udtValue.getLocalTime(field).toNanoOfDay() / 1000000));
+                        break;
+                    case ProtocolConstants.DataType.BLOB:
+                        genericRecordBuilder.set(field.toString(), udtValue.getByteBuffer(field));
                         break;
                     case ProtocolConstants.DataType.UDT:
                         genericRecordBuilder.set(field.toString(), buildUDTValue(udtValue.getUdtValue(field)));
                         break;
                     default:
-                        throw new UnsupportedOperationException("Unsupported field=" + field.toString() + " DataType=" + dataType.getProtocolCode());
+                        log.debug("Ignoring unsupported type field name={} type={}", field, dataType.asCql(false, true));
                 }
             }
         }
@@ -306,13 +312,40 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
      * Convert GenericRecord to primary key column values.
      *
      * @param genericRecord
-     * @return
+     * @return list of primary key column values
      */
     @Override
     public List<Object> fromConnectData(GenericRecord genericRecord) {
-        List<Object> pk = new ArrayList<>(genericRecord.getFields().size());
-        for(Field field : genericRecord.getFields()) {
-            pk.add(genericRecord.getField(field.getName()));
+        List<Object> pk = new ArrayList<>(tableMetadata.getPrimaryKey().size());
+        for(ColumnMetadata cm : tableMetadata.getPrimaryKey()) {
+            Object value = genericRecord.getField(cm.getName().asInternal());
+            if (value != null) {
+                switch (cm.getType().getProtocolCode()) {
+                    case ProtocolConstants.DataType.INET:
+                        value = InetAddresses.forString((String)value);
+                        break;
+                    case ProtocolConstants.DataType.UUID:
+                    case ProtocolConstants.DataType.TIMEUUID:
+                        value = UUID.fromString((String) value);
+                        break;
+                    case ProtocolConstants.DataType.TINYINT:
+                        value = ((Integer) value).byteValue();
+                        break;
+                    case ProtocolConstants.DataType.SMALLINT:
+                        value = ((Integer) value).shortValue();
+                        break;
+                    case ProtocolConstants.DataType.TIMESTAMP:
+                        value = Instant.ofEpochMilli((long) value);
+                        break;
+                    case ProtocolConstants.DataType.DATE:
+                        value = LocalDate.ofEpochDay((int) value);
+                        break;
+                    case ProtocolConstants.DataType.TIME:
+                        value = LocalTime.ofNanoOfDay( ((Integer)value).longValue() * 1000000);
+                        break;
+                }
+            }
+            pk.add(value);
         }
         return pk;
     }

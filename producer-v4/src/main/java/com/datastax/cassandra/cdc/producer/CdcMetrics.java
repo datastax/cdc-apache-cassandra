@@ -27,4 +27,5 @@ public class CdcMetrics {
     public static final Counter sentMutations = Metrics.counter(factory.createMetricName("SentMutations"));
     public static final Counter sentErrors = Metrics.counter(factory.createMetricName("SentErrors"));
     public static final Counter commitLogReadErrors = Metrics.counter(factory.createMetricName("CommitLogReadErrors"));
+    public static final Counter skippedMutations = Metrics.counter(factory.createMetricName("SkippedMutations"));
 }

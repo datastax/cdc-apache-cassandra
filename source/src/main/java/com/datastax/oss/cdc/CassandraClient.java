@@ -274,7 +274,12 @@ public class CassandraClient implements AutoCloseable {
     }
 
     /**
-     * Try to read CL=ALL (could be LOCAL_ALL), retry LOCAL_QUORUM, retry LOCAL_ONE.
+     * Try to read with downgraded consistency
+     * @param pkValues primary key column
+     * @param nodeId coordinator node id
+     * @param consistencyLevels list of consistency to retry
+     * @param preparedStatement CQL prepared statement
+     * @param md5Digest mutation MD5 digest
      */
     public CompletionStage<Tuple3<Row, ConsistencyLevel, UUID>> selectRowAsync(List<Object> pkValues,
                                                                                UUID nodeId,

@@ -25,6 +25,7 @@ import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.metadata.schema.*;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
+import com.datastax.oss.protocol.internal.ProtocolConstants;
 import com.datastax.oss.pulsar.source.converters.AvroConverter;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
@@ -125,8 +126,8 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             if (this.config.getKeyConverterClass() == null) {
                 throw new IllegalArgumentException("Key converter not defined.");
             }
-            this.keyConverter = createConverter(this.config.getKeyConverterClass(), tuple._1, tuple._2, tuple._2.getPrimaryKey(), true);
-            this.mutationKeyConverter = new AvroConverter(tuple._1, tuple._2, tuple._2.getPrimaryKey(), true);
+            this.keyConverter = createConverter(this.config.getKeyConverterClass(), tuple._1, tuple._2, tuple._2.getPrimaryKey());
+            this.mutationKeyConverter = new AvroConverter(tuple._1, tuple._2, tuple._2.getPrimaryKey());
 
             if (this.config.getValueConverterClass() == null) {
                 throw new IllegalArgumentException("Value converter not defined.");
@@ -163,16 +164,41 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         }
     }
 
+    boolean supportedCqlTypes(ColumnMetadata cm) {
+        switch (cm.getType().getProtocolCode()) {
+            case ProtocolConstants.DataType.ASCII:
+            case ProtocolConstants.DataType.VARCHAR:
+            case ProtocolConstants.DataType.BOOLEAN:
+            case ProtocolConstants.DataType.BLOB:
+            case ProtocolConstants.DataType.DATE:
+            case ProtocolConstants.DataType.TIME:
+            case ProtocolConstants.DataType.TIMESTAMP:
+            case ProtocolConstants.DataType.UUID:
+            case ProtocolConstants.DataType.TIMEUUID:
+            case ProtocolConstants.DataType.TINYINT:
+            case ProtocolConstants.DataType.SMALLINT:
+            case ProtocolConstants.DataType.INT:
+            case ProtocolConstants.DataType.BIGINT:
+            case ProtocolConstants.DataType.DOUBLE:
+            case ProtocolConstants.DataType.FLOAT:
+            case ProtocolConstants.DataType.INET:
+            case ProtocolConstants.DataType.UDT:
+                return true;
+        }
+        return false;
+    }
+
     synchronized void setValueConverterAndQuery(KeyspaceMetadata ksm, TableMetadata tableMetadata) {
         try {
             List<ColumnMetadata> columns = tableMetadata.getColumns().values().stream()
                     .filter(c -> !tableMetadata.getPrimaryKey().contains(c))
                     .filter(c -> !columnPattern.isPresent() || columnPattern.get().matcher(c.getName().asInternal()).matches())
+                    .filter(c -> supportedCqlTypes(c))
                     .collect(Collectors.toList());
             log.info("Schema update for table {}.{} replicated columns={}", ksm.getName(), tableMetadata.getName(),
                     columns.stream().map(c -> c.getName().asInternal()).collect(Collectors.toList()));
             this.valueConverterAndQuery = new ConverterAndQuery(
-                    createConverter(config.getValueConverterClass(), ksm, tableMetadata, columns, false),
+                    createConverter(config.getValueConverterClass(), ksm, tableMetadata, columns),
                     cassandraClient.buildSelect(tableMetadata, columns));
             // Invalidate the prepare statement if the query has changed.
             // We cannot build the statement here form a C* driver thread (can cause dead lock)
@@ -194,11 +220,11 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         return this.selectStatement;
     }
 
-    Converter createConverter(Class<?> converterClass, KeyspaceMetadata ksm, TableMetadata tableMetadata, List<ColumnMetadata> columns, boolean isKey)
+    Converter createConverter(Class<?> converterClass, KeyspaceMetadata ksm, TableMetadata tableMetadata, List<ColumnMetadata> columns)
             throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
         return (Converter) converterClass
-                .getDeclaredConstructor(KeyspaceMetadata.class, TableMetadata.class, List.class, Boolean.class)
-                .newInstance(ksm, tableMetadata, columns, isKey);
+                .getDeclaredConstructor(KeyspaceMetadata.class, TableMetadata.class, List.class)
+                .newInstance(ksm, tableMetadata, columns);
     }
 
     @Override
