@@ -61,7 +61,6 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
                 .put(ByteType.instance.asCQL3Type().toString(), SchemaType.INT32)   // INT8 not supported by AVRO
                 .put(ShortType.instance.asCQL3Type().toString(), SchemaType.INT32)  // INT16 not supported by AVRO
                 .put(Int32Type.instance.asCQL3Type().toString(), SchemaType.INT32)
-                .put(IntegerType.instance.asCQL3Type().toString(), SchemaType.INT32)
                 .put(LongType.instance.asCQL3Type().toString(), SchemaType.INT64)
 
                 .put(FloatType.instance.asCQL3Type().toString(), SchemaType.FLOAT)
