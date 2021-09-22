@@ -72,25 +72,26 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
                 .put(TimestampType.instance.asCQL3Type().toString(), SchemaType.TIMESTAMP)
                 .put(SimpleDateType.instance.asCQL3Type().toString(), SchemaType.DATE)
                 .put(TimeType.instance.asCQL3Type().toString(), SchemaType.TIME)
-                //schemas.put(DurationType.instance.asCQL3Type().toString(), NanoDuration.builder().optional());
 
                 .put(UUIDType.instance.asCQL3Type().toString(), SchemaType.STRING)
                 .put(TimeUUIDType.instance.asCQL3Type().toString(), SchemaType.STRING)
                 .build();
     }
 
+    /**
+     * Build the pulsar schema for the primary key.
+     * @param tm table metadata
+     * @return the pulsar schema
+     */
     @SuppressWarnings("rawtypes")
     public Schema<GenericRecord> getKeySchema(final CFMetaData tm) {
         final String key = tm.ksName + "." + tm.cfName;
         return schemas.computeIfAbsent(key, k -> {
-            List<ColumnDefinition> primaryKeyColumns = new ArrayList<>();
-            tm.primaryKeyColumns().forEach(primaryKeyColumns::add);
             RecordSchemaBuilder schemaBuilder = SchemaBuilder.record(k).doc(SCHEMA_DOC_PREFIX + k);
-            int i = 0;
-            for (ColumnDefinition cm : primaryKeyColumns) {
+            for (ColumnDefinition cm : tm.primaryKeyColumns()) {
                 schemaBuilder
                         .field(cm.name.toString())
-                        .type(schemaTypes.get(primaryKeyColumns.get(i++).type.asCQL3Type().toString()));
+                        .type(schemaTypes.get(cm.type.asCQL3Type().toString()));
             }
             SchemaInfo schemaInfo = schemaBuilder.build(SchemaType.AVRO);
             return Schema.generic(schemaInfo);
@@ -112,6 +113,11 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
         return true;
     }
 
+    /**
+     * Build the Pulsar producer for the provided table metadata.
+     * @param tm table metadata
+     * @return the pulsar producer
+     */
     @SuppressWarnings({"rawtypes", "unchecked"})
     public Producer<KeyValue<GenericRecord, MutationValue>> getProducer(final CFMetaData tm) {
         final String topicName = config.topicPrefix + tm.ksName + "." + tm.cfName;

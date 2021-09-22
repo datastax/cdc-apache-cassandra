@@ -72,21 +72,23 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
                 .put(TimestampType.instance.asCQL3Type().toString(), SchemaType.TIMESTAMP)
                 .put(SimpleDateType.instance.asCQL3Type().toString(), SchemaType.DATE)
                 .put(TimeType.instance.asCQL3Type().toString(), SchemaType.TIME)
-                //schemas.put(DurationType.instance.asCQL3Type().toString(), NanoDuration.builder().optional());
-
+                
                 .put(UUIDType.instance.asCQL3Type().toString(), SchemaType.STRING)
                 .put(TimeUUIDType.instance.asCQL3Type().toString(), SchemaType.STRING)
                 .build();
     }
 
+    /**
+     * Build the pulsar schema for the primary key.
+     * @param tm table metadata
+     * @return the pulsar schema
+     */
     @SuppressWarnings({"rawtypes","unchecked"})
     public Schema getKeySchema(final TableMetadata tm) {
         final String key = tm.keyspace + "." + tm.name;
         return schemas.computeIfAbsent(key, k -> {
-            List<ColumnMetadata> primaryKeyColumns = new ArrayList<>();
-            tm.primaryKeyColumns().forEach(primaryKeyColumns::add);
             RecordSchemaBuilder schemaBuilder = SchemaBuilder.record(k).doc(SCHEMA_DOC_PREFIX + k);
-            for (ColumnMetadata cm : primaryKeyColumns) {
+            for (ColumnMetadata cm : tm.primaryKeyColumns()) {
                 schemaBuilder
                         .field(cm.name.toString())
                         .type(schemaTypes.get(cm.type.asCQL3Type().toString()));
@@ -111,6 +113,11 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
         return true;
     }
 
+    /**
+     * Build the Pulsar producer for the provided table metadata.
+     * @param tm table metadata
+     * @return the pulsar producer
+     */
     @SuppressWarnings({"rawtypes", "unchecked"})
     public Producer<KeyValue<GenericRecord, MutationValue>> getProducer(final TableMetadata tm) {
         final String topicName = config.topicPrefix + tm.keyspace + "." + tm.name;
