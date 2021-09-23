@@ -13,7 +13,6 @@ plugins {
     id "com.github.hierynomus.license-report" version"0.16.1"
     id "com.github.johnrengelman.shadow" version "7.0.0" apply false
     id "io.github.lhotari.gradle-nar-plugin" version "0.5.1" apply false
-
 }
 
 allprojects {

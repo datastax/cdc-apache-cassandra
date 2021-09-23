@@ -16,8 +16,9 @@ sourceSets {
 
 dependencies {
     implementation project(':commons')
-    api project(':source')
+    implementation project(':source')
 
+    implementation("io.debezium:debezium-core:${debeziumVersion}")
     implementation("com.github.ben-manes.caffeine:caffeine:${caffeineVersion}")
     implementation("io.vavr:vavr:${vavrVersion}")
     implementation "com.datastax.oss:java-driver-core:${ossDriverVersion}"
@@ -37,7 +38,12 @@ dependencies {
     nar "org.apache.pulsar:pulsar-io:${pulsarVersion}"
 }
 
+configurations.implementation.canBeResolved = true
+configurations.compileOnly.canBeResolved = true
+
+tasks.jar.dependsOn project(':commons').jar
 jar {
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
     zip64=true
 }
 

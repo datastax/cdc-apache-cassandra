@@ -6,13 +6,17 @@ application {
     mainClassName = "$mainClassName"
 }
 
+configurations.implementation.canBeResolved = true
+configurations.compileOnly.canBeResolved = true
 jar {
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
     manifest {
         attributes 'Premain-Class': "$mainClassName"
     }
     zip64=true
 }
 
+tasks.jar.dependsOn project(':commons').jar
 tasks.jar.dependsOn project(':producer').jar
 
 compileTestJava {
@@ -26,6 +30,8 @@ sourceSets {
 }
 
 dependencies {
-    api project(':producer')
+    implementation project(':commons')
+    implementation project(':producer')
+    implementation("io.debezium:debezium-core:${debeziumVersion}")
     compileOnly("org.apache.cassandra:cassandra-all:${cassandra3Version}")
 }
