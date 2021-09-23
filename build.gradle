@@ -6,7 +6,7 @@ plugins {
     id "net.ltgt.apt-idea" version "0.20"
     id "com.dorongold.task-tree" version "1.3.1"
     id "jacoco"
-    id "com.gorylenko.gradle-git-properties" version "2.2.0"
+    id "com.gorylenko.gradle-git-properties" version "2.3.1"
     id "com.google.osdetector" version "1.6.2"
     id "kr.motd.sphinx" version "2.6.1"
     id "com.bmuschko.docker-remote-api" version "6.7.0"
@@ -119,9 +119,9 @@ subprojects {
         repositories {
             maven {
                 url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
-                credentials() {
-                    username "$datastaxRepositoryUsername"
-                    password "$datastaxRepositoryPassword"
+                credentials(PasswordCredentials) {
+                    username project.hasProperty("repoUsername") ? getProperty("repoUsername") : ""
+                    password project.hasProperty("repoPassword") ? getProperty("repoPassword") : ""
                 }
             }
         }

@@ -1,7 +1,7 @@
 plugins {
     id 'java'
     id 'distribution'
-    id 'de.fanero.gradle.plugin.nar'
+    id 'io.github.lhotari.gradle-nar-plugin'
 }
 
 configurations {
