@@ -1,7 +1,7 @@
 plugins {
     id 'java'
     id 'distribution'
-    id 'de.fanero.gradle.plugin.nar'
+    id "io.github.lhotari.gradle-nar-plugin"
 }
 
 configurations {
@@ -14,11 +14,7 @@ dependencies {
     release project(path: ':source-pulsar', configuration: 'nar')
 }
 
-import de.fanero.gradle.plugin.nar.Nar;
-project(':source-pulsar').tasks.withType(Nar) { narTask ->
-    distTar.dependsOn narTask
-    distZip.dependsOn narTask
-}
+import de.fanero.gradle.plugin.nar.Nar
 
 distributions {
     main {
@@ -28,9 +24,7 @@ distributions {
                 include '**'
             }
             from configurations.release
-            from("../source-pulsar/build/libs") {
-                include '*.nar'
-            }
+            from(project(":source-pulsar").tasks.withType(Nar))
         }
     }
 }

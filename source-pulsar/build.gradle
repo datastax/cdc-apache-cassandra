@@ -1,7 +1,7 @@
 plugins {
     id 'java'
     id 'java-library'
-    id 'de.fanero.gradle.plugin.nar'
+    id "io.github.lhotari.gradle-nar-plugin"
 }
 
 tasks.withType(JavaCompile) {
@@ -10,8 +10,8 @@ tasks.withType(JavaCompile) {
 
 sourceSets {
     // Make the compileOnly dependencies available when compiling/running tests
-    test.compileClasspath += configurations.compileOnly
-    test.runtimeClasspath += configurations.compileOnly
+    test.compileClasspath += configurations.compileClasspath
+    test.runtimeClasspath += configurations.compileClasspath
 }
 
 dependencies {
@@ -27,7 +27,7 @@ dependencies {
     compileOnly("org.apache.pulsar:pulsar-io-common:${pulsarVersion}")
     compileOnly("org.apache.pulsar:pulsar-io-core:${pulsarVersion}")
 
-    testRuntime("org.slf4j:slf4j-simple:1.7.30")
+    testRuntimeOnly("org.slf4j:slf4j-simple:1.7.30")
     testImplementation "org.projectlombok:lombok:${lombokVersion}"
     testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
 
@@ -39,18 +39,12 @@ dependencies {
 
 jar {
     zip64=true
-    from {
-        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
-    }
 }
 
 nar {
     manifest {
         attributes 'Nar-Group': 'org.apache.pulsar'
         attributes 'Nar-Id': 'pulsar-io-cassandra-source-nar'
-    }
-    from("./src/main/resources") {
-        include("META-INF/services/pulsar-io.yaml")
     }
 }
 

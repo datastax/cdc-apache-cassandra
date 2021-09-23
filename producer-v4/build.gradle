@@ -11,9 +11,6 @@ jar {
         attributes 'Premain-Class': "$mainClassName"
     }
     zip64=true
-    from {
-        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
-    }
 }
 
 tasks.jar.dependsOn project(':producer').jar
@@ -24,8 +21,8 @@ compileTestJava {
 
 sourceSets {
     // Make the compileOnly dependencies available when compiling/running tests
-    test.compileClasspath += configurations.compileOnly
-    test.runtimeClasspath += configurations.compileOnly
+    test.compileClasspath += configurations.compileClasspath
+    test.runtimeClasspath += configurations.compileClasspath
 }
 
 dependencies {

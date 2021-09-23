@@ -13,9 +13,6 @@ jar {
         attributes 'Premain-Class': "$mainClassName"
     }
     zip64=true
-    from {
-        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
-    }
 }
 
 compileTestJava {
@@ -47,8 +44,8 @@ dependencies {
 
     testImplementation project(':testcontainers')
 
-    testRuntime "org.slf4j:slf4j-api:1.7.30"
-    testRuntime "org.slf4j:slf4j-simple:1.7.30"
+    testRuntimeOnly "org.slf4j:slf4j-api:1.7.30"
+    testRuntimeOnly "org.slf4j:slf4j-simple:1.7.30"
 }
 
 test {
