@@ -119,9 +119,11 @@ subprojects {
         repositories {
             maven {
                 url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
-                credentials() {
-                    username "$datastaxRepositoryUsername"
-                    password "$datastaxRepositoryPassword"
+                if (hasProperty('datastaxRepositoryUsername') && hasProperty('datastaxRepositoryPassword')) {
+                    credentials() {
+                        username "$datastaxRepositoryUsername"
+                        password "$datastaxRepositoryPassword"
+                    }
                 }
             }
         }
