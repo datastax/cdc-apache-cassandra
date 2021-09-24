@@ -38,8 +38,6 @@ dependencies {
     nar "org.apache.pulsar:pulsar-io:${pulsarVersion}"
 }
 
-configurations.implementation.canBeResolved = true
-configurations.compileOnly.canBeResolved = true
 
 tasks.jar.dependsOn project(':commons').jar
 jar {

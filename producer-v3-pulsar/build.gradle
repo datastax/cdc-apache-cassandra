@@ -8,7 +8,6 @@ application {
     mainClassName = "$mainClassName"
 }
 
-configurations.implementation.canBeResolved = true
 
 jar {
     manifest {

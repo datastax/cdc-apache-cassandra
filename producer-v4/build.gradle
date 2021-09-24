@@ -6,8 +6,6 @@ application {
     mainClassName = "$mainClassName"
 }
 
-configurations.implementation.canBeResolved = true
-configurations.compileOnly.canBeResolved = true
 
 jar {
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
