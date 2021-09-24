@@ -3,7 +3,7 @@ plugins {
 }
 
 application {
-    mainClassName = "$mainClassName"
+    mainClass.set(project.getProperty("mainClassName"))
 }
 
 
