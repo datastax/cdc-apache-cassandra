@@ -20,13 +20,10 @@ import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
-import com.datastax.oss.pulsar.source.Converter;
-import com.google.common.collect.ImmutableMap;
 import org.apache.pulsar.client.api.Schema;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 public class StringConverter implements Converter<String, Row, List<Object>> {

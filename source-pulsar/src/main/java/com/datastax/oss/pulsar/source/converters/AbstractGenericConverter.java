@@ -25,7 +25,6 @@ import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import com.datastax.oss.driver.api.core.type.DataType;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
 import com.datastax.oss.protocol.internal.ProtocolConstants;
-import com.datastax.oss.protocol.internal.util.Bytes;
 import com.datastax.oss.pulsar.source.Converter;
 import com.google.common.net.InetAddresses;
 import lombok.extern.slf4j.Slf4j;
@@ -34,9 +33,6 @@ import org.apache.pulsar.client.api.schema.*;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
 
-import java.io.ByteArrayInputStream;
-import java.net.InetAddress;
-import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -162,13 +158,13 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
         return recordSchemaBuilder;
     }
 
-    GenericSchema<GenericRecord> buildUDTSchema(KeyspaceMetadata ksm, String typeName, SchemaType schemaType, boolean isKey) {
+    GenericSchema<GenericRecord> buildUDTSchema(KeyspaceMetadata ksm, String typeName, SchemaType schemaType, boolean optional) {
         UserDefinedType userDefinedType = ksm.getUserDefinedType(CqlIdentifier.fromCql(typeName.substring(typeName.indexOf(".") + 1)))
                 .orElseThrow(() -> new IllegalStateException("UDT " + typeName + " not found"));
         RecordSchemaBuilder udtSchemaBuilder = SchemaBuilder.record(typeName);
         int i = 0;
         for(CqlIdentifier field : userDefinedType.getFieldNames()) {
-            addFieldSchema(udtSchemaBuilder, ksm, field.toString(), userDefinedType.getFieldTypes().get(i++), schemaType, isKey);
+            addFieldSchema(udtSchemaBuilder, ksm, field.toString(), userDefinedType.getFieldTypes().get(i++), schemaType, optional);
         }
         SchemaInfo pcGenericSchemaInfo = udtSchemaBuilder.build(schemaType);
         GenericSchema<GenericRecord> genericSchema = Schema.generic(pcGenericSchemaInfo);
