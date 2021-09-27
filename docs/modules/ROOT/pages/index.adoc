@@ -69,8 +69,10 @@ Cassandra supported CQL3 data types:
 * blob
 * boolean
 * timestamp, time, date
-* uuid, timeuuid
+* uuid, timeuuid (as STRING)
 * User Defined Types
+
+Cassandra static columns are supported.
 
 == Limitations
 

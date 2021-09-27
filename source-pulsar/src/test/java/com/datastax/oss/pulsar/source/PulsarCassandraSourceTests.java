@@ -274,11 +274,19 @@ public class PulsarCassandraSourceTests {
                                 values.get("decimal")[0]
                         )
                 );
+
+                // test static column update
+                cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName + " WITH replication = {'class':'SimpleStrategy','replication_factor':'1'};");
+                cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table4 (a text, b text, c text, d text static, PRIMARY KEY ((a), b)) with cdc=true;");
+                cqlSession.execute("INSERT INTO " + ksName + ".table4 (a,b,c,d) VALUES ('a','b','c','d1');");
+                cqlSession.execute("INSERT INTO " + ksName + ".table4 (a,d) VALUES ('a','d2');");
+                cqlSession.execute("DELETE FROM " + ksName + ".table4 WHERE a = 'a'");
             }
             deployConnector(ksName, "table1", keyConverter, valueConverter);
             deployConnector(ksName, "table2", keyConverter, valueConverter);
             if (checkTypeConversion)
                 deployConnector(ksName, "table3", keyConverter, valueConverter);
+            deployConnector(ksName, "table4", keyConverter, valueConverter);
 
             try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
                 Map<String, Integer> mutationTable1 = new HashMap<>();
@@ -493,18 +501,63 @@ public class PulsarCassandraSourceTests {
                         assertEquals(1, mutationTable3Count);
                     }
                 }
+
+                // test support for static column update in table4
+                try (Consumer<GenericRecord> consumer = pulsarClient.newConsumer(org.apache.pulsar.client.api.Schema.AUTO_CONSUME())
+                        .topic(String.format(Locale.ROOT, "data-%s.table4", ksName))
+                        .subscriptionName("sub1")
+                        .subscriptionType(SubscriptionType.Key_Shared)
+                        .subscriptionMode(SubscriptionMode.Durable)
+                        .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+                        .subscribe()) {
+                    Message<GenericRecord> msg = consumer.receive(120, TimeUnit.SECONDS);
+                    Assert.assertNotNull("Expecting one message, check the producer log", msg);
+                    GenericRecord gr = msg.getValue();
+                    KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) gr.getNativeObject();
+                    GenericRecord key = kv.getKey();
+                    Assert.assertEquals("a", key.getField("a"));
+                    Assert.assertEquals("b", key.getField("b"));
+                    GenericRecord val = kv.getValue();
+                    Assert.assertEquals("c", key.getField("c"));
+                    Assert.assertEquals("d", val.getField("d1"));
+                    consumer.acknowledgeAsync(msg);
+
+                    msg = consumer.receive(60, TimeUnit.SECONDS);
+                    Assert.assertNotNull("Expecting one message, check the producer log", msg);
+                    GenericRecord gr2 = msg.getValue();
+                    KeyValue<GenericRecord, GenericRecord> kv2 = (KeyValue<GenericRecord, GenericRecord>) gr2.getNativeObject();
+                    GenericRecord key2 = kv2.getKey();
+                    Assert.assertEquals("a", key2.getField("a"));
+                    Assert.assertEquals(null, key2.getField("b"));
+                    GenericRecord val2 = kv.getValue();
+                    Assert.assertEquals("c", val2.getField("c"));
+                    Assert.assertEquals("d", val2.getField("d2"));
+                    consumer.acknowledgeAsync(msg);
+
+                    msg = consumer.receive(60, TimeUnit.SECONDS);
+                    Assert.assertNotNull("Expecting one message, check the producer log", msg);
+                    GenericRecord gr3 = msg.getValue();
+                    KeyValue<GenericRecord, GenericRecord> kv3 = (KeyValue<GenericRecord, GenericRecord>) gr2.getNativeObject();
+                    GenericRecord key3 = kv3.getKey();
+                    Assert.assertEquals("a", key3.getField("a"));
+                    Assert.assertEquals(null, key3.getField("b"));
+                    Assert.assertNull(kv.getValue());
+                    consumer.acknowledgeAsync(msg);
+                }
             }
         } finally {
             dumpFunctionLogs("cassandra-source-ks1-table1");
             dumpFunctionLogs("cassandra-source-ks1-table2");
             if (checkTypeConversion)
                 dumpFunctionLogs("cassandra-source-ks1-table3");
+            dumpFunctionLogs("cassandra-source-ks1-table4");
         }
 
         undeployConnector(ksName, "table1");
         undeployConnector(ksName, "table2");
         if (checkTypeConversion)
             undeployConnector(ksName, "table3");
+        undeployConnector(ksName, "table4");
     }
 
     static String genericRecordToString(GenericRecord genericRecord) {
