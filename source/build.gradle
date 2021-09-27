@@ -27,13 +27,15 @@ compileTestJava {
 }
 
 dependencies {
+    implementation project(':commons')
+    implementation("io.debezium:debezium-core:${debeziumVersion}")
     implementation("com.github.ben-manes.caffeine:caffeine:${caffeineVersion}")
     implementation("io.vavr:vavr:${vavrVersion}")
     implementation("com.datastax.oss:java-driver-core:${ossDriverVersion}")
     implementation("com.datastax.oss:java-driver-query-builder:${ossDriverVersion}")
     implementation("org.apache.kafka:connect-api:${kafkaVersion}")
     implementation("com.google.guava:guava:${guavaVersion}")
-    api("com.datastax.oss:messaging-connectors-commons-core:${messagingConnectorsCommonsVersion}")
+    implementation("com.datastax.oss:messaging-connectors-commons-core:${messagingConnectorsCommonsVersion}")
 
     testImplementation("io.confluent:kafka-connect-avro-converter:${confluentVersion}")
     testImplementation("com.datastax.oss:dsbulk-tests:1.6.0")
