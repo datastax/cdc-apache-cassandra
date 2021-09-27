@@ -88,9 +88,18 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
         return schemas.computeIfAbsent(key, k -> {
             RecordSchemaBuilder schemaBuilder = SchemaBuilder.record(k).doc(SCHEMA_DOC_PREFIX + k);
             for (ColumnDefinition cm : tm.primaryKeyColumns()) {
-                schemaBuilder
-                        .field(cm.name.toString())
-                        .type(schemaTypes.get(cm.type.asCQL3Type().toString()));
+                if (cm.isClusteringColumn()) {
+                    // clustering column may be null.
+                    schemaBuilder
+                            .field(cm.name.toString())
+                            .type(schemaTypes.get(cm.type.asCQL3Type().toString()))
+                            .optional()
+                            .defaultValue(null);
+                } else {
+                    schemaBuilder
+                            .field(cm.name.toString())
+                            .type(schemaTypes.get(cm.type.asCQL3Type().toString()));
+                }
             }
             SchemaInfo schemaInfo = schemaBuilder.build(SchemaType.AVRO);
             return Schema.generic(schemaInfo);
@@ -184,7 +193,7 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
 
     Object cqlToAvro(ColumnDefinition colDef, Object value)
     {
-        log.trace("column name={} type={} class={} value={}",
+        log.debug("column name={} type={} class={} value={}",
                 colDef.cfName, colDef.type.asCQL3Type(), value.getClass().getName(), value);
         if (colDef.type instanceof TimestampType && value instanceof Date) {
             return ((Date)value).getTime();
@@ -193,7 +202,7 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
             long timeInMillis = Duration.ofDays((Integer)value + Integer.MIN_VALUE).toMillis();
             Instant instant = Instant.ofEpochMilli(timeInMillis);
             LocalDate localDate = LocalDateTime.ofInstant(instant, ZoneOffset.UTC).toLocalDate();
-            return localDate.toEpochDay(); // Avro date is epoch day
+            return (int) localDate.toEpochDay(); // Avro date is an int that stores the number of days from the unix epoch
         }
         if (colDef.type instanceof TimeType && value instanceof Long) {
             return (int) ((Long)value / 1000000); // Avro time is epoch millisecond
@@ -203,6 +212,12 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
         }
         if (colDef.type instanceof InetAddressType) {
             return ((InetAddress)value).getHostAddress();
+        }
+        if (colDef.type instanceof ByteType) {
+            return Byte.toUnsignedInt((byte)value); // AVRO does not support INT8
+        }
+        if (colDef.type instanceof ShortType) {
+            return Short.toUnsignedInt((short)value); // AVRO does not support INT16
         }
         return value;
     }

@@ -88,9 +88,18 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
         return schemas.computeIfAbsent(key, k -> {
             RecordSchemaBuilder schemaBuilder = SchemaBuilder.record(k).doc(SCHEMA_DOC_PREFIX + k);
             for (ColumnMetadata cm : tm.primaryKeyColumns()) {
-                schemaBuilder
-                        .field(cm.name.toString())
-                        .type(schemaTypes.get(cm.type.asCQL3Type().toString()));
+                if (cm.isClusteringColumn()) {
+                    // clustering column may be null.
+                    schemaBuilder
+                            .field(cm.name.toString())
+                            .type(schemaTypes.get(cm.type.asCQL3Type().toString()))
+                            .optional()
+                            .defaultValue(null);
+                } else {
+                    schemaBuilder
+                            .field(cm.name.toString())
+                            .type(schemaTypes.get(cm.type.asCQL3Type().toString()));
+                }
             }
             SchemaInfo schemaInfo = schemaBuilder.build(SchemaType.AVRO);
             return Schema.generic(schemaInfo);
@@ -193,7 +202,7 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
             long timeInMillis = Duration.ofDays((Integer)value + Integer.MIN_VALUE).toMillis();
             Instant instant = Instant.ofEpochMilli(timeInMillis);
             LocalDate localDate = LocalDateTime.ofInstant(instant, ZoneOffset.UTC).toLocalDate();
-            return localDate.toEpochDay(); // Avro date is epoch day
+            return (int) localDate.toEpochDay(); // Avro date is an int that stores the number of days from the unix epoch
         }
         if (columnMetadata.type instanceof TimeType && value instanceof Long) {
             return (int) ((Long)value / 1000000); // Avro time is epoch millisecond
@@ -203,6 +212,12 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
         }
         if (columnMetadata.type instanceof InetAddressType) {
             return ((InetAddress)value).getHostAddress();
+        }
+        if (columnMetadata.type instanceof ByteType) {
+            return Byte.toUnsignedInt((byte)value); // AVRO does not support INT8
+        }
+        if (columnMetadata.type instanceof ShortType) {
+            return Short.toUnsignedInt((short)value); // AVRO does not support INT16
         }
         return value;
     }

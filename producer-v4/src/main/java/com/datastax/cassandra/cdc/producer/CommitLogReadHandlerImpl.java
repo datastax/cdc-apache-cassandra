@@ -42,6 +42,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.CompletionStage;
+import java.util.stream.Collectors;
 
 import static com.datastax.cassandra.cdc.producer.CommitLogReadHandlerImpl.RowType.DELETE;
 
@@ -100,9 +101,18 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         /**
          * an update on a table that contains counter data type
          */
-        COUNTER;
+        COUNTER,
 
-        static final Set<PartitionType> supportedPartitionTypes = new HashSet<>(Arrays.asList(PARTITION_KEY_ROW_DELETION, ROW_LEVEL_MODIFICATION));
+        /**
+         * a partition-level modification
+         */
+        PARTITION_LEVEL_MODIFICATION;
+
+        static final Set<PartitionType> supportedPartitionTypes = new HashSet<>(Arrays.asList(
+                PARTITION_KEY_ROW_DELETION,
+                PARTITION_AND_CLUSTERING_KEY_ROW_DELETION,
+                ROW_LEVEL_MODIFICATION,
+                PARTITION_LEVEL_MODIFICATION));
 
         public static PartitionType getPartitionType(PartitionUpdate pu) {
             if (pu.metadata().isCounter()) {
@@ -119,6 +129,9 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
             }
             else if (isPartitionDeletion(pu) && !hasClusteringKeys(pu)) {
                 return PARTITION_KEY_ROW_DELETION;
+            }
+            else if (!pu.unfilteredIterator().hasNext()) {
+                return PARTITION_LEVEL_MODIFICATION;
             }
             else {
                 return ROW_LEVEL_MODIFICATION;
@@ -176,15 +189,20 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
             }
             else if (unfiltered.isRow()) {
                 Row row = (Row) unfiltered;
-                if (isDelete(row)) {
-                    return DELETE;
-                }
-                else if (isInsert(row)) {
-                    return INSERT;
-                }
-                else if (isUpdate(row)) {
-                    return UPDATE;
-                }
+                return getRowType(row);
+            }
+            return UNKNOWN;
+        }
+
+        public static RowType getRowType(Row row) {
+            if (isDelete(row)) {
+                return DELETE;
+            }
+            else if (isInsert(row)) {
+                return INSERT;
+            }
+            else if (isUpdate(row)) {
+                return UPDATE;
             }
             return UNKNOWN;
         }
@@ -266,11 +284,21 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         }
 
         switch (partitionType) {
-            case PARTITION_KEY_ROW_DELETION:
+            case PARTITION_AND_CLUSTERING_KEY_ROW_DELETION:
+            case PARTITION_KEY_ROW_DELETION: {
                 handlePartitionDeletion(pu, position, md5Digest);
-                break;
+            }
+            break;
 
-            case ROW_LEVEL_MODIFICATION:
+            case PARTITION_LEVEL_MODIFICATION: {
+                UnfilteredRowIterator it = pu.unfilteredIterator();
+                Row row = it.staticRow();
+                RowType rowType = RowType.getRowType(row);
+                handleRowModifications(row, rowType, pu, position, md5Digest);
+            }
+            break;
+
+            case ROW_LEVEL_MODIFICATION: {
                 UnfilteredRowIterator it = pu.unfilteredIterator();
                 while (it.hasNext()) {
                     Unfiltered rowOrRangeTombstone = it.next();
@@ -283,7 +311,8 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
                     handleRowModifications(row, rowType, pu, position, md5Digest);
                 }
-                break;
+            }
+            break;
 
             default:
                 throw new CassandraConnectorSchemaException("Unsupported partition type " + partitionType + " should have been skipped");
@@ -379,7 +408,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
     @SuppressWarnings({"unchecked","rawtypes"})
     private void populateClusteringColumns(RowData after, Row row, PartitionUpdate pu) {
-        for (ColumnMetadata cd : pu.metadata().clusteringColumns()) {
+        for (ColumnMetadata cd : pu.metadata().clusteringColumns().stream().limit(row.clustering().size()).collect(Collectors.toList())) {
             try {
                 String name = cd.name.toString();
                 ValueAccessor valueAccessor = row.clustering().accessor();

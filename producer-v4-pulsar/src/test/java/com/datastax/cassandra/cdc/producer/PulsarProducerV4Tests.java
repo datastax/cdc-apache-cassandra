@@ -24,7 +24,6 @@ import org.apache.cassandra.utils.Pair;
 import org.apache.pulsar.client.api.*;
 import org.apache.pulsar.client.api.schema.Field;
 import org.apache.pulsar.client.api.schema.GenericRecord;
-import org.apache.pulsar.client.api.schema.KeyValueSchema;
 import org.apache.pulsar.client.api.schema.RecordSchemaBuilder;
 import org.apache.pulsar.client.api.schema.SchemaBuilder;
 import org.apache.pulsar.common.schema.KeyValue;
@@ -43,9 +42,10 @@ import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.nio.ByteBuffer;
-import java.time.*;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.TemporalAccessor;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -294,7 +294,6 @@ public class PulsarProducerV4Tests {
                         values.get("xinet6").left
                 );
             }
-            Thread.sleep(11000);    // wait CL sync on disk
 
             try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build();
                  Consumer<GenericRecord> consumer = pulsarClient.newConsumer(Schema.AUTO_CONSUME())
@@ -314,6 +313,58 @@ public class PulsarProducerV4Tests {
                 for (Field field : key.getFields()) {
                     Assert.assertEquals("Wrong value fo field " + field.getName(), values.get(field.getName()).right, map.get(field.getName()));
                 }
+                consumer.acknowledgeAsync(msg);
+            }
+        }
+    }
+
+    @Test
+    public void testStaticColumn() throws IOException, InterruptedException {
+        String pulsarServiceUrl = "pulsar://pulsar:" + pulsarContainer.BROKER_PORT;
+        try (CassandraContainer<?> cassandraContainer1 = CassandraContainer.createCassandraContainerWithPulsarProducer(
+                CASSANDRA_IMAGE, testNetwork, 1, "v4", pulsarServiceUrl)) {
+            cassandraContainer1.start();
+            try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS ks3 WITH replication = {'class':'SimpleStrategy','replication_factor':'1'};");
+                cqlSession.execute("CREATE TABLE IF NOT EXISTS ks3.table1 (a text, b text, c text, d text static, PRIMARY KEY ((a), b)) with cdc=true;");
+                cqlSession.execute("INSERT INTO ks3.table1 (a,b,c,d) VALUES ('a','b','c','d1');");
+                cqlSession.execute("INSERT INTO ks3.table1 (a,d) VALUES ('a','d2');");
+                cqlSession.execute("DELETE FROM ks3.table1 WHERE a='a'");
+            }
+
+            try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build();
+                 Consumer<GenericRecord> consumer = pulsarClient.newConsumer(Schema.AUTO_CONSUME())
+                         .topic("events-ks3.table1")
+                         .subscriptionName("sub1")
+                         .subscriptionType(SubscriptionType.Key_Shared)
+                         .subscriptionMode(SubscriptionMode.Durable)
+                         .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+                         .subscribe()) {
+                Message<GenericRecord> msg = consumer.receive(120, TimeUnit.SECONDS);
+                Assert.assertNotNull("Expecting one message, check the producer log", msg);
+                GenericRecord gr = msg.getValue();
+                KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) gr.getNativeObject();
+                GenericRecord key = kv.getKey();
+                Assert.assertEquals("a", key.getField("a"));
+                Assert.assertEquals("b", key.getField("b"));
+                consumer.acknowledgeAsync(msg);
+
+                msg = consumer.receive(60, TimeUnit.SECONDS);
+                Assert.assertNotNull("Expecting one message, check the producer log", msg);
+                GenericRecord gr2 = msg.getValue();
+                KeyValue<GenericRecord, GenericRecord> kv2 = (KeyValue<GenericRecord, GenericRecord>) gr2.getNativeObject();
+                GenericRecord key2 = kv2.getKey();
+                Assert.assertEquals("a", key2.getField("a"));
+                Assert.assertEquals(null, key2.getField("b"));
+                consumer.acknowledgeAsync(msg);
+
+                msg = consumer.receive(60, TimeUnit.SECONDS);
+                Assert.assertNotNull("Expecting one message, check the producer log", msg);
+                GenericRecord gr3 = msg.getValue();
+                KeyValue<GenericRecord, GenericRecord> kv3 = (KeyValue<GenericRecord, GenericRecord>) gr3.getNativeObject();
+                GenericRecord key3 = kv3.getKey();
+                Assert.assertEquals("a", key3.getField("a"));
+                Assert.assertEquals(null, key3.getField("b"));
                 consumer.acknowledgeAsync(msg);
             }
         }
