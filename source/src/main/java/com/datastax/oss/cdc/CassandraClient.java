@@ -59,6 +59,7 @@ import java.util.*;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.datastax.dse.driver.api.core.config.DseDriverOption.AUTH_PROVIDER_SASL_PROPERTIES;
 import static com.datastax.dse.driver.api.core.config.DseDriverOption.AUTH_PROVIDER_SERVICE;
@@ -134,21 +135,33 @@ public class CassandraClient implements AutoCloseable {
         return cqlSession;
     }
 
-    public String buildSelect(TableMetadata tableMetadata, List<ColumnMetadata> columns) {
-        CqlIdentifier[] cqlIdentifiers = new CqlIdentifier[columns.size()];
+    public CqlIdentifier[] buildProjectionClause(List<ColumnMetadata> columns) {
+        CqlIdentifier[] projection = new CqlIdentifier[columns.size()];
         int i = 0;
         for (ColumnMetadata column : columns) {
-            cqlIdentifiers[i++] = column.getName();
+            projection[i++] = column.getName();
         }
-        Select query = selectFrom(tableMetadata.getKeyspace(), tableMetadata.getName()).columns(cqlIdentifiers);
-        for (ColumnMetadata column : tableMetadata.getPrimaryKey()) {
-            query = query.whereColumn(column.getName()).isEqualTo(bindMarker());
-        }
-        return query.asCql();
+        return projection;
     }
 
-    public PreparedStatement prepareSelect(String query) {
-        return cqlSession.prepare(query);
+    public CqlIdentifier[] buildPrimaryKeyClause(TableMetadata tableMetadata) {
+        CqlIdentifier[] pkClause = new CqlIdentifier[tableMetadata.getPrimaryKey().size()];
+        int i = 0;
+        for (ColumnMetadata column : tableMetadata.getPrimaryKey()) {
+            pkClause[i++] = column.getName();
+        }
+        return pkClause;
+    }
+
+    public PreparedStatement prepareSelect(String keyspaceName, String tableName,
+                                CqlIdentifier[] projection,
+                                CqlIdentifier[] pkClause,
+                                int pkLength) {
+        Select query = selectFrom(keyspaceName, tableName).columns(projection);
+        for(int i = 0; i < pkLength; i++)
+            query = query.whereColumn(pkClause[i]).isEqualTo(bindMarker());
+        log.info(query.asCql());
+        return cqlSession.prepare(query.asCql());
     }
 
     /**
@@ -296,11 +309,11 @@ public class CassandraClient implements AutoCloseable {
                 statement = statement.setNode(node);
             }
         }
-        log.debug("Fetching md5Digest={} coordinator={} query={} pk={} ", md5Digest, node, preparedStatement.getQuery(), pkValues);
+        log.info("Fetching md5Digest={} coordinator={} query={} pk={} ", md5Digest, node, preparedStatement.getQuery(), pkValues);
 
         return executeWithDowngradeConsistencyRetry(cqlSession, statement, consistencyLevels)
                 .thenApply(tuple -> {
-                    log.debug("Read cl={} coordinator={} pk={}", tuple._2, tuple._1.getExecutionInfo().getCoordinator().getHostId(), pkValues);
+                    log.info("Read cl={} coordinator={} pk={}", tuple._2, tuple._1.getExecutionInfo().getCoordinator().getHostId(), pkValues);
                     Row row = tuple._1.one();
                     return new Tuple3<>(row, tuple._2, tuple._1.getExecutionInfo().getCoordinator().getHostId());
                 })
@@ -317,13 +330,13 @@ public class CassandraClient implements AutoCloseable {
             List<ConsistencyLevel> consistencyLevels) {
         final ConsistencyLevel cl = consistencyLevels.remove(0);
         statement.setConsistencyLevel(cl);
-        log.debug("Trying with CL={} statement={}", cl, statement);
+        log.info("Trying with CL={} statement={}", cl, statement);
         final CompletionStage<Tuple2<AsyncResultSet, ConsistencyLevel>> completionStage =
                 cqlSession.executeAsync(statement).thenApply(rx -> new Tuple2<>(rx, cl));
         return completionStage
                 .handle((r, ex) -> {
                     if (ex == null || !(ex instanceof UnavailableException) || consistencyLevels.isEmpty()) {
-                        log.debug("Executed CL={} statement={}", cl, statement);
+                        log.error("Executed CL={} statement={}", cl, statement);
                         return completionStage;
                     }
                     return completionStage

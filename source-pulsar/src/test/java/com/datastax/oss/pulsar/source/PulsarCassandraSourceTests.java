@@ -279,8 +279,6 @@ public class PulsarCassandraSourceTests {
                 cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName + " WITH replication = {'class':'SimpleStrategy','replication_factor':'1'};");
                 cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table4 (a text, b text, c text, d text static, PRIMARY KEY ((a), b)) with cdc=true;");
                 cqlSession.execute("INSERT INTO " + ksName + ".table4 (a,b,c,d) VALUES ('a','b','c','d1');");
-                cqlSession.execute("INSERT INTO " + ksName + ".table4 (a,d) VALUES ('a','d2');");
-                cqlSession.execute("DELETE FROM " + ksName + ".table4 WHERE a = 'a'");
             }
             deployConnector(ksName, "table1", keyConverter, valueConverter);
             deployConnector(ksName, "table2", keyConverter, valueConverter);
@@ -518,30 +516,36 @@ public class PulsarCassandraSourceTests {
                     Assert.assertEquals("a", key.getField("a"));
                     Assert.assertEquals("b", key.getField("b"));
                     GenericRecord val = kv.getValue();
-                    Assert.assertEquals("c", key.getField("c"));
-                    Assert.assertEquals("d", val.getField("d1"));
+                    Assert.assertEquals("c", val.getField("c"));
+                    Assert.assertEquals("d1", val.getField("d"));
                     consumer.acknowledgeAsync(msg);
 
-                    msg = consumer.receive(60, TimeUnit.SECONDS);
+                    try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                        cqlSession.execute("INSERT INTO " + ksName + ".table4 (a,d) VALUES ('a','d2');");
+                    }
+                    msg = consumer.receive(90, TimeUnit.SECONDS);
                     Assert.assertNotNull("Expecting one message, check the producer log", msg);
                     GenericRecord gr2 = msg.getValue();
                     KeyValue<GenericRecord, GenericRecord> kv2 = (KeyValue<GenericRecord, GenericRecord>) gr2.getNativeObject();
                     GenericRecord key2 = kv2.getKey();
                     Assert.assertEquals("a", key2.getField("a"));
                     Assert.assertEquals(null, key2.getField("b"));
-                    GenericRecord val2 = kv.getValue();
+                    GenericRecord val2 = kv2.getValue();
                     Assert.assertEquals("c", val2.getField("c"));
-                    Assert.assertEquals("d", val2.getField("d2"));
+                    Assert.assertEquals("d2", val2.getField("d"));
                     consumer.acknowledgeAsync(msg);
 
-                    msg = consumer.receive(60, TimeUnit.SECONDS);
+                    try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                        cqlSession.execute("DELETE FROM " + ksName + ".table4 WHERE a = 'a'");
+                    }
+                    msg = consumer.receive(90, TimeUnit.SECONDS);
                     Assert.assertNotNull("Expecting one message, check the producer log", msg);
                     GenericRecord gr3 = msg.getValue();
-                    KeyValue<GenericRecord, GenericRecord> kv3 = (KeyValue<GenericRecord, GenericRecord>) gr2.getNativeObject();
+                    KeyValue<GenericRecord, GenericRecord> kv3 = (KeyValue<GenericRecord, GenericRecord>) gr3.getNativeObject();
                     GenericRecord key3 = kv3.getKey();
                     Assert.assertEquals("a", key3.getField("a"));
                     Assert.assertEquals(null, key3.getField("b"));
-                    Assert.assertNull(kv.getValue());
+                    Assert.assertNull(kv3.getValue());
                     consumer.acknowledgeAsync(msg);
                 }
             }

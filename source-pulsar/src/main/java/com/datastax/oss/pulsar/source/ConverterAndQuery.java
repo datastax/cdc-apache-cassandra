@@ -15,16 +15,24 @@
  */
 package com.datastax.oss.pulsar.source;
 
+import com.datastax.oss.driver.api.core.CqlIdentifier;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
+
+import java.util.concurrent.ConcurrentMap;
 
 @Data
 @AllArgsConstructor
 @EqualsAndHashCode
 @ToString
 public class ConverterAndQuery {
+    final String keyspaceName;
+    final String tableName;
     final Converter converter;
-    final String query;
+    final CqlIdentifier[] projectionClause;
+    final CqlIdentifier[] primaryKeyClause;
+    final ConcurrentMap<Integer, PreparedStatement> preparedStatements;
 }
