@@ -277,7 +277,7 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
                 .withFileSystemBind(
                         String.format(Locale.ROOT, "%s/libs/%s", producerBuildDir, jarFile),
                         String.format(Locale.ROOT, "/%s", jarFile))
-                .withEnv("JVM_EXTRA_OPTS", String.format(Locale.ROOT, "-javaagent:/%s=%s -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8000", jarFile, agentParams))
+                .withEnv("JVM_EXTRA_OPTS", String.format(Locale.ROOT, "-javaagent:/%s=%s -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:8000", jarFile, agentParams))
                 .withStartupTimeout(Duration.ofSeconds(120));
         if (nodeIndex > 1) {
             cassandraContainer.withEnv("CASSANDRA_SEEDS", "cassandra-1");

@@ -26,13 +26,13 @@ import org.junit.jupiter.api.Test;
 public class PulsarGenericSchemaTests {
 
     @Test
-    public void testGenericSchema() {
+    public void testPulsarGenericSchema() {
         ProducerConfig config = ProducerConfig.create(ProducerConfig.Platform.PULSAR, "");
         PulsarMutationSender pulsarMutationSender = new PulsarMutationSender(config);
 
         RecordSchemaBuilder schemaBuilder = SchemaBuilder.record("testrecord");
         int i = 0;
-        for (SchemaType type : pulsarMutationSender.schemaTypes.values()) {
+        for (SchemaType type : pulsarMutationSender.pulsarSchemaTypes.values()) {
             schemaBuilder
                     .field("a"+i)
                     .type(type);

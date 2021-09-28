@@ -15,6 +15,8 @@
  */
 package com.datastax.oss.pulsar.source;
 
+import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
+import com.datastax.oss.driver.api.core.type.DataType;
 import org.apache.pulsar.client.api.Schema;
 
 import java.io.IOException;
@@ -23,7 +25,7 @@ import java.io.IOException;
  * Converters help to change the format of data from one format into another format.
  * Converters are decoupled from connectors to allow reuse of converters between connectors naturally.
  */
-public interface Converter<V, R, T> {
+public interface Converter<V, W, R, T> {
 
     Schema<V> getSchema();
 
@@ -32,11 +34,17 @@ public interface Converter<V, R, T> {
      * @param r
      * @return
      */
-     V toConnectData(R r);
+     W toConnectData(R r);
 
     /**
      * Decode the pulsar IO internal representation to the connector representation.
      * @return
      */
-     T fromConnectData(V value) throws IOException;
+     T fromConnectData(W value) throws IOException;
+
+    /**
+     * @param dataType
+     * @return true if the data type is supported
+     */
+    boolean isSupportedCqlType(DataType dataType);
 }

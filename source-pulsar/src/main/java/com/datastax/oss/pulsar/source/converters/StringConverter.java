@@ -15,6 +15,8 @@
  */
 package com.datastax.oss.pulsar.source.converters;
 
+import com.datastax.oss.driver.api.core.type.DataType;
+import com.datastax.oss.protocol.internal.ProtocolConstants;
 import com.datastax.oss.pulsar.source.Converter;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
@@ -26,7 +28,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class StringConverter implements Converter<String, Row, List<Object>> {
+public class StringConverter implements Converter<String, String, Row, List<Object>> {
 
     List<String> pkColumns;
 
@@ -66,5 +68,30 @@ public class StringConverter implements Converter<String, Row, List<Object>> {
     @Override
     public List<Object> fromConnectData(String value) {
         return Collections.singletonList(value);
+    }
+
+    @Override
+    public boolean isSupportedCqlType(DataType dataType) {
+        switch (dataType.getProtocolCode()) {
+            case ProtocolConstants.DataType.ASCII:
+            case ProtocolConstants.DataType.VARCHAR:
+            case ProtocolConstants.DataType.BOOLEAN:
+            case ProtocolConstants.DataType.BLOB:
+            case ProtocolConstants.DataType.DATE:
+            case ProtocolConstants.DataType.TIME:
+            case ProtocolConstants.DataType.TIMESTAMP:
+            case ProtocolConstants.DataType.UUID:
+            case ProtocolConstants.DataType.TIMEUUID:
+            case ProtocolConstants.DataType.TINYINT:
+            case ProtocolConstants.DataType.SMALLINT:
+            case ProtocolConstants.DataType.INT:
+            case ProtocolConstants.DataType.BIGINT:
+            case ProtocolConstants.DataType.DOUBLE:
+            case ProtocolConstants.DataType.FLOAT:
+            case ProtocolConstants.DataType.INET:
+            case ProtocolConstants.DataType.UDT:
+                return true;
+        }
+        return false;
     }
 }

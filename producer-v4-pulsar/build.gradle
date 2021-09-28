@@ -33,7 +33,8 @@ dependencies {
     implementation project(':producer')
     implementation project(':producer-v4')
     implementation("io.debezium:debezium-core:${debeziumVersion}")
-    implementation("org.apache.pulsar:pulsar-client:${pulsarVersion}")
+    implementation("org.apache.pulsar:pulsar-client-original:${pulsarVersion}")
+    implementation("org.apache.avro:avro:${avroVersion}")
     compileOnly("org.apache.cassandra:cassandra-all:${cassandra4Version}")
     testImplementation("org.apache.cassandra:cassandra-all:${cassandra4Version}") {
         exclude group: 'io.netty'

@@ -15,9 +15,14 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
+import com.datastax.cassandra.cdc.CqlLogicalTypes;
 import com.datastax.cassandra.cdc.MutationValue;
 import com.google.common.collect.ImmutableMap;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.io.BinaryEncoder;
+import org.apache.avro.io.EncoderFactory;
+import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.db.marshal.*;
 import org.apache.cassandra.schema.ColumnMetadata;
@@ -27,10 +32,11 @@ import org.apache.pulsar.client.api.*;
 import org.apache.pulsar.client.api.schema.*;
 import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.common.schema.KeyValueEncodingType;
-import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
 
+import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.time.*;
 import java.util.*;
@@ -45,15 +51,16 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
     public static final String SCHEMA_DOC_PREFIX = "Primary key schema for table ";
 
     PulsarClient client;
-    final Map<String, Producer<KeyValue<GenericRecord, MutationValue>>> producers = new ConcurrentHashMap<>();
-    final Map<String, Schema<GenericRecord>> schemas = new HashMap<>();
-    final ImmutableMap<String, SchemaType> schemaTypes;
+    final Map<String, Producer<KeyValue<byte[], MutationValue>>> producers = new ConcurrentHashMap<>();
+    final Map<String, org.apache.avro.Schema> avroSchemas = new HashMap<>();
+    final ImmutableMap<String, SchemaType> pulsarSchemaTypes;
+    final ImmutableMap<String, org.apache.avro.Schema> avroSchemaTypes;
     final ProducerConfig config;
 
     public PulsarMutationSender(ProducerConfig config) {
         this.config = config;
         // Map Cassandra native types to Pulsar schema types
-        schemaTypes = ImmutableMap.<String, SchemaType>builder()
+        pulsarSchemaTypes = ImmutableMap.<String, SchemaType>builder()
                 .put(UTF8Type.instance.asCQL3Type().toString(), SchemaType.STRING)
                 .put(AsciiType.instance.asCQL3Type().toString(), SchemaType.STRING)
                 .put(BooleanType.instance.asCQL3Type().toString(), SchemaType.BOOLEAN)
@@ -75,6 +82,29 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
                 .put(UUIDType.instance.asCQL3Type().toString(), SchemaType.STRING)
                 .put(TimeUUIDType.instance.asCQL3Type().toString(), SchemaType.STRING)
                 .build();
+
+        avroSchemaTypes = ImmutableMap.<String, org.apache.avro.Schema>builder()
+                .put(UTF8Type.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.STRING))
+                .put(AsciiType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.STRING))
+                .put(BooleanType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.BOOLEAN))
+                .put(BytesType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.BYTES))
+                .put(ByteType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.INT))   // INT8 not supported by AVRO
+                .put(ShortType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.INT))  // INT16 not supported by AVRO
+                .put(Int32Type.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.INT))
+                .put(LongType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.LONG))
+
+                .put(FloatType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.FLOAT))
+                .put(DoubleType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.DOUBLE))
+
+                .put(InetAddressType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.STRING))
+
+                .put(TimestampType.instance.asCQL3Type().toString(), CqlLogicalTypes.timeMillisType)
+                .put(SimpleDateType.instance.asCQL3Type().toString(), CqlLogicalTypes.dateType)
+                .put(TimeType.instance.asCQL3Type().toString(), CqlLogicalTypes.timeMillisType)
+
+                .put(UUIDType.instance.asCQL3Type().toString(), CqlLogicalTypes.uuidType)
+                .put(TimeUUIDType.instance.asCQL3Type().toString(), CqlLogicalTypes.uuidType)
+                .build();
     }
 
     /**
@@ -83,28 +113,45 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
      * @return the pulsar schema
      */
     @SuppressWarnings({"rawtypes","unchecked"})
-    public Schema getKeySchema(final TableMetadata tm) {
-        final String key = tm.keyspace + "." + tm.name;
-        return schemas.computeIfAbsent(key, k -> {
-            RecordSchemaBuilder schemaBuilder = SchemaBuilder.record(k).doc(SCHEMA_DOC_PREFIX + k);
+    public org.apache.avro.Schema getPulsarKeySchema(final TableMetadata tm) {
+        final String keyspaceAndTable = tm.keyspace + "." + tm.name;
+        return avroSchemas.computeIfAbsent(keyspaceAndTable, k -> {
+            List<org.apache.avro.Schema.Field> fields = new ArrayList<>();
             for (ColumnMetadata cm : tm.primaryKeyColumns()) {
                 if (cm.isClusteringColumn()) {
-                    // clustering column may be null.
-                    schemaBuilder
-                            .field(cm.name.toString())
-                            .type(schemaTypes.get(cm.type.asCQL3Type().toString()))
-                            .optional()
-                            .defaultValue(null);
+                    fields.add(new org.apache.avro.Schema.Field(cm.name.toString(),
+                            org.apache.avro.SchemaBuilder.unionOf()
+                                    .nullType().and()
+                                    .type(avroSchemaTypes.get(cm.type.asCQL3Type().toString()))
+                                    .endUnion(),
+                            "", null));
                 } else {
-                    schemaBuilder
-                            .field(cm.name.toString())
-                            .type(schemaTypes.get(cm.type.asCQL3Type().toString()));
+                    fields.add(new org.apache.avro.Schema.Field(cm.name.toString(), avroSchemaTypes.get(cm.type.asCQL3Type().toString())));
                 }
             }
-            SchemaInfo schemaInfo = schemaBuilder.build(SchemaType.AVRO);
-            return Schema.generic(schemaInfo);
+            return org.apache.avro.Schema.createRecord(keyspaceAndTable, "Table " + keyspaceAndTable, tm.keyspace, false, fields);
         });
     }
+
+    public org.apache.avro.Schema getAvroKeySchema(final TableMetadata tm) {
+        final String keyspaceAndTable = tm.keyspace + "." + tm.name;
+        return avroSchemas.computeIfAbsent(keyspaceAndTable, k -> {
+            List<org.apache.avro.Schema.Field> fields = new ArrayList<>();
+            for (ColumnMetadata cm : tm.primaryKeyColumns()) {
+                String cql3Type = cm.type.asCQL3Type().toString();
+                org.apache.avro.Schema.Field field = new org.apache.avro.Schema.Field(cm.name.toString(), avroSchemaTypes.get(cql3Type));
+                if (cm.isClusteringColumn()) {
+                    // clustering keys are optional
+                    field = new org.apache.avro.Schema.Field(cm.name.toString(), org.apache.avro.SchemaBuilder.unionOf().nullType().and().type(field.schema()).endUnion());
+                }
+                fields.add(field);
+            }
+            org.apache.avro.Schema avroSchema = org.apache.avro.Schema.createRecord(keyspaceAndTable, "Table " + keyspaceAndTable, tm.name, false, fields);
+            return avroSchema;
+        });
+    }
+
+
 
     /**
      * Check the primary key has supported columns.
@@ -113,7 +160,7 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
      */
     public boolean isSupported(final TableMetadata tm) {
         for (ColumnMetadata cm : tm.primaryKeyColumns()) {
-            if (!schemaTypes.containsKey(cm.type.asCQL3Type().toString())) {
+            if (!pulsarSchemaTypes.containsKey(cm.type.asCQL3Type().toString())) {
                 log.warn("Unsupported primary key column={}.{}.{} type={}, skipping mutation", cm.ksName, cm.cfName, cm.name, cm.type.asCQL3Type().toString());
                 return false;
             }
@@ -127,17 +174,17 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
      * @return the pulsar producer
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
-    public Producer<KeyValue<GenericRecord, MutationValue>> getProducer(final TableMetadata tm) {
+    public Producer<KeyValue<byte[], MutationValue>> getProducer(final TableMetadata tm) {
         final String topicName = config.topicPrefix + tm.keyspace + "." + tm.name;
         final String producerName = "pulsar-producer-" + StorageService.instance.getLocalHostId() + "-" + topicName;
         return producers.compute(topicName, (k, v) -> {
             if (v == null) {
                 try {
-                    Schema<KeyValue<GenericRecord, MutationValue>> keyValueSchema = Schema.KeyValue(
-                            getKeySchema(tm),
+                    Schema<KeyValue<byte[], MutationValue>> keyValueSchema = Schema.KeyValue(
+                            org.apache.pulsar.client.api.Schema.NATIVE_AVRO(getAvroKeySchema(tm)),
                             Schema.AVRO(MutationValue.class),
                             KeyValueEncodingType.SEPARATED);
-                    Producer<KeyValue<GenericRecord, MutationValue>> producer = client.newProducer(keyValueSchema)
+                    Producer<KeyValue<byte[], MutationValue>> producer = client.newProducer(keyValueSchema)
                             .producerName(producerName)
                             .topic(k)
                             .sendTimeout(15, TimeUnit.SECONDS)
@@ -222,14 +269,48 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
         return value;
     }
 
+    /**
+     * @param keySchema
+     * @param mutation
+     * @return The primary key as a pulsar GenericRecord
+     */
     @SuppressWarnings("rawtypes")
-    Object buildKey(Schema keySchema, Mutation<TableMetadata> mutation) {
+    GenericRecord buildPulsarKey(Schema keySchema, Mutation<TableMetadata> mutation) {
         GenericRecordBuilder genericRecordBuilder = ((GenericSchema) keySchema).newRecordBuilder();
         for (CellData cell : mutation.primaryKeyCells()) {
             ColumnMetadata columnMetadata = mutation.getMetadata().getColumn(ColumnIdentifier.getInterned(cell.name, false));
             genericRecordBuilder.set(cell.name, cqlToAvro(columnMetadata, cell.value));
         }
         return genericRecordBuilder.build();
+    }
+
+    /**
+     * @param keySchema
+     * @param mutation
+     * @return The primary key as an AVRO GenericRecord
+     */
+    org.apache.avro.generic.GenericRecord buildAvroKey(org.apache.avro.Schema keySchema, Mutation<TableMetadata> mutation) {
+        org.apache.avro.generic.GenericRecord genericRecord = new GenericData.Record(keySchema);
+        for (CellData cell : mutation.primaryKeyCells()) {
+            ColumnMetadata columnMetadata = mutation.getMetadata().getColumn(ColumnIdentifier.getInterned(cell.name, false));
+            genericRecord.put(cell.name, cqlToAvro(columnMetadata, cell.value));
+        }
+        return genericRecord;
+    }
+
+    byte[] serializeAvroGenericRecord(org.apache.avro.generic.GenericRecord genericRecord, org.apache.avro.Schema schema) {
+        try {
+            SpecificDatumWriter<org.apache.avro.generic.GenericRecord>
+                    datumWriter =
+                    new SpecificDatumWriter<>(schema);
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+            BinaryEncoder binaryEncoder = new EncoderFactory().binaryEncoder(byteArrayOutputStream, null);
+            datumWriter.write(genericRecord, binaryEncoder);
+            binaryEncoder.flush();
+            return byteArrayOutputStream.toByteArray();
+        } catch(IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -242,12 +323,13 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
         if (this.client == null) {
             initialize(config);
         }
-        Producer<KeyValue<GenericRecord, MutationValue>> producer = getProducer(mutation.getMetadata());
-        Schema keySchema = getKeySchema(mutation.getMetadata());
-        TypedMessageBuilder<KeyValue<GenericRecord, MutationValue>> messageBuilder = producer.newMessage();
+        Producer<KeyValue<byte[], MutationValue>> producer = getProducer(mutation.getMetadata());
+        org.apache.avro.Schema keySchema = getAvroKeySchema(mutation.getMetadata());
+
+        TypedMessageBuilder<KeyValue<byte[], MutationValue>> messageBuilder = producer.newMessage();
         return messageBuilder
                 .value(new KeyValue(
-                        buildKey(keySchema, mutation),
+                        serializeAvroGenericRecord(buildAvroKey(keySchema, mutation), keySchema),
                         mutation.mutationValue()))
                 .sendAsync();
     }

@@ -25,8 +25,8 @@ import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.metadata.schema.*;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
-import com.datastax.oss.protocol.internal.ProtocolConstants;
 import com.datastax.oss.pulsar.source.converters.AvroConverter;
+import com.datastax.oss.pulsar.source.converters.NativeAvroConverter;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.datastax.oss.cdc.ConfigUtil;
@@ -127,7 +127,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                 throw new IllegalArgumentException("Key converter not defined.");
             }
             this.keyConverter = createConverter(this.config.getKeyConverterClass(), tuple._1, tuple._2, tuple._2.getPrimaryKey());
-            this.mutationKeyConverter = new AvroConverter(tuple._1, tuple._2, tuple._2.getPrimaryKey());
+            this.mutationKeyConverter = new NativeAvroConverter(tuple._1, tuple._2, tuple._2.getPrimaryKey());
 
             if (this.config.getValueConverterClass() == null) {
                 throw new IllegalArgumentException("Value converter not defined.");
@@ -164,36 +164,12 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         }
     }
 
-    boolean supportedCqlTypes(ColumnMetadata cm) {
-        switch (cm.getType().getProtocolCode()) {
-            case ProtocolConstants.DataType.ASCII:
-            case ProtocolConstants.DataType.VARCHAR:
-            case ProtocolConstants.DataType.BOOLEAN:
-            case ProtocolConstants.DataType.BLOB:
-            case ProtocolConstants.DataType.DATE:
-            case ProtocolConstants.DataType.TIME:
-            case ProtocolConstants.DataType.TIMESTAMP:
-            case ProtocolConstants.DataType.UUID:
-            case ProtocolConstants.DataType.TIMEUUID:
-            case ProtocolConstants.DataType.TINYINT:
-            case ProtocolConstants.DataType.SMALLINT:
-            case ProtocolConstants.DataType.INT:
-            case ProtocolConstants.DataType.BIGINT:
-            case ProtocolConstants.DataType.DOUBLE:
-            case ProtocolConstants.DataType.FLOAT:
-            case ProtocolConstants.DataType.INET:
-            case ProtocolConstants.DataType.UDT:
-                return true;
-        }
-        return false;
-    }
-
     synchronized void setValueConverterAndQuery(KeyspaceMetadata ksm, TableMetadata tableMetadata) {
         try {
             List<ColumnMetadata> columns = tableMetadata.getColumns().values().stream()
                     .filter(c -> !tableMetadata.getPrimaryKey().contains(c))
                     .filter(c -> !columnPattern.isPresent() || columnPattern.get().matcher(c.getName().asInternal()).matches())
-                    .filter(c -> supportedCqlTypes(c))
+                    .filter(c -> valueConverterAndQuery.converter.isSupportedCqlType(c.getType()))
                     .collect(Collectors.toList());
             log.info("Schema update for table {}.{} replicated columns={}", ksm.getName(), tableMetadata.getName(),
                     columns.stream().map(c -> c.getName().asInternal()).collect(Collectors.toList()));
