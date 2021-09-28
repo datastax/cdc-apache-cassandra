@@ -179,7 +179,7 @@ public class CassandraSourceConnectorConfig {
                             "CQL Read cache", 2, ConfigDef.Width.NONE, "CacheMaxDigest")
                     .define(CACHE_EXPIRE_AFTER_MS_CONFIG,
                             ConfigDef.Type.LONG,
-                            "600000",
+                            "60000",
                             ConfigDef.Range.atLeast(1000),
                             ConfigDef.Importance.HIGH,
                             "The mutation cache entry duration in milliseconds, with a default value of 60 seconds.",
