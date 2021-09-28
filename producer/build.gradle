@@ -9,6 +9,7 @@ compileTestJava {
 dependencies {
     implementation project(':commons')
     implementation("io.debezium:debezium-core:${debeziumVersion}")
+    implementation("org.apache.avro:avro:${avroVersion}")
     compileOnly("org.slf4j:slf4j-api:1.7.30")
 }
 

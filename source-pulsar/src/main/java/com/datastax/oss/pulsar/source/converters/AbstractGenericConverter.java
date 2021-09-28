@@ -18,6 +18,7 @@ package com.datastax.oss.pulsar.source.converters;
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.cql.ColumnDefinition;
 import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.data.CqlDuration;
 import com.datastax.oss.driver.api.core.data.UdtValue;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
@@ -41,7 +42,7 @@ import java.util.stream.Collectors;
 
 
 @Slf4j
-public abstract class AbstractGenericConverter implements Converter<GenericRecord, Row, List<Object>> {
+public abstract class AbstractGenericConverter implements Converter<GenericRecord, GenericRecord, Row, List<Object>> {
 
     public final GenericSchema<GenericRecord> schema;
     public final SchemaInfo schemaInfo;
@@ -65,6 +66,31 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
                 log.info("type={} schema={}", entry.getKey(), schemaToString(entry.getValue()));
             }
         }
+    }
+
+    @Override
+    public boolean isSupportedCqlType(DataType dataType) {
+        switch (dataType.getProtocolCode()) {
+            case ProtocolConstants.DataType.ASCII:
+            case ProtocolConstants.DataType.VARCHAR:
+            case ProtocolConstants.DataType.BOOLEAN:
+            case ProtocolConstants.DataType.BLOB:
+            case ProtocolConstants.DataType.DATE:
+            case ProtocolConstants.DataType.TIME:
+            case ProtocolConstants.DataType.TIMESTAMP:
+            case ProtocolConstants.DataType.UUID:
+            case ProtocolConstants.DataType.TIMEUUID:
+            case ProtocolConstants.DataType.TINYINT:
+            case ProtocolConstants.DataType.SMALLINT:
+            case ProtocolConstants.DataType.INT:
+            case ProtocolConstants.DataType.BIGINT:
+            case ProtocolConstants.DataType.DOUBLE:
+            case ProtocolConstants.DataType.FLOAT:
+            case ProtocolConstants.DataType.INET:
+            case ProtocolConstants.DataType.UDT:
+                return true;
+        }
+        return false;
     }
 
     public static String schemaToString(Schema schema) {

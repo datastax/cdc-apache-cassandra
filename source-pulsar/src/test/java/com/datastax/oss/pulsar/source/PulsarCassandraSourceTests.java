@@ -17,6 +17,7 @@ package com.datastax.oss.pulsar.source;
 
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.data.CqlDuration;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
 import com.datastax.oss.pulsar.source.converters.AvroConverter;
 import com.datastax.oss.pulsar.source.converters.JsonConverter;
@@ -40,6 +41,7 @@ import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.nio.ByteBuffer;
@@ -125,7 +127,9 @@ public class PulsarCassandraSourceTests {
         values.put("float", new Object[] {1.0f, 1.0f});
         values.put("inet4", new Object[] {Inet4Address.getLoopbackAddress(), Inet4Address.getLoopbackAddress().getHostAddress()});
         values.put("inet6", new Object[] {Inet6Address.getLoopbackAddress(), Inet4Address.getLoopbackAddress().getHostAddress()});
-        values.put("decimal", new Object[] {new BigDecimal(314), null}); // unsupported by AVRO
+        values.put("decimal", new Object[] {new BigDecimal(314.16), new BigDecimal(314.16)});
+        values.put("varint", new Object[] {new BigInteger("314"), new BigInteger("314")});
+        values.put("duration", new Object[] { CqlDuration.newInstance(1,2,3), CqlDuration.newInstance(1,2,3)});
     }
 
     @AfterAll
