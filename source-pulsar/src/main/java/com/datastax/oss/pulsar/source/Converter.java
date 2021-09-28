@@ -15,8 +15,6 @@
  */
 package com.datastax.oss.pulsar.source;
 
-
-import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import org.apache.pulsar.client.api.Schema;
 
 import java.io.IOException;
