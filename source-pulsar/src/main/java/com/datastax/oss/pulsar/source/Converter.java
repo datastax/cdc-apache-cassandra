@@ -27,7 +27,7 @@ import java.io.IOException;
  */
 public interface Converter<V, W, R, T> {
 
-    Schema<V> getSchema();
+    Schema<?> getSchema();
 
     /**
      * Convert the connector representation to the Pulsar internal representation.

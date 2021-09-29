@@ -181,7 +181,7 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
             if (v == null) {
                 try {
                     Schema<KeyValue<byte[], MutationValue>> keyValueSchema = Schema.KeyValue(
-                            org.apache.pulsar.client.api.Schema.NATIVE_AVRO(getAvroKeySchema(tm)),
+                            new AvroSchemaWrapper(getAvroKeySchema(tm)),
                             Schema.AVRO(MutationValue.class),
                             KeyValueEncodingType.SEPARATED);
                     Producer<KeyValue<byte[], MutationValue>> producer = client.newProducer(keyValueSchema)
@@ -190,7 +190,7 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
                             .sendTimeout(15, TimeUnit.SECONDS)
                             .hashingScheme(HashingScheme.Murmur3_32Hash)
                             .blockIfQueueFull(true)
-                            .enableBatching(true)
+                            .enableBatching(false)
                             .batchingMaxPublishDelay(1, TimeUnit.MILLISECONDS)
                             .batcherBuilder(BatcherBuilder.KEY_BASED)
                             .create();
