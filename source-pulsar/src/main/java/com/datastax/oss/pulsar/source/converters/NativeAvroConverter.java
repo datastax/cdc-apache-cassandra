@@ -63,7 +63,7 @@ public class NativeAvroConverter implements Converter<org.apache.pulsar.client.a
             fields.add(fieldSchema(ksm, cm.getName().toString(), cm.getType(), !isPartitionKey));
         }
         this.avroSchema = Schema.createRecord(keyspaceAndTable, "Table " + keyspaceAndTable, ksm.getName().asInternal(), false, fields);
-        this.pulsarSchema = org.apache.pulsar.client.api.Schema.NATIVE_AVRO(avroSchema);
+        this.pulsarSchema = new AvroSchemaWrapper(avroSchema);
         if (log.isInfoEnabled()) {
             log.info("schema={}", schemaToString(this.avroSchema));
             for(Map.Entry<String, Schema> entry : udtSchemas.entrySet()) {
