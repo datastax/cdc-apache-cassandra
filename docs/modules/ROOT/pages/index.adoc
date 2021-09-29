@@ -61,7 +61,23 @@ The DataStax Cassandra Source Connector solves this problem by tracking all CDC 
 
 The DataStax Cassandra® Source Connector consists of two components:
 
-* An event producer deployed as a JVM agent on each Cassandra data node
+* A Cassandra JVM producer agent installed on each Cassandra node that sends CDC events to a Pulsar topic.
+* A Pulsar connector to receive the Cassandra CSC events, track schema changes, verify events and remove duplicates before storing the Cassandra table CDC data into a final Pulsar topic.
+
+The following diagram describes the general architecture.
+
+image:cassandra-source-connector.png[Cassandra-source-connector-architecture]
+
+. When a Cassandra
+
+
+
+  This connector performs the following:
+  * Receives the Cassandra table CDC events and stores them in an Events topic.
+  * Verifies the 
+
+to submit CDC events to Pulsa rAn event producer deployed as a JVM agent on each Cassandra data node
+* A Cassandra S
 * A Cassandra source connector deployed in your streaming platform
 
 The following diagram describes the general architecture.

@@ -287,12 +287,37 @@
 <div class="ulist">
 <ul>
 <li>
-<p>An event producer deployed as a JVM agent on each Cassandra data node</p>
+<p>A Cassandra JVM producer agent installed on each Cassandra node that sends CDC events to a Pulsar topic.</p>
 </li>
 <li>
-<p>A Cassandra source connector deployed in your streaming platform</p>
+<p>A Pulsar connector to receive the Cassandra CSC events, track schema changes, verify events and remove duplicates before storing the Cassandra table CDC data into a final Pulsar topic.</p>
 </li>
 </ul>
+</div>
+<div class="paragraph">
+<p>The following diagram describes the general architecture.</p>
+</div>
+<div class="paragraph">
+<p><span class="image"><img src="_images/cassandra-source-connector.png" alt="Cassandra-source-connector-architecture"></span></p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>When a Cassandra</p>
+<div class="literalblock">
+<div class="content">
+<pre>This connector performs the following:
+* Receives the Cassandra table CDC events and stores them in an Events topic.
+* Verifies the</pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p>to submit CDC events to Pulsa rAn event producer deployed as a JVM agent on each Cassandra data node
+* A Cassandra S
+* A Cassandra source connector deployed in your streaming platform</p>
 </div>
 <div class="paragraph">
 <p>The following diagram describes the general architecture.</p>
