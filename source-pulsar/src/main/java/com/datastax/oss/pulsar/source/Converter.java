@@ -27,24 +27,18 @@ import java.io.IOException;
  */
 public interface Converter<V, W, R, T> {
 
-    Schema<?> getSchema();
+    Schema<V> getSchema();
 
     /**
      * Convert the connector representation to the Pulsar internal representation.
      * @param r
      * @return
      */
-     W toConnectData(R r);
+     V toConnectData(R r);
 
     /**
      * Decode the pulsar IO internal representation to the connector representation.
      * @return
      */
      T fromConnectData(W value) throws IOException;
-
-    /**
-     * @param dataType
-     * @return true if the data type is supported
-     */
-    boolean isSupportedCqlType(DataType dataType);
 }

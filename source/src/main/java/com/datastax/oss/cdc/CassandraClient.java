@@ -59,7 +59,6 @@ import java.util.*;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static com.datastax.dse.driver.api.core.config.DseDriverOption.AUTH_PROVIDER_SASL_PROPERTIES;
 import static com.datastax.dse.driver.api.core.config.DseDriverOption.AUTH_PROVIDER_SERVICE;
@@ -153,13 +152,22 @@ public class CassandraClient implements AutoCloseable {
         return pkClause;
     }
 
+    /**
+     * Build a SELECT prepared statement for the first <i>pkLength</i> primary key columns.
+     * @param keyspaceName
+     * @param tableName
+     * @param projection columns
+     * @param pk primary key columns
+     * @param pkLength primary key length
+     * @return preparedStatement for the first <i>pkLength</i> primary key columns
+     */
     public PreparedStatement prepareSelect(String keyspaceName, String tableName,
-                                CqlIdentifier[] projection,
-                                CqlIdentifier[] pkClause,
-                                int pkLength) {
+                                           CqlIdentifier[] projection,
+                                           CqlIdentifier[] pk,
+                                           int pkLength) {
         Select query = selectFrom(keyspaceName, tableName).columns(projection);
-        for(int i = 0; i < pkLength; i++)
-            query = query.whereColumn(pkClause[i]).isEqualTo(bindMarker());
+        for (int i = 0; i < pkLength; i++)
+            query = query.whereColumn(pk[i]).isEqualTo(bindMarker());
         log.info(query.asCql());
         return cqlSession.prepare(query.asCql());
     }
@@ -258,7 +266,7 @@ public class CassandraClient implements AutoCloseable {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         this.cqlSession.close();
     }
 
@@ -309,11 +317,10 @@ public class CassandraClient implements AutoCloseable {
                 statement = statement.setNode(node);
             }
         }
-        log.info("Fetching md5Digest={} coordinator={} query={} pk={} ", md5Digest, node, preparedStatement.getQuery(), pkValues);
-
+        log.debug("Fetching md5Digest={} coordinator={} query={} pk={} ", md5Digest, node, preparedStatement.getQuery(), pkValues);
         return executeWithDowngradeConsistencyRetry(cqlSession, statement, consistencyLevels)
                 .thenApply(tuple -> {
-                    log.info("Read cl={} coordinator={} pk={}", tuple._2, tuple._1.getExecutionInfo().getCoordinator().getHostId(), pkValues);
+                    log.debug("Read cl={} coordinator={} pk={}", tuple._2, tuple._1.getExecutionInfo().getCoordinator().getHostId(), pkValues);
                     Row row = tuple._1.one();
                     return new Tuple3<>(row, tuple._2, tuple._1.getExecutionInfo().getCoordinator().getHostId());
                 })
@@ -330,7 +337,7 @@ public class CassandraClient implements AutoCloseable {
             List<ConsistencyLevel> consistencyLevels) {
         final ConsistencyLevel cl = consistencyLevels.remove(0);
         statement.setConsistencyLevel(cl);
-        log.info("Trying with CL={} statement={}", cl, statement);
+        log.debug("Trying with CL={} statement={}", cl, statement);
         final CompletionStage<Tuple2<AsyncResultSet, ConsistencyLevel>> completionStage =
                 cqlSession.executeAsync(statement).thenApply(rx -> new Tuple2<>(rx, cl));
         return completionStage

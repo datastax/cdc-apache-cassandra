@@ -18,7 +18,6 @@ package com.datastax.oss.pulsar.source.converters;
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.cql.ColumnDefinition;
 import com.datastax.oss.driver.api.core.cql.Row;
-import com.datastax.oss.driver.api.core.data.CqlDuration;
 import com.datastax.oss.driver.api.core.data.UdtValue;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
@@ -55,20 +54,21 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
         RecordSchemaBuilder recordSchemaBuilder = SchemaBuilder.record(ksm.getName() + "." + tm.getName());
         for(ColumnMetadata cm : columns) {
             boolean isPartitionKey = tm.getPartitionKey().contains(cm);
-            addFieldSchema(recordSchemaBuilder, ksm, cm.getName().toString(), cm.getType(), schemaType, !isPartitionKey);
+            if (isSupportedCqlType(cm.getType())) {
+                addFieldSchema(recordSchemaBuilder, ksm, cm.getName().toString(), cm.getType(), schemaType, !isPartitionKey);
+            }
         }
         this.schemaInfo = recordSchemaBuilder.build(schemaType);
         this.schema = Schema.generic(schemaInfo);
         this.schemaType = schemaType;
         if (log.isInfoEnabled()) {
-            log.info("schema={}", schemaToString(this.schema));
+            log.info("schema={}", this.schema);
             for(Map.Entry<String, GenericSchema<GenericRecord>> entry : udtSchemas.entrySet()) {
-                log.info("type={} schema={}", entry.getKey(), schemaToString(entry.getValue()));
+                log.info("type={} schema={}", entry.getKey(), entry.getValue());
             }
         }
     }
 
-    @Override
     public boolean isSupportedCqlType(DataType dataType) {
         switch (dataType.getProtocolCode()) {
             case ProtocolConstants.DataType.ASCII:
@@ -91,10 +91,6 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
                 return true;
         }
         return false;
-    }
-
-    public static String schemaToString(Schema schema) {
-        return schema.getSchemaInfo().toString();
     }
 
     RecordSchemaBuilder addFieldSchema(RecordSchemaBuilder recordSchemaBuilder,
