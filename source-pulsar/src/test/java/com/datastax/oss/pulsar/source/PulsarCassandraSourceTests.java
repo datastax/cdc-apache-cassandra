@@ -15,15 +15,17 @@
  */
 package com.datastax.oss.pulsar.source;
 
+import com.datastax.cassandra.cdc.CqlLogicalTypes;
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.data.CqlDuration;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
-import com.datastax.oss.pulsar.source.converters.AvroConverter;
-import com.datastax.oss.pulsar.source.converters.JsonConverter;
+import com.datastax.oss.pulsar.source.converters.NativeAvroConverter;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
 import com.datastax.testcontainers.pulsar.PulsarContainer;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.avro.LogicalTypes;
+import org.apache.avro.generic.GenericData;
 import org.apache.commons.io.IOUtils;
 import org.apache.pulsar.client.api.*;
 import org.apache.pulsar.client.api.schema.Field;
@@ -114,9 +116,9 @@ public class PulsarCassandraSourceTests {
         values.put("ascii", new Object[] {"aa", "aa"});
         values.put("boolean", new Object[] {true, true});
         values.put("blob", new Object[] {ByteBuffer.wrap(new byte[]{0x00, 0x01}), ByteBuffer.wrap(new byte[]{0x00, 0x01})});
-        values.put("timestamp", new Object[] {localDateTime.atZone(zone).toInstant(), localDateTime.atZone(zone).toInstant().toEpochMilli()});
-        values.put("time", new Object[] {localDateTime.toLocalTime(), (int) (localDateTime.toLocalTime().toNanoOfDay() / 1000000)});
-        values.put("date", new Object[] {localDateTime.toLocalDate(), (int) localDateTime.toLocalDate().toEpochDay()});
+        values.put("timestamp", new Object[] {localDateTime.atZone(zone).toInstant(), localDateTime.atZone(zone).toInstant().toEpochMilli()}); // long milliseconds since epochday
+        values.put("time", new Object[] {localDateTime.toLocalTime(), (localDateTime.toLocalTime().toNanoOfDay() / 1000)}); // long microseconds since midnight
+        values.put("date", new Object[] {localDateTime.toLocalDate(), (int) localDateTime.toLocalDate().toEpochDay()}); // int seconds since epochday
         values.put("uuid", new Object[] {UUID.fromString("01234567-0123-0123-0123-0123456789ab"), "01234567-0123-0123-0123-0123456789ab"});
         values.put("timeuuid", new Object[] {UUID.fromString("d2177dd0-eaa2-11de-a572-001b779c76e3"), "d2177dd0-eaa2-11de-a572-001b779c76e3"});
         values.put("tinyint", new Object[] {(byte) 0x01, (int) 0x01}); // Avro only support integer
@@ -126,9 +128,9 @@ public class PulsarCassandraSourceTests {
         values.put("double", new Object[] {1.0D, 1.0D});
         values.put("float", new Object[] {1.0f, 1.0f});
         values.put("inet4", new Object[] {Inet4Address.getLoopbackAddress(), Inet4Address.getLoopbackAddress().getHostAddress()});
-        values.put("inet6", new Object[] {Inet6Address.getLoopbackAddress(), Inet4Address.getLoopbackAddress().getHostAddress()});
+        values.put("inet6", new Object[] {Inet6Address.getLoopbackAddress(), Inet6Address.getLoopbackAddress().getHostAddress()});
+        values.put("varint", new Object[] {new BigInteger("314"), new CqlLogicalTypes.CqlVarintConversion().toBytes(new BigInteger("314"), CqlLogicalTypes.varintType, CqlLogicalTypes.CQL_VARINT_LOGICAL_TYPE)});
         values.put("decimal", new Object[] {new BigDecimal(314.16), new BigDecimal(314.16)});
-        values.put("varint", new Object[] {new BigInteger("314"), new BigInteger("314")});
         values.put("duration", new Object[] { CqlDuration.newInstance(1,2,3), CqlDuration.newInstance(1,2,3)});
     }
 
@@ -140,16 +142,24 @@ public class PulsarCassandraSourceTests {
     }
 
     @Test
-    public void testWithAvroConverter() throws InterruptedException, IOException {
-        testSourceConnector("ks1", AvroConverter.class, AvroConverter.class, true);
+    public void testSinglePkWithNativeAvroConverter() throws InterruptedException, IOException {
+        testSinglePk("ks1", NativeAvroConverter.class, NativeAvroConverter.class);
     }
 
-    // TODO: fix type conversion with JSON schema
     @Test
-    public void testWithJsonConverter() throws InterruptedException, IOException {
-        testSourceConnector("ks2", AvroConverter.class, JsonConverter.class, false);
+    public void testCompoundPkWithNativeAvroConverter() throws InterruptedException, IOException {
+        testCompoundPk("ks1", NativeAvroConverter.class, NativeAvroConverter.class);
     }
 
+    @Test
+    public void testSchemaWithNativeAvroConverter() throws InterruptedException, IOException {
+        testSchema("ks1", NativeAvroConverter.class, NativeAvroConverter.class);
+    }
+
+    @Test
+    public void testStaticColumnWithNativeAvroConverter() throws InterruptedException, IOException {
+        testStaticColumn("ks1", NativeAvroConverter.class, NativeAvroConverter.class);
+    }
 
     void deployConnector(String ksName, String tableName,
                          Class<? extends Converter> keyConverter,
@@ -184,11 +194,9 @@ public class PulsarCassandraSourceTests {
         assertEquals(0, result.getExitCode());
     }
 
-    // docker exec -it pulsar cat /pulsar/logs/functions/public/default/cassandra-source-ks1-table1/cassandra-source-ks1-table1-0.log
-    public void testSourceConnector(String ksName,
-                                    Class<? extends Converter> keyConverter,
-                                    Class<? extends Converter> valueConverter,
-                                    boolean checkTypeConversion) throws InterruptedException, IOException {
+    public void testSinglePk(String ksName,
+                             Class<? extends Converter> keyConverter,
+                             Class<? extends Converter> valueConverter) throws InterruptedException, IOException {
         try {
             try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
                 cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName +
@@ -197,98 +205,8 @@ public class PulsarCassandraSourceTests {
                 cqlSession.execute("INSERT INTO " + ksName + ".table1 (id, a) VALUES('1',1)");
                 cqlSession.execute("INSERT INTO " + ksName + ".table1 (id, a) VALUES('2',1)");
                 cqlSession.execute("INSERT INTO " + ksName + ".table1 (id, a) VALUES('3',1)");
-
-                cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table2 (a text, b int, c int, PRIMARY KEY(a,b)) WITH cdc=true");
-                cqlSession.execute("INSERT INTO " + ksName + ".table2 (a,b,c) VALUES('1',1,1)");
-                cqlSession.execute("INSERT INTO " + ksName + ".table2 (a,b,c) VALUES('2',1,1)");
-                cqlSession.execute("INSERT INTO " + ksName + ".table2 (a,b,c) VALUES('3',1,1)");
-
-                cqlSession.execute("CREATE TYPE IF NOT EXISTS " + ksName + ".zudt (" +
-                        "ztext text, zascii ascii, zboolean boolean, zblob blob, ztimestamp timestamp, ztime time, zdate date, zuuid uuid, ztimeuuid timeuuid, ztinyint tinyint, zsmallint smallint, zint int, zbigint bigint, zdouble double, zfloat float, zinet4 inet, zinet6 inet, zdecimal decimal" +
-                        ");");
-                UserDefinedType zudt =
-                        cqlSession.getMetadata()
-                                .getKeyspace(ksName)
-                                .flatMap(ks -> ks.getUserDefinedType("zudt"))
-                                .orElseThrow(() -> new IllegalArgumentException("Missing UDT zudt definition"));
-
-                cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table3 (" +
-                        "xtext text, xascii ascii, xboolean boolean, xblob blob, xtimestamp timestamp, xtime time, xdate date, xuuid uuid, xtimeuuid timeuuid, xtinyint tinyint, xsmallint smallint, xint int, xbigint bigint, xdouble double, xfloat float, xinet4 inet, xinet6 inet, " +
-                        "ytext text, yascii ascii, yboolean boolean, yblob blob, ytimestamp timestamp, ytime time, ydate date, yuuid uuid, ytimeuuid timeuuid, ytinyint tinyint, ysmallint smallint, yint int, ybigint bigint, ydouble double, yfloat float, yinet4 inet, yinet6 inet, ydecimal decimal, yudt zudt," +
-                        "primary key (xtext, xascii, xboolean, xblob, xtimestamp, xtime, xdate, xuuid, xtimeuuid, xtinyint, xsmallint, xint, xbigint, xdouble, xfloat, xinet4, xinet6)) WITH cdc=true");
-                cqlSession.execute("INSERT INTO " + ksName + ".table3 (" +
-                                "xtext, xascii, xboolean, xblob, xtimestamp, xtime, xdate, xuuid, xtimeuuid, xtinyint, xsmallint, xint, xbigint, xdouble, xfloat, xinet4, xinet6, " +
-                                "ytext, yascii, yboolean, yblob, ytimestamp, ytime, ydate, yuuid, ytimeuuid, ytinyint, ysmallint, yint, ybigint, ydouble, yfloat, yinet4, yinet6, ydecimal, yudt" +
-                                ") VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?)",
-                        values.get("text")[0],
-                        values.get("ascii")[0],
-                        values.get("boolean")[0],
-                        values.get("blob")[0],
-                        values.get("timestamp")[0],
-                        values.get("time")[0],
-                        values.get("date")[0],
-                        values.get("uuid")[0],
-                        values.get("timeuuid")[0],
-                        values.get("tinyint")[0],
-                        values.get("smallint")[0],
-                        values.get("int")[0],
-                        values.get("bigint")[0],
-                        values.get("double")[0],
-                        values.get("float")[0],
-                        values.get("inet4")[0],
-                        values.get("inet6")[0],
-
-                        values.get("text")[0],
-                        values.get("ascii")[0],
-                        values.get("boolean")[0],
-                        values.get("blob")[0],
-                        values.get("timestamp")[0],
-                        values.get("time")[0],
-                        values.get("date")[0],
-                        values.get("uuid")[0],
-                        values.get("timeuuid")[0],
-                        values.get("tinyint")[0],
-                        values.get("smallint")[0],
-                        values.get("int")[0],
-                        values.get("bigint")[0],
-                        values.get("double")[0],
-                        values.get("float")[0],
-                        values.get("inet4")[0],
-                        values.get("inet6")[0],
-
-                        values.get("decimal")[0],
-                        zudt.newValue(
-                                values.get("text")[0],
-                                values.get("ascii")[0],
-                                values.get("boolean")[0],
-                                values.get("blob")[0],
-                                values.get("timestamp")[0],
-                                values.get("time")[0],
-                                values.get("date")[0],
-                                values.get("uuid")[0],
-                                values.get("timeuuid")[0],
-                                values.get("tinyint")[0],
-                                values.get("smallint")[0],
-                                values.get("int")[0],
-                                values.get("bigint")[0],
-                                values.get("double")[0],
-                                values.get("float")[0],
-                                values.get("inet4")[0],
-                                values.get("inet6")[0],
-                                values.get("decimal")[0]
-                        )
-                );
-
-                // test static column update
-                cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName + " WITH replication = {'class':'SimpleStrategy','replication_factor':'1'};");
-                cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table4 (a text, b text, c text, d text static, PRIMARY KEY ((a), b)) with cdc=true;");
-                cqlSession.execute("INSERT INTO " + ksName + ".table4 (a,b,c,d) VALUES ('a','b','c','d1');");
             }
             deployConnector(ksName, "table1", keyConverter, valueConverter);
-            deployConnector(ksName, "table2", keyConverter, valueConverter);
-            if (checkTypeConversion)
-                deployConnector(ksName, "table3", keyConverter, valueConverter);
-            deployConnector(ksName, "table4", keyConverter, valueConverter);
 
             try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
                 Map<String, Integer> mutationTable1 = new HashMap<>();
@@ -300,16 +218,13 @@ public class PulsarCassandraSourceTests {
                         .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                         .subscribe()) {
                     Message<GenericRecord> msg;
-                    while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null &&
+                    while ((msg = consumer.receive(90, TimeUnit.SECONDS)) != null &&
                             mutationTable1.values().stream().mapToInt(i -> i).sum() < 4) {
                         GenericObject genericObject = msg.getValue();
                         assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
                         KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
                         GenericRecord key = kv.getKey();
                         GenericRecord value = kv.getValue();
-                        System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
-                                " key=" + genericRecordToString(key) +
-                                " value=" + genericRecordToString(value));
                         assertEquals((Integer) 0, mutationTable1.computeIfAbsent((String) key.getField("id"), k -> 0));
                         assertEquals(1, value.getField("a"));
                         mutationTable1.compute((String) key.getField("id"), (k, v) -> v + 1);
@@ -324,17 +239,13 @@ public class PulsarCassandraSourceTests {
                         cqlSession.execute("ALTER TABLE " + ksName + ".table1 ADD b double");
                         cqlSession.execute("INSERT INTO " + ksName + ".table1 (id,a,b) VALUES('1',1,1.0)");
                     }
-                    Thread.sleep(15000);  // wait commitlogs sync on disk
-                    while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null &&
+                    while ((msg = consumer.receive(90, TimeUnit.SECONDS)) != null &&
                             mutationTable1.values().stream().mapToInt(i -> i).sum() < 5) {
                         GenericObject genericObject = msg.getValue();
                         assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
                         KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
                         GenericRecord key = kv.getKey();
                         GenericRecord value = kv.getValue();
-                        System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
-                                " key=" + genericRecordToString(key) +
-                                " value=" + genericRecordToString(value));
                         assertEquals("1", key.getField("id"));
                         assertEquals(1, value.getField("a"));
                         assertEquals(1.0D, value.getField("b"));
@@ -349,7 +260,6 @@ public class PulsarCassandraSourceTests {
                     try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
                         cqlSession.execute("DELETE FROM " + ksName + ".table1 WHERE id = '1'");
                     }
-                    Thread.sleep(11000);    // wait commitlogs sync on disk
                     while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null &&
                             mutationTable1.values().stream().mapToInt(i -> i).sum() < 6) {
                         GenericObject genericObject = msg.getValue();
@@ -357,9 +267,6 @@ public class PulsarCassandraSourceTests {
                         KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
                         GenericRecord key = kv.getKey();
                         GenericRecord value = kv.getValue();
-                        System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
-                                " key=" + genericRecordToString(key) +
-                                " value=" + value);
                         assertEquals("1", key.getField("id"));
                         assertNull(value);
                         mutationTable1.compute((String) key.getField("id"), (k, v) -> v + 1);
@@ -369,7 +276,28 @@ public class PulsarCassandraSourceTests {
                     assertEquals((Integer) 1, mutationTable1.get("2"));
                     assertEquals((Integer) 1, mutationTable1.get("3"));
                 }
+            }
+        } finally {
+            dumpFunctionLogs("cassandra-source-" + ksName + "-table1");
+            undeployConnector(ksName, "table1");
+        }
+    }
 
+    // docker exec -it pulsar cat /pulsar/logs/functions/public/default/cassandra-source-ks1-table2/cassandra-source-ks1-table2-0.log
+    public void testCompoundPk(String ksName,
+                               Class<? extends Converter> keyConverter,
+                               Class<? extends Converter> valueConverter) throws InterruptedException, IOException {
+        try {
+            try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName +
+                        " WITH replication = {'class':'SimpleStrategy','replication_factor':'2'};");
+                cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table2 (a text, b int, c int, PRIMARY KEY(a,b)) WITH cdc=true");
+                cqlSession.execute("INSERT INTO " + ksName + ".table2 (a,b,c) VALUES('1',1,1)");
+                cqlSession.execute("INSERT INTO " + ksName + ".table2 (a,b,c) VALUES('2',1,1)");
+                cqlSession.execute("INSERT INTO " + ksName + ".table2 (a,b,c) VALUES('3',1,1)");
+            }
+            deployConnector(ksName, "table2", keyConverter, valueConverter);
+            try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
                 Map<String, Integer> mutationTable2 = new HashMap<>();
                 try (Consumer<GenericRecord> consumer = pulsarClient.newConsumer(org.apache.pulsar.client.api.Schema.AUTO_CONSUME())
                         .topic(String.format(Locale.ROOT, "data-%s.table2", ksName))
@@ -386,9 +314,6 @@ public class PulsarCassandraSourceTests {
                         KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
                         GenericRecord key = kv.getKey();
                         GenericRecord value = kv.getValue();
-                        System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
-                                " key=" + genericRecordToString(key) +
-                                " value=" + genericRecordToString(value));
                         assertEquals((Integer) 0, mutationTable2.computeIfAbsent((String) key.getField("a"), k -> 0));
                         assertEquals(1, key.getField("b"));
                         assertEquals(1, value.getField("c"));
@@ -400,13 +325,11 @@ public class PulsarCassandraSourceTests {
                     assertEquals((Integer) 1, mutationTable2.get("3"));
 
                     // trigger a schema update
-                    // TODO: only work for AVO supported types, properly decoded in JSON.
                     try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
                         cqlSession.execute("CREATE TYPE " + ksName + ".type2 (a2 int, b2 boolean);");
                         cqlSession.execute("ALTER TABLE " + ksName + ".table2 ADD d type2");
                         cqlSession.execute("INSERT INTO " + ksName + ".table2 (a,b,c,d) VALUES('1',1,1,{a2:1,b2:true})");
                     }
-                    Thread.sleep(15000);    // wait commitlogs sync on disk
                     while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null &&
                             mutationTable2.values().stream().mapToInt(i -> i).sum() < 5) {
                         GenericObject genericObject = msg.getValue();
@@ -414,9 +337,6 @@ public class PulsarCassandraSourceTests {
                         KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
                         GenericRecord key = kv.getKey();
                         GenericRecord value = kv.getValue();
-                        System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
-                                " key=" + genericRecordToString(key) +
-                                " value=" + genericRecordToString(value));
                         assertEquals("1", key.getField("a"));
                         assertEquals(1, key.getField("b"));
                         assertEquals(1, value.getField("c"));
@@ -434,7 +354,6 @@ public class PulsarCassandraSourceTests {
                     try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
                         cqlSession.execute("DELETE FROM " + ksName + ".table2 WHERE a = '1' AND b = 1");
                     }
-                    Thread.sleep(11000);    // wait commitlogs sync on disk
                     while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null &&
                             mutationTable2.values().stream().mapToInt(i -> i).sum() < 6) {
                         GenericObject genericObject = msg.getValue();
@@ -442,9 +361,6 @@ public class PulsarCassandraSourceTests {
                         KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
                         GenericRecord key = kv.getKey();
                         GenericRecord value = kv.getValue();
-                        System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
-                                " key=" + genericRecordToString(key) +
-                                " value=" + value);
                         assertEquals("1", key.getField("a"));
                         assertEquals(1, key.getField("b"));
                         assertNull(value);
@@ -455,55 +371,205 @@ public class PulsarCassandraSourceTests {
                     assertEquals((Integer) 1, mutationTable2.get("2"));
                     assertEquals((Integer) 1, mutationTable2.get("3"));
                 }
+            }
+        } finally {
+            dumpFunctionLogs("cassandra-source-" + ksName + "-table2");
+            undeployConnector(ksName, "table2");
+        }
+    }
 
-                if (checkTypeConversion) {
-                    // check native types conversion
+    // docker exec -it pulsar cat /pulsar/logs/functions/public/default/cassandra-source-ks1-table3/cassandra-source-ks1-table3-0.log
+    public void testSchema(String ksName,
+                           Class<? extends Converter> keyConverter,
+                           Class<? extends Converter> valueConverter) throws InterruptedException, IOException {
+        try {
+            try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName +
+                        " WITH replication = {'class':'SimpleStrategy','replication_factor':'1'};");
+
+                cqlSession.execute("CREATE TYPE IF NOT EXISTS " + ksName + ".zudt (" +
+                        "ztext text, zascii ascii, zboolean boolean, zblob blob, ztimestamp timestamp, ztime time, zdate date, zuuid uuid, ztimeuuid timeuuid, ztinyint tinyint, zsmallint smallint, zint int, zbigint bigint, zvarint varint, zdecimal decimal, zduration duration, zdouble double, zfloat float, zinet4 inet, zinet6 inet" +
+                        ");");
+                UserDefinedType zudt =
+                        cqlSession.getMetadata()
+                                .getKeyspace(ksName)
+                                .flatMap(ks -> ks.getUserDefinedType("zudt"))
+                                .orElseThrow(() -> new IllegalArgumentException("Missing UDT zudt definition"));
+
+                cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table3 (" +
+                        "xtext text, xascii ascii, xboolean boolean, xblob blob, xtimestamp timestamp, xtime time, xdate date, xuuid uuid, xtimeuuid timeuuid, xtinyint tinyint, xsmallint smallint, xint int, xbigint bigint, xvarint varint, xdecimal decimal, xdouble double, xfloat float, xinet4 inet, xinet6 inet, " +
+                        "ytext text, yascii ascii, yboolean boolean, yblob blob, ytimestamp timestamp, ytime time, ydate date, yuuid uuid, ytimeuuid timeuuid, ytinyint tinyint, ysmallint smallint, yint int, ybigint bigint, yvarint varint, ydecimal decimal, ydouble double, yfloat float, yinet4 inet, yinet6 inet, yduration duration, yudt zudt, " +
+                        "primary key (xtext, xascii, xboolean, xblob, xtimestamp, xtime, xdate, xuuid, xtimeuuid, xtinyint, xsmallint, xint, xbigint, xvarint, xdecimal, xdouble, xfloat, xinet4, xinet6)) WITH cdc=true");
+                cqlSession.execute("INSERT INTO " + ksName + ".table3 (" +
+                                "xtext, xascii, xboolean, xblob, xtimestamp, xtime, xdate, xuuid, xtimeuuid, xtinyint, xsmallint, xint, xbigint, xvarint, xdecimal, xdouble, xfloat, xinet4, xinet6, " +
+                                "ytext, yascii, yboolean, yblob, ytimestamp, ytime, ydate, yuuid, ytimeuuid, ytinyint, ysmallint, yint, ybigint, yvarint, ydecimal, ydouble, yfloat, yinet4, yinet6, yduration, yudt" +
+                                ") VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?)",
+                        values.get("text")[0],
+                        values.get("ascii")[0],
+                        values.get("boolean")[0],
+                        values.get("blob")[0],
+                        values.get("timestamp")[0],
+                        values.get("time")[0],
+                        values.get("date")[0],
+                        values.get("uuid")[0],
+                        values.get("timeuuid")[0],
+                        values.get("tinyint")[0],
+                        values.get("smallint")[0],
+                        values.get("int")[0],
+                        values.get("bigint")[0],
+                        values.get("varint")[0],
+                        values.get("decimal")[0],
+                        values.get("double")[0],
+                        values.get("float")[0],
+                        values.get("inet4")[0],
+                        values.get("inet6")[0],
+
+                        values.get("text")[0],
+                        values.get("ascii")[0],
+                        values.get("boolean")[0],
+                        values.get("blob")[0],
+                        values.get("timestamp")[0],
+                        values.get("time")[0],
+                        values.get("date")[0],
+                        values.get("uuid")[0],
+                        values.get("timeuuid")[0],
+                        values.get("tinyint")[0],
+                        values.get("smallint")[0],
+                        values.get("int")[0],
+                        values.get("bigint")[0],
+                        values.get("varint")[0],
+                        values.get("decimal")[0],
+                        values.get("double")[0],
+                        values.get("float")[0],
+                        values.get("inet4")[0],
+                        values.get("inet6")[0],
+
+                        values.get("duration")[0],
+                        zudt.newValue(
+                                values.get("text")[0],
+                                values.get("ascii")[0],
+                                values.get("boolean")[0],
+                                values.get("blob")[0],
+                                values.get("timestamp")[0],
+                                values.get("time")[0],
+                                values.get("date")[0],
+                                values.get("uuid")[0],
+                                values.get("timeuuid")[0],
+                                values.get("tinyint")[0],
+                                values.get("smallint")[0],
+                                values.get("int")[0],
+                                values.get("bigint")[0],
+                                values.get("varint")[0],
+                                values.get("decimal")[0],
+                                values.get("duration")[0],
+                                values.get("double")[0],
+                                values.get("float")[0],
+                                values.get("inet4")[0],
+                                values.get("inet6")[0]
+                        )
+                );
+            }
+            deployConnector(ksName, "table3", keyConverter, valueConverter);
+            try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
+                try (Consumer<GenericRecord> consumer = pulsarClient.newConsumer(org.apache.pulsar.client.api.Schema.AUTO_CONSUME())
+                        .topic(String.format(Locale.ROOT, "data-%s.table3", ksName))
+                        .subscriptionName("sub1")
+                        .subscriptionType(SubscriptionType.Key_Shared)
+                        .subscriptionMode(SubscriptionMode.Durable)
+                        .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+                        .subscribe()) {
                     int mutationTable3Count = 0;
-                    try (Consumer<GenericRecord> consumer = pulsarClient.newConsumer(org.apache.pulsar.client.api.Schema.AUTO_CONSUME())
-                            .topic(String.format(Locale.ROOT, "data-%s.table3", ksName))
-                            .subscriptionName("sub1")
-                            .subscriptionType(SubscriptionType.Key_Shared)
-                            .subscriptionMode(SubscriptionMode.Durable)
-                            .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
-                            .subscribe()) {
-                        Message<GenericRecord> msg;
-                        while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null && mutationTable3Count < 1) {
-                            GenericObject genericObject = msg.getValue();
-                            mutationTable3Count++;
-                            assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
-                            KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
-                            GenericRecord key = kv.getKey();
-                            GenericRecord value = kv.getValue();
-                            System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
-                                    " key=" + genericRecordToString(key) +
-                                    " value=" + genericRecordToString(value));
-                            Map<String, Object> keyMap = genericRecordToMap(key);
-                            Map<String, Object> valueMap = genericRecordToMap(value);
-                            for (Field field : key.getFields()) {
-                                String vKey = field.getName().substring(1);
-                                Assert.assertTrue("Unknown value " + vKey, values.containsKey(vKey));
-                                Assert.assertEquals("Wrong value fo PK field " + field.getName(), values.get(vKey)[1], keyMap.get(field.getName()));
+                    Message<GenericRecord> msg;
+                    while ((msg = consumer.receive(120, TimeUnit.SECONDS)) != null && mutationTable3Count < 1) {
+                        GenericObject genericObject = msg.getValue();
+                        mutationTable3Count++;
+                        assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
+                        KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
+                        GenericRecord key = kv.getKey();
+                        GenericRecord value = kv.getValue();
+                        Map<String, Object> keyMap = genericRecordToMap(key);
+                        Map<String, Object> valueMap = genericRecordToMap(value);
+                        // check primary key fields
+                        for (Field field : key.getFields()) {
+                            String vKey = field.getName().substring(1);
+                            Assert.assertTrue("Unknown field " + vKey, values.containsKey(vKey));
+                            if (keyMap.get(field.getName()) instanceof GenericRecord) {
+                                assertGenericRecords(vKey, (GenericRecord) keyMap.get(field.getName()));
+                            } else {
+                                Assert.assertEquals("Wrong value for PK field " + field.getName(), values.get(vKey)[1], keyMap.get(field.getName()));
                             }
-                            for (Field field : value.getFields()) {
-                                if (field.getName().equals("yudt"))
-                                    continue;
-                                String vKey = field.getName().substring(1);
-                                Assert.assertTrue("Unknown field " + vKey, values.containsKey(vKey));
-                                Assert.assertEquals("Wrong value fo regular field " + field.getName(), values.get(vKey)[1], valueMap.get(field.getName()));
-                            }
-                            Assert.assertFalse(value.getFields().contains("ydecimal")); // ignored column, not supported
-                            GenericRecord yudt = (GenericRecord) value.getField("yudt");
-                            for (Field field : yudt.getFields()) {
-                                String vKey = field.getName().substring(1);
-                                Assert.assertTrue("Unknown field " + vKey, values.containsKey(vKey));
-                                Assert.assertEquals("Wrong value fo udt field " + field.getName(), values.get(vKey)[1], yudt.getField(field.getName()));
-                            }
-                            consumer.acknowledge(msg);
                         }
-                        assertEquals(1, mutationTable3Count);
-                    }
-                }
 
+                        // check regular columns.
+                        for (Field field : value.getFields()) {
+                            if (field.getName().equals("yudt"))
+                                continue;
+                            String vKey = field.getName().substring(1);
+                            Assert.assertTrue("Unknown field " + vKey, values.containsKey(vKey));
+                            if (valueMap.get(field.getName()) instanceof GenericRecord) {
+                                assertGenericRecords(vKey, (GenericRecord) valueMap.get(field.getName()));
+                            } else {
+                                Assert.assertEquals("Wrong value for regular field " + field.getName(), values.get(vKey)[1], valueMap.get(field.getName()));
+                            }
+                        }
+                        assertGenericRecords("duration", (GenericRecord) valueMap.get("yduration"));
+
+                        // check UDT
+                        GenericRecord yudt = (GenericRecord) value.getField("yudt");
+                        for (Field field : yudt.getFields()) {
+                            String vKey = field.getName().substring(1);
+                            Assert.assertTrue("Unknown field " + vKey, values.containsKey(vKey));
+                            if (yudt.getField(field.getName()) instanceof GenericRecord) {
+                                assertGenericRecords(vKey, (GenericRecord) yudt.getField(field.getName()));
+                            } else {
+                                Assert.assertEquals("Wrong value for udt field " + field.getName(), values.get(vKey)[1], yudt.getField(field.getName()));
+                            }
+                        }
+                        consumer.acknowledge(msg);
+                    }
+                    assertEquals(1, mutationTable3Count);
+                }
+            }
+        } finally {
+            dumpFunctionLogs("cassandra-source-" + ksName + "-table3");
+            undeployConnector(ksName, "table3");
+        }
+    }
+
+    void assertGenericRecords(String field, GenericRecord gr) {
+        switch (field) {
+            case "decimal": {
+                ByteBuffer bb = (ByteBuffer) gr.getField(CqlLogicalTypes.CQL_DECIMAL_BIGINT);
+                byte[] bytes = new byte[bb.remaining()];
+                bb.duplicate().get(bytes);
+                BigInteger bigInteger = new BigInteger(bytes);
+                BigDecimal bigDecimal = new BigDecimal(bigInteger, (int) gr.getField(CqlLogicalTypes.CQL_DECIMAL_SCALE));
+                Assert.assertEquals("Wrong value for field " + field, values.get(field)[1], bigDecimal);
+            }
+            break;
+            case "duration": {
+                Assert.assertEquals("Wrong value for field " + field, values.get(field)[1],
+                        CqlDuration.newInstance(
+                                (int) gr.getField(CqlLogicalTypes.CQL_DURATION_MONTHS),
+                                (int) gr.getField(CqlLogicalTypes.CQL_DURATION_DAYS),
+                                (long) gr.getField(CqlLogicalTypes.CQL_DURATION_NANOSECONDS)));
+            }
+        }
+    }
+
+    // docker exec -it pulsar cat /pulsar/logs/functions/public/default/cassandra-source-ks4-table3/cassandra-source-ks1-table4-0.log
+    public void testStaticColumn(String ksName,
+                                 Class<? extends Converter> keyConverter,
+                                 Class<? extends Converter> valueConverter) throws InterruptedException, IOException {
+        try {
+            try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName + " WITH replication = {'class':'SimpleStrategy','replication_factor':'1'};");
+                cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table4 (a text, b text, c text, d text static, PRIMARY KEY ((a), b)) with cdc=true;");
+                cqlSession.execute("INSERT INTO " + ksName + ".table4 (a,b,c,d) VALUES ('a','b','c','d1');");
+            }
+            deployConnector(ksName, "table4", keyConverter, valueConverter);
+
+            try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
                 // test support for static column update in table4
                 try (Consumer<GenericRecord> consumer = pulsarClient.newConsumer(org.apache.pulsar.client.api.Schema.AUTO_CONSUME())
                         .topic(String.format(Locale.ROOT, "data-%s.table4", ksName))
@@ -554,18 +620,9 @@ public class PulsarCassandraSourceTests {
                 }
             }
         } finally {
-            dumpFunctionLogs("cassandra-source-ks1-table1");
-            dumpFunctionLogs("cassandra-source-ks1-table2");
-            if (checkTypeConversion)
-                dumpFunctionLogs("cassandra-source-ks1-table3");
-            dumpFunctionLogs("cassandra-source-ks1-table4");
+            dumpFunctionLogs("cassandra-source-" + ksName + "-table4");
+            undeployConnector(ksName, "table4");
         }
-
-        undeployConnector(ksName, "table1");
-        undeployConnector(ksName, "table2");
-        if (checkTypeConversion)
-            undeployConnector(ksName, "table3");
-        undeployConnector(ksName, "table4");
     }
 
     static String genericRecordToString(GenericRecord genericRecord) {
@@ -588,11 +645,7 @@ public class PulsarCassandraSourceTests {
     static Map<String, Object> genericRecordToMap(GenericRecord genericRecord) {
         Map<String, Object> map = new HashMap<>();
         for (Field field : genericRecord.getFields()) {
-            if (genericRecord.getField(field) instanceof GenericRecord) {
-                map.put(field.getName(), genericRecordToString((GenericRecord) genericRecord.getField(field)));
-            } else {
-                map.put(field.getName(), genericRecord.getField(field));
-            }
+            map.put(field.getName(), genericRecord.getField(field));
         }
         return map;
     }

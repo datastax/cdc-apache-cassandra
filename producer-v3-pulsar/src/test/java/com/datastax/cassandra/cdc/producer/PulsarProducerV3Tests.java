@@ -223,7 +223,7 @@ public class PulsarProducerV3Tests {
             if (genericRecord.getField(field) instanceof GenericRecord) {
                 sb.append(genericRecordToString((GenericRecord) genericRecord.getField(field)));
             } else {
-                sb.append(genericRecord.getField(field).toString());
+                sb.append(genericRecord.getField(field) == null ? "null" : genericRecord.getField(field).toString());
             }
         }
         return sb.append("}").toString();
@@ -256,7 +256,7 @@ public class PulsarProducerV3Tests {
         values.put("xboolean", Pair.create(true, true));
         values.put("xblob", Pair.create(ByteBuffer.wrap(new byte[]{0x00, 0x01}), ByteBuffer.wrap(new byte[]{0x00, 0x01})));
         values.put("xtimestamp", Pair.create(localDateTime.atZone(zone).toInstant(), localDateTime.atZone(zone).toInstant().toEpochMilli()));
-        values.put("xtime", Pair.create(localDateTime.toLocalTime(), (int) (localDateTime.toLocalTime().toNanoOfDay() / 1000000)));
+        values.put("xtime", Pair.create(localDateTime.toLocalTime(), (localDateTime.toLocalTime().toNanoOfDay() / 1000)));
         values.put("xdate", Pair.create(localDateTime.toLocalDate(), (int) localDateTime.toLocalDate().toEpochDay()));
         values.put("xuuid", Pair.create(UUID.fromString("01234567-0123-0123-0123-0123456789ab"), "01234567-0123-0123-0123-0123456789ab"));
         values.put("xtimeuuid", Pair.create(UUID.fromString("d2177dd0-eaa2-11de-a572-001b779c76e3"), "d2177dd0-eaa2-11de-a572-001b779c76e3"));
@@ -314,6 +314,7 @@ public class PulsarProducerV3Tests {
                 GenericRecord gr = msg.getValue();
                 KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) gr.getNativeObject();
                 GenericRecord key = kv.getKey();
+                System.out.println("Consumer Record: topicName=" + msg.getTopicName() + " key=" + genericRecordToString(key));
                 Map<String, Object> map = genericRecordToMap(key);
                 for (Field field : key.getFields()) {
                     Assert.assertEquals("Wrong value fo field " + field.getName(), values.get(field.getName()).right, map.get(field.getName()));
@@ -334,7 +335,7 @@ public class PulsarProducerV3Tests {
                 cqlSession.execute("CREATE TABLE IF NOT EXISTS ks3.table1 (a text, b text, c text, d text static, PRIMARY KEY ((a), b)) with cdc=true;");
                 cqlSession.execute("INSERT INTO ks3.table1 (a,b,c,d) VALUES ('a','b','c','d1');");
                 cqlSession.execute("INSERT INTO ks3.table1 (a,d) VALUES ('a','d2');");
-                cqlSession.execute("DELETE FROM ks3.table1 WHERE a='a'");
+                cqlSession.execute("DELETE FROM ks3.table1 WHERE a = 'a'");
             }
 
             // cassandra drain to discard commitlog segments without stopping the producer
@@ -357,7 +358,7 @@ public class PulsarProducerV3Tests {
                 Assert.assertEquals("b", key.getField("b"));
                 consumer.acknowledgeAsync(msg);
 
-                msg = consumer.receive(60, TimeUnit.SECONDS);
+                msg = consumer.receive(90, TimeUnit.SECONDS);
                 Assert.assertNotNull("Expecting one message, check the producer log", msg);
                 GenericRecord gr2 = msg.getValue();
                 KeyValue<GenericRecord, GenericRecord> kv2 = (KeyValue<GenericRecord, GenericRecord>) gr2.getNativeObject();
@@ -366,7 +367,7 @@ public class PulsarProducerV3Tests {
                 Assert.assertEquals(null, key2.getField("b"));
                 consumer.acknowledgeAsync(msg);
 
-                msg = consumer.receive(60, TimeUnit.SECONDS);
+                msg = consumer.receive(90, TimeUnit.SECONDS);
                 Assert.assertNotNull("Expecting one message, check the producer log", msg);
                 GenericRecord gr3 = msg.getValue();
                 KeyValue<GenericRecord, GenericRecord> kv3 = (KeyValue<GenericRecord, GenericRecord>) gr3.getNativeObject();

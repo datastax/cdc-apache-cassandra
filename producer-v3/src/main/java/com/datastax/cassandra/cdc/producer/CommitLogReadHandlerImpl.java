@@ -519,9 +519,11 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     CompletionStage<Void> processMutation(final Mutation<CFMetaData> mutation) throws Exception {
         return this.mutationSender.sendMutationAsync(mutation)
                 .thenAccept(msgId -> {
-                    CdcMetrics.sentMutations.inc();
-                    offsetWriter.markOffset(mutation);
-                    log.info("mutation={} sent", mutation);
+                    if (msgId != null) {
+                        CdcMetrics.sentMutations.inc();
+                        offsetWriter.markOffset(mutation);
+                        log.info("mutation={} sent", mutation);
+                    }
                 });
     }
 }

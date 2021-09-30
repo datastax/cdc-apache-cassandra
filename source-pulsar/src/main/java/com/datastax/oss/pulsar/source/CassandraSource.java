@@ -15,6 +15,7 @@
  */
 package com.datastax.oss.pulsar.source;
 
+import com.datastax.cassandra.cdc.CqlLogicalTypes;
 import com.datastax.cassandra.cdc.MutationValue;
 import com.datastax.oss.cdc.CassandraClient;
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
@@ -25,7 +26,6 @@ import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.metadata.schema.*;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
-import com.datastax.oss.pulsar.source.converters.AvroConverter;
 import com.datastax.oss.pulsar.source.converters.NativeAvroConverter;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
@@ -35,8 +35,11 @@ import io.vavr.Tuple2;
 import io.vavr.Tuple3;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.avro.Conversions;
+import org.apache.avro.specific.SpecificData;
 import org.apache.pulsar.client.api.*;
 import org.apache.pulsar.client.api.schema.GenericRecord;
+import org.apache.pulsar.client.impl.schema.NativeAvroBytesSchema;
 import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.common.schema.KeyValueEncodingType;
 import org.apache.pulsar.functions.api.KVRecord;
@@ -100,6 +103,12 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     @Override
     public void open(Map<String, Object> config, SourceContext sourceContext) throws Exception {
         try {
+            // register AVRO logical types conversion
+            SpecificData.get().addLogicalTypeConversion(new CqlLogicalTypes.CqlVarintConversion());
+            SpecificData.get().addLogicalTypeConversion(new CqlLogicalTypes.CqlDecimalConversion());
+            SpecificData.get().addLogicalTypeConversion(new NativeAvroConverter.CqlDurationConversion());
+            SpecificData.get().addLogicalTypeConversion(new Conversions.UUIDConversion());
+
             Map<String, String> processorConfig = ConfigUtil.flatString(config);
             log.info("openCassandraSource {}", config);
             this.config = new CassandraSourceConnectorConfig(processorConfig);
@@ -123,15 +132,8 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                         this.config.getTableName()));
             }
             this.pkColumns = tuple._2.getPrimaryKey().stream().map(c -> c.getName().asInternal()).collect(Collectors.toList());
-            if (this.config.getKeyConverterClass() == null) {
-                throw new IllegalArgumentException("Key converter not defined.");
-            }
-            this.keyConverter = createConverter(this.config.getKeyConverterClass(), tuple._1, tuple._2, tuple._2.getPrimaryKey());
+            this.keyConverter = createConverter(getKeyConverterClass(), tuple._1, tuple._2, tuple._2.getPrimaryKey());
             this.mutationKeyConverter = new NativeAvroConverter(tuple._1, tuple._2, tuple._2.getPrimaryKey());
-
-            if (this.config.getValueConverterClass() == null) {
-                throw new IllegalArgumentException("Value converter not defined.");
-            }
             setValueConverterAndQuery(tuple._1, tuple._2);
 
             if (!Strings.isNullOrEmpty(this.config.getColumnsRegexp()) &&
@@ -169,14 +171,13 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             List<ColumnMetadata> columns = tableMetadata.getColumns().values().stream()
                     .filter(c -> !tableMetadata.getPrimaryKey().contains(c))
                     .filter(c -> !columnPattern.isPresent() || columnPattern.get().matcher(c.getName().asInternal()).matches())
-                    .filter(c -> valueConverterAndQuery.converter.isSupportedCqlType(c.getType()))
                     .collect(Collectors.toList());
             log.info("Schema update for table {}.{} replicated columns={}", ksm.getName(), tableMetadata.getName(),
                     columns.stream().map(c -> c.getName().asInternal()).collect(Collectors.toList()));
             this.valueConverterAndQuery = new ConverterAndQuery(
                     tableMetadata.getKeyspace().asInternal(),
                     tableMetadata.getName().asInternal(),
-                    createConverter(config.getValueConverterClass(), ksm, tableMetadata, columns),
+                    createConverter(getValueConverterClass(), ksm, tableMetadata, columns),
                     cassandraClient.buildProjectionClause(columns),
                     cassandraClient.buildPrimaryKeyClause(tableMetadata),
                     new ConcurrentHashMap<>());
@@ -202,6 +203,18 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                         valueConverterAndQuery.projectionClause,
                         valueConverterAndQuery.primaryKeyClause,
                         k));
+    }
+
+    Class<?> getKeyConverterClass() {
+        return this.config.getKeyConverterClass() == null
+                ? NativeAvroConverter.class
+                : this.config.getKeyConverterClass();
+    }
+
+    Class<?> getValueConverterClass() {
+        return this.config.getValueConverterClass() == null
+                ? NativeAvroConverter.class
+                : this.config.getValueConverterClass();
     }
 
     Converter createConverter(Class<?> converterClass, KeyspaceMetadata ksm, TableMetadata tableMetadata, List<ColumnMetadata> columns)
@@ -282,7 +295,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                     msg.getProducerName(), msg.getMessageId(), kv.getKey(), kv.getValue(), msg.getReaderSchema().orElse(null));
 
             try {
-                List<Object> pk = (List<Object>) mutationKeyConverter.fromConnectData(mutationKey);
+                List<Object> pk = (List<Object>) mutationKeyConverter.fromConnectData(mutationKey.getNativeObject());
                 // ensure the schema is the one used when building the struct.
                 final ConverterAndQuery converterAndQueryFinal = this.valueConverterAndQuery;
 
@@ -314,7 +327,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                             // cache the mutation digest if the coordinator is the source of this event.
                             mutationCache.addMutationMd5(msg.getKey(), mutationValue.getMd5Digest());
                         }
-                        queryResult.complete(new KeyValue(mutationKey, value));
+                        queryResult.complete(new KeyValue(msg.getKeyBytes(), value));
                     } catch (Throwable err) {
                         queryResult.completeExceptionally(err);
                     }
@@ -418,7 +431,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
     @Override
     public void onUserDefinedTypeDropped(@NonNull UserDefinedType type) {
-
+        log.info("onUserDefinedTypeDropped {} {}", type);
     }
 
     @SneakyThrows
