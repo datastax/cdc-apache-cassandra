@@ -15,6 +15,13 @@ jobs:
           java-version: '11'
           distribution: 'adopt'
 
+      - name: Get project version
+        uses: HardNorth/github-version-generate@v1.1.1
+        with:
+          version-source: file
+          version-file: gradle.properties
+          version-file-extraction-pattern: '(?<=version=).+'
+
       - name: Cache Docker layers
         uses: actions/cache@v2
         with:
@@ -24,12 +31,10 @@ jobs:
             ${{ runner.os }}-buildx-
 
       - name: Test with Gradle
-        env:
-          PULSAR_IMAGE: "strapdata/pulsar-all:latest"
-        run: ./gradlew test -PpulsarVersion=2.8.0-SNAPSHOT -PpulsarRepoUrl=https://nexus.repo.strapdata.com/repository/maven-snapshots
+        run: ./gradlew test -PpulsarVersion=2.8.1 -x :producer-dse4:test -x :producer-dse4-pulsar:test
 
       - name: Build with Gradle
-        run: ./gradlew assemble -PpulsarVersion=2.8.0-SNAPSHOT -PpulsarRepoUrl=https://nexus.repo.strapdata.com/repository/maven-snapshots
+        run: ./gradlew assemble -PpulsarVersion=2.8.1 -x producer-dse4:assemble -x producer-dse4-pulsar:assemble
 
       - name: Create Release
         id: create_release
@@ -49,8 +54,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: distribution/build/distributions/cassandra-source-connectors-0.1.0-SNAPSHOT.tar
-          asset_name: cassandra-source-connectors-0.1.0-SNAPSHOT.tar
+          asset_path: distribution/build/distributions/cassandra-source-connectors-${{ env.RELEASE_VERSION }}.tar
+          asset_name: cassandra-source-connectors-${{ env.RELEASE_VERSION }}.tar
           asset_content_type: application/tar
       - name: Upload Release Zip
         id: upload-release-zip
@@ -59,6 +64,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: distribution/build/distributions/cassandra-source-connectors-0.1.0-SNAPSHOT.zip
-          asset_name: cassandra-source-connectors-0.1.0-SNAPSHOT.zip
+          asset_path: distribution/build/distributions/cassandra-source-connectors-${{ env.RELEASE_VERSION }}.zip
+          asset_name: cassandra-source-connectors-${{ env.RELEASE_VERSION }}.zip
           asset_content_type: application/zip
