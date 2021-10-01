@@ -193,11 +193,11 @@ public class CassandraSourceConnectorConfig {
                     .define(KEY_CONVERTER_CLASS_CONFIG,
                             ConfigDef.Type.CLASS,
                             ConfigDef.Importance.HIGH,
-                            "Converter class used to write the message key to the data topic")
+                            "Converter class used to write the message key to the data topic. This setting is experimental for advanced user only.")
                     .define(VALUE_CONVERTER_CLASS_CONFIG,
                             ConfigDef.Type.CLASS,
                             ConfigDef.Importance.HIGH,
-                            "Converter class used to write the message value to the data topic")
+                            "Converter class used to write the message value to the data topic. This setting is experimental for advanced user only.")
                     .define(
                             CassandraSinkConfig.CONTACT_POINTS_OPT,
                             ConfigDef.Type.LIST,
