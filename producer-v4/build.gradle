@@ -15,9 +15,6 @@ jar {
         attributes 'Premain-Class': "$mainClassName"
     }
     zip64=true
-    from {
-        configurations.implementation.collect { it.isDirectory() ? it : zipTree(it) }
-    }
 }
 
 tasks.jar.dependsOn project(':commons').jar
@@ -36,6 +33,5 @@ sourceSets {
 dependencies {
     implementation project(':commons')
     implementation project(':producer')
-    implementation("io.debezium:debezium-core:${debeziumVersion}")
     compileOnly("org.apache.cassandra:cassandra-all:${cassandra4Version}")
 }

@@ -6,4 +6,4 @@
 
 ## Run
 
-    export JVM_EXTRA_OPTS="-javaagent:$CDC_HOME/producer-v3-pulsar/build/libs/producer-0.1-SNAPSHOT-all.jar -DkafkaRegistryUrl=http://schema-registry:8081"
+    export JVM_EXTRA_OPTS="-javaagent:$CSC_HOME/producer-v3-pulsar/build/libs/producer-<version>-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"

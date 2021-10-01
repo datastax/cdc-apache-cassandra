@@ -1,0 +1,85 @@
+plugins {
+    id 'java'
+    id 'application'
+    id "com.github.johnrengelman.shadow"
+}
+
+application {
+    mainClassName = "$mainClassName"
+}
+
+jar {
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    manifest {
+        attributes 'Premain-Class': "$mainClassName"
+    }
+    zip64=true
+}
+
+compileTestJava {
+    options.compilerArgs += '-parameters'
+}
+
+configurations {
+    custom
+}
+
+dependencies {
+    custom project(':commons')
+    custom project(':commons-pulsar')
+    custom project(':producer')
+    custom project(':producer-dse4')
+
+    implementation project(':commons')
+    implementation project(':commons-pulsar')
+    implementation project(':producer')
+    implementation project(':producer-dse4')
+    implementation("org.apache.avro:avro:${avroVersion}")
+    implementation("org.apache.pulsar:pulsar-client:${pulsarVersion}")
+    compileOnly("com.datastax.dse:dse-db:${dse4Version}")
+    testImplementation("com.datastax.dse:dse-db:${dse4Version}") {
+        exclude group: 'io.netty'
+    }
+
+    testImplementation "org.projectlombok:lombok:${lombokVersion}"
+    testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+
+    testImplementation "com.datastax.oss:java-driver-core:${ossDriverVersion}"
+    testImplementation "com.datastax.oss:java-driver-query-builder:${ossDriverVersion}"
+
+    testImplementation project(':testcontainers')
+
+    testRuntimeOnly "org.slf4j:slf4j-api:1.7.30"
+    testRuntimeOnly "org.slf4j:slf4j-simple:1.7.30"
+}
+
+test {
+    // Add dependency on jar task, since it will be main target for testing
+    dependsOn shadowJar
+
+    // Rearrange test classpath, add compiled JAR instead of main classes
+    classpath = project.sourceSets.test.output + configurations.testRuntimeClasspath + files(shadowJar.archiveFile)
+
+    useJUnitPlatform()
+
+    systemProperty "buildDir", buildDir
+    systemProperty "projectVersion", project.version
+}
+
+shadowJar {
+    manifest {
+        inheritFrom project.tasks.jar.manifest
+    }
+    configurations = [project.configurations.custom]
+    // relocate AVRO because dse-db depends on avro 1.7.7
+    relocate 'org.apache.avro', 'com.datastax.cassandra.cdc.avro'
+}
+
+jar.enabled = false
+assemble.dependsOn(shadowJar)
+project.afterEvaluate {
+    project.tasks.generatePomFileForMavenPublication.enabled = false
+    project.tasks.publishMavenPublicationToMavenRepository.enabled = false
+}
+
+

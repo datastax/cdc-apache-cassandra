@@ -28,7 +28,6 @@ compileTestJava {
 
 dependencies {
     implementation project(':commons')
-    implementation("io.debezium:debezium-core:${debeziumVersion}")
     implementation("com.github.ben-manes.caffeine:caffeine:${caffeineVersion}")
     implementation("io.vavr:vavr:${vavrVersion}")
     implementation("com.datastax.oss:java-driver-core:${ossDriverVersion}")

@@ -25,9 +25,13 @@ delombok.onlyIf {
 }
 
 dependencies {
+    implementation project(':commons')
     implementation "org.projectlombok:lombok:${lombokVersion}"
     annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
 
+    implementation("org.apache.avro:avro:${avroVersion}")
+    implementation 'org.junit.jupiter:junit-jupiter-api:5.1.1'
+    implementation("org.apache.pulsar:pulsar-client:${pulsarVersion}")
 
     api "org.testcontainers:testcontainers:${testContainersVersion}"
     api "org.testcontainers:database-commons:${testContainersVersion}"

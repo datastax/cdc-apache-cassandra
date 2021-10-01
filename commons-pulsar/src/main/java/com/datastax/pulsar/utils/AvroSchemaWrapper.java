@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.datastax.cassandra.cdc.producer;
+package com.datastax.pulsar.utils;
 
 import org.apache.avro.Schema;
 import org.apache.pulsar.client.api.schema.SchemaInfoProvider;

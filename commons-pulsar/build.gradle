@@ -1,0 +1,8 @@
+plugins {
+    id 'java-library'
+}
+
+dependencies {
+    implementation("org.apache.avro:avro:${avroVersion}")
+    implementation("org.apache.pulsar:pulsar-client:${pulsarVersion}")
+}

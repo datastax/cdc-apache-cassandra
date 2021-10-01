@@ -30,6 +30,7 @@ assemble.dependsOn(shadowJar)
 
 dependencies {
     implementation project(':commons')
+    implementation project(':commons-pulsar')
     implementation project(':producer')
     implementation project(':producer-v3')
     implementation("org.apache.avro:avro:${avroVersion}")

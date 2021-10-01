@@ -28,13 +28,13 @@ public interface OffsetWriter {
      * Set the current offset.
      * @param mutation
      */
-    public void markOffset(Mutation<?> mutation);
+    void markOffset(Mutation<?> mutation);
 
     /**
      * Get the current offset.
      * @return
      */
-    public CommitLogPosition offset(Optional<UUID> nodeId);
+    CommitLogPosition offset(Optional<UUID> nodeId);
 
     default  CommitLogPosition offset() {
         return offset(Optional.empty());
@@ -44,7 +44,7 @@ public interface OffsetWriter {
      * Persist the offset
      * @throws IOException
      */
-    public void flush(Optional<UUID> nodeId) throws IOException;
+    void flush(Optional<UUID> nodeId) throws IOException;
 
     default void flush() throws IOException {
         flush(Optional.empty());

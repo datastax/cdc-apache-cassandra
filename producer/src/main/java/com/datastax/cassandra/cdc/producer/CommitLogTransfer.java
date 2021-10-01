@@ -15,7 +15,6 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
-import java.io.File;
 import java.nio.file.Path;
 import java.util.Properties;
 

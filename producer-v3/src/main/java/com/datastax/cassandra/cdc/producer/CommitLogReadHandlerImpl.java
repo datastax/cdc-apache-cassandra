@@ -17,8 +17,6 @@ package com.datastax.cassandra.cdc.producer;
 
 import com.datastax.cassandra.cdc.producer.exceptions.CassandraConnectorSchemaException;
 import com.datastax.cassandra.cdc.producer.exceptions.CassandraConnectorTaskException;
-import io.debezium.DebeziumException;
-import io.debezium.time.Conversions;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.config.ColumnDefinition;
@@ -246,8 +244,8 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                 process(pu, entryPosition, md5Digest);
             }
             catch (Exception e) {
-                throw new DebeziumException(String.format("Failed to process PartitionUpdate %s at %s for table %s.%s.",
-                        pu.toString(), entryPosition.toString(), pu.metadata().ksName, pu.metadata().cfName), e);
+                throw new RuntimeException(String.format("Failed to process PartitionUpdate %s at %s for table %s.%s.",
+                        pu.toString(), entryPosition, pu.metadata().ksName, pu.metadata().cfName), e);
             }
         }
     }
@@ -336,7 +334,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
             populatePartitionColumns(after, pu);
             mutationMaker.delete(DatabaseDescriptor.getClusterName(), StorageService.instance.getLocalHostUUID(), offsetPosition,
                     pu.metadata().ksName, pu.metadata().cfName, false,
-                    Conversions.toInstantFromMicros(pu.maxTimestamp()), after,
+                    pu.maxTimestamp(), after,
                     MARK_OFFSET, this::blockingSend, md5Digest, pu.metadata());
         }
         catch (Exception e) {
@@ -369,19 +367,19 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
             case INSERT:
                 mutationMaker.insert(DatabaseDescriptor.getClusterName(), StorageService.instance.getLocalHostUUID(), offsetPosition,
                         pu.metadata().ksName, pu.metadata().cfName, false,
-                        Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, this::blockingSend, md5Digest, pu.metadata());
+                        ts, after, MARK_OFFSET, this::blockingSend, md5Digest, pu.metadata());
                 break;
 
             case UPDATE:
                 mutationMaker.update(DatabaseDescriptor.getClusterName(), StorageService.instance.getLocalHostUUID(), offsetPosition,
                         pu.metadata().ksName, pu.metadata().cfName, false,
-                        Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, this::blockingSend, md5Digest, pu.metadata());
+                        ts, after, MARK_OFFSET, this::blockingSend, md5Digest, pu.metadata());
                 break;
 
             case DELETE:
                 mutationMaker.delete(DatabaseDescriptor.getClusterName(), StorageService.instance.getLocalHostUUID(), offsetPosition,
                         pu.metadata().ksName, pu.metadata().cfName, false,
-                        Conversions.toInstantFromMicros(ts), after, MARK_OFFSET, this::blockingSend, md5Digest, pu.metadata());
+                        ts, after, MARK_OFFSET, this::blockingSend, md5Digest, pu.metadata());
                 break;
 
             default:
@@ -399,7 +397,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                 after.addCell(cellData);
             }
             catch (Exception e) {
-                throw new DebeziumException(String.format("Failed to populate Column %s with Type %s of Table %s in KeySpace %s.",
+                throw new RuntimeException(String.format("Failed to populate Column %s with Type %s of Table %s in KeySpace %s.",
                         cd.name.toString(), cd.type.toString(), cd.cfName, cd.ksName), e);
             }
         }
@@ -415,7 +413,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                 after.addCell(cellData);
             }
             catch (Exception e) {
-                throw new DebeziumException(String.format("Failed to populate Column %s with Type %s of Table %s in KeySpace %s.",
+                throw new RuntimeException(String.format("Failed to populate Column %s with Type %s of Table %s in KeySpace %s.",
                         cd.name.toString(), cd.type.toString(), cd.cfName, cd.ksName), e);
             }
         }
@@ -441,7 +439,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                 values.add(value);
             }
             catch (Exception e) {
-                throw new DebeziumException(String.format("Failed to deserialize Column %s with Type %s in Table %s and KeySpace %s.",
+                throw new RuntimeException(String.format("Failed to deserialize Column %s with Type %s in Table %s and KeySpace %s.",
                         cs.name.toString(), cs.type.toString(), cs.cfName, cs.ksName), e);
             }
         }
@@ -473,7 +471,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                     values.add(value);
                 }
                 catch (Exception e) {
-                    throw new DebeziumException(String.format("Failed to deserialize Column %s with Type %s in Table %s and KeySpace %s",
+                    throw new RuntimeException(String.format("Failed to deserialize Column %s with Type %s in Table %s and KeySpace %s",
                             cs.name.toString(), cs.type.toString(), cs.cfName, cs.ksName), e);
                 }
                 byte b = keyBytes.get();

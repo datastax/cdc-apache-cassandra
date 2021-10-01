@@ -36,5 +36,5 @@ public class SourceInfo  {
     public final CommitLogPosition commitLogPosition;
     public final String keyspace;
     public final String table;
-    public final Instant timestamp;
+    public final long timestamp;
 }

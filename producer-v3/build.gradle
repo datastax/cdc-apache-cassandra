@@ -30,6 +30,5 @@ sourceSets {
 dependencies {
     implementation project(':commons')
     implementation project(':producer')
-    implementation("io.debezium:debezium-core:${debeziumVersion}")
     compileOnly("org.apache.cassandra:cassandra-all:${cassandra3Version}")
 }
