@@ -23,6 +23,20 @@ All documentation is available online [here](https://docs.datastax.com/en/cassan
 * Does not sync data available before starting the CDC producer.
 * CQL column names must not match a Pulsar primitive type name (ex: INT32)
 
+## Supported data types
+
+Cassandra supported CQL3 data types (with the associated AVRO type or logical-type):
+
+* text (string), ascii (string)
+* tinyint (int), smallint (int), int (int), bigint (long), double (double), float (float),
+* inet (string)
+* decimal (cql_decimal), varint (cql_varint), duration (cql_duration)
+* blob(bytes)
+* boolean (boolean)
+* timestamp (timestamp-millis), time (time-micros), date (date)
+* uuid, timeuuid (uuid)
+* User Defined Types (record)
+
 ## Build from the sources
 
     ./gradlew assemble
