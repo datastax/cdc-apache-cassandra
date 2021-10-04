@@ -182,7 +182,7 @@ public class PulsarCassandraSourceTests {
                         CassandraSourceConnectorConfig.EVENTS_SUBSCRIPTION_NAME_CONFIG, "sub1",
                         CassandraSourceConnectorConfig.KEY_CONVERTER_CLASS_CONFIG, keyConverter.getName(),
                         CassandraSourceConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG, valueConverter.getName()));
-        assertEquals(0, result.getExitCode());
+        assertEquals(0, result.getExitCode(), "deployConnector failed:" + result.getStdout());
     }
 
     void undeployConnector(String ksName, String tableName) throws IOException, InterruptedException {
@@ -191,7 +191,7 @@ public class PulsarCassandraSourceTests {
                 "--tenant", "public",
                 "--namespace", "default",
                 "--name", "cassandra-source-" + ksName + "-" + tableName);
-        assertEquals(0, result.getExitCode());
+        assertEquals(0, result.getExitCode(), "undeployConnector failed:" + result.getStdout());
     }
 
     public void testSinglePk(String ksName,
