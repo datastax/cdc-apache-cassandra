@@ -45,6 +45,7 @@ jar {
 }
 
 nar {
+    archivesBaseName = 'pulsar-cassandra-source'
     manifest {
         attributes 'Nar-Group': 'org.apache.pulsar'
         attributes 'Nar-Id': 'pulsar-io-cassandra-source-nar'
