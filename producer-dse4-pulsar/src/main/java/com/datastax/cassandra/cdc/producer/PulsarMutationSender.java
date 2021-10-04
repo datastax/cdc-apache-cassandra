@@ -50,40 +50,42 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
 
     public static final String SCHEMA_DOC_PREFIX = "Primary key schema for table ";
 
-    PulsarClient client;
-    final Map<String, Producer<KeyValue<byte[], MutationValue>>> producers = new ConcurrentHashMap<>();
-    final Map<String, org.apache.avro.Schema> avroSchemas = new HashMap<>();
-    final ImmutableMap<String, org.apache.avro.Schema> avroSchemaTypes;
-    final ProducerConfig config;
+    private static final ImmutableMap<String, org.apache.avro.Schema> avroSchemaTypes = ImmutableMap.<String, org.apache.avro.Schema>builder()
+            .put(UTF8Type.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.STRING))
+            .put(AsciiType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.STRING))
+            .put(BooleanType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.BOOLEAN))
+            .put(BytesType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.BYTES))
+            .put(ByteType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.INT))   // INT8 not supported by AVRO
+            .put(ShortType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.INT))  // INT16 not supported by AVRO
+            .put(Int32Type.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.INT))
+            .put(IntegerType.instance.asCQL3Type().toString(), CqlLogicalTypes.varintType)
+            .put(LongType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.LONG))
+            .put(FloatType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.FLOAT))
+            .put(DoubleType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.DOUBLE))
+            .put(DecimalType.instance.asCQL3Type().toString(), CqlLogicalTypes.decimalType)
+            .put(InetAddressType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.STRING))
+            .put(TimestampType.instance.asCQL3Type().toString(), CqlLogicalTypes.timestampMillisType)
+            .put(SimpleDateType.instance.asCQL3Type().toString(), CqlLogicalTypes.dateType)
+            .put(TimeType.instance.asCQL3Type().toString(), CqlLogicalTypes.timeMicrosType)
+            .put(DurationType.instance.asCQL3Type().toString(), CqlLogicalTypes.durationType)
+            .put(UUIDType.instance.asCQL3Type().toString(), CqlLogicalTypes.uuidType)
+            .put(TimeUUIDType.instance.asCQL3Type().toString(), CqlLogicalTypes.uuidType)
+            .build();
 
-    public PulsarMutationSender(ProducerConfig config) {
-        this.config = config;
-        avroSchemaTypes = ImmutableMap.<String, org.apache.avro.Schema>builder()
-                .put(UTF8Type.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.STRING))
-                .put(AsciiType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.STRING))
-                .put(BooleanType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.BOOLEAN))
-                .put(BytesType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.BYTES))
-                .put(ByteType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.INT))   // INT8 not supported by AVRO
-                .put(ShortType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.INT))  // INT16 not supported by AVRO
-                .put(Int32Type.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.INT))
-                .put(IntegerType.instance.asCQL3Type().toString(), CqlLogicalTypes.varintType)
-                .put(LongType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.LONG))
-                .put(FloatType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.FLOAT))
-                .put(DoubleType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.DOUBLE))
-                .put(DecimalType.instance.asCQL3Type().toString(), CqlLogicalTypes.decimalType)
-                .put(InetAddressType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.STRING))
-                .put(TimestampType.instance.asCQL3Type().toString(), CqlLogicalTypes.timestampMillisType)
-                .put(SimpleDateType.instance.asCQL3Type().toString(), CqlLogicalTypes.dateType)
-                .put(TimeType.instance.asCQL3Type().toString(), CqlLogicalTypes.timeMicrosType)
-                .put(DurationType.instance.asCQL3Type().toString(), CqlLogicalTypes.durationType)
-                .put(UUIDType.instance.asCQL3Type().toString(), CqlLogicalTypes.uuidType)
-                .put(TimeUUIDType.instance.asCQL3Type().toString(), CqlLogicalTypes.uuidType)
-                .build();
-
+    static {
         // register AVRO logical types conversion
         SpecificData.get().addLogicalTypeConversion(new CqlLogicalTypes.CqlVarintConversion());
         SpecificData.get().addLogicalTypeConversion(new CqlLogicalTypes.CqlDecimalConversion());
         SpecificData.get().addLogicalTypeConversion(new Conversions.UUIDConversion());
+    }
+
+    PulsarClient client;
+    final Map<String, Producer<KeyValue<byte[], MutationValue>>> producers = new ConcurrentHashMap<>();
+    final Map<String, org.apache.avro.Schema> avroSchemas = new ConcurrentHashMap<>();
+    final ProducerConfig config;
+
+    public PulsarMutationSender(ProducerConfig config) {
+        this.config = config;
     }
 
     /**
