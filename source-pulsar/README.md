@@ -33,7 +33,7 @@ A Pulsar key-shared subscription ensure all mutations for a given primary key ar
 Cassandra source connector:
 
     $PULSAR_HOME/bin/pulsar-admin source localrun \
-           --archive $CDC_HOME/source-pulsar/build/libs/source-pulsar-0.1.0-SNAPSHOT.nar \
+           --archive $CDC_HOME/source-pulsar/build/libs/pulsar-cassandra-source-<version>.nar \
            --tenant public \
            --namespace default \
            --name cassandra-source-1 \
