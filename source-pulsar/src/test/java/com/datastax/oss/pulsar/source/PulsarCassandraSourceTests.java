@@ -79,7 +79,7 @@ public class PulsarCassandraSourceTests {
 
         String sourceBuildDir = System.getProperty("sourceBuildDir");
         String projectVersion = System.getProperty("projectVersion");
-        String sourceJarFile = String.format(Locale.ROOT, "source-pulsar-%s.nar", projectVersion);
+        String sourceJarFile = String.format(Locale.ROOT, "pulsar-cassandra-source-%s.nar", projectVersion);
         pulsarContainer = new PulsarContainer<>(PULSAR_IMAGE)
                 .withNetwork(testNetwork)
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withName("pulsar"))

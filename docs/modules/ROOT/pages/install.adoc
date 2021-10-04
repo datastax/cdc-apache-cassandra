@@ -23,9 +23,9 @@ The following files are unpacked into a directory such as `cassandra-source-conn
 LICENSE
 README.md
 THIRD-PARTY.txt
-producer-v3-pulsar-0.1.0-SNAPSHOT-all.jar
-producer-v4-pulsar-0.1.0-SNAPSHOT-all.jar
-source-pulsar-0.1.0-SNAPSHOT.nar
+producer-v3-pulsar-<version>-SNAPSHOT-all.jar
+producer-v4-pulsar-<version>-SNAPSHOT-all.jar
+pulsar-cassandra-source-<version>-SNAPSHOT.nar
 ----
 
 == Starting Cassandra with the producer agent.
@@ -56,7 +56,7 @@ the pulsar connectors directory or upload it. You have to specify th following p
 [source,language-bash]
 ----
 pulsar-admin source localrun \
---archive /path/to/source-pulsar-<version>.nar \
+--archive /path/to/pulsar-cassandra-source-<version>.nar \
 --tenant public \
 --namespace default \
 --name cassandra-source-1 \
