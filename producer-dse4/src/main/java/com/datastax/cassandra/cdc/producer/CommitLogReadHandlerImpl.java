@@ -296,7 +296,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                 RowType rowType = RowType.getRowType(row);
                 handleRowModifications(row, rowType, pu, position, md5Digest);
             }
-                break;
+            break;
 
             case ROW_LEVEL_MODIFICATION: {
                 UnfilteredRowIterator it = pu.unfilteredIterator();
