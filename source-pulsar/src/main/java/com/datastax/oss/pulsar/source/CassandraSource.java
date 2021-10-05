@@ -171,6 +171,11 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                     .filter(c -> !tableMetadata.getPrimaryKey().contains(c))
                     .filter(c -> !columnPattern.isPresent() || columnPattern.get().matcher(c.getName().asInternal()).matches())
                     .collect(Collectors.toList());
+            List<ColumnMetadata> staticColumns = tableMetadata.getColumns().values().stream()
+                    .filter(c -> c.isStatic())
+                    .filter(c -> !tableMetadata.getPrimaryKey().contains(c))
+                    .filter(c -> !columnPattern.isPresent() || columnPattern.get().matcher(c.getName().asInternal()).matches())
+                    .collect(Collectors.toList());
             log.info("Schema update for table {}.{} replicated columns={}", ksm.getName(), tableMetadata.getName(),
                     columns.stream().map(c -> c.getName().asInternal()).collect(Collectors.toList()));
             this.valueConverterAndQuery = new ConverterAndQuery(
@@ -178,6 +183,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                     tableMetadata.getName().asInternal(),
                     createConverter(getValueConverterClass(), ksm, tableMetadata, columns),
                     cassandraClient.buildProjectionClause(columns),
+                    cassandraClient.buildProjectionClause(staticColumns),
                     cassandraClient.buildPrimaryKeyClause(tableMetadata),
                     new ConcurrentHashMap<>());
             log.debug("valueConverterAndQuery={}", this.valueConverterAndQuery);
@@ -188,18 +194,18 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     }
 
     /**
-     * Build the CQL prepared statement for the specified PK length.
+     * Build the CQL prepared statement for the specified where clause length.
      * NOTE: The prepared statement cannot be build from the schema listener thread to avoid a possible deadlock.
      * @param valueConverterAndQuery
-     * @param pkLength
+     * @param whereClauseLength the number of columns in the where clause
      * @return preparedStatement
      */
-    synchronized PreparedStatement getSelectStatement(ConverterAndQuery valueConverterAndQuery, int pkLength) {
-        return valueConverterAndQuery.getPreparedStatements().computeIfAbsent(pkLength, k ->
+    synchronized PreparedStatement getSelectStatement(ConverterAndQuery valueConverterAndQuery, int whereClauseLength) {
+        return valueConverterAndQuery.getPreparedStatements().computeIfAbsent(whereClauseLength, k ->
                 cassandraClient.prepareSelect(
                         valueConverterAndQuery.keyspaceName,
                         valueConverterAndQuery.tableName,
-                        valueConverterAndQuery.projectionClause,
+                        valueConverterAndQuery.getProjectionClause(whereClauseLength),
                         valueConverterAndQuery.primaryKeyClause,
                         k));
     }

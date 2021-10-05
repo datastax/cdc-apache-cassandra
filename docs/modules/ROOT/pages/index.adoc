@@ -74,7 +74,9 @@ Cassandra supported CQL3 data types (with the associated AVRO type or logical-ty
 * uuid, timeuuid (uuid)
 * User Defined Types (record)
 
-Cassandra static columns are supported.
+Cassandra static columns are supported:
+* On row level updates, static columns are included in the message value.
+* On partition level updates, the clustering keys are null in the message key, and the message value only has static columns on insert/update operations.
 
 == Limitations
 

@@ -601,8 +601,8 @@ public class PulsarCassandraSourceTests {
                     Assert.assertEquals("a", key2.getField("a"));
                     Assert.assertEquals(null, key2.getField("b"));
                     GenericRecord val2 = kv2.getValue();
-                    Assert.assertEquals("c", val2.getField("c"));
-                    Assert.assertEquals("d2", val2.getField("d"));
+                    Assert.assertNull(val2.getField("c"));  // regular column not fetched
+                    Assert.assertEquals("d2", val2.getField("d")); // update static column
                     consumer.acknowledgeAsync(msg);
 
                     try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {

@@ -29,10 +29,47 @@ import java.util.concurrent.ConcurrentMap;
 @EqualsAndHashCode
 @ToString
 public class ConverterAndQuery {
+    /**
+     * Keyspace name
+     */
     final String keyspaceName;
+
+    /**
+     * Table name
+     */
     final String tableName;
+
+    /**
+     * Schema converter
+     */
     final Converter converter;
+
+    /**
+     * Projection clause with regular and static columns.
+     */
     final CqlIdentifier[] projectionClause;
+
+    /**
+     * Projection clause with only static columns.
+     */
+    final CqlIdentifier[] staticProjectionClause;
+
+    /**
+     * Primary key columns
+     */
     final CqlIdentifier[] primaryKeyClause;
+
     final ConcurrentMap<Integer, PreparedStatement> preparedStatements;
+
+    /**
+     * When requesting a partition, the projection clause contains only static columns.
+     * When requesting a wide row, the projection clause contains regular and static columns
+     * @param whereClauseLength number of columns in the CQL where clause.
+     * @return the projection clause
+     */
+    public CqlIdentifier[] getProjectionClause(int whereClauseLength) {
+        return primaryKeyClause.length == whereClauseLength
+                ? projectionClause
+                : staticProjectionClause;
+    }
 }
