@@ -30,6 +30,8 @@ import com.datastax.oss.pulsar.source.converters.NativeAvroConverter;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.datastax.oss.cdc.ConfigUtil;
+import com.google.common.hash.HashFunction;
+import com.google.common.hash.Hashing;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import io.vavr.Tuple2;
 import io.vavr.Tuple3;
@@ -50,6 +52,8 @@ import org.apache.pulsar.io.core.annotations.IOType;
 import org.eclipse.jetty.util.BlockingArrayQueue;
 
 import java.lang.reflect.InvocationTargetException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
@@ -91,16 +95,20 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
      */
     volatile ConverterAndQuery valueConverterAndQuery;
 
+    /**
+     * Single thread executor to execute sequentially read from C* and write into the clean data topic.
+     */
     ExecutorService[] queryExecutors;
+    HashFunction murmur3Hash = Hashing.murmur3_32();
 
     private final BlockingArrayQueue<MyKVRecord> buffer = new BlockingArrayQueue<>();
 
-    private <T> Future<T> executeOrdered(Object key, Callable<T> task) {
-        return queryExecutors[Math.abs(Objects.hashCode(key)) % queryExecutors.length].submit(task);
+    private <T> Future<T> executeOrdered(String key, Callable<T> task) {
+        return queryExecutors[Math.abs(murmur3Hash.hashString(key, StandardCharsets.UTF_8).asInt()) % queryExecutors.length].submit(task);
     }
 
     @Override
-    public void open(Map<String, Object> config, SourceContext sourceContext) throws Exception {
+    public void open(Map<String, Object> config, SourceContext sourceContext) {
         try {
             // register AVRO logical types conversion
             SpecificData.get().addLogicalTypeConversion(new CqlLogicalTypes.CqlVarintConversion());
@@ -156,7 +164,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                     this.config.getCacheMaxCapacity(),
                     Duration.ofMillis(this.config.getCacheExpireAfterMs()));
 
-            log.debug("Starting source connector topic={} subscription={}",
+            log.info("Starting source connector topic={} subscription={}",
                     dirtyTopicName,
                     this.config.getEventsSubscriptionName());
         } catch (Throwable err) {
@@ -230,7 +238,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         if (this.cassandraClient != null)
             this.cassandraClient.close();
         this.mutationCache = null;
