@@ -36,7 +36,6 @@ import org.apache.cassandra.service.StorageService;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.commons.codec.digest.DigestUtils;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.CompletionStage;
@@ -63,7 +62,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                              OffsetWriter offsetWriter,
                              MutationSender<TableMetadata> mutationSender) {
         this.mutationSender = mutationSender;
-        this.mutationMaker = new MutationMaker<TableMetadata>(config);
+        this.mutationMaker = new MutationMaker<>(config);
         this.offsetWriter = offsetWriter;
     }
 
@@ -252,13 +251,13 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     }
 
     @Override
-    public void handleUnrecoverableError(CommitLogReadException exception) throws IOException {
+    public void handleUnrecoverableError(CommitLogReadException exception) {
         log.error("Unrecoverable error when reading commit log", exception);
         CdcMetrics.commitLogReadErrors.inc();
     }
 
     @Override
-    public boolean shouldSkipSegmentOnError(CommitLogReadException exception) throws IOException {
+    public boolean shouldSkipSegmentOnError(CommitLogReadException exception) {
         if (exception.permissible) {
             log.error("Encountered a permissible exception during log replay", exception);
         }
@@ -321,13 +320,6 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
      * Handle a valid deletion event resulted from a partition-level deletion by converting Cassandra representation
      * of this event into a {@link Mutation} object and send it to pulsar. A valid deletion
      * event means a partition only has a single row, this implies there are no clustering keys.
-     *
-     * The steps are:
-     *      (1) Populate the "source" field for this event
-     *      (3) Populate the "after" field for this event
-     *          a. populate partition columns
-     *          b. populate regular columns with null values
-     *      (4) Assemble a {@link Mutation} object from the populated data and queue the record
      */
     private void handlePartitionDeletion(PartitionUpdate pu, com.datastax.cassandra.cdc.producer.CommitLogPosition offsetPosition, String md5Digest) {
         try {
@@ -347,15 +339,6 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
      * Handle a valid event resulted from a row-level modification by converting Cassandra representation of
      * this event into a {@link Mutation} object and sent it to pulsar. A valid event
      * implies this must be an insert, update, or delete.
-     *
-     * The steps are:
-     *      (1) Populate the "source" field for this event
-     *      (3) Populate the "after" field for this event
-     *          a. populate partition columns
-     *          b. populate clustering columns
-     *          c. populate regular columns
-     *          d. for deletions, populate regular columns with null values
-     *      (4) Assemble a {@link Mutation} object from the populated data and queue the record
      */
     private void handleRowModifications(Row row, RowType rowType, PartitionUpdate pu,
                                         com.datastax.cassandra.cdc.producer.CommitLogPosition offsetPosition, String md5Digest) {
