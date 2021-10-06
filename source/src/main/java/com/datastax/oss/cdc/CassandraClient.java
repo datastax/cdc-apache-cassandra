@@ -334,10 +334,10 @@ public class CassandraClient implements AutoCloseable {
 
     CompletionStage<Tuple2<AsyncResultSet, ConsistencyLevel>> executeWithDowngradeConsistencyRetry(
             CqlSession cqlSession,
-            BoundStatement statement,
+            BoundStatement boundStatement,
             List<ConsistencyLevel> consistencyLevels) {
         final ConsistencyLevel cl = consistencyLevels.remove(0);
-        statement.setConsistencyLevel(cl);
+        final BoundStatement statement = boundStatement.setConsistencyLevel(cl);
         log.debug("Trying with CL={} statement={}", cl, statement);
         final CompletionStage<Tuple2<AsyncResultSet, ConsistencyLevel>> completionStage =
                 cqlSession.executeAsync(statement).thenApply(rx -> new Tuple2<>(rx, cl));
