@@ -202,7 +202,6 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
     @Override
     public GenericRecord toConnectData(Row row) {
         GenericRecordBuilder genericRecordBuilder = schema.newRecordBuilder();
-        log.info("row columns={}", row.getColumnDefinitions());
         for(ColumnDefinition cm : row.getColumnDefinitions()) {
             if (!row.isNull(cm.getName())) {
                 switch (cm.getType().getProtocolCode()) {

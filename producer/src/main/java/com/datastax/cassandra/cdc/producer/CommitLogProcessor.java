@@ -53,7 +53,8 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
                               ProducerConfig config,
                               CommitLogTransfer commitLogTransfer,
                               OffsetWriter offsetWriter,
-                              CommitLogReaderProcessor commitLogReaderProcessor) throws IOException {
+                              CommitLogReaderProcessor commitLogReaderProcessor,
+                              boolean withNearRealTimeCdc) throws IOException {
         super(NAME, 0);
         this.config = config;
         this.commitLogReaderProcessor = commitLogReaderProcessor;
@@ -70,12 +71,15 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
                 watchedEvents) {
             @Override
             void handleEvent(WatchEvent<?> event, Path path) {
-                if (path.toString().endsWith(".log")) {
-                    commitLogReaderProcessor.submitCommitLog(path.toFile());
-                }
-                // for Cassandra 4.x and DSE 6.8.16+ only
-                if (path.toString().endsWith("_cdc.idx")) {
-                    commitLogReaderProcessor.submitCommitLog(path.toFile());
+                if (withNearRealTimeCdc) {
+                    // for Cassandra 4.x and DSE 6.8.16+ only
+                    if (path.toString().endsWith("_cdc.idx")) {
+                        commitLogReaderProcessor.submitCommitLog(path.toFile());
+                    }
+                } else {
+                    if (path.toString().endsWith(".log")) {
+                        commitLogReaderProcessor.submitCommitLog(path.toFile());
+                    }
                 }
             }
         };
