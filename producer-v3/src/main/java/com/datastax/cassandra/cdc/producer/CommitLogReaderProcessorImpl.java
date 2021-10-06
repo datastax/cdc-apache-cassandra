@@ -20,8 +20,6 @@ import org.apache.cassandra.db.commitlog.CommitLogPosition;
 import org.apache.cassandra.db.commitlog.CommitLogReader;
 
 import java.io.File;
-import java.io.IOException;
-import java.util.concurrent.PriorityBlockingQueue;
 
 /**
  * Consume a queue of commitlog files to read mutations.
@@ -30,7 +28,7 @@ import java.util.concurrent.PriorityBlockingQueue;
  */
 @Slf4j
 public class CommitLogReaderProcessorImpl extends CommitLogReaderProcessor implements AutoCloseable {
-    private final PriorityBlockingQueue<File> commitLogQueue = new PriorityBlockingQueue<>(128, CommitLogUtil::compareCommitLogs);
+
     private final CommitLogReadHandlerImpl commitLogReadHandler;
 
     public CommitLogReaderProcessorImpl(ProducerConfig config,

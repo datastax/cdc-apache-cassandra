@@ -25,7 +25,6 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -39,8 +38,6 @@ public class CommitLogReaderProcessorImpl extends CommitLogReaderProcessor imple
     private AtomicReference<CommitLogPosition> syncedOffsetRef = new AtomicReference<>(new CommitLogPosition(0,0));
 
     private CountDownLatch syncedOffsetLatch = new CountDownLatch(1);
-
-    private final PriorityBlockingQueue<File> commitLogQueue = new PriorityBlockingQueue<>(128, CommitLogUtil::compareCommitLogs);
 
     private final CommitLogReadHandlerImpl commitLogReadHandler;
 

@@ -17,6 +17,7 @@ package com.datastax.cassandra.cdc.producer;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.concurrent.PriorityBlockingQueue;
 
 public abstract class CommitLogReaderProcessor extends AbstractProcessor
 {
@@ -27,6 +28,7 @@ public abstract class CommitLogReaderProcessor extends AbstractProcessor
     final ProducerConfig config;
     final OffsetWriter offsetWriter;
     final CommitLogTransfer commitLogTransfer;
+    final PriorityBlockingQueue<File> commitLogQueue;
 
     public CommitLogReaderProcessor(ProducerConfig config,
                                     OffsetWriter offsetWriter,
@@ -35,6 +37,7 @@ public abstract class CommitLogReaderProcessor extends AbstractProcessor
         this.config = config;
         this.offsetWriter = offsetWriter;
         this.commitLogTransfer = commitLogTransfer;
+        this.commitLogQueue = new PriorityBlockingQueue<>(128, CommitLogUtil::compareCommitLogs);
     }
 
     abstract void submitCommitLog(File file);
