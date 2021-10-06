@@ -15,38 +15,39 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
-import com.google.common.collect.ImmutableSet;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.cassandra.config.DatabaseDescriptor;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.WatchEvent;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static java.nio.file.StandardWatchEventKinds.ENTRY_CREATE;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
 
 /**
- * Detect and read commitlogs files.
- *
- * @author vroyer
+ * Detect and read commitlogs files in the cdc_raw directory.
  */
 @Slf4j
 public class CommitLogProcessor extends AbstractProcessor implements AutoCloseable {
     private static final String NAME = "Commit Log Processor";
 
+    private static final Set<WatchEvent.Kind<Path>> watchedEvents = Stream.of(ENTRY_CREATE, ENTRY_MODIFY).collect(Collectors.toSet());
+
+    private final AbstractDirectoryWatcher newCommitLogWatcher;
     private final CommitLogTransfer commitLogTransfer;
     private final File cdcDir;
-    private final AbstractDirectoryWatcher newCommitLogWatcher;
     private boolean initial = true;
 
-    CommitLogReaderProcessor commitLogReaderProcessor;
-    OffsetWriter offsetWriter;
-    ProducerConfig config;
+    final CommitLogReaderProcessor commitLogReaderProcessor;
+    final OffsetWriter offsetWriter;
+    final ProducerConfig config;
 
     public CommitLogProcessor(String cdcLogDir,
                               ProducerConfig config,
@@ -61,18 +62,18 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
         this.cdcDir = new File(cdcLogDir);
         this.newCommitLogWatcher = new AbstractDirectoryWatcher(cdcDir.toPath(),
                 Duration.ofMillis(config.cdcDirPollIntervalMs),
-                ImmutableSet.of(ENTRY_CREATE, ENTRY_MODIFY)) {
+                watchedEvents) {
             @Override
-            void handleEvent(WatchEvent<?> event, Path path) throws IOException {
+            void handleEvent(WatchEvent<?> event, Path path) {
                 if (path.toString().endsWith(".log")) {
                     commitLogReaderProcessor.submitCommitLog(path.toFile());
                 }
+                // for Cassandra 4.x and DSE 6.8.16+ only
                 if (path.toString().endsWith("_cdc.idx")) {
                     commitLogReaderProcessor.submitCommitLog(path.toFile());
                 }
             }
         };
-
     }
 
     /**
@@ -85,8 +86,8 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
     @Override
     public void process() throws IOException, InterruptedException {
         if (config.errorCommitLogReprocessEnabled) {
-            log.debug("Moving back error commitlogs for reprocessing into {}", DatabaseDescriptor.getCDCLogLocation());
-            commitLogTransfer.recycleErrorCommitLogFiles(Paths.get(DatabaseDescriptor.getCDCLogLocation()));
+            log.debug("Moving back error commitlogs for reprocessing into {}", cdcDir.getAbsolutePath());
+            commitLogTransfer.recycleErrorCommitLogFiles(cdcDir.toPath());
         }
 
         // load existing commitlogs files when initializing

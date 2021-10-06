@@ -29,27 +29,16 @@ import java.util.concurrent.PriorityBlockingQueue;
  * @author vroyer
  */
 @Slf4j
-public class CommitLogReaderProcessor extends AbstractProcessor implements AutoCloseable {
-    private static final String NAME = "CommitLogReader Processor";
-
-    public static final String ARCHIVE_FOLDER = "archive";
-    public static final String ERROR_FOLDER = "error";
-
+public class CommitLogReaderProcessorImpl extends CommitLogReaderProcessor implements AutoCloseable {
     private final PriorityBlockingQueue<File> commitLogQueue = new PriorityBlockingQueue<>(128, CommitLogUtil::compareCommitLogs);
     private final CommitLogReadHandlerImpl commitLogReadHandler;
-    private final OffsetFileWriter offsetFileWriter;
-    private final CommitLogTransfer commitLogTransfer;
-    private final ProducerConfig config;
 
-    public CommitLogReaderProcessor(ProducerConfig config,
-                                    CommitLogReadHandlerImpl commitLogReadHandler,
-                                    OffsetFileWriter offsetFileWriter,
-                                    CommitLogTransfer commitLogTransfer) {
-        super(NAME, 0);
-        this.config = config;
+    public CommitLogReaderProcessorImpl(ProducerConfig config,
+                                        OffsetFileWriter offsetFileWriter,
+                                        CommitLogTransfer commitLogTransfer,
+                                        CommitLogReadHandlerImpl commitLogReadHandler) {
+        super(config, offsetFileWriter, commitLogTransfer);
         this.commitLogReadHandler = commitLogReadHandler;
-        this.offsetFileWriter = offsetFileWriter;
-        this.commitLogTransfer = commitLogTransfer;
     }
 
     public void submitCommitLog(File file) {
@@ -69,8 +58,8 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
             long seg = CommitLogUtil.extractTimestamp(file.getName());
 
             // ignore file before the last write offset
-            if (seg < this.offsetFileWriter.offset().segmentId) {
-                log.debug("Ignoring file={} before the replicated segment={}", file.getName(), this.offsetFileWriter.offset().segmentId);
+            if (seg < this.offsetWriter.offset().segmentId) {
+                log.debug("Ignoring file={} before the replicated segment={}", file.getName(), this.offsetWriter.offset().segmentId);
                 continue;
             }
 
@@ -79,48 +68,18 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
             CommitLogReader commitLogReader = new CommitLogReader();
             try {
                 // hack to use a dummy min position for segment ahead of the offetFile.
-                CommitLogPosition minPosition = (seg > offsetFileWriter.offset().segmentId)
+                CommitLogPosition minPosition = (seg > offsetWriter.offset().segmentId)
                         ? new CommitLogPosition(seg, 0)
-                        : new CommitLogPosition(offsetFileWriter.offset().getSegmentId(), offsetFileWriter.offset().getPosition());
+                        : new CommitLogPosition(offsetWriter.offset().getSegmentId(), offsetWriter.offset().getPosition());
 
                 commitLogReader.readCommitLogSegment(commitLogReadHandler, file, false);
                 log.debug("Successfully processed commitlog minPosition={} file={}", minPosition, file.getName());
-                offsetFileWriter.flush(); // flush sent offset after each CL file
+                offsetWriter.flush(); // flush sent offset after each CL file
                 commitLogTransfer.onSuccessTransfer(file.toPath());
             } catch (Exception e) {
                 log.warn("Failed to read commitlog file=" + file.getName(), e);
                 commitLogTransfer.onErrorTransfer(file.toPath());
             }
         }
-    }
-
-    @Override
-    public void initialize() throws Exception {
-        File relocationDir = new File(config.cdcRelocationDir);
-        if (!relocationDir.exists()) {
-            if (!relocationDir.mkdir()) {
-                throw new IOException("Failed to create " + config.cdcRelocationDir);
-            }
-        }
-
-        File archiveDir = new File(relocationDir, ARCHIVE_FOLDER);
-        if (!archiveDir.exists()) {
-            if (!archiveDir.mkdir()) {
-                throw new IOException("Failed to create " + archiveDir);
-            }
-        }
-        File errorDir = new File(relocationDir, ERROR_FOLDER);
-        if (!errorDir.exists()) {
-            if (!errorDir.mkdir()) {
-                throw new IOException("Failed to create " + errorDir);
-            }
-        }
-    }
-
-    /**
-     * Override destroy to clean up resources after stopping the processor
-     */
-    @Override
-    public void close() {
     }
 }

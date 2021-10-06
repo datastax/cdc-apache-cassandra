@@ -34,13 +34,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * @author vroyer
  */
 @Slf4j
-public class CommitLogReaderProcessor extends AbstractProcessor implements AutoCloseable {
-    private static final String NAME = "CommitLogReader Processor";
+public class CommitLogReaderProcessorImpl extends CommitLogReaderProcessor implements AutoCloseable {
 
-    public static final String ARCHIVE_FOLDER = "archive";
-    public static final String ERROR_FOLDER = "error";
-
-    // synced position
     private AtomicReference<CommitLogPosition> syncedOffsetRef = new AtomicReference<>(new CommitLogPosition(0,0));
 
     private CountDownLatch syncedOffsetLatch = new CountDownLatch(1);
@@ -48,19 +43,13 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
     private final PriorityBlockingQueue<File> commitLogQueue = new PriorityBlockingQueue<>(128, CommitLogUtil::compareCommitLogs);
 
     private final CommitLogReadHandlerImpl commitLogReadHandler;
-    private final OffsetWriter offsetWriter;
-    private final CommitLogTransfer commitLogTransfer;
-    private final ProducerConfig config;
 
-    public CommitLogReaderProcessor(ProducerConfig config,
-                                    CommitLogReadHandlerImpl commitLogReadHandler,
-                                    OffsetWriter offsetWriter,
-                                    CommitLogTransfer commitLogTransfer) {
-        super(NAME, 0);
-        this.config = config;
+    public CommitLogReaderProcessorImpl(ProducerConfig config,
+                                        OffsetWriter offsetWriter,
+                                        CommitLogTransfer commitLogTransfer,
+                                        CommitLogReadHandlerImpl commitLogReadHandler) {
+        super(config, offsetWriter, commitLogTransfer);
         this.commitLogReadHandler = commitLogReadHandler;
-        this.offsetWriter = offsetWriter;
-        this.commitLogTransfer = commitLogTransfer;
     }
 
     public void submitCommitLog(File file) {
@@ -154,37 +143,5 @@ public class CommitLogReaderProcessor extends AbstractProcessor implements AutoC
                 }
             }
         }
-    }
-
-    @Override
-    public void initialize() throws Exception {
-
-        File relocationDir = new File(config.cdcRelocationDir);
-
-        if (!relocationDir.exists()) {
-            if (!relocationDir.mkdir()) {
-                throw new IOException("Failed to create " + config.cdcRelocationDir);
-            }
-        }
-
-        File archiveDir = new File(relocationDir, ARCHIVE_FOLDER);
-        if (!archiveDir.exists()) {
-            if (!archiveDir.mkdir()) {
-                throw new IOException("Failed to create " + archiveDir);
-            }
-        }
-        File errorDir = new File(relocationDir, ERROR_FOLDER);
-        if (!errorDir.exists()) {
-            if (!errorDir.mkdir()) {
-                throw new IOException("Failed to create " + errorDir);
-            }
-        }
-    }
-
-    /**
-     * Override destroy to clean up resources after stopping the processor
-     */
-    @Override
-    public void close() {
     }
 }

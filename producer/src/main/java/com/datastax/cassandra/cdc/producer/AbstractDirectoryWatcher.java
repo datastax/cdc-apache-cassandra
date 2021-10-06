@@ -28,7 +28,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Wrapper class around WatchService to make WatchService re-usable and avoid code repetition
+ * Wrapper class around WatchService
  */
 @Slf4j
 public abstract class AbstractDirectoryWatcher {
