@@ -52,7 +52,7 @@ public abstract class AbstractProcessor {
         return running;
     }
 
-    public final void start() throws Exception {
+    public void start() throws Exception {
         if (running) {
             log.warn("Ignoring start signal for {} because it is already started", name);
             return;
@@ -72,7 +72,7 @@ public abstract class AbstractProcessor {
         log.info("Stopped {}", name);
     }
 
-    public final void stop() {
+    public void stop() throws Exception {
         if (isRunning()) {
             log.info("Stopping {}", name);
             running = false;

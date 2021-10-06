@@ -16,6 +16,10 @@
 package com.datastax.cassandra.cdc.producer;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.cassandra.concurrent.JMXEnabledThreadPoolExecutor;
+import org.apache.cassandra.concurrent.NamedThreadFactory;
+import org.apache.cassandra.concurrent.Stage;
+import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.commitlog.CommitLogPosition;
 import org.apache.cassandra.db.commitlog.CommitLogReader;
 
@@ -24,7 +28,8 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -41,12 +46,32 @@ public class CommitLogReaderProcessorImpl extends CommitLogReaderProcessor imple
 
     private final CommitLogReadHandlerImpl commitLogReadHandler;
 
+    /**
+     * The "workingCommitLog" is the most recent active commitlog file not yet completed.
+     * We must avoid processing the workingCommitLog multiple times in parallel while it is updated.
+     */
+    final AtomicReference<File> workingCommitLog = new AtomicReference<>(null);
+    final AtomicBoolean isProcessingWorkingCommitLog = new AtomicBoolean(false);
+
+    /**
+     * Consumes commitlog files in parallel.
+     */
+    ExecutorService processorExecutor;
+
     public CommitLogReaderProcessorImpl(ProducerConfig config,
                                         OffsetWriter offsetWriter,
                                         CommitLogTransfer commitLogTransfer,
                                         CommitLogReadHandlerImpl commitLogReadHandler) {
         super(config, offsetWriter, commitLogTransfer);
         this.commitLogReadHandler = commitLogReadHandler;
+        this.processorExecutor = new JMXEnabledThreadPoolExecutor(
+                1,
+                DatabaseDescriptor.getConcurrentWriters(),
+                DatabaseDescriptor.getCommitLogSyncPeriod() + 1000,
+                TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<Runnable>(),
+                new NamedThreadFactory("CdcCommitlogProcessor"),
+                "CdcProducer");
     }
 
     public void submitCommitLog(File file) {
@@ -68,9 +93,20 @@ public class CommitLogReaderProcessorImpl extends CommitLogReaderProcessor imple
                         } catch(Exception ex) {
                         }
                         syncedOffsetRef.set(new CommitLogPosition(seg, pos));
-                        String commitlogName = file.getName().substring(0, file.getName().length() - 8) + ".log";
+                        String commitlogName = file.getName().substring(0, file.getName().length() - "_cdc.idx".length()) + ".log";
                         log.debug("New synced position={} completed={} adding file={}", syncedOffsetRef.get(), completed, commitlogName);
-                        this.commitLogQueue.add(new File(file.getParentFile(), commitlogName));
+                        File commitlogFile = new File(file.getParentFile(), commitlogName);
+                        if (completed) {
+                            if (workingCommitLog.compareAndSet(commitlogFile, null)) {
+
+                            }
+                            this.processorExecutor.submit(new Task(commitlogFile, true));
+                        } else {
+                            this.workingCommitLog.set(commitlogFile);
+                            if (isProcessingWorkingCommitLog.compareAndSet(false, true)) {
+                                this.processorExecutor.submit(new Task(commitlogFile, false));
+                            }
+                        }
 
                         // unlock the processing of commitlogs
                         if(syncedOffsetLatch.getCount() > 0)
@@ -82,8 +118,6 @@ public class CommitLogReaderProcessorImpl extends CommitLogReaderProcessor imple
             } else {
                 log.debug("Ignoring old synced position from file={} pos={}", file.getName(), pos);
             }
-        } else {
-            this.commitLogQueue.add(file);
         }
     }
 
@@ -92,30 +126,61 @@ public class CommitLogReaderProcessorImpl extends CommitLogReaderProcessor imple
     }
 
     @Override
+    public void start() throws Exception {
+        // do nothing
+    }
+
+    @Override
     public void process() throws InterruptedException {
-        assert this.offsetWriter.offset().segmentId <= this.syncedOffsetRef.get().segmentId || this.offsetWriter.offset().position <= this.offsetWriter.offset().position : "file offset is greater than synced offset";
-        File file = null;
-        while(true) {
-            file = this.commitLogQueue.take();
+        // do nothing
+    }
+
+    @Override
+    public void stop() throws Exception {
+        processorExecutor.shutdown();
+        processorExecutor.awaitTermination(10, TimeUnit.SECONDS);
+    }
+
+    /**
+     * Process a commitlog file
+     */
+    public class Task implements Runnable {
+        File file;
+        boolean completed;
+
+        public Task(File file, boolean completed) {
+            this.file = file;
+            this.completed = completed;
+        }
+
+        public void run() {
+            if (!completed) {
+                isProcessingWorkingCommitLog.set(true);
+            }
+
+            assert offsetWriter.offset().segmentId <= syncedOffsetRef.get().segmentId || offsetWriter.offset().position <= offsetWriter.offset().position : "file offset is greater than synced offset";
 
             if (!file.exists()) {
                 log.debug("file={} does not exist any more, ignoring", file.getName());
-                continue;
+                return;
             }
             long seg = CommitLogUtil.extractTimestamp(file.getName());
 
             // ignore file before the last write offset
-            if (seg < this.offsetWriter.offset().segmentId) {
-                log.debug("Ignoring file={} before the replicated segment={}", file.getName(), this.offsetWriter.offset().segmentId);
-                continue;
+            /*
+            if (seg < offsetWriter.offset().segmentId) {
+                log.debug("Ignoring file={} before the replicated segment={}", file.getName(), offsetWriter.offset().segmentId);
+                return;
             }
+             */
+
             // ignore file beyond the last synced commitlog, it will be re-queued on a file modification.
-            if (seg > this.syncedOffsetRef.get().segmentId) {
-                log.debug("Ignore a not synced file={}, last synced offset={}", file.getName(), this.syncedOffsetRef.get());
-                continue;
+            if (seg > syncedOffsetRef.get().segmentId) {
+                log.debug("Ignore a not synced file={}, last synced offset={}", file.getName(), syncedOffsetRef.get());
+                return;
             }
-            log.debug("processing file={} synced offset={}", file.getName(), this.syncedOffsetRef.get());
-            assert seg <= this.syncedOffsetRef.get().segmentId: "reading a commitlog ahead the last synced offset";
+            log.debug("processing file={} synced offset={}", file.getName(), syncedOffsetRef.get());
+            assert seg <= syncedOffsetRef.get().segmentId : "reading a commitlog ahead the last synced offset";
 
             CommitLogReader commitLogReader = new CommitLogReader();
             try {
@@ -126,18 +191,30 @@ public class CommitLogReaderProcessorImpl extends CommitLogReaderProcessor imple
 
                 commitLogReader.readCommitLogSegment(commitLogReadHandler, file, minPosition, false);
                 log.debug("Successfully processed commitlog completed={} minPosition={} file={}",
-                        seg < this.syncedOffsetRef.get().segmentId, minPosition, file.getName());
-                offsetWriter.flush(); // flush sent offset after each CL file
-                if (seg < this.syncedOffsetRef.get().segmentId) {
+                        seg < syncedOffsetRef.get().segmentId, minPosition, file.getName());
+
+                if (completed) {
                     // do not transfer the active commitlog on Cassandra 4.x
                     commitLogTransfer.onSuccessTransfer(file.toPath());
+                } else {
+                    // flush sent offset
+                    offsetWriter.flush();
                 }
-            } catch(Exception e) {
-                log.warn("Failed to read commitlog completed="+(seg < this.syncedOffsetRef.get().segmentId)+" file="+file.getName(), e);
-                if (seg < this.syncedOffsetRef.get().segmentId) {
+            } catch (Exception e) {
+                log.warn("Failed to read commitlog completed=" + (seg < syncedOffsetRef.get().segmentId) + " file=" + file.getName(), e);
+                if (completed) {
                     // do not transfer the active commitlog on Cassandra 4.x
                     commitLogTransfer.onErrorTransfer(file.toPath());
                 }
+            }
+
+            if (!completed) {
+                File workingCommitLogFile =  workingCommitLog.get();
+                if (workingCommitLogFile != null) {
+                    // submit a new task, the workingCommitlog has been updated.
+                    processorExecutor.submit(new Task(workingCommitLogFile, false));
+                }
+                isProcessingWorkingCommitLog.set(false);
             }
         }
     }
