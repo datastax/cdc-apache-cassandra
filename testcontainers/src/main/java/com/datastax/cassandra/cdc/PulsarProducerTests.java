@@ -16,6 +16,7 @@
 package com.datastax.cassandra.cdc;
 
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.data.CqlDuration;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
 import com.datastax.testcontainers.pulsar.PulsarContainer;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +36,8 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.nio.ByteBuffer;
@@ -229,11 +232,7 @@ public abstract class PulsarProducerTests {
     static Map<String, Object> genericRecordToMap(GenericRecord genericRecord) {
         Map<String, Object> map = new HashMap<>();
         for (Field field : genericRecord.getFields()) {
-            if (genericRecord.getField(field) instanceof GenericRecord) {
-                map.put(field.getName(), genericRecordToString((GenericRecord) genericRecord.getField(field)));
-            } else {
-                map.put(field.getName(), genericRecord.getField(field));
-            }
+            map.put(field.getName(), genericRecord.getField(field));
         }
         return map;
     }
@@ -249,49 +248,54 @@ public abstract class PulsarProducerTests {
 
         // sample values, left=CQL value, right=Pulsar value
         Map<String, Object[]> values = new HashMap<>();
-        values.put("xtext", new Object[]{"a", "a"});
-        values.put("xascii", new Object[]{"aa", "aa"});
-        values.put("xboolean", new Object[]{true, true});
-        values.put("xblob", new Object[]{ByteBuffer.wrap(new byte[]{0x00, 0x01}), ByteBuffer.wrap(new byte[]{0x00, 0x01})});
-        values.put("xtimestamp", new Object[]{localDateTime.atZone(zone).toInstant(), localDateTime.atZone(zone).toInstant().toEpochMilli()});
-        values.put("xtime", new Object[]{localDateTime.toLocalTime(), (localDateTime.toLocalTime().toNanoOfDay() / 1000)});
-        values.put("xdate", new Object[]{localDateTime.toLocalDate(), (int) localDateTime.toLocalDate().toEpochDay()});
-        values.put("xuuid", new Object[]{UUID.fromString("01234567-0123-0123-0123-0123456789ab"), "01234567-0123-0123-0123-0123456789ab"});
-        values.put("xtimeuuid", new Object[]{UUID.fromString("d2177dd0-eaa2-11de-a572-001b779c76e3"), "d2177dd0-eaa2-11de-a572-001b779c76e3"});
-        values.put("xtinyint", new Object[]{(byte) 0x01, (int) 0x01}); // Avro only support integer
-        values.put("xsmallint", new Object[]{(short) 1, (int) 1});     // Avro only support integer
-        values.put("xint", new Object[]{1, 1});
-        values.put("xbigint", new Object[]{1L, 1L});
-        values.put("xdouble", new Object[]{1.0D, 1.0D});
-        values.put("xfloat", new Object[]{1.0f, 1.0f});
-        values.put("xinet4", new Object[]{Inet4Address.getLoopbackAddress(), Inet4Address.getLoopbackAddress().getHostAddress()});
-        values.put("xinet6", new Object[]{Inet6Address.getLoopbackAddress(), Inet4Address.getLoopbackAddress().getHostAddress()});
+        values.put("text", new Object[]{"a", "a"});
+        values.put("ascii", new Object[]{"aa", "aa"});
+        values.put("boolean", new Object[]{true, true});
+        values.put("blob", new Object[]{ByteBuffer.wrap(new byte[]{0x00, 0x01}), ByteBuffer.wrap(new byte[]{0x00, 0x01})});
+        values.put("timestamp", new Object[]{localDateTime.atZone(zone).toInstant(), localDateTime.atZone(zone).toInstant().toEpochMilli()});
+        values.put("time", new Object[]{localDateTime.toLocalTime(), (localDateTime.toLocalTime().toNanoOfDay() / 1000)});
+        values.put("date", new Object[]{localDateTime.toLocalDate(), (int) localDateTime.toLocalDate().toEpochDay()});
+        values.put("uuid", new Object[]{UUID.fromString("01234567-0123-0123-0123-0123456789ab"), "01234567-0123-0123-0123-0123456789ab"});
+        values.put("timeuuid", new Object[]{UUID.fromString("d2177dd0-eaa2-11de-a572-001b779c76e3"), "d2177dd0-eaa2-11de-a572-001b779c76e3"});
+        values.put("tinyint", new Object[]{(byte) 0x01, (int) 0x01}); // Avro only support integer
+        values.put("smallint", new Object[]{(short) 1, (int) 1});     // Avro only support integer
+        values.put("int", new Object[]{1, 1});
+        values.put("bigint", new Object[]{1L, 1L});
+        values.put("double", new Object[]{1.0D, 1.0D});
+        values.put("float", new Object[]{1.0f, 1.0f});
+        values.put("inet4", new Object[]{Inet4Address.getLoopbackAddress(), Inet4Address.getLoopbackAddress().getHostAddress()});
+        values.put("inet6", new Object[]{Inet6Address.getLoopbackAddress(), Inet4Address.getLoopbackAddress().getHostAddress()});
+        values.put("varint", new Object[] {new BigInteger("314"), new CqlLogicalTypes.CqlVarintConversion().toBytes(new BigInteger("314"), CqlLogicalTypes.varintType, CqlLogicalTypes.CQL_VARINT_LOGICAL_TYPE)});
+        values.put("decimal", new Object[] {new BigDecimal(314.16), new BigDecimal(314.16)});
+        values.put("duration", new Object[] { CqlDuration.newInstance(1,2,3), CqlDuration.newInstance(1,2,3)});
 
         try (CassandraContainer<?> cassandraContainer1 = createCassandraContainer(1, pulsarServiceUrl, testNetwork)) {
             cassandraContainer1.start();
             try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
                 cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS ks2 WITH replication = {'class':'SimpleStrategy','replication_factor':'1'};");
                 cqlSession.execute("CREATE TABLE IF NOT EXISTS ks2.table1 (" +
-                        "xtext text, xascii ascii, xboolean boolean, xblob blob, xtimestamp timestamp, xtime time, xdate date, xuuid uuid, xtimeuuid timeuuid, xtinyint tinyint, xsmallint smallint, xint int, xbigint bigint, xdouble double, xfloat float, xinet4 inet, xinet6 inet, " +
-                        "primary key (xtext, xascii, xboolean, xblob, xtimestamp, xtime, xdate, xuuid, xtimeuuid, xtinyint, xsmallint, xint, xbigint, xdouble, xfloat, xinet4, xinet6)) WITH cdc=true");
-                cqlSession.execute("INSERT INTO ks2.table1 (xtext, xascii, xboolean, xblob, xtimestamp, xtime, xdate, xuuid, xtimeuuid, xtinyint, xsmallint, xint, xbigint, xdouble, xfloat, xinet4, xinet6) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                        values.get("xtext")[0],
-                        values.get("xascii")[0],
-                        values.get("xboolean")[0],
-                        values.get("xblob")[0],
-                        values.get("xtimestamp")[0],
-                        values.get("xtime")[0],
-                        values.get("xdate")[0],
-                        values.get("xuuid")[0],
-                        values.get("xtimeuuid")[0],
-                        values.get("xtinyint")[0],
-                        values.get("xsmallint")[0],
-                        values.get("xint")[0],
-                        values.get("xbigint")[0],
-                        values.get("xdouble")[0],
-                        values.get("xfloat")[0],
-                        values.get("xinet4")[0],
-                        values.get("xinet6")[0]
+                        "xtext text, xascii ascii, xboolean boolean, xblob blob, xtimestamp timestamp, xtime time, xdate date, xuuid uuid, xtimeuuid timeuuid, xtinyint tinyint, xsmallint smallint, xint int, xbigint bigint, xvarint varint, xdecimal decimal, xdouble double, xfloat float, xinet4 inet, xinet6 inet, " +
+                        "primary key (xtext, xascii, xboolean, xblob, xtimestamp, xtime, xdate, xuuid, xtimeuuid, xtinyint, xsmallint, xint, xbigint, xvarint, xdecimal, xdouble, xfloat, xinet4, xinet6)) WITH cdc=true");
+                cqlSession.execute("INSERT INTO ks2.table1 (xtext, xascii, xboolean, xblob, xtimestamp, xtime, xdate, xuuid, xtimeuuid, xtinyint, xsmallint, xint, xbigint, xvarint, xdecimal, xdouble, xfloat, xinet4, xinet6) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                        values.get("text")[0],
+                        values.get("ascii")[0],
+                        values.get("boolean")[0],
+                        values.get("blob")[0],
+                        values.get("timestamp")[0],
+                        values.get("time")[0],
+                        values.get("date")[0],
+                        values.get("uuid")[0],
+                        values.get("timeuuid")[0],
+                        values.get("tinyint")[0],
+                        values.get("smallint")[0],
+                        values.get("int")[0],
+                        values.get("bigint")[0],
+                        values.get("varint")[0],
+                        values.get("decimal")[0],
+                        values.get("double")[0],
+                        values.get("float")[0],
+                        values.get("inet4")[0],
+                        values.get("inet6")[0]
                 );
             }
 
@@ -311,9 +315,17 @@ public abstract class PulsarProducerTests {
                 KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) gr.getNativeObject();
                 GenericRecord key = kv.getKey();
                 System.out.println("Consumer Record: topicName=" + msg.getTopicName() + " key=" + genericRecordToString(key));
-                Map<String, Object> map = genericRecordToMap(key);
+                Map<String, Object> keyMap = genericRecordToMap(key);
                 for (Field field : key.getFields()) {
-                    Assert.assertEquals("Wrong value fo field " + field.getName(), values.get(field.getName())[1], map.get(field.getName()));
+                    String vKey = field.getName().substring(1);
+                    Assert.assertTrue("Unknown field " + vKey, values.containsKey(vKey));
+                    if (keyMap.get(field.getName()) instanceof GenericRecord) {
+                        assertGenericRecords(vKey, (GenericRecord) keyMap.get(field.getName()), values);
+                    } else {
+                        Assert.assertEquals("Wrong value for PK field " + field.getName(),
+                                values.get(vKey)[1],
+                                keyMap.get(field.getName()));
+                    }
                 }
                 consumer.acknowledgeAsync(msg);
             }
@@ -370,6 +382,27 @@ public abstract class PulsarProducerTests {
                 Assert.assertEquals("a", key3.getField("a"));
                 Assert.assertEquals(null, key3.getField("b"));
                 consumer.acknowledgeAsync(msg);
+            }
+        }
+    }
+
+    void assertGenericRecords(String field, GenericRecord gr, Map<String, Object[]> values) {
+        switch (field) {
+            case "decimal": {
+                ByteBuffer bb = (ByteBuffer) gr.getField(CqlLogicalTypes.CQL_DECIMAL_BIGINT);
+                byte[] bytes = new byte[bb.remaining()];
+                bb.duplicate().get(bytes);
+                BigInteger bigInteger = new BigInteger(bytes);
+                BigDecimal bigDecimal = new BigDecimal(bigInteger, (int) gr.getField(CqlLogicalTypes.CQL_DECIMAL_SCALE));
+                Assert.assertEquals("Wrong value for field " + field, values.get(field)[1], bigDecimal);
+            }
+            break;
+            case "duration": {
+                Assert.assertEquals("Wrong value for field " + field, values.get(field)[1],
+                        CqlDuration.newInstance(
+                                (int) gr.getField(CqlLogicalTypes.CQL_DURATION_MONTHS),
+                                (int) gr.getField(CqlLogicalTypes.CQL_DURATION_DAYS),
+                                (long) gr.getField(CqlLogicalTypes.CQL_DURATION_NANOSECONDS)));
             }
         }
     }

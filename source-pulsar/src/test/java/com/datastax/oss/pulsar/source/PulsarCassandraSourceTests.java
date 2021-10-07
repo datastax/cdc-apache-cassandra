@@ -24,8 +24,6 @@ import com.datastax.oss.pulsar.source.converters.NativeAvroConverter;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
 import com.datastax.testcontainers.pulsar.PulsarContainer;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.avro.LogicalTypes;
-import org.apache.avro.generic.GenericData;
 import org.apache.commons.io.IOUtils;
 import org.apache.pulsar.client.api.*;
 import org.apache.pulsar.client.api.schema.Field;
