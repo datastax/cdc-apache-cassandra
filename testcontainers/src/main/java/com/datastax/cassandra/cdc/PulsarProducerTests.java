@@ -62,7 +62,7 @@ public abstract class PulsarProducerTests {
 
     public static final DockerImageName PULSAR_IMAGE = DockerImageName.parse(
             Optional.ofNullable(System.getenv("PULSAR_IMAGE"))
-                    .orElse("harbor.sjc.dsinternal.org/pulsar/lunastreaming-all:latest-272")
+                    .orElse("datastax/lunastreaming:2.7.2_1.1.6")
     ).asCompatibleSubstituteFor("pulsar");
 
     public abstract CassandraContainer<?> createCassandraContainer(int nodeIndex, String pulsarServiceUrl, Network testNetwork);
