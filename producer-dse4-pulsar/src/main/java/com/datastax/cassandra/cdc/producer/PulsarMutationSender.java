@@ -274,6 +274,7 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
                 .value(new KeyValue(
                         serializeAvroGenericRecord(buildAvroKey(keySchema, mutation), keySchema),
                         mutation.mutationValue()))
+                .property("writetime", mutation.getTs() + "")
                 .sendAsync();
     }
 
