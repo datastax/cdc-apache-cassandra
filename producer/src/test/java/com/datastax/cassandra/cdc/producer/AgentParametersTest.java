@@ -26,7 +26,7 @@ import static com.datastax.cassandra.cdc.producer.ProducerConfig.*;
 public class AgentParametersTest {
 
     String commonConfig =
-            CDC_RELOCATION_DIR + "=cdc_mybackup," +
+            CDC_WORKING_DIR + "=cdc_working," +
             ERROR_COMMITLOG_REPROCESS_ENABLED + "=true," +
             CDC_DIR_POOL_INTERVAL_MS + "=1234," +
             TOPIC_PREFIX + "=events-mutations," +
@@ -40,7 +40,7 @@ public class AgentParametersTest {
             SSL_PROVIDER + "=MyProvider,";
 
     void assertCommonConfig(ProducerConfig config) {
-        assertEquals("cdc_mybackup", config.cdcRelocationDir);
+        assertEquals("cdc_working", config.cdcWorkingDir);
         assertEquals(true, config.errorCommitLogReprocessEnabled);
         assertEquals(1234L, config.cdcDirPollIntervalMs);
         assertEquals("events-mutations", config.topicPrefix);

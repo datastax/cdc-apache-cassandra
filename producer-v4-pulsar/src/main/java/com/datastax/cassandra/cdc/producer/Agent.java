@@ -59,7 +59,7 @@ public class Agent {
         log.info("Starting CDC producer agent, cdc_raw_directory={}", DatabaseDescriptor.getCDCLogLocation());
         ProducerConfig config = ProducerConfig.create(ProducerConfig.Platform.PULSAR, agentArgs);
 
-        OffsetFileWriter offsetFileWriter = new OffsetFileWriter(DatabaseDescriptor.getCDCLogLocation());
+        OffsetFileWriter offsetFileWriter = new OffsetFileWriter(config.cdcWorkingDir);
         PulsarMutationSender pulsarMutationSender = new PulsarMutationSender(config);
         CommitLogReadHandlerImpl commitLogReadHandler = new CommitLogReadHandlerImpl(config, offsetFileWriter, pulsarMutationSender);
         CommitLogTransfer commitLogTransfer = new BlackHoleCommitLogTransfer(config);

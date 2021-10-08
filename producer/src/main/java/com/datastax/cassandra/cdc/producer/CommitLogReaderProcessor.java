@@ -44,10 +44,11 @@ public abstract class CommitLogReaderProcessor extends AbstractProcessor
 
     @Override
     public void initialize() throws Exception {
-        File relocationDir = new File(config.cdcRelocationDir);
+
+        File relocationDir = new File(config.cdcWorkingDir);
         if (!relocationDir.exists()) {
             if (!relocationDir.mkdir()) {
-                throw new IOException("Failed to create " + config.cdcRelocationDir);
+                throw new IOException("Failed to create " + config.cdcWorkingDir);
             }
         }
 

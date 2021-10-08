@@ -36,9 +36,9 @@ public class OffsetFileWriter implements OffsetWriter, AutoCloseable {
     private volatile long timeOfLastFlush = System.currentTimeMillis();
     private volatile long notCommittedEvents = 0L;
 
-    public OffsetFileWriter(String cdcLogDir) throws IOException {
+    public OffsetFileWriter(String cdcWorkingDir) throws IOException {
         this.offsetFlushPolicy = new OffsetFlushPolicy.AlwaysFlushOffsetPolicy();
-        this.offsetFile = new File(cdcLogDir, COMMITLOG_OFFSET_FILE);
+        this.offsetFile = new File(cdcWorkingDir, COMMITLOG_OFFSET_FILE);
         init();
     }
 
@@ -103,9 +103,6 @@ public class OffsetFileWriter implements OffsetWriter, AutoCloseable {
         if (offsetFile.exists()) {
             loadOffset();
         } else {
-            Path parentPath = offsetFile.toPath().getParent();
-            if (!parentPath.toFile().exists())
-                Files.createDirectories(parentPath);
             saveOffset();
         }
     }

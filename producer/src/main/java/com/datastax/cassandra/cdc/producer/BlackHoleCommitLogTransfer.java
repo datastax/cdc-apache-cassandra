@@ -32,12 +32,12 @@ public class BlackHoleCommitLogTransfer implements CommitLogTransfer {
 
     @Override
     public void onSuccessTransfer(Path file) {
-        CommitLogUtil.moveCommitLog(file.toFile(), Paths.get(config.cdcRelocationDir));
+        CommitLogUtil.moveCommitLog(file.toFile(), Paths.get(config.cdcWorkingDir));
     }
 
     @Override
     public void onErrorTransfer(Path file) {
-        CommitLogUtil.moveCommitLog(file.toFile(), Paths.get(config.cdcRelocationDir, "error"));
+        CommitLogUtil.moveCommitLog(file.toFile(), Paths.get(config.cdcWorkingDir, "error"));
     }
 
     /**
@@ -45,7 +45,7 @@ public class BlackHoleCommitLogTransfer implements CommitLogTransfer {
      */
     @Override
     public void recycleErrorCommitLogFiles(Path cdcDir) {
-        for(File file : CommitLogUtil.getCommitLogs(Paths.get(config.cdcRelocationDir, "error").toFile())) {
+        for(File file : CommitLogUtil.getCommitLogs(Paths.get(config.cdcWorkingDir, "error").toFile())) {
             CommitLogUtil.moveCommitLog(file, cdcDir);
         }
     }

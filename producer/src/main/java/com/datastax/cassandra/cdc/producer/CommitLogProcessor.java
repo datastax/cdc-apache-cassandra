@@ -60,6 +60,11 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
         this.commitLogTransfer = commitLogTransfer;
         this.offsetWriter = offsetWriter;
         this.cdcDir = new File(cdcLogDir);
+        if (!cdcDir.exists()) {
+            if (!cdcDir.mkdir()) {
+                throw new IOException("Failed to create " + cdcLogDir);
+            }
+        }
         this.newCommitLogWatcher = new AbstractDirectoryWatcher(cdcDir.toPath(),
                 Duration.ofMillis(config.cdcDirPollIntervalMs),
                 watchedEvents) {

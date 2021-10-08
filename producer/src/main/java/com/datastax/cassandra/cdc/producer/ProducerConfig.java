@@ -88,12 +88,12 @@ public class ProducerConfig {
         }
     }
 
-    public static final String CDC_RELOCATION_DIR = "cdcRelocationDir";
-    public String cdcRelocationDir = System.getProperty(CDC_PROPERTY_PREFIX + CDC_RELOCATION_DIR, storageDir + File.separator + "cdc_backup");
+    public static final String CDC_WORKING_DIR = "cdcWorkingDir";
+    public String cdcWorkingDir = System.getProperty(CDC_PROPERTY_PREFIX + CDC_WORKING_DIR, storageDir + File.separator + "cdc");
     public static final Setting<String> CDC_RELOCATION_DIR_SETTING =
-            new Setting<>(CDC_RELOCATION_DIR, Platform.ALL, (c, s) -> c.cdcRelocationDir = s, c -> c.cdcRelocationDir,
-                    "The directory where processed commitlog files are copied.",
-                    "cdc_backup","String",
+            new Setting<>(CDC_WORKING_DIR, Platform.ALL, (c, s) -> c.cdcWorkingDir = s, c -> c.cdcWorkingDir,
+                    "The CDC working directory where the last sent offset is saved, and where the archived and errored commitlogs files are copied.",
+                    "cdc", "String",
                     "main", 1);
 
     public static final String CDC_DIR_POOL_INTERVAL_MS = "cdcPoolIntervalMs";
