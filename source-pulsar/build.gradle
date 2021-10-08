@@ -16,6 +16,7 @@ sourceSets {
 
 dependencies {
     implementation project(':commons')
+    implementation project(':commons-pulsar')
     implementation project(':source')
 
     implementation("com.github.ben-manes.caffeine:caffeine:${caffeineVersion}")

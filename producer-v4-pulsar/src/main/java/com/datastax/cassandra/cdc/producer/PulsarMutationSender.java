@@ -18,6 +18,7 @@ package com.datastax.cassandra.cdc.producer;
 import com.datastax.cassandra.cdc.CqlLogicalTypes;
 import com.datastax.cassandra.cdc.MutationValue;
 import com.datastax.pulsar.utils.AvroSchemaWrapper;
+import com.datastax.pulsar.utils.Constants;
 import com.google.common.collect.ImmutableMap;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Conversions;
@@ -274,7 +275,7 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
                 .value(new KeyValue(
                         serializeAvroGenericRecord(buildAvroKey(keySchema, mutation), keySchema),
                         mutation.mutationValue()))
-                .property("writetime", mutation.getTs() + "")
+                .property(Constants.WRITETIME, mutation.getTs() + "")
                 .sendAsync();
     }
 

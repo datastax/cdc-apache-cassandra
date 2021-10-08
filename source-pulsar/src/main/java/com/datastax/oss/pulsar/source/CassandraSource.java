@@ -27,12 +27,15 @@ import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.metadata.schema.*;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
 import com.datastax.oss.pulsar.source.converters.NativeAvroConverter;
+import com.datastax.pulsar.utils.Constants;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.datastax.oss.cdc.ConfigUtil;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import io.vavr.Tuple2;
 import io.vavr.Tuple3;
+import jdk.nashorn.internal.ir.annotations.Immutable;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Conversions;
@@ -532,6 +535,10 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             } catch (Exception err) {
                 throw new RuntimeException(err);
             }
+        }
+
+        public Map<String, String> getProperties() {
+            return ImmutableMap.of(Constants.WRITETIME, msg.getProperty(Constants.WRITETIME));
         }
     }
 }
