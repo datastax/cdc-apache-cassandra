@@ -472,14 +472,13 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         com.datastax.cassandra.cdc.producer.CommitLogPosition sentOffset = offsetWriter.offset();
         long seg = sentOffset.segmentId;
         int pos = sentOffset.position;
+        log.debug("Sending sentOffset={} mutation={}", sentOffset, mutation);
 
         assert mutation != null : "Unexpected null mutation";
-        assert mutation.getCommitLogPosition().getSegmentId() >= seg : "Unexpected mutation segment";
+        assert mutation.getCommitLogPosition().getSegmentId() >= seg : "Unexpected mutation position="+mutation.getCommitLogPosition();
         assert mutation.getCommitLogPosition().getSegmentId() > seg ||
-                (mutation.getCommitLogPosition().getSegmentId() == seg && mutation.getCommitLogPosition().getPosition() > pos)
-                : "Unexpected mutation offset";
-
-        log.debug("Sending mutation={}", mutation);
+                (mutation.getCommitLogPosition().getSegmentId() == seg && mutation.getCommitLogPosition().getPosition() >= pos)
+                : "Unexpected mutation position="+mutation.getCommitLogPosition();
 
         while(true) {
             try {

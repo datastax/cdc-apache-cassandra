@@ -18,6 +18,7 @@ package com.datastax.oss.pulsar.source;
 import com.datastax.cassandra.cdc.CqlLogicalTypes;
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.*;
 import com.datastax.oss.driver.api.core.data.CqlDuration;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
 import com.datastax.oss.pulsar.source.converters.NativeAvroConverter;
@@ -157,6 +158,11 @@ public class PulsarCassandraSourceTests {
     @Test
     public void testStaticColumnWithNativeAvroConverter() throws InterruptedException, IOException {
         testStaticColumn("ks1", NativeAvroConverter.class, NativeAvroConverter.class);
+    }
+
+    @Test
+    public void testBatchInsertWithNativeAvroConverter() throws InterruptedException, IOException {
+        testBatchInsert("batchinsert", NativeAvroConverter.class, NativeAvroConverter.class);
     }
 
     void deployConnector(String ksName, String tableName,
@@ -557,6 +563,53 @@ public class PulsarCassandraSourceTests {
                                 (int) gr.getField(CqlLogicalTypes.CQL_DURATION_DAYS),
                                 (long) gr.getField(CqlLogicalTypes.CQL_DURATION_NANOSECONDS)));
             }
+        }
+    }
+
+    public void testBatchInsert(String ksName,
+                             Class<? extends Converter> keyConverter,
+                             Class<? extends Converter> valueConverter) throws InterruptedException, IOException {
+        try {
+            try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName +
+                        " WITH replication = {'class':'SimpleStrategy','replication_factor':'2'};");
+                cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table1 (id text, a int, b int, PRIMARY KEY (id, a)) WITH cdc=true");
+                PreparedStatement statement = cqlSession.prepare("INSERT INTO " + ksName + ".table1 (id, a, b) VALUES (?,?,?)");
+                BatchStatementBuilder batchBuilder = BatchStatement.builder(BatchType.UNLOGGED);
+                for(int i = 0; i < 1000; i++) {
+                    batchBuilder.addStatement(statement.bind("a", i, i));
+                }
+                cqlSession.execute(batchBuilder.build());
+            }
+            deployConnector(ksName, "table1", keyConverter, valueConverter);
+
+            try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
+                try (Consumer<GenericRecord> consumer = pulsarClient.newConsumer(org.apache.pulsar.client.api.Schema.AUTO_CONSUME())
+                        .topic(String.format(Locale.ROOT, "data-%s.table1", ksName))
+                        .subscriptionName("sub1")
+                        .subscriptionType(SubscriptionType.Key_Shared)
+                        .subscriptionMode(SubscriptionMode.Durable)
+                        .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+                        .subscribe()) {
+                    Message<GenericRecord> msg;
+                    int msgCount = 0;
+                    while ((msg = consumer.receive(90, TimeUnit.SECONDS)) != null && msgCount < 1000) {
+                        msgCount++;
+                        GenericObject genericObject = msg.getValue();
+                        assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
+                        KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
+                        GenericRecord key = kv.getKey();
+                        assertEquals("a", key.getField("id"));
+                        consumer.acknowledge(msg);
+                    }
+                    assertEquals(1000, msgCount);
+                }
+            }
+        } catch(Throwable t) {
+            log.error("error:", t);
+        } finally {
+            dumpFunctionLogs("cassandra-source-" + ksName + "-table1");
+            undeployConnector(ksName, "table1");
         }
     }
 

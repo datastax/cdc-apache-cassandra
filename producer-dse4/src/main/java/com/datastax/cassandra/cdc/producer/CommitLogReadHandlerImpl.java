@@ -475,14 +475,14 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                 offsetWriter.offset(Optional.of(mutation.getSource().nodeId));
         long seg = sentOffset.segmentId;
         int pos = sentOffset.position;
+        log.debug("Sending sentOffset={} mutation={}", sentOffset, mutation);
 
         assert mutation != null : "Unexpected null mutation";
-        assert mutation.getCommitLogPosition().getSegmentId() >= seg : "Unexpected mutation segment";
+        assert mutation.getCommitLogPosition().getSegmentId() >= seg : "Unexpected mutation position="+mutation.getCommitLogPosition();
         assert mutation.getCommitLogPosition().getSegmentId() > seg ||
-                (mutation.getCommitLogPosition().getSegmentId() == seg && mutation.getCommitLogPosition().getPosition() > pos)
-                : "Unexpected mutation offset";
+                (mutation.getCommitLogPosition().getSegmentId() == seg && mutation.getCommitLogPosition().getPosition() >= pos)
+                : "Unexpected mutation position="+mutation.getCommitLogPosition();
 
-        log.debug("Sending mutation={}", mutation);
         while(true) {
             try {
                 processMutation(mutation).toCompletableFuture().get();
