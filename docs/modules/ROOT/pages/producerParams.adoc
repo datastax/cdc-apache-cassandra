@@ -2,6 +2,22 @@
 [cols="2,3,1,1"]
 |===
 |Name | Description | Type | Default
+| *pulsarServiceUrl*
+| The Pulsar broker service URL.
+| string
+| pulsar://localhost:6650
+
+
+| *pulsarAuthPluginClassName*
+| The Pulsar authentication plugin class name.
+| string
+| 
+
+| *pulsarAuthParams*
+| The Pulsar authentication parameters.
+| string
+| 
+
 | *sslProvider*
 | The SSL/TLS provider to use.
 | string
@@ -56,26 +72,10 @@
 | false
 
 
-| *pulsarServiceUrl*
-| The Pulsar broker service URL.
+| *cdcWorkingDir*
+| The CDC working directory where the last sent offset is saved, and where the archived and errored commitlogs files are copied.
 | string
-| pulsar://localhost:6650
-
-
-| *pulsarAuthPluginClassName*
-| The Pulsar authentication plugin class name.
-| string
-| 
-
-| *pulsarAuthParams*
-| The Pulsar authentication parameters.
-| string
-| 
-
-| *cdcRelocationDir*
-| The directory where processed commitlog files are copied.
-| string
-| cdc_backup
+| cdc
 
 
 | *cdcPoolIntervalMs*
