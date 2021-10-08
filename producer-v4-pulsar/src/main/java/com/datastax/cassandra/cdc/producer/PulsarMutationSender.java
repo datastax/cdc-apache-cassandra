@@ -198,27 +198,32 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
 
     Object cqlToAvro(ColumnMetadata columnMetadata, Object value)
     {
+        AbstractType<?> type = columnMetadata.type.isReversed() ? ((ReversedType)columnMetadata.type).baseType : columnMetadata.type;
         log.trace("column name={} type={} class={} value={}",
-                columnMetadata.name, columnMetadata.type.asCQL3Type(), value.getClass().getName(), value);
-        if (columnMetadata.type instanceof TimestampType && value instanceof Date) {
-            return ((Date)value).getTime();
+                columnMetadata.name, type.getClass().getName(), value.getClass().getName(), value);
+
+        if (type instanceof TimestampType) {
+            if (value instanceof Date)
+                return ((Date)value).getTime();
+            if (value instanceof Instant)
+                return ((Instant)value).toEpochMilli();
         }
-        if (columnMetadata.type instanceof SimpleDateType && value instanceof Integer) {
+        if (type instanceof SimpleDateType && value instanceof Integer) {
             long timeInMillis = Duration.ofDays((Integer)value + Integer.MIN_VALUE).toMillis();
             Instant instant = Instant.ofEpochMilli(timeInMillis);
             LocalDate localDate = LocalDateTime.ofInstant(instant, ZoneOffset.UTC).toLocalDate();
             return (int) localDate.toEpochDay(); // Avro date is an int that stores the number of days from the unix epoch
         }
-        if (columnMetadata.type instanceof TimeType && value instanceof Long) {
+        if (type instanceof TimeType && value instanceof Long) {
             return ((Long)value / 1000); // Avro time is in microseconds
         }
-        if (columnMetadata.type instanceof InetAddressType) {
+        if (type instanceof InetAddressType) {
             return ((InetAddress)value).getHostAddress();
         }
-        if (columnMetadata.type instanceof ByteType) {
+        if (type instanceof ByteType) {
             return Byte.toUnsignedInt((byte)value); // AVRO does not support INT8
         }
-        if (columnMetadata.type instanceof ShortType) {
+        if (type instanceof ShortType) {
             return Short.toUnsignedInt((short)value); // AVRO does not support INT16
         }
         return value;
