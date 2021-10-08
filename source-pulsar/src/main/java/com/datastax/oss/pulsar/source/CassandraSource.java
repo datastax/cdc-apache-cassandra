@@ -372,8 +372,8 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                 }
             }
             long time = System.currentTimeMillis() - start;
-            long speed = (long) (time * 1000.0 / newBuffer.size());
-            log.info("Query time for {} msgs {} ms {} msgs/s discarded {} duplicate mutations", newBuffer.size(), time, speed, countDiscarded);
+            long throughput = time > 0 ? (1000 * newBuffer.size()) / time : 0;
+            log.info("Query time for {} msgs in {} ms throughput={} msgs/s discarded={} duplicate mutations", newBuffer.size(), time, throughput, countDiscarded);
         } catch (Exception e) {
             log.error("error", e);
             // fail every message in the buffer
