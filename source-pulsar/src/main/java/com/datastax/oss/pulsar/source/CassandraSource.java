@@ -102,15 +102,17 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         return queryExecutors[Math.abs(Objects.hashCode(key)) % queryExecutors.length].submit(task);
     }
 
+    public CassandraSource() {
+        // register AVRO logical types conversion
+        SpecificData.get().addLogicalTypeConversion(new CqlLogicalTypes.CqlVarintConversion());
+        SpecificData.get().addLogicalTypeConversion(new CqlLogicalTypes.CqlDecimalConversion());
+        SpecificData.get().addLogicalTypeConversion(new NativeAvroConverter.CqlDurationConversion());
+        SpecificData.get().addLogicalTypeConversion(new Conversions.UUIDConversion());
+    }
+
     @Override
     public void open(Map<String, Object> config, SourceContext sourceContext) throws Exception {
         try {
-            // register AVRO logical types conversion
-            SpecificData.get().addLogicalTypeConversion(new CqlLogicalTypes.CqlVarintConversion());
-            SpecificData.get().addLogicalTypeConversion(new CqlLogicalTypes.CqlDecimalConversion());
-            SpecificData.get().addLogicalTypeConversion(new NativeAvroConverter.CqlDurationConversion());
-            SpecificData.get().addLogicalTypeConversion(new Conversions.UUIDConversion());
-
             Map<String, String> processorConfig = ConfigUtil.flatString(config);
             log.info("openCassandraSource {}", config);
             this.config = new CassandraSourceConnectorConfig(processorConfig);
@@ -283,7 +285,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         List<MyKVRecord> newBuffer = new ArrayList<>();
         // we want to fill the buffer
         // this method will block until we receive at least one record
-        while (newBuffer.size() <= this.config.getBatchSize()) {
+        while (newBuffer.size() < this.config.getBatchSize()) {
             final Message<KeyValue<GenericRecord, MutationValue>> msg = consumer.receive(1, TimeUnit.SECONDS);
             if (msg == null) {
                 if (!newBuffer.isEmpty()) {
@@ -371,9 +373,9 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                     countDiscarded++;
                 }
             }
-            long time = System.currentTimeMillis() - start;
-            long throughput = time > 0 ? (1000 * newBuffer.size()) / time : 0;
-            log.info("Query time for {} msgs in {} ms throughput={} msgs/s discarded={} duplicate mutations", newBuffer.size(), time, throughput, countDiscarded);
+            long duration = System.currentTimeMillis() - start;
+            long throughput = duration > 0 ? (1000 * newBuffer.size()) / duration : 0;
+            log.info("Query time for {} msgs in {} ms throughput={} msgs/s discarded={} duplicate mutations", newBuffer.size(), duration, throughput, countDiscarded);
         } catch (Exception e) {
             log.error("error", e);
             // fail every message in the buffer
