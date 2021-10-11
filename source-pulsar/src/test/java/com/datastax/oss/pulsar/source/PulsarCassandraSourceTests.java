@@ -376,8 +376,6 @@ public class PulsarCassandraSourceTests {
                     assertEquals((Integer) 1, mutationTable2.get("3"));
                 }
             }
-        } catch(Throwable t) {
-            log.error("error:", t);
         } finally {
             dumpFunctionLogs("cassandra-source-" + ksName + "-table2");
             undeployConnector(ksName, "table2");
@@ -537,8 +535,6 @@ public class PulsarCassandraSourceTests {
                     assertEquals(1, mutationTable3Count);
                 }
             }
-        } catch(Throwable t) {
-            log.error("error:", t);
         } finally {
             dumpFunctionLogs("cassandra-source-" + ksName + "-table3");
             undeployConnector(ksName, "table3");
@@ -605,8 +601,6 @@ public class PulsarCassandraSourceTests {
                     assertEquals(1000, msgCount);
                 }
             }
-        } catch(Throwable t) {
-            log.error("error:", t);
         } finally {
             dumpFunctionLogs("cassandra-source-" + ksName + "-table1");
             undeployConnector(ksName, "table1");
@@ -675,8 +669,6 @@ public class PulsarCassandraSourceTests {
                     consumer.acknowledgeAsync(msg);
                 }
             }
-        } catch(Throwable t) {
-            log.error("error:", t);
         } finally {
             dumpFunctionLogs("cassandra-source-" + ksName + "-table4");
             undeployConnector(ksName, "table4");
