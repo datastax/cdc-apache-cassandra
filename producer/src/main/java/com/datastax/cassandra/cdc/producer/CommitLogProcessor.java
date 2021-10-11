@@ -22,9 +22,8 @@ import java.nio.file.Path;
 import java.nio.file.WatchEvent;
 import java.time.Duration;
 import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
+import java.util.concurrent.PriorityBlockingQueue;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -45,21 +44,27 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
     private final File cdcDir;
     private boolean initial = true;
 
-    final CommitLogReaderProcessor commitLogReaderProcessor;
-    final OffsetWriter offsetWriter;
+    final CommitLogReaderService commitLogReaderService;
+    final SegmentOffsetWriter segmentOffsetWriter;
     final ProducerConfig config;
+
+    /**
+     * commitlog file queue.
+     */
+    final PriorityBlockingQueue<File> commitLogQueue;
 
     public CommitLogProcessor(String cdcLogDir,
                               ProducerConfig config,
                               CommitLogTransfer commitLogTransfer,
-                              OffsetWriter offsetWriter,
-                              CommitLogReaderProcessor commitLogReaderProcessor,
+                              SegmentOffsetWriter segmentOffsetWriter,
+                              CommitLogReaderService commitLogReaderService,
                               boolean withNearRealTimeCdc) throws IOException {
         super(NAME, 0);
+        this.commitLogQueue = new PriorityBlockingQueue<>(128, CommitLogUtil::compareCommitLogs);
         this.config = config;
-        this.commitLogReaderProcessor = commitLogReaderProcessor;
+        this.commitLogReaderService = commitLogReaderService;
         this.commitLogTransfer = commitLogTransfer;
-        this.offsetWriter = offsetWriter;
+        this.segmentOffsetWriter = segmentOffsetWriter;
         this.cdcDir = new File(cdcLogDir);
         if (!cdcDir.exists()) {
             if (!cdcDir.mkdir()) {
@@ -74,11 +79,11 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
                 if (withNearRealTimeCdc) {
                     // for Cassandra 4.x and DSE 6.8.16+ only
                     if (path.toString().endsWith("_cdc.idx")) {
-                        commitLogReaderProcessor.submitCommitLog(path.toFile());
+                        commitLogReaderService.submitCommitLog(path.toFile());
                     }
                 } else {
                     if (path.toString().endsWith(".log")) {
-                        commitLogReaderProcessor.submitCommitLog(path.toFile());
+                        commitLogReaderService.submitCommitLog(path.toFile());
                     }
                 }
             }
@@ -99,30 +104,13 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
             commitLogTransfer.recycleErrorCommitLogFiles(cdcDir.toPath());
         }
 
-        // load existing commitlogs files when initializing
+        // load existing sorted commitlogs files when initializing
         if (initial) {
             File[] commitLogFiles = CommitLogUtil.getCommitLogs(cdcDir);
-            log.debug("Reading existing commit logs in {}, files={}", cdcDir, Arrays.asList(commitLogFiles));
             Arrays.sort(commitLogFiles, CommitLogUtil::compareCommitLogs);
-            File youngerCdcIdxFile = null;
+            log.debug("Reading existing commit logs in {}, files={}", cdcDir, Arrays.asList(commitLogFiles));
             for (File file : commitLogFiles) {
-                // filter out already processed commitlogs
-                long segmentId = CommitLogUtil.extractTimestamp(file.getName());
-                if (file.getName().endsWith(".log")) {
-                    // only submit logs, not _cdc.idx
-                    if(segmentId >= offsetWriter.offset().segmentId) {
-                        commitLogReaderProcessor.submitCommitLog(file);
-                    }
-                } else if (file.getName().endsWith("_cdc.idx")) {
-                    if (youngerCdcIdxFile == null ||  segmentId > CommitLogUtil.extractTimestamp(youngerCdcIdxFile.getName())) {
-                        youngerCdcIdxFile = file;
-                    }
-                }
-            }
-            if (youngerCdcIdxFile != null) {
-                // init the last synced position
-                log.debug("Read last synced position from file={}", youngerCdcIdxFile);
-                commitLogReaderProcessor.submitCommitLog(youngerCdcIdxFile);
+                commitLogReaderService.submitCommitLog(file);
             }
             initial = false;
         }

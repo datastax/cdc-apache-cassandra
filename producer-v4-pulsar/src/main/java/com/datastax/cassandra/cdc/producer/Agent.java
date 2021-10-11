@@ -59,12 +59,12 @@ public class Agent {
         log.info("Starting CDC producer agent, cdc_raw_directory={}", DatabaseDescriptor.getCDCLogLocation());
         ProducerConfig config = ProducerConfig.create(ProducerConfig.Platform.PULSAR, agentArgs);
 
-        OffsetFileWriter offsetFileWriter = new OffsetFileWriter(config.cdcWorkingDir);
+        SegmentOffsetWriter segmentOffsetWriter = new SegmentOffsetFileWriter(config.cdcWorkingDir);
         PulsarMutationSender pulsarMutationSender = new PulsarMutationSender(config);
-        CommitLogReadHandlerImpl commitLogReadHandler = new CommitLogReadHandlerImpl(config, offsetFileWriter, pulsarMutationSender);
+        CommitLogReadHandlerImpl commitLogReadHandler = new CommitLogReadHandlerImpl(config, segmentOffsetWriter, pulsarMutationSender);
         CommitLogTransfer commitLogTransfer = new BlackHoleCommitLogTransfer(config);
-        CommitLogReaderProcessorImpl commitLogReaderProcessor = new CommitLogReaderProcessorImpl(config, offsetFileWriter, commitLogTransfer, commitLogReadHandler);
-        CommitLogProcessor commitLogProcessor = new CommitLogProcessor(DatabaseDescriptor.getCDCLogLocation(), config, commitLogTransfer, offsetFileWriter, commitLogReaderProcessor, true);
+        CommitLogReaderProcessorImpl commitLogReaderProcessor = new CommitLogReaderProcessorImpl(config, segmentOffsetWriter, commitLogTransfer, commitLogReadHandler);
+        CommitLogProcessor commitLogProcessor = new CommitLogProcessor(DatabaseDescriptor.getCDCLogLocation(), config, commitLogTransfer, segmentOffsetWriter, commitLogReaderProcessor, true);
 
         // detect commitlogs file and submit new/modified files to the commitLogReader
         ExecutorService commitLogExecutor = Executors.newSingleThreadExecutor();
@@ -80,12 +80,8 @@ public class Agent {
         ExecutorService commitLogReaderExecutor = Executors.newSingleThreadExecutor();
         commitLogReaderExecutor.submit(() -> {
             try {
-                // wait for the synced position
-                commitLogReaderProcessor.awaitSyncedPosition();
-
                 // continuously read commitlogs
                 commitLogReaderProcessor.initialize();
-                commitLogReaderProcessor.start();
             } catch(Exception e) {
                 log.error("commitLogReaderProcessor error:", e);
             }

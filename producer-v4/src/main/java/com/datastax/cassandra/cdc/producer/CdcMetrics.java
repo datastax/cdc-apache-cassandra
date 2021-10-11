@@ -16,6 +16,7 @@
 package com.datastax.cassandra.cdc.producer;
 
 import com.codahale.metrics.Counter;
+import com.codahale.metrics.Gauge;
 import org.apache.cassandra.metrics.DefaultNameFactory;
 import org.apache.cassandra.metrics.MetricNameFactory;
 
@@ -28,4 +29,36 @@ public class CdcMetrics {
     public static final Counter sentErrors = Metrics.counter(factory.createMetricName("SentErrors"));
     public static final Counter commitLogReadErrors = Metrics.counter(factory.createMetricName("CommitLogReadErrors"));
     public static final Counter skippedMutations = Metrics.counter(factory.createMetricName("SkippedMutations"));
+
+    public static final Gauge<Integer> runningTasksGauge = Metrics.register(factory.createMetricName("runningTasks"), new Gauge<Integer>()
+    {
+        public Integer getValue()
+        {
+            return CommitLogReaderService.runningTasks.size();
+        }
+    });
+
+    public static final Gauge<Integer> maxRunningTasksGauge = Metrics.register(factory.createMetricName("maxRunningTasks"), new Gauge<Integer>()
+    {
+        public Integer getValue()
+        {
+            return CommitLogReaderService.maxRunningTasksGauge;
+        }
+    });
+
+    public static final Gauge<Integer> pendingTasksGauge = Metrics.register(factory.createMetricName("pendingTasks"), new Gauge<Integer>()
+    {
+        public Integer getValue()
+        {
+            return CommitLogReaderService.pendingTasks.size();
+        }
+    });
+
+    public static final Gauge<Integer> maxPendingTasksGauge = Metrics.register(factory.createMetricName("maxPendingTasks"), new Gauge<Integer>()
+    {
+        public Integer getValue()
+        {
+            return CommitLogReaderService.maxPendingTasksGauge;
+        }
+    });
 }

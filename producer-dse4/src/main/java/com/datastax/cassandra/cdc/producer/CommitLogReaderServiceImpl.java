@@ -1,12 +1,12 @@
 /**
  * Copyright DataStax, Inc 2021.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,14 +16,11 @@
 package com.datastax.cassandra.cdc.producer;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.cassandra.concurrent.JMXEnabledThreadPoolExecutor;
-import org.apache.cassandra.concurrent.NamedThreadFactory;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.commitlog.CommitLogPosition;
 import org.apache.cassandra.db.commitlog.CommitLogReader;
 
 import java.io.File;
-import java.util.concurrent.*;
 
 /**
  * Consume a queue of commitlog files to read mutations.
@@ -31,24 +28,16 @@ import java.util.concurrent.*;
  * @author vroyer
  */
 @Slf4j
-public class CommitLogReaderProcessorImpl extends CommitLogReaderService {
+public class CommitLogReaderServiceImpl extends CommitLogReaderService {
 
     private final CommitLogReadHandlerImpl commitLogReadHandler;
 
-    public CommitLogReaderProcessorImpl(ProducerConfig config,
-                                        SegmentOffsetWriter segmentOffsetWriter,
-                                        CommitLogTransfer commitLogTransfer,
-                                        CommitLogReadHandlerImpl commitLogReadHandler) {
+    public CommitLogReaderServiceImpl(ProducerConfig config,
+                                      SegmentOffsetWriter segmentOffsetWriter,
+                                      CommitLogTransfer commitLogTransfer,
+                                      CommitLogReadHandlerImpl commitLogReadHandler) {
         super(config, segmentOffsetWriter, commitLogTransfer);
         this.commitLogReadHandler = commitLogReadHandler;
-        this.tasksExecutor = new JMXEnabledThreadPoolExecutor(
-                1,
-                DatabaseDescriptor.getConcurrentWriters(),
-                DatabaseDescriptor.getCommitLogSyncPeriod() + 1000,
-                TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<Runnable>(),
-                new NamedThreadFactory("CdcCommitlogProcessor"),
-                "CdcProducer");
     }
 
     public Task createTask(String filename, long segment, int syncPosition, boolean completed) {
@@ -87,4 +76,5 @@ public class CommitLogReaderProcessorImpl extends CommitLogReaderService {
             }
         };
     }
+
 }

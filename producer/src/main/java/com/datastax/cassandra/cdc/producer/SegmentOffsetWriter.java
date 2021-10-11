@@ -22,7 +22,7 @@ import java.util.UUID;
 /**
  * Periodically persist the last sent offset to recover from that checkpoint.
  */
-public interface OffsetWriter {
+public interface SegmentOffsetWriter {
 
     /**
      * Set the current offset.
@@ -34,19 +34,21 @@ public interface OffsetWriter {
      * Get the current offset.
      * @return
      */
-    CommitLogPosition offset(Optional<UUID> nodeId);
+    int position(Optional<UUID> nodeId, long segmentId);
 
-    default  CommitLogPosition offset() {
-        return offset(Optional.empty());
+    default  int position(long segmentId) {
+        return position(Optional.empty(), segmentId);
     }
 
     /**
      * Persist the offset
      * @throws IOException
      */
-    void flush(Optional<UUID> nodeId) throws IOException;
+    void flush(Optional<UUID> nodeId, long segmentId) throws IOException;
 
-    default void flush() throws IOException {
-        flush(Optional.empty());
+    default void flush(long segmentId) throws IOException {
+        flush(Optional.empty(), segmentId);
     }
+
+    void remove(long segementId);
 }
