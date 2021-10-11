@@ -55,14 +55,14 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
     private final MutationMaker<TableMetadata> mutationMaker;
     private final MutationSender<TableMetadata> mutationSender;
-    private final OffsetWriter offsetWriter;
+    private final SegmentOffsetWriter segmentOffsetWriter;
 
     CommitLogReadHandlerImpl(ProducerConfig config,
-                             OffsetWriter offsetWriter,
+                             SegmentOffsetWriter segmentOffsetWriter,
                              MutationSender<TableMetadata> mutationSender) {
         this.mutationSender = mutationSender;
         this.mutationMaker = new MutationMaker<>(config);
-        this.offsetWriter = offsetWriter;
+        this.segmentOffsetWriter = segmentOffsetWriter;
     }
 
     /**
@@ -235,7 +235,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
             com.datastax.cassandra.cdc.producer.CommitLogPosition entryPosition =
                     new com.datastax.cassandra.cdc.producer.CommitLogPosition(CommitLogUtil.extractTimestamp(descriptor.fileName()), entryLocation);
 
-            if (offsetWriter.offset(Optional.of(StorageService.instance.getLocalHostUUID())).compareTo(entryPosition) > 0) {
+            if (entryLocation < segmentOffsetWriter.position(Optional.of(StorageService.instance.getLocalHostUUID()), descriptor.id)) {
                 log.debug("Mutation at {} for table {}.{} already processed, skipping...",
                         entryPosition, pu.metadata().keyspace, pu.metadata().name);
                 return;
@@ -471,18 +471,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     }
 
     public void blockingSend(Mutation<TableMetadata> mutation) {
-        com.datastax.cassandra.cdc.producer.CommitLogPosition sentOffset =
-                offsetWriter.offset(Optional.of(mutation.getSource().nodeId));
-        long seg = sentOffset.segmentId;
-        int pos = sentOffset.position;
-        log.debug("Sending sentOffset={} mutation={}", sentOffset, mutation);
-
-        assert mutation != null : "Unexpected null mutation";
-        assert mutation.getCommitLogPosition().getSegmentId() >= seg : "Unexpected mutation position="+mutation.getCommitLogPosition();
-        assert mutation.getCommitLogPosition().getSegmentId() > seg ||
-                (mutation.getCommitLogPosition().getSegmentId() == seg && mutation.getCommitLogPosition().getPosition() >= pos)
-                : "Unexpected mutation position="+mutation.getCommitLogPosition();
-
+        log.debug("Sending mutation={}", mutation);
         while(true) {
             try {
                 processMutation(mutation).toCompletableFuture().get();
@@ -503,7 +492,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         return this.mutationSender.sendMutationAsync(mutation)
                 .thenAccept(msgId -> {
                     CdcMetrics.sentMutations.inc();
-                    offsetWriter.markOffset(mutation);
+                    segmentOffsetWriter.markOffset(mutation);
                     log.info("mutation={} sent", mutation);
                 });
     }

@@ -30,6 +30,8 @@ public class CommitLogPosition implements Comparable<CommitLogPosition> {
     public final long segmentId;
     public final int position;
 
+    public static final CommitLogPosition NULL_POSITION = new CommitLogPosition(-1, 0);
+
     public static final Comparator<CommitLogPosition> comparator = new Comparator<CommitLogPosition>()
     {
         public int compare(CommitLogPosition o1, CommitLogPosition o2)

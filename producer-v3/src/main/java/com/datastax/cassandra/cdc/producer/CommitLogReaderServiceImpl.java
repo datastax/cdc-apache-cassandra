@@ -16,14 +16,11 @@
 package com.datastax.cassandra.cdc.producer;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.cassandra.concurrent.JMXEnabledThreadPoolExecutor;
-import org.apache.cassandra.concurrent.NamedThreadFactory;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.commitlog.CommitLogPosition;
 import org.apache.cassandra.db.commitlog.CommitLogReader;
 
 import java.io.File;
-import java.util.concurrent.*;
 
 /**
  * Consume a queue of commitlog files to read mutations.
@@ -31,28 +28,20 @@ import java.util.concurrent.*;
  * @author vroyer
  */
 @Slf4j
-public class CommitLogReaderProcessorImpl extends CommitLogReaderService {
+public class CommitLogReaderServiceImpl extends CommitLogReaderService {
 
     private final CommitLogReadHandlerImpl commitLogReadHandler;
 
-    public CommitLogReaderProcessorImpl(ProducerConfig config,
-                                        SegmentOffsetWriter segmentOffsetWriter,
-                                        CommitLogTransfer commitLogTransfer,
-                                        CommitLogReadHandlerImpl commitLogReadHandler) {
+    public CommitLogReaderServiceImpl(ProducerConfig config,
+                                      SegmentOffsetWriter segmentOffsetWriter,
+                                      CommitLogTransfer commitLogTransfer,
+                                      CommitLogReadHandlerImpl commitLogReadHandler) {
         super(config, segmentOffsetWriter, commitLogTransfer);
         this.commitLogReadHandler = commitLogReadHandler;
-        this.tasksExecutor = new JMXEnabledThreadPoolExecutor(
-                1,
-                DatabaseDescriptor.getConcurrentWriters(),
-                DatabaseDescriptor.getCommitLogSyncPeriod() + 1000,
-                TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<Runnable>(),
-                new NamedThreadFactory("CdcCommitlogProcessor"),
-                "CdcProducer");
     }
 
     public Task createTask(String filename, long segment, int syncPosition, boolean completed) {
-        return new Task(filename, segment, syncPosition, completed) {
+        return new Task(filename, segment, syncPosition, true) {
             public void run() {
                 File file = new File(DatabaseDescriptor.getCDCLogLocation(), filename);
                 if (!file.exists()) {
@@ -64,19 +53,14 @@ public class CommitLogReaderProcessorImpl extends CommitLogReaderService {
                 CommitLogReader commitLogReader = new CommitLogReader();
                 try {
                     // hack to use a dummy min position for segment ahead of the offsetFile.
-                    CommitLogPosition minPosition = new CommitLogPosition(seg, segmentOffsetWriter.position(seg));
+                    int minPosition = segmentOffsetWriter.position(seg);
                     commitLogReader.readCommitLogSegment(commitLogReadHandler, file, minPosition, false);
                     log.debug("Successfully processed commitlog completed={} minPosition={} file={}",
                             completed, minPosition, file.getName());
 
-                    if (completed) {
-                        // do not transfer the active commitlog on Cassandra 4.x
-                        commitLogTransfer.onSuccessTransfer(file.toPath());
-                        segmentOffsetWriter.remove(seg);
-                    } else {
-                        // flush sent offset on disk
-                        segmentOffsetWriter.flush(seg);
-                    }
+                    // do not transfer the active commitlog on Cassandra 4.x
+                    commitLogTransfer.onSuccessTransfer(file.toPath());
+                    segmentOffsetWriter.remove(seg);
                 } catch (Exception e) {
                     log.warn("Failed to read commitlog completed=" + completed + " file=" + file.getName(), e);
                     if (completed) {
