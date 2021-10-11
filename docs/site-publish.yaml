@@ -4,7 +4,7 @@ site:
   start_page: cass-source-connector::index.adoc
 
 content:
-  edit_url: 'https://github.com/riptano/cdcrep/blob/master/docs/{path}'
+  edit_url: 'https://github.com/datastax/cassandra-source-connector/blob/master/docs/{path}'
   sources:
   - url: ..
     start-path: docs
