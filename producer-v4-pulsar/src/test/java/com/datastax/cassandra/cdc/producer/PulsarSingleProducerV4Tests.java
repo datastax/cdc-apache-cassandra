@@ -16,6 +16,7 @@
 package com.datastax.cassandra.cdc.producer;
 
 import com.datastax.cassandra.cdc.PulsarDualProducerTests;
+import com.datastax.cassandra.cdc.PulsarSingleProducerTests;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterAll;
@@ -23,38 +24,27 @@ import org.junit.jupiter.api.BeforeAll;
 import org.testcontainers.containers.Network;
 import org.testcontainers.utility.DockerImageName;
 
-import java.io.IOException;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
 @Slf4j
-public class PulsarProducerV3Tests extends PulsarDualProducerTests {
+public class PulsarSingleProducerV4Tests extends PulsarSingleProducerTests {
 
     public static final DockerImageName CASSANDRA_IMAGE = DockerImageName.parse(
-            Optional.ofNullable(System.getenv("CASSANDRA_IMAGE")).orElse("cassandra:3.11.10")
+            Optional.ofNullable(System.getenv("CASSANDRA_IMAGE"))
+                    .orElse("cassandra:4.0-beta4")
     ).asCompatibleSubstituteFor("cassandra");
 
     @Override
     public CassandraContainer<?> createCassandraContainer(int nodeIndex, String pulsarServiceUrl, Network testNetwork) {
         return CassandraContainer.createCassandraContainerWithPulsarProducer(
-                CASSANDRA_IMAGE, testNetwork, nodeIndex, "v3", pulsarServiceUrl);
-    }
-
-    @Override
-    public void drain(CassandraContainer... cassandraContainers) throws IOException, InterruptedException {
-        // cassandra drain to discard commitlog segments without stopping the producer
-        for (CassandraContainer cassandraContainer : cassandraContainers)
-            assertEquals(0, cassandraContainer.execInContainer("/opt/cassandra/bin/nodetool", "drain").getExitCode());
+                CASSANDRA_IMAGE, testNetwork, nodeIndex, "v4", pulsarServiceUrl);
     }
 
     @BeforeAll
-    public static final void initBeforeClass() throws Exception {
-        PulsarDualProducerTests.initBeforeClass();
-    }
+    public static final void initBeforeClass() throws Exception { PulsarSingleProducerTests.initBeforeClass(); }
 
     @AfterAll
     public static void closeAfterAll() {
-        PulsarDualProducerTests.closeAfterAll();
+        PulsarSingleProducerTests.closeAfterAll();
     }
 }
