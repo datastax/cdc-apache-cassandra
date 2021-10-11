@@ -15,7 +15,7 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
-import com.datastax.cassandra.cdc.PulsarProducerTests;
+import com.datastax.cassandra.cdc.PulsarDualProducerTests;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterAll;
@@ -26,7 +26,7 @@ import org.testcontainers.utility.DockerImageName;
 import java.util.Optional;
 
 @Slf4j
-public class PulsarProducerV4Tests extends PulsarProducerTests {
+public class PulsarDualProducerV4Tests extends PulsarDualProducerTests {
 
     public static final DockerImageName CASSANDRA_IMAGE = DockerImageName.parse(
             Optional.ofNullable(System.getenv("CASSANDRA_IMAGE"))
@@ -40,10 +40,10 @@ public class PulsarProducerV4Tests extends PulsarProducerTests {
     }
 
     @BeforeAll
-    public static final void initBeforeClass() throws Exception { PulsarProducerTests.initBeforeClass(); }
+    public static final void initBeforeClass() throws Exception { PulsarDualProducerTests.initBeforeClass(); }
 
     @AfterAll
     public static void closeAfterAll() {
-        PulsarProducerTests.closeAfterAll();
+        PulsarDualProducerTests.closeAfterAll();
     }
 }
