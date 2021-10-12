@@ -33,33 +33,32 @@ public class MutationMaker<T> {
         this.config = config;
     }
 
-    public void insert(String cluster, UUID node, CommitLogPosition offsetPosition,
+    public void insert(UUID node, long segment, int position,
                        long tsMicro, RowData data, BlockingConsumer<Mutation<T>> consumer,
                        String md5Digest, T t) {
-        createRecord(cluster, node, offsetPosition, tsMicro, data, consumer, md5Digest, t);
+        createRecord(node, segment, position, tsMicro, data, consumer, md5Digest, t);
     }
 
-    public void update(String cluster, UUID node, CommitLogPosition offsetPosition,
+    public void update(UUID node, long segment, int position,
                        long tsMicro, RowData data, BlockingConsumer<Mutation<T>> consumer,
                        String md5Digest, T t) {
-        createRecord(cluster, node, offsetPosition, tsMicro, data, consumer, md5Digest, t);
+        createRecord(node, segment, position, tsMicro, data, consumer, md5Digest, t);
     }
 
-    public void delete(String cluster, UUID node, CommitLogPosition offsetPosition,
+    public void delete(UUID node, long segment, int position,
                        long tsMicro, RowData data, BlockingConsumer<Mutation<T>> consumer,
                        String md5Digest, T t) {
-        createRecord(cluster, node, offsetPosition, tsMicro,
+        createRecord(node, segment, position, tsMicro,
                 data, consumer, md5Digest, t);
     }
 
-    private void createRecord(String cluster, UUID node, CommitLogPosition offsetPosition,
+    private void createRecord(UUID nodeId, long segment, int position,
                               long tsMicro, RowData data, BlockingConsumer<Mutation<T>> consumer,
                               String md5Digest, T t) {
         // TODO: filter columns
         RowData filteredData = data;
 
-        SourceInfo source = new SourceInfo(cluster, node);
-        Mutation<T> record = new Mutation<T>(offsetPosition, source, filteredData, tsMicro, md5Digest, t);
+        Mutation<T> record = new Mutation<T>(nodeId, segment, position, filteredData, tsMicro, md5Digest, t);
         try {
             consumer.accept(record);
         }
