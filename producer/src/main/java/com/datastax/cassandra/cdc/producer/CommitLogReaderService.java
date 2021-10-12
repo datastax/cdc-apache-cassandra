@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.*;
 
 @Slf4j
@@ -110,7 +111,7 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
                     } catch(Exception ex) {
                     }
                     Task runningTask = submittedTasks.get(seg);
-                    if (pos > segmentOffsetWriter.position(seg) && (runningTask == null || pos > runningTask.syncPosition)) {
+                    if (pos > segmentOffsetWriter.position(Optional.empty(), seg) && (runningTask == null || pos > runningTask.syncPosition)) {
                         String commitlogName = file.getName().substring(0, file.getName().length() - "_cdc.idx".length()) + ".log";
                         Task task = createTask(commitlogName, seg, pos, completed);
                         pendingTasks.put(seg, task);
