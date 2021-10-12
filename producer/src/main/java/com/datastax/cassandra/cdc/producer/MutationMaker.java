@@ -34,42 +34,32 @@ public class MutationMaker<T> {
     }
 
     public void insert(String cluster, UUID node, CommitLogPosition offsetPosition,
-                       String keyspace, String name, boolean snapshot,
-                       long tsMicro, RowData data,
-                       boolean markOffset, BlockingConsumer<Mutation<T>> consumer,
+                       long tsMicro, RowData data, BlockingConsumer<Mutation<T>> consumer,
                        String md5Digest, T t) {
-        createRecord(cluster, node, offsetPosition, keyspace, name, snapshot, tsMicro,
-                data, markOffset, consumer, md5Digest, t);
+        createRecord(cluster, node, offsetPosition, tsMicro, data, consumer, md5Digest, t);
     }
 
     public void update(String cluster, UUID node, CommitLogPosition offsetPosition,
-                       String keyspace, String name, boolean snapshot,
-                       long tsMicro, RowData data,
-                       boolean markOffset, BlockingConsumer<Mutation<T>> consumer,
+                       long tsMicro, RowData data, BlockingConsumer<Mutation<T>> consumer,
                        String md5Digest, T t) {
-        createRecord(cluster, node, offsetPosition, keyspace, name, snapshot, tsMicro,
-                data, markOffset, consumer, md5Digest, t);
+        createRecord(cluster, node, offsetPosition, tsMicro, data, consumer, md5Digest, t);
     }
 
     public void delete(String cluster, UUID node, CommitLogPosition offsetPosition,
-                       String keyspace, String name, boolean snapshot,
-                       long tsMicro, RowData data,
-                       boolean markOffset, BlockingConsumer<Mutation<T>> consumer,
+                       long tsMicro, RowData data, BlockingConsumer<Mutation<T>> consumer,
                        String md5Digest, T t) {
-        createRecord(cluster, node, offsetPosition, keyspace, name, snapshot, tsMicro,
-                data, markOffset, consumer, md5Digest, t);
+        createRecord(cluster, node, offsetPosition, tsMicro,
+                data, consumer, md5Digest, t);
     }
 
     private void createRecord(String cluster, UUID node, CommitLogPosition offsetPosition,
-                              String keyspace, String name, boolean snapshot,
-                              long tsMicro, RowData data,
-                              boolean markOffset, BlockingConsumer<Mutation<T>> consumer,
+                              long tsMicro, RowData data, BlockingConsumer<Mutation<T>> consumer,
                               String md5Digest, T t) {
         // TODO: filter columns
         RowData filteredData = data;
 
-        SourceInfo source = new SourceInfo(cluster, node, offsetPosition, keyspace, name, tsMicro);
-        Mutation<T> record = new Mutation<T>(offsetPosition, source, filteredData, markOffset, tsMicro, md5Digest, t);
+        SourceInfo source = new SourceInfo(cluster, node);
+        Mutation<T> record = new Mutation<T>(offsetPosition, source, filteredData, tsMicro, md5Digest, t);
         try {
             consumer.accept(record);
         }
@@ -77,11 +67,5 @@ public class MutationMaker<T> {
             log.error("Interruption while enqueuing Change Event {}", record.toString());
             throw new CassandraConnectorTaskException("Enqueuing has been interrupted: ", e);
         }
-    }
-
-    public static Instant toInstantFromMicros(long microsSinceEpoch) {
-        return Instant.ofEpochSecond(
-                TimeUnit.MICROSECONDS.toSeconds(microsSinceEpoch),
-                TimeUnit.MICROSECONDS.toNanos(microsSinceEpoch % TimeUnit.SECONDS.toMicros(1)));
     }
 }

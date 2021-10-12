@@ -30,19 +30,19 @@ public class CdcMetrics {
     public static final Counter commitLogReadErrors = Metrics.counter(factory.createMetricName("CommitLogReadErrors"));
     public static final Counter skippedMutations = Metrics.counter(factory.createMetricName("SkippedMutations"));
 
-    public static final Gauge<Integer> runningTasksGauge = Metrics.register(factory.createMetricName("runningTasks"), new Gauge<Integer>()
+    public static final Gauge<Integer> submittedTasksGauge = Metrics.register(factory.createMetricName("submittedTasks"), new Gauge<Integer>()
     {
         public Integer getValue()
         {
-            return CommitLogReaderService.runningTasks.size();
+            return CommitLogReaderService.submittedTasks.size();
         }
     });
 
-    public static final Gauge<Integer> maxRunningTasksGauge = Metrics.register(factory.createMetricName("maxRunningTasks"), new Gauge<Integer>()
+    public static final Gauge<Integer> maxSubmittedTasksGauge = Metrics.register(factory.createMetricName("maxSubmittedTasks"), new Gauge<Integer>()
     {
         public Integer getValue()
         {
-            return CommitLogReaderService.maxRunningTasksGauge;
+            return CommitLogReaderService.maxSubmittedTasks;
         }
     });
 
@@ -58,7 +58,7 @@ public class CdcMetrics {
     {
         public Integer getValue()
         {
-            return CommitLogReaderService.maxPendingTasksGauge;
+            return CommitLogReaderService.maxPendingTasks;
         }
     });
 }

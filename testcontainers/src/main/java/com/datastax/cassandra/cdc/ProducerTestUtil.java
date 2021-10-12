@@ -12,8 +12,11 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 
-public class ProducerTestUtils {
+public class ProducerTestUtil {
+
+    private static final Random random = new Random();
 
     public static final DockerImageName PULSAR_IMAGE = DockerImageName.parse(
             Optional.ofNullable(System.getenv("PULSAR_IMAGE"))
@@ -62,5 +65,18 @@ public class ProducerTestUtils {
                                 (long) gr.getField(CqlLogicalTypes.CQL_DURATION_NANOSECONDS)));
             }
         }
+    }
+
+    public static ByteBuffer randomizeBuffer(int size)
+    {
+        byte[] toWrap = new byte[size];
+        random.nextBytes(toWrap);
+        return ByteBuffer.wrap(toWrap);
+    }
+
+    public enum Version {
+        V3,
+        V4,
+        DSE
     }
 }

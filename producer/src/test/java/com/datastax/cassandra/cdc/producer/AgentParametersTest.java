@@ -27,22 +27,24 @@ public class AgentParametersTest {
 
     String commonConfig =
             CDC_WORKING_DIR + "=cdc_working," +
-            ERROR_COMMITLOG_REPROCESS_ENABLED + "=true," +
-            CDC_DIR_POOL_INTERVAL_MS + "=1234," +
-            TOPIC_PREFIX + "=events-mutations," +
-            SSL_TRUSTSTORE_PATH + "=/truststore.jks," +
-            SSL_TRUSTSTORE_PASSWORD + "=password," +
-            SSL_TRUSTSTORE_TYPE + "=PKCS12," +
-            SSL_KEYSTORE_PATH + "=/keystore.jks," +
-            SSL_KEYSTORE_PASSWORD + "=password," +
-            SSL_ENABLED_PROTOCOLS + "=TLSv1.2," +
-            SSL_CIPHER_SUITES + "=AES256," +
-            SSL_PROVIDER + "=MyProvider,";
+                    ERROR_COMMITLOG_REPROCESS_ENABLED + "=true," +
+                    CDC_DIR_POOL_INTERVAL_MS + "=1234," +
+                    CDC_CONCURRENT_PROCESSOR + "=5," +
+                    TOPIC_PREFIX + "=events-mutations," +
+                    SSL_TRUSTSTORE_PATH + "=/truststore.jks," +
+                    SSL_TRUSTSTORE_PASSWORD + "=password," +
+                    SSL_TRUSTSTORE_TYPE + "=PKCS12," +
+                    SSL_KEYSTORE_PATH + "=/keystore.jks," +
+                    SSL_KEYSTORE_PASSWORD + "=password," +
+                    SSL_ENABLED_PROTOCOLS + "=TLSv1.2," +
+                    SSL_CIPHER_SUITES + "=AES256," +
+                    SSL_PROVIDER + "=MyProvider,";
 
     void assertCommonConfig(ProducerConfig config) {
         assertEquals("cdc_working", config.cdcWorkingDir);
         assertEquals(true, config.errorCommitLogReprocessEnabled);
         assertEquals(1234L, config.cdcDirPollIntervalMs);
+        assertEquals(5, config.cdcConcurrentProcessor);
         assertEquals("events-mutations", config.topicPrefix);
 
         // common TLS settings

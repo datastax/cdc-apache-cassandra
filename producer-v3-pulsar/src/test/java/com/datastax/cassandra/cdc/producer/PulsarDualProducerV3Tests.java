@@ -15,39 +15,36 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
-import com.datastax.cassandra.cdc.ProducerTestUtil;
 import com.datastax.cassandra.cdc.PulsarDualProducerTests;
-import com.datastax.cassandra.cdc.PulsarSingleProducerTests;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.cassandra.config.DatabaseDescriptor;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.testcontainers.containers.Network;
 import org.testcontainers.utility.DockerImageName;
 
+import java.io.IOException;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 @Slf4j
-public class PulsarSingleProducerV4Tests extends PulsarSingleProducerTests {
+public class PulsarDualProducerV3Tests extends PulsarDualProducerTests {
 
     public static final DockerImageName CASSANDRA_IMAGE = DockerImageName.parse(
-            Optional.ofNullable(System.getenv("CASSANDRA_IMAGE"))
-                    .orElse("cassandra:4.0-beta4")
+            Optional.ofNullable(System.getenv("CASSANDRA_IMAGE")).orElse("cassandra:3.11.10")
     ).asCompatibleSubstituteFor("cassandra");
 
     @Override
     public CassandraContainer<?> createCassandraContainer(int nodeIndex, String pulsarServiceUrl, Network testNetwork) {
         return CassandraContainer.createCassandraContainerWithPulsarProducer(
-                CASSANDRA_IMAGE, testNetwork, nodeIndex, "v4", pulsarServiceUrl);
+                CASSANDRA_IMAGE, testNetwork, nodeIndex, "v3", pulsarServiceUrl);
     }
 
     @Override
-    public ProducerTestUtil.Version version() { return ProducerTestUtil.Version.V4; }
-
-    @Override
-    public int getSegmentSize() {
-        return 1024 * 1024;
+    public void drain(CassandraContainer... cassandraContainers) throws IOException, InterruptedException {
+        // cassandra drain to discard commitlog segments without stopping the producer
+        for (CassandraContainer cassandraContainer : cassandraContainers)
+            assertEquals(0, cassandraContainer.execInContainer("/opt/cassandra/bin/nodetool", "drain").getExitCode());
     }
-
 }

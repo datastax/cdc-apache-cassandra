@@ -18,6 +18,7 @@ package com.datastax.cassandra.cdc.producer;
 import com.datastax.cassandra.cdc.PulsarDualProducerTests;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.cassandra.config.DatabaseDescriptor;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.testcontainers.containers.Network;
@@ -26,7 +27,7 @@ import org.testcontainers.utility.DockerImageName;
 import java.util.Optional;
 
 @Slf4j
-public class PulsarProducerDse4Tests extends PulsarDualProducerTests {
+public class PulsarDualProducerDse4Tests extends PulsarDualProducerTests {
 
     public static final DockerImageName CASSANDRA_IMAGE = DockerImageName.parse(
             Optional.ofNullable(System.getenv("CASSANDRA_IMAGE"))
@@ -41,17 +42,9 @@ public class PulsarProducerDse4Tests extends PulsarDualProducerTests {
                         nodeIndex,
                         System.getProperty("buildDir"),
                         "producer-dse4-pulsar",
-                        String.format("pulsarServiceUrl=%s,cdcRelocationDir=/var/lib/cassandra/cdc_backup", pulsarServiceUrl),
+                        String.format("pulsarServiceUrl=%s,cdcWorkingDir=/var/lib/cassandra/cdc", pulsarServiceUrl),
                         "dse")
                 .withEnv("DC", CassandraContainer.LOCAL_DC)
                 .withContainerConfigLocation("/config");
-    }
-
-    @BeforeAll
-    public static final void initBeforeClass() throws Exception { PulsarDualProducerTests.initBeforeClass(); }
-
-    @AfterAll
-    public static void closeAfterAll() {
-        PulsarDualProducerTests.closeAfterAll();
     }
 }

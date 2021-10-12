@@ -36,7 +36,6 @@ public class Mutation<T> {
     private CommitLogPosition commitLogPosition;
     private SourceInfo source;
     private RowData rowData;
-    private boolean shouldMarkOffset;
     private long ts;
     private String md5Digest;
     private T metadata;

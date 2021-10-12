@@ -15,48 +15,29 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
-import lombok.extern.slf4j.Slf4j;
-
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
  * Implementation of {@link CommitLogTransfer} which deletes commit logs.
  */
-@Slf4j
-public class BlackHoleCommitLogTransfer implements CommitLogTransfer {
+public class ArchiveCommitLogTransfer implements CommitLogTransfer {
 
     ProducerConfig config;
 
-    BlackHoleCommitLogTransfer(ProducerConfig config) {
+    ArchiveCommitLogTransfer(ProducerConfig config) {
         this.config = config;
     }
 
     @Override
     public void onSuccessTransfer(Path file) {
-        deleteCommitlog(file);
+        CommitLogUtil.moveCommitLog(file.toFile(), Paths.get(config.cdcWorkingDir, CommitLogReaderService.ARCHIVE_FOLDER));
     }
 
     @Override
     public void onErrorTransfer(Path file) {
-        deleteCommitlog(file);
-    }
-
-    void deleteCommitlog(Path file) {
-        try {
-            Files.delete(file);
-            String filename = file.getFileName().toString();
-            String cdcIdxFilename = filename.substring(0, filename.length() - ".log".length()) + "_cdc.idx";
-            File cdcIdxFile = new File(file.getParent().toString(), cdcIdxFilename);
-            if (cdcIdxFile.exists()) {
-                cdcIdxFile.delete();
-            }
-        } catch (IOException e) {
-            log.error("error:", e);
-        }
+        CommitLogUtil.moveCommitLog(file.toFile(), Paths.get(config.cdcWorkingDir, CommitLogReaderService.ERROR_FOLDER));
     }
 
     /**

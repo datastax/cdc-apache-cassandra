@@ -36,7 +36,10 @@ dependencies {
     implementation project(':producer-dse4')
     implementation("org.apache.avro:avro:${avroVersion}")
     implementation("org.apache.pulsar:pulsar-client:${pulsarVersion}")
+
     compileOnly("com.datastax.dse:dse-db:${dse4Version}")
+    testCompileOnly("com.datastax.dse:dse-db:${dse4Version}")
+
     testImplementation("com.datastax.dse:dse-db:${dse4Version}") {
         exclude group: 'io.netty'
     }

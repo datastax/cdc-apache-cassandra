@@ -26,29 +26,40 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
-public abstract class CommitLogReaderService
+public abstract class CommitLogReaderService implements Runnable, AutoCloseable
 {
     public static final String NAME = "CommitLogReader Processor";
-    public static final String ARCHIVE_FOLDER = "archive";
-    public static final String ERROR_FOLDER = "error";
+    public static final String ARCHIVE_FOLDER = "archives";
+    public static final String ERROR_FOLDER = "errors";
 
-    static final ConcurrentMap<Long, Task> runningTasks = new ConcurrentHashMap<>();
+    /**
+     * Submitted tasks to process CL files
+     */
+    static final ConcurrentMap<Long, Task> submittedTasks = new ConcurrentHashMap<>();
+
+    /**
+     * Pending tasks to process CL files
+     */
     static final ConcurrentMap<Long, Task> pendingTasks = new ConcurrentHashMap<>();
 
-    static int maxRunningTasksGauge = 0;
-    static int maxPendingTasksGauge = 0;
+    static int maxSubmittedTasks = 0;
+    static int maxPendingTasks = 0;
 
     final ProducerConfig config;
     final SegmentOffsetWriter segmentOffsetWriter;
     final CommitLogTransfer commitLogTransfer;
 
     /**
-     * COMPLETED commitlog file queue.
+     * ordered commitlog file queue.
      */
     final PriorityBlockingQueue<File> commitLogQueue;
+
+    /**
+     * Consumes commitlog files in parallel.
+     */
+    ExecutorService tasksExecutor;
 
     public CommitLogReaderService(ProducerConfig config,
                                   SegmentOffsetWriter segmentOffsetWriter,
@@ -59,10 +70,27 @@ public abstract class CommitLogReaderService
         this.commitLogQueue = new PriorityBlockingQueue<>(128, CommitLogUtil::compareCommitLogs);
     }
 
-    /**
-     * Consumes commitlog files in parallel.
-     */
-    ExecutorService tasksExecutor;
+    @Override
+    public void run() {
+        while(true) {
+            try {
+                File file = commitLogQueue.take();
+                submitCommitLog(file);
+            } catch (InterruptedException e) {
+                log.error("error:", e);
+            }
+        }
+    }
+
+    @Override
+    public void close() {
+        try {
+            tasksExecutor.shutdown();
+            tasksExecutor.awaitTermination(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            log.error("error:", e);
+        }
+    }
 
     public void submitCommitLog(File file) {
         log.debug("submitCommitLog file={}", file.getAbsolutePath());
@@ -76,27 +104,39 @@ public abstract class CommitLogReaderService
                     pos = Integer.parseInt(lines.get(0));
                     boolean completed = false;
                     try {
-                        if("COMPLETED".equals(lines.get(1))) {
+                        if(lines.get(1).contains("COMPLETED")) {
                             completed = true;
                         }
                     } catch(Exception ex) {
                     }
-                    String commitlogName = file.getName().substring(0, file.getName().length() - "_cdc.idx".length()) + ".log";
-                    Task task = createTask(commitlogName, seg, pos, completed);
-                    pendingTasks.put(seg, task);
-                    maxPendingTasksGauge = Math.max(maxPendingTasksGauge, pendingTasks.size());
-                    tryToRunPendingTask(seg);
+                    Task runningTask = submittedTasks.get(seg);
+                    if (pos > segmentOffsetWriter.position(seg) && (runningTask == null || pos > runningTask.syncPosition)) {
+                        String commitlogName = file.getName().substring(0, file.getName().length() - "_cdc.idx".length()) + ".log";
+                        Task task = createTask(commitlogName, seg, pos, completed);
+                        pendingTasks.put(seg, task);
+                        maxPendingTasks = Math.max(maxPendingTasks, pendingTasks.size());
+                        log.debug("maxPendingTasks={}", maxPendingTasks);
+                        tryToRunPendingTask(seg);
+                    }
                 }
-            } catch(IOException ex) {
+            } catch(Exception ex) {
+                log.warn("error while reading file=" + file.getName(), ex);
+            }
+        } else if (file.getName().endsWith(".log")) {
+            try {
+                long seg = CommitLogUtil.extractTimestamp(file.getName());
+                Task task = createTask(file.getName(), seg, 0, true);
+                pendingTasks.put(seg, task);
+                maxPendingTasks = Math.max(maxPendingTasks, pendingTasks.size());
+                log.debug("maxPendingTasks={}", maxPendingTasks);
+                tryToRunPendingTask(seg);
+            } catch(Exception ex) {
                 log.warn("error while reading file=" + file.getName(), ex);
             }
         }
     }
 
-    public abstract Task createTask(String commitlogName, long seg, int pos, boolean completed);
-
     public void initialize() throws Exception {
-
         File relocationDir = new File(config.cdcWorkingDir);
         if (!relocationDir.exists()) {
             if (!relocationDir.mkdir()) {
@@ -118,22 +158,29 @@ public abstract class CommitLogReaderService
         }
     }
 
-    public void stop() throws Exception {
-        tasksExecutor.shutdown();
-        tasksExecutor.awaitTermination(10, TimeUnit.SECONDS);
-    }
+    /**
+     * Creates a task to process a commitlog file.
+     * @param commitlogName
+     * @param seg segment
+     * @param pos last synced position
+     * @param completed true when the commitlog file is COMPLETED (immutable)
+     * @return
+     */
+    public abstract Task createTask(String commitlogName, long seg, int pos, boolean completed);
+
 
     /**
      * Start the pending task if not yet running.
+     * This ensures that only on task per segment is running.
      * @param segment id
      * @return the running task or null
      */
     public Task tryToRunPendingTask(long segment) {
-        return runningTasks.compute(segment, (k1, v1) -> {
+        return submittedTasks.compute(segment, (k1, v1) -> {
             if (v1 == null) {
                 Task pendingTask = pendingTasks.get(segment);
                 if (pendingTask != null) {
-                    pendingTasks.remove(pendingTask);
+                    pendingTasks.remove(segment);
                     tasksExecutor.submit(pendingTask);
                 }
                 return pendingTask;
@@ -159,6 +206,12 @@ public abstract class CommitLogReaderService
             this.segment = segment;
             this.syncPosition = syncPosition;
             this.completed = completed;
+        }
+
+
+        public void finish(long segment) {
+            submittedTasks.remove(segment);
+            tryToRunPendingTask(segment);
         }
     }
 }

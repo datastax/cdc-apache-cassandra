@@ -33,8 +33,4 @@ import java.util.UUID;
 public class SourceInfo  {
     public final String cluster;
     public final UUID nodeId;
-    public final CommitLogPosition commitLogPosition;
-    public final String keyspace;
-    public final String table;
-    public final long timestamp;
 }

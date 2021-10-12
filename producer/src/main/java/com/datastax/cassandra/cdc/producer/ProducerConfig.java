@@ -112,6 +112,14 @@ public class ProducerConfig {
                     false, "Boolean",
                     "main", 3);
 
+    public static final String CDC_CONCURRENT_PROCESSOR = "cdcConcurrentProcessor";
+    public int cdcConcurrentProcessor = Integer.getInteger(CDC_PROPERTY_PREFIX + CDC_CONCURRENT_PROCESSOR, -1);
+    public static final Setting<Integer> CDC_CONCURRENT_PROCESSOR_SETTING =
+            new Setting<>(CDC_CONCURRENT_PROCESSOR, Platform.ALL, (c, s) -> c.cdcConcurrentProcessor = Integer.parseInt(s), c -> c.cdcConcurrentProcessor,
+                    "The number of threads used to process commitlog files. The default value is the memtable_flush_writers.",
+                    -1, "Integer",
+                    "main", 4);
+
     public static final String TOPIC_PREFIX = "topicPrefix";
     public String topicPrefix = System.getProperty(CDC_PROPERTY_PREFIX + TOPIC_PREFIX, "events-");
     public static final Setting<String> TOPIC_PREFIX_SETTING =
@@ -232,6 +240,7 @@ public class ProducerConfig {
         Set<Setting<?>> set = new HashSet<>();
         set.add(CDC_RELOCATION_DIR_SETTING);
         set.add(CDC_DIR_POOL_INTERVAL_MS_SETTING);
+        set.add(CDC_CONCURRENT_PROCESSOR_SETTING);
         set.add(ERROR_COMMITLOG_REPROCESS_ENABLED_SETTING);
         set.add(TOPIC_PREFIX_SETTING);
         set.add(PULSAR_SERVICE_URL_SETTING);

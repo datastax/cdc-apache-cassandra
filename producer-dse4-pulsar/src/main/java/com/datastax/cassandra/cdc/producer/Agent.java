@@ -60,11 +60,15 @@ public class Agent {
         ProducerConfig config = ProducerConfig.create(ProducerConfig.Platform.PULSAR, agentArgs);
 
         SegmentOffsetFileWriter segmentOffsetFileWriter = new SegmentOffsetFileWriter(config.cdcWorkingDir);
+        segmentOffsetFileWriter.loadOffsets();
+
         PulsarMutationSender pulsarMutationSender = new PulsarMutationSender(config);
         CommitLogReadHandlerImpl commitLogReadHandler = new CommitLogReadHandlerImpl(config, segmentOffsetFileWriter, pulsarMutationSender);
         CommitLogTransfer commitLogTransfer = new BlackHoleCommitLogTransfer(config);
         CommitLogReaderServiceImpl commitLogReaderService = new CommitLogReaderServiceImpl(config, segmentOffsetFileWriter, commitLogTransfer, commitLogReadHandler);
         CommitLogProcessor commitLogProcessor = new CommitLogProcessor(DatabaseDescriptor.getCDCLogLocation().getAbsolutePath(), config, commitLogTransfer, segmentOffsetFileWriter, commitLogReaderService, true);
+
+        commitLogReaderService.initialize();
 
         // detect commitlogs file and submit new/modified files to the commitLogReader
         ExecutorService commitLogExecutor = Executors.newSingleThreadExecutor();
@@ -77,15 +81,8 @@ public class Agent {
             }
         });
 
-        ExecutorService commitLogReaderExecutor = Executors.newSingleThreadExecutor();
-        commitLogReaderExecutor.submit(() -> {
-            try {
-                // continuously read commitlogs
-                commitLogReaderService.initialize();
-            } catch(Exception e) {
-                log.error("commitLogReaderProcessor error:", e);
-            }
-        });
+        ExecutorService commitLogServiceExecutor = Executors.newSingleThreadExecutor();
+        commitLogServiceExecutor.submit(commitLogReaderService);
 
         log.info("CDC producer agent started");
     }

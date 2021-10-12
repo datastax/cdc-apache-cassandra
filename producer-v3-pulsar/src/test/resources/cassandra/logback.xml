@@ -97,7 +97,8 @@ appender reference in the root level section below.
     -->
   </root>
 
-  <logger name="org.apache.cassandra" level="DEBUG"/>
+  <logger name="org.apache.cassandra" level="INFO"/>
+  <logger name="org.apache.pulsar" level="INFO"/>
   <logger name="com.thinkaurelius.thrift" level="ERROR"/>
-  <logger name="com.datastax.cassandra.cdc" level="DEBUG"/>
+  <logger name="com.datastax.cassandra.cdc.producer" level="DEBUG"/>
 </configuration>

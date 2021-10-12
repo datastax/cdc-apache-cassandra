@@ -18,7 +18,6 @@ package com.datastax.cassandra.cdc.producer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.cassandra.config.DatabaseDescriptor;
 
-import java.io.IOException;
 import java.lang.instrument.Instrumentation;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -60,7 +59,9 @@ public class Agent {
         log.info("Starting CDC producer agent, cdc_raw_directory={}", DatabaseDescriptor.getCDCLogLocation());
         ProducerConfig config = ProducerConfig.create(ProducerConfig.Platform.PULSAR, agentArgs);
 
-        SegmentOffsetFileWriter segmentOffsetFileWriter = new SegmentOffsetFileWriter(config.cdcWorkingDir);
+        // With C* 3.11, CL are immutable, we don't need to keep the last sent position.
+        SegmentOffsetWriter segmentOffsetFileWriter = new SegmentOffsetDummyWriter(config.cdcWorkingDir);
+
         PulsarMutationSender pulsarMutationSender = new PulsarMutationSender(config);
         CommitLogReadHandlerImpl commitLogReadHandler = new CommitLogReadHandlerImpl(config, segmentOffsetFileWriter, pulsarMutationSender);
         CommitLogTransfer commitLogTransfer = new BlackHoleCommitLogTransfer(config);
@@ -79,6 +80,10 @@ public class Agent {
                 log.error("commitLogProcessor error:", e);
             }
         });
+
+        ExecutorService commitLogServiceExecutor = Executors.newSingleThreadExecutor();
+        commitLogServiceExecutor.submit(commitLogReaderService);
+
         log.info("CDC producer agent started");
     }
 }

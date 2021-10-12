@@ -81,7 +81,7 @@ appender reference in the root level section below.
             <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
                 <withJansi>true</withJansi>
                 <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-                    <level>INFO</level>
+                    <level>DEBUG</level>
                 </filter>
                 <encoder>
                     <pattern>%highlight(%-5level) [%thread] %green(%date{ISO8601}) %yellow(%X{service}) %F:%L - %msg%n</pattern>
@@ -93,7 +93,7 @@ appender reference in the root level section below.
         <then>
             <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
                 <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-                    <level>INFO</level>
+                    <level>DEBUG</level>
                 </filter>
                 <encoder>
                     <pattern>%-5level [%thread] %date{ISO8601} %X{service} %F:%L - %msg%n</pattern>
@@ -206,5 +206,6 @@ appender reference in the root level section below.
     <logger name="com.datastax.bdp.rm" level="TRACE"/>
     <logger name="org.apache.spark.analytics.rm" level="TRACE"/>
     <logger name="com.datastax.cassandra.cdc" level="DEBUG"/>
+    <logger name="org.apache.pulsar" level="INFO"/>
 
 </configuration>

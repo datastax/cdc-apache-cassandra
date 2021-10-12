@@ -31,19 +31,19 @@ import java.util.concurrent.*;
  * @author vroyer
  */
 @Slf4j
-public class CommitLogReaderProcessorImpl extends CommitLogReaderService {
+public class CommitLogReaderServiceImpl extends CommitLogReaderService {
 
     private final CommitLogReadHandlerImpl commitLogReadHandler;
 
-    public CommitLogReaderProcessorImpl(ProducerConfig config,
-                                        SegmentOffsetWriter segmentOffsetWriter,
-                                        CommitLogTransfer commitLogTransfer,
-                                        CommitLogReadHandlerImpl commitLogReadHandler) {
+    public CommitLogReaderServiceImpl(ProducerConfig config,
+                                      SegmentOffsetWriter segmentOffsetWriter,
+                                      CommitLogTransfer commitLogTransfer,
+                                      CommitLogReadHandlerImpl commitLogReadHandler) {
         super(config, segmentOffsetWriter, commitLogTransfer);
         this.commitLogReadHandler = commitLogReadHandler;
         this.tasksExecutor = new JMXEnabledThreadPoolExecutor(
                 1,
-                DatabaseDescriptor.getConcurrentWriters(),
+                config.cdcConcurrentProcessor == -1 ? DatabaseDescriptor.getFlushWriters() : config.cdcConcurrentProcessor,
                 DatabaseDescriptor.getCommitLogSyncPeriod() + 1000,
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<Runnable>(),
@@ -54,6 +54,8 @@ public class CommitLogReaderProcessorImpl extends CommitLogReaderService {
     public Task createTask(String filename, long segment, int syncPosition, boolean completed) {
         return new Task(filename, segment, syncPosition, completed) {
             public void run() {
+                maxSubmittedTasks = Math.max(maxSubmittedTasks, submittedTasks.size());
+                log.debug("Starting task segment={} position={} completed={} maxSubmittedTasks={}", segment, syncPosition, completed, maxSubmittedTasks);
                 File file = new File(DatabaseDescriptor.getCDCLogLocation(), filename);
                 if (!file.exists()) {
                     log.debug("file={} does not exist any more, ignoring", file.getName());
@@ -63,19 +65,20 @@ public class CommitLogReaderProcessorImpl extends CommitLogReaderService {
 
                 CommitLogReader commitLogReader = new CommitLogReader();
                 try {
-                    // hack to use a dummy min position for segment ahead of the offsetFile.
-                    CommitLogPosition minPosition = new CommitLogPosition(seg, segmentOffsetWriter.position(seg));
-                    commitLogReader.readCommitLogSegment(commitLogReadHandler, file, minPosition, false);
-                    log.debug("Successfully processed commitlog completed={} minPosition={} file={}",
-                            completed, minPosition, file.getName());
+                    if (syncPosition > segmentOffsetWriter.position(seg)) {
+                        CommitLogPosition minPosition = new CommitLogPosition(seg, segmentOffsetWriter.position(seg));
+                        commitLogReader.readCommitLogSegment(commitLogReadHandler, file, minPosition, false);
+                        log.debug("Successfully processed commitlog completed={} position={} file={}",
+                                completed, syncPosition, file.getName());
 
-                    if (completed) {
-                        // do not transfer the active commitlog on Cassandra 4.x
-                        commitLogTransfer.onSuccessTransfer(file.toPath());
-                        segmentOffsetWriter.remove(seg);
-                    } else {
-                        // flush sent offset on disk
-                        segmentOffsetWriter.flush(seg);
+                        if (completed) {
+                            // do not transfer the active commitlog on Cassandra 4.x
+                            commitLogTransfer.onSuccessTransfer(file.toPath());
+                            segmentOffsetWriter.remove(seg);
+                        } else {
+                            // flush sent offset on disk
+                            segmentOffsetWriter.flush(seg);
+                        }
                     }
                 } catch (Exception e) {
                     log.warn("Failed to read commitlog completed=" + completed + " file=" + file.getName(), e);
@@ -84,6 +87,8 @@ public class CommitLogReaderProcessorImpl extends CommitLogReaderService {
                         commitLogTransfer.onErrorTransfer(file.toPath());
                     }
                 }
+
+                finish(seg);
             }
         };
     }
