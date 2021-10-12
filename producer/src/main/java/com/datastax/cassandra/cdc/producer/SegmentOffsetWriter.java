@@ -41,6 +41,12 @@ public interface SegmentOffsetWriter {
     }
 
     /**
+     * Set the current offset.
+     * @return
+     */
+    void position(Optional<UUID> nodeId, long segmentId, int position);
+
+    /**
      * Persist the offset
      * @throws IOException
      */

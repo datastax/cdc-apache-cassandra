@@ -28,22 +28,19 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
 
 @Slf4j
 public class SegmentOffsetFileWriter implements SegmentOffsetWriter, AutoCloseable {
     public static final String COMMITLOG_OFFSET_FILE_SUFFIX = "_offset.dat";
+    public static final Pattern COMMITLOG_OFFSETS_REGEX_PATTERN = Pattern.compile("(\\d+)(_offset\\.dat)");
 
     private ConcurrentMap<Long, Integer> segmentOffsets = new ConcurrentHashMap<>();
 
     private final String cdcLogDir;
-    private final OffsetFlushPolicy offsetFlushPolicy;
-    private volatile long timeOfLastFlush = System.currentTimeMillis();
-    private volatile long notCommittedEvents = 0L;
 
     public SegmentOffsetFileWriter(String cdcLogDir) throws IOException {
         this.cdcLogDir = cdcLogDir;
-        this.offsetFlushPolicy = new OffsetFlushPolicy.AlwaysFlushOffsetPolicy();
-
         File cdcLogFile = new File(cdcLogDir);
         if (!cdcLogFile.exists())
             Files.createDirectories(cdcLogFile.toPath());
@@ -56,59 +53,65 @@ public class SegmentOffsetFileWriter implements SegmentOffsetWriter, AutoCloseab
                 : 0;
     }
 
-    @Override
-    public void markOffset(Mutation<?> mutation) {
-        this.segmentOffsets.put(mutation.getCommitLogPosition().segmentId, mutation.getCommitLogPosition().position);
-        notCommittedEvents++;
-        long now = System.currentTimeMillis();
-        long timeSinceLastFlush = now - timeOfLastFlush;
-        if(offsetFlushPolicy.shouldFlush(Duration.ofMillis(timeSinceLastFlush), notCommittedEvents)) {
-            flush(Optional.empty(), mutation.getCommitLogPosition().segmentId);
-        }
+    public void position(Optional<UUID> nodeId, long segment, int position) {
+        this.segmentOffsets.put(segment, position);
     }
 
     @Override
-    public void flush(Optional<UUID> nodeId, long segmentId) {
+    public void markOffset(Mutation<?> mutation) {
+        this.segmentOffsets.put(mutation.getCommitLogPosition().segmentId, mutation.getCommitLogPosition().position);
+    }
+
+    @Override
+    public void flush(Optional<UUID> nodeId, long segmentId) throws IOException {
         saveOffset(segmentId);
     }
 
     @Override
-    public void close() {
-        segmentOffsets.keySet().forEach(seg -> saveOffset(seg));
+    public void close() throws IOException {
+        for(long seg : segmentOffsets.keySet())
+            saveOffset(seg);
     }
 
-    public static String serializePosition(CommitLogPosition commitLogPosition) {
-        return commitLogPosition.position + "";
+    public static String serializePosition(int position) {
+        return position + "";
     }
 
     public static int deserializePosition(String s) {
         return Integer.parseInt(s);
     }
 
-    private synchronized void saveOffset(long segment) {
+    private void saveOffset(long segment) throws IOException {
         File segmentOffsetFile = new File(cdcLogDir, segment + COMMITLOG_OFFSET_FILE_SUFFIX);
         try(FileWriter out = new FileWriter(segmentOffsetFile)) {
-            final CommitLogPosition position = new CommitLogPosition(segment, segmentOffsets.get(segment));
-            out.write(serializePosition(position));
-            notCommittedEvents = 0L;
-            timeOfLastFlush = System.currentTimeMillis();
-            log.debug("Flush offset=" + position);
+            out.write(serializePosition(segmentOffsets.get(segment)));
         } catch (IOException e) {
             log.error("Failed to save offset for file " + segmentOffsetFile.getName(), e);
+            throw e;
         }
     }
 
-    private synchronized void loadOffset(long segment) throws IOException {
+    public void loadOffset(long segment) throws IOException {
         File segmentOffsetFile = new File(cdcLogDir, segment + COMMITLOG_OFFSET_FILE_SUFFIX);
         if (segmentOffsetFile.exists()) {
-            try (BufferedReader br = new BufferedReader(new FileReader(segmentOffsetFile))) {
-                int position = deserializePosition(br.readLine());
-                segmentOffsets.put(segment, position);
-                log.debug("loaded segment={} position={}", segment, position);
-            } catch (IOException e) {
-                log.error("Failed to load offset for file " + segmentOffsetFile.getName(), e);
-                throw e;
-            }
+            loadOffsetFile(segment, segmentOffsetFile);
+        }
+    }
+
+    private void loadOffsetFile(long segment, File segmentOffsetFile) throws IOException {
+        try (BufferedReader br = new BufferedReader(new FileReader(segmentOffsetFile))) {
+            int position = deserializePosition(br.readLine());
+            segmentOffsets.put(segment, position);
+        } catch (IOException e) {
+            log.error("Failed to load offset for file " + segmentOffsetFile.getName(), e);
+            throw e;
+        }
+    }
+
+    public void loadOffsets() throws IOException {
+        for(File f : new File(cdcLogDir).listFiles(f -> f.isFile() && COMMITLOG_OFFSETS_REGEX_PATTERN.matcher(f.getName()).matches())) {
+            long segment = Long.parseLong(f.getName().substring(0, f.getName().length() - COMMITLOG_OFFSET_FILE_SUFFIX.length()));
+            loadOffsetFile(segment, f);
         }
     }
 

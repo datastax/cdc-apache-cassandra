@@ -52,7 +52,6 @@ import static com.datastax.cassandra.cdc.producer.CommitLogReadHandlerImpl.RowTy
  */
 @Slf4j
 public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
-    private static final boolean MARK_OFFSET = true;
 
     private final MutationMaker<TableMetadata> mutationMaker;
     private final MutationSender<TableMetadata> mutationSender;
@@ -229,7 +228,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
         for (PartitionUpdate pu : mutation.getPartitionUpdates()) {
             com.datastax.cassandra.cdc.producer.CommitLogPosition entryPosition =
-                    new com.datastax.cassandra.cdc.producer.CommitLogPosition(CommitLogUtil.extractTimestamp(descriptor.fileName()), entryLocation);
+                    new com.datastax.cassandra.cdc.producer.CommitLogPosition(descriptor.id, entryLocation);
 
             try {
                 DataOutputBuffer dataOutputBuffer = new DataOutputBuffer();
@@ -320,9 +319,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
             RowData after = new RowData();
             populatePartitionColumns(after, pu);
             mutationMaker.delete(DatabaseDescriptor.getClusterName(), StorageService.instance.getLocalHostUUID(), offsetPosition,
-                    pu.metadata().keyspace, pu.metadata().name, false,
-                    pu.maxTimestamp(), after,
-                    MARK_OFFSET, this::blockingSend, md5Digest, pu.metadata());
+                    pu.maxTimestamp(), after, this::blockingSend, md5Digest, pu.metadata());
         }
         catch (Exception e) {
             log.error("Fail to send delete partition at {}. Reason: {}", offsetPosition, e);
@@ -344,20 +341,17 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         switch (rowType) {
             case INSERT:
                 mutationMaker.insert(DatabaseDescriptor.getClusterName(), StorageService.instance.getLocalHostUUID(), offsetPosition,
-                        pu.metadata().keyspace, pu.metadata().name, false,
-                        ts, after, MARK_OFFSET, this::blockingSend, md5Digest, pu.metadata());
+                        ts, after, this::blockingSend, md5Digest, pu.metadata());
                 break;
 
             case UPDATE:
                 mutationMaker.update(DatabaseDescriptor.getClusterName(), StorageService.instance.getLocalHostUUID(), offsetPosition,
-                        pu.metadata().keyspace, pu.metadata().name, false,
-                        ts, after, MARK_OFFSET, this::blockingSend, md5Digest, pu.metadata());
+                        ts, after, this::blockingSend, md5Digest, pu.metadata());
                 break;
 
             case DELETE:
                 mutationMaker.delete(DatabaseDescriptor.getClusterName(), StorageService.instance.getLocalHostUUID(), offsetPosition,
-                        pu.metadata().keyspace, pu.metadata().name, false,
-                        ts, after, MARK_OFFSET, this::blockingSend, md5Digest, pu.metadata());
+                        ts, after, this::blockingSend, md5Digest, pu.metadata());
                 break;
 
             default:
@@ -486,7 +480,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                 .thenAccept(msgId -> {
                     CdcMetrics.sentMutations.inc();
                     segmentOffsetWriter.markOffset(mutation);
-                    log.info("mutation={} sent", mutation);
+                    log.debug("mutation={} sent", mutation);
                 });
     }
 }

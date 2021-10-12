@@ -35,7 +35,10 @@ dependencies {
     implementation project(':producer-v3')
     implementation("org.apache.avro:avro:${avroVersion}")
     implementation("org.apache.pulsar:pulsar-client:${pulsarVersion}")
+
     compileOnly("org.apache.cassandra:cassandra-all:${cassandra3Version}")
+    testCompileOnly("org.apache.cassandra:cassandra-all:${cassandra3Version}")
+
     testImplementation("org.apache.cassandra:cassandra-all:${cassandra3Version}") {
         exclude group: 'io.netty'
     }

@@ -59,12 +59,16 @@ public class Agent {
         log.info("Starting CDC producer agent, cdc_raw_directory={}", DatabaseDescriptor.getCDCLogLocation());
         ProducerConfig config = ProducerConfig.create(ProducerConfig.Platform.PULSAR, agentArgs);
 
-        SegmentOffsetWriter segmentOffsetWriter = new SegmentOffsetFileWriter(config.cdcWorkingDir);
+        SegmentOffsetFileWriter segmentOffsetFileWriter = new SegmentOffsetFileWriter(config.cdcWorkingDir);
+        segmentOffsetFileWriter.loadOffsets();
+
         PulsarMutationSender pulsarMutationSender = new PulsarMutationSender(config);
-        CommitLogReadHandlerImpl commitLogReadHandler = new CommitLogReadHandlerImpl(config, segmentOffsetWriter, pulsarMutationSender);
+        CommitLogReadHandlerImpl commitLogReadHandler = new CommitLogReadHandlerImpl(config, segmentOffsetFileWriter, pulsarMutationSender);
         CommitLogTransfer commitLogTransfer = new BlackHoleCommitLogTransfer(config);
-        CommitLogReaderProcessorImpl commitLogReaderProcessor = new CommitLogReaderProcessorImpl(config, segmentOffsetWriter, commitLogTransfer, commitLogReadHandler);
-        CommitLogProcessor commitLogProcessor = new CommitLogProcessor(DatabaseDescriptor.getCDCLogLocation(), config, commitLogTransfer, segmentOffsetWriter, commitLogReaderProcessor, true);
+        CommitLogReaderServiceImpl commitLogReaderService = new CommitLogReaderServiceImpl(config, segmentOffsetFileWriter, commitLogTransfer, commitLogReadHandler);
+        CommitLogProcessor commitLogProcessor = new CommitLogProcessor(DatabaseDescriptor.getCDCLogLocation(), config, commitLogTransfer, segmentOffsetFileWriter, commitLogReaderService, true);
+
+        commitLogReaderService.initialize();
 
         // detect commitlogs file and submit new/modified files to the commitLogReader
         ExecutorService commitLogExecutor = Executors.newSingleThreadExecutor();
@@ -77,15 +81,8 @@ public class Agent {
             }
         });
 
-        ExecutorService commitLogReaderExecutor = Executors.newSingleThreadExecutor();
-        commitLogReaderExecutor.submit(() -> {
-            try {
-                // continuously read commitlogs
-                commitLogReaderProcessor.initialize();
-            } catch(Exception e) {
-                log.error("commitLogReaderProcessor error:", e);
-            }
-        });
+        ExecutorService commitLogServiceExecutor = Executors.newSingleThreadExecutor();
+        commitLogServiceExecutor.submit(commitLogReaderService);
 
         log.info("CDC producer agent started");
     }

@@ -48,11 +48,6 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
     final SegmentOffsetWriter segmentOffsetWriter;
     final ProducerConfig config;
 
-    /**
-     * commitlog file queue.
-     */
-    final PriorityBlockingQueue<File> commitLogQueue;
-
     public CommitLogProcessor(String cdcLogDir,
                               ProducerConfig config,
                               CommitLogTransfer commitLogTransfer,
@@ -60,7 +55,6 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
                               CommitLogReaderService commitLogReaderService,
                               boolean withNearRealTimeCdc) throws IOException {
         super(NAME, 0);
-        this.commitLogQueue = new PriorityBlockingQueue<>(128, CommitLogUtil::compareCommitLogs);
         this.config = config;
         this.commitLogReaderService = commitLogReaderService;
         this.commitLogTransfer = commitLogTransfer;
@@ -79,11 +73,11 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
                 if (withNearRealTimeCdc) {
                     // for Cassandra 4.x and DSE 6.8.16+ only
                     if (path.toString().endsWith("_cdc.idx")) {
-                        commitLogReaderService.submitCommitLog(path.toFile());
+                        commitLogReaderService.commitLogQueue.add(path.toFile());
                     }
                 } else {
                     if (path.toString().endsWith(".log")) {
-                        commitLogReaderService.submitCommitLog(path.toFile());
+                        commitLogReaderService.commitLogQueue.add(path.toFile());
                     }
                 }
             }
@@ -99,18 +93,19 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
 
     @Override
     public void process() throws IOException, InterruptedException {
-        if (config.errorCommitLogReprocessEnabled) {
-            log.debug("Moving back error commitlogs for reprocessing into {}", cdcDir.getAbsolutePath());
-            commitLogTransfer.recycleErrorCommitLogFiles(cdcDir.toPath());
-        }
 
         // load existing sorted commitlogs files when initializing
         if (initial) {
+            if (config.errorCommitLogReprocessEnabled) {
+                log.debug("Moving back error commitlogs for reprocessing into {}", cdcDir.getAbsolutePath());
+                commitLogTransfer.recycleErrorCommitLogFiles(cdcDir.toPath());
+            }
+
             File[] commitLogFiles = CommitLogUtil.getCommitLogs(cdcDir);
             Arrays.sort(commitLogFiles, CommitLogUtil::compareCommitLogs);
             log.debug("Reading existing commit logs in {}, files={}", cdcDir, Arrays.asList(commitLogFiles));
             for (File file : commitLogFiles) {
-                commitLogReaderService.submitCommitLog(file);
+                commitLogReaderService.commitLogQueue.add(file);
             }
             initial = false;
         }

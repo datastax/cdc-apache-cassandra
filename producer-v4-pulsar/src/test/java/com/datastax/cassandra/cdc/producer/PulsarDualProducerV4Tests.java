@@ -39,11 +39,4 @@ public class PulsarDualProducerV4Tests extends PulsarDualProducerTests {
                 CASSANDRA_IMAGE, testNetwork, nodeIndex, "v4", pulsarServiceUrl);
     }
 
-    @BeforeAll
-    public static final void initBeforeClass() throws Exception { PulsarDualProducerTests.initBeforeClass(); }
-
-    @AfterAll
-    public static void closeAfterAll() {
-        PulsarDualProducerTests.closeAfterAll();
-    }
 }

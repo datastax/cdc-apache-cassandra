@@ -28,6 +28,8 @@ import org.apache.pulsar.common.schema.KeyValueEncodingType;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
 import org.junit.Assert;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.Network;
@@ -38,8 +40,8 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static com.datastax.cassandra.cdc.ProducerTestUtils.PULSAR_IMAGE;
-import static com.datastax.cassandra.cdc.ProducerTestUtils.genericRecordToString;
+import static com.datastax.cassandra.cdc.ProducerTestUtil.PULSAR_IMAGE;
+import static com.datastax.cassandra.cdc.ProducerTestUtil.genericRecordToString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
@@ -57,6 +59,7 @@ public abstract class PulsarDualProducerTests {
         // do nothing by default
     }
 
+    @BeforeAll
     public static void initBeforeClass() throws Exception {
         testNetwork = Network.newNetwork();
         pulsarContainer = new PulsarContainer<>(PULSAR_IMAGE)
@@ -72,6 +75,7 @@ public abstract class PulsarDualProducerTests {
         assertEquals(0, result.getExitCode());
     }
 
+    @AfterAll
     public static void closeAfterAll() {
         pulsarContainer.close();
     }

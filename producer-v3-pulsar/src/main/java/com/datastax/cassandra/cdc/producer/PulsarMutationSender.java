@@ -278,6 +278,7 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
                         serializeAvroGenericRecord(buildAvroKey(keySchema, mutation), keySchema),
                         mutation.mutationValue()))
                 .property(Constants.WRITETIME, mutation.getTs() + "")
+                .property(Constants.SEGMENT_AND_POSITION, mutation.getCommitLogPosition().segmentId  + ":" + mutation.getCommitLogPosition().position)
                 .sendAsync();
     }
 

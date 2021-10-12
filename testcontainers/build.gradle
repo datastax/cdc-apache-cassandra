@@ -26,6 +26,7 @@ delombok.onlyIf {
 
 dependencies {
     implementation project(':commons')
+    implementation project(':commons-pulsar')
     implementation "org.projectlombok:lombok:${lombokVersion}"
     annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
 
