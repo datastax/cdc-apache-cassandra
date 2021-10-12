@@ -59,7 +59,7 @@ public class SegmentOffsetFileWriter implements SegmentOffsetWriter, AutoCloseab
 
     @Override
     public void markOffset(Mutation<?> mutation) {
-        this.segmentOffsets.put(mutation.getCommitLogPosition().segmentId, mutation.getCommitLogPosition().position);
+        this.segmentOffsets.put(mutation.getSegment(), mutation.getPosition());
     }
 
     @Override

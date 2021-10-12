@@ -276,7 +276,7 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
                         serializeAvroGenericRecord(buildAvroKey(keySchema, mutation), keySchema),
                         mutation.mutationValue()))
                 .property(Constants.WRITETIME, mutation.getTs() + "")
-                .property(Constants.SEGMENT_AND_POSITION, mutation.getCommitLogPosition().segmentId  + ":" + mutation.getCommitLogPosition().position)
+                .property(Constants.SEGMENT_AND_POSITION, mutation.getSegment()  + ":" + mutation.getPosition())
                 .sendAsync();
     }
 

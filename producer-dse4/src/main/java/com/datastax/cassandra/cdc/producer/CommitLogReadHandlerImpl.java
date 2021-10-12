@@ -231,22 +231,19 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         }
 
         for (PartitionUpdate pu : mutation.getPartitionUpdates()) {
-            com.datastax.cassandra.cdc.producer.CommitLogPosition entryPosition =
-                    new com.datastax.cassandra.cdc.producer.CommitLogPosition(CommitLogUtil.extractTimestamp(descriptor.fileName()), entryLocation);
-
             if (entryLocation < segmentOffsetWriter.position(Optional.of(StorageService.instance.getLocalHostUUID()), descriptor.id)) {
-                log.debug("Mutation at {} for table {}.{} already processed, skipping...",
-                        entryPosition, pu.metadata().keyspace, pu.metadata().name);
+                log.debug("Mutation at {}:{} for table {}.{} already processed, skipping...",
+                        descriptor.id, entryLocation, pu.metadata().keyspace, pu.metadata().name);
                 return;
             }
 
             try {
                 String md5Digest = DigestUtils.md5Hex(new DataInputBuffer(inputBuffer, 0, size));
-                process(pu, entryPosition, md5Digest);
+                process(pu, descriptor.id, entryLocation, md5Digest);
             }
             catch (Exception e) {
-                throw new RuntimeException(String.format("Failed to process PartitionUpdate %s at %s for table %s.%s.",
-                        pu.toString(), entryPosition.toString(), pu.metadata().keyspace, pu.metadata().name), e);
+                throw new RuntimeException(String.format("Failed to process PartitionUpdate %s at %d:%d for table %s.%s.",
+                        pu.toString(), descriptor.id, entryLocation, pu.metadata().keyspace, pu.metadata().name), e);
             }
         }
     }
@@ -273,7 +270,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
      * deletion or a row-level modification) or throw an exception if it isn't. The valid partition
      * update is then converted into a {@link Mutation}.
      */
-    private void process(PartitionUpdate pu, com.datastax.cassandra.cdc.producer.CommitLogPosition position, String md5Digest) {
+    private void process(PartitionUpdate pu, long segment, int position, String md5Digest) {
         PartitionType partitionType = PartitionType.getPartitionType(pu);
 
         if (!PartitionType.isValid(partitionType)) {
@@ -284,7 +281,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         switch (partitionType) {
             case PARTITION_AND_CLUSTERING_KEY_ROW_DELETION:
             case PARTITION_KEY_ROW_DELETION: {
-                handlePartitionDeletion(pu, position, md5Digest);
+                handlePartitionDeletion(pu, segment, position, md5Digest);
             }
             break;
 
@@ -292,7 +289,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                 UnfilteredRowIterator it = pu.unfilteredIterator();
                 Row row = it.staticRow();
                 RowType rowType = RowType.getRowType(row);
-                handleRowModifications(row, rowType, pu, position, md5Digest);
+                handleRowModifications(row, rowType, pu, segment, position, md5Digest);
             }
             break;
 
@@ -306,8 +303,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                         continue;
                     }
                     Row row = (Row) rowOrRangeTombstone;
-
-                    handleRowModifications(row, rowType, pu, position, md5Digest);
+                    handleRowModifications(row, rowType, pu, segment, position, md5Digest);
                 }
             }
             break;
@@ -322,15 +318,15 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
      * of this event into a {@link Mutation} object and send it to pulsar. A valid deletion
      * event means a partition only has a single row, this implies there are no clustering keys.
      */
-    private void handlePartitionDeletion(PartitionUpdate pu, com.datastax.cassandra.cdc.producer.CommitLogPosition offsetPosition, String md5Digest) {
+    private void handlePartitionDeletion(PartitionUpdate pu, long segment, int position, String md5Digest) {
         try {
             RowData after = new RowData();
             populatePartitionColumns(after, pu);
-            mutationMaker.delete(DatabaseDescriptor.getClusterName(), StorageService.instance.getLocalHostUUID(), offsetPosition,
+            mutationMaker.delete(StorageService.instance.getLocalHostUUID(), segment, position,
                     pu.maxTimestamp(), after, this::blockingSend, md5Digest, pu.metadata());
         }
         catch (Exception e) {
-            log.error("Fail to send delete partition at {}. Reason: {}", offsetPosition, e);
+            log.error("Fail to send delete partition at {}:{}. Reason: {}", segment, position, e);
         }
     }
 
@@ -340,7 +336,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
      * implies this must be an insert, update, or delete.
      */
     private void handleRowModifications(Row row, RowType rowType, PartitionUpdate pu,
-                                        com.datastax.cassandra.cdc.producer.CommitLogPosition offsetPosition, String md5Digest) {
+                                        long segment, int position, String md5Digest) {
         RowData after = new RowData();
         populatePartitionColumns(after, pu);
         populateClusteringColumns(after, row, pu);
@@ -348,17 +344,17 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         long ts = rowType == DELETE ? row.deletion().time().markedForDeleteAt() : pu.maxTimestamp();
         switch (rowType) {
             case INSERT:
-                mutationMaker.insert(DatabaseDescriptor.getClusterName(), StorageService.instance.getLocalHostUUID(), offsetPosition,
+                mutationMaker.insert(StorageService.instance.getLocalHostUUID(), segment, position,
                         ts, after, this::blockingSend, md5Digest, pu.metadata());
                 break;
 
             case UPDATE:
-                mutationMaker.update(DatabaseDescriptor.getClusterName(), StorageService.instance.getLocalHostUUID(), offsetPosition,
+                mutationMaker.update(StorageService.instance.getLocalHostUUID(), segment, position,
                         ts, after, this::blockingSend, md5Digest, pu.metadata());
                 break;
 
             case DELETE:
-                mutationMaker.delete(DatabaseDescriptor.getClusterName(), StorageService.instance.getLocalHostUUID(), offsetPosition,
+                mutationMaker.delete(StorageService.instance.getLocalHostUUID(), segment, position,
                         ts, after, this::blockingSend, md5Digest, pu.metadata());
                 break;
 

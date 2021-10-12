@@ -22,6 +22,7 @@ import lombok.Getter;
 import lombok.ToString;
 
 import java.util.List;
+import java.util.UUID;
 
 
 /**
@@ -33,8 +34,9 @@ import java.util.List;
 @ToString
 @EqualsAndHashCode
 public class Mutation<T> {
-    private CommitLogPosition commitLogPosition;
-    private SourceInfo source;
+    private UUID nodeId;
+    private long segment;
+    private int position;
     private RowData rowData;
     private long ts;
     private String md5Digest;
@@ -47,6 +49,6 @@ public class Mutation<T> {
     public MutationValue mutationValue() {
         // TODO: Unfortunately, computing the mutation CRC require to re-serialize it because we cannot get the byte[] from the commitlog reader.
         // So, we use the timestamp here.
-        return new MutationValue(md5Digest, source.nodeId, rowData.nonPrimaryKeyNames());
+        return new MutationValue(md5Digest, nodeId, rowData.nonPrimaryKeyNames());
     }
 }
