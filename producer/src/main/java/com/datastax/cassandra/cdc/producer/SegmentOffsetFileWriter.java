@@ -116,12 +116,11 @@ public class SegmentOffsetFileWriter implements SegmentOffsetWriter, AutoCloseab
     }
 
     @Override
-    public void remove(long segment) {
+    public void remove(Optional<UUID> nodeId, long segment) {
         segmentOffsets.remove(segment);
         File segmentOffsetFile = new File(cdcLogDir, segment + COMMITLOG_OFFSET_FILE_SUFFIX);
         if (segmentOffsetFile.exists()) {
             segmentOffsetFile.delete();
         }
     }
-
 }

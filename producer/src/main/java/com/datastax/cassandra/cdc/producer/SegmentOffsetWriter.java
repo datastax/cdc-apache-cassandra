@@ -36,10 +36,6 @@ public interface SegmentOffsetWriter {
      */
     int position(Optional<UUID> nodeId, long segmentId);
 
-    default  int position(long segmentId) {
-        return position(Optional.empty(), segmentId);
-    }
-
     /**
      * Set the current offset.
      * @return
@@ -52,9 +48,10 @@ public interface SegmentOffsetWriter {
      */
     void flush(Optional<UUID> nodeId, long segmentId) throws IOException;
 
-    default void flush(long segmentId) throws IOException {
-        flush(Optional.empty(), segmentId);
-    }
-
-    void remove(long segementId);
+    /**
+     * Remove the offset
+     * @param nodeId
+     * @param segmentId
+     */
+    void remove(Optional<UUID> nodeId, long segmentId);
 }

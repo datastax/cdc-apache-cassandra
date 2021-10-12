@@ -48,11 +48,11 @@ public class SegmentOffsetDummyWriter implements SegmentOffsetWriter, AutoClosea
     }
 
     @Override
-    public void close() throws IOException {
+    public void remove(Optional<UUID> nodeId, long segmentId) {
     }
 
     @Override
-    public void remove(long segment) {
+    public void close() throws IOException {
     }
 
 }

@@ -227,7 +227,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         }
 
         for (PartitionUpdate pu : mutation.getPartitionUpdates()) {
-            if (entryLocation < segmentOffsetWriter.position(descriptor.id)) {
+            if (entryLocation < segmentOffsetWriter.position(Optional.empty(), descriptor.id)) {
                 log.debug("Mutation at {}:{} for table {}.{} already processed, skipping...",
                         descriptor.id, entryLocation, pu.metadata().ksName, pu.metadata().cfName);
                 return;

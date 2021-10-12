@@ -22,7 +22,9 @@ import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.commitlog.CommitLogPosition;
 import org.apache.cassandra.db.commitlog.CommitLogReader;
 
+import javax.swing.text.html.Option;
 import java.io.File;
+import java.util.Optional;
 import java.util.concurrent.*;
 
 /**
@@ -65,8 +67,8 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
 
                 CommitLogReader commitLogReader = new CommitLogReader();
                 try {
-                    if (syncPosition > segmentOffsetWriter.position(seg)) {
-                        CommitLogPosition minPosition = new CommitLogPosition(seg, segmentOffsetWriter.position(seg));
+                    if (syncPosition > segmentOffsetWriter.position(Optional.empty(), seg)) {
+                        CommitLogPosition minPosition = new CommitLogPosition(seg, segmentOffsetWriter.position(Optional.empty(), seg));
                         commitLogReader.readCommitLogSegment(commitLogReadHandler, file, minPosition, false);
                         log.debug("Successfully processed commitlog completed={} position={} file={}",
                                 completed, syncPosition, file.getName());
@@ -74,10 +76,10 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
                         if (completed) {
                             // do not transfer the active commitlog on Cassandra 4.x
                             commitLogTransfer.onSuccessTransfer(file.toPath());
-                            segmentOffsetWriter.remove(seg);
+                            segmentOffsetWriter.remove(Optional.empty(), seg);
                         } else {
                             // flush sent offset on disk
-                            segmentOffsetWriter.flush(seg);
+                            segmentOffsetWriter.flush(Optional.empty(), seg);
                         }
                     }
                 } catch (Exception e) {
