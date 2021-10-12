@@ -37,21 +37,27 @@ public interface SegmentOffsetWriter {
     int position(Optional<UUID> nodeId, long segmentId);
 
     /**
-     * Set the current offset.
+     * Set the current offset for a segment
      * @return
      */
     void position(Optional<UUID> nodeId, long segmentId, int position);
 
     /**
-     * Persist the offset
+     * Persist the offset for a segment
      * @throws IOException
      */
     void flush(Optional<UUID> nodeId, long segmentId) throws IOException;
 
     /**
-     * Remove the offset
+     * Remove the offset for a segment
      * @param nodeId
      * @param segmentId
      */
     void remove(Optional<UUID> nodeId, long segmentId);
+
+    /**
+     * Remove all offset for the provided nodeId.
+     * @param nodeId
+     */
+    void remove(Optional<UUID> nodeId);
 }
