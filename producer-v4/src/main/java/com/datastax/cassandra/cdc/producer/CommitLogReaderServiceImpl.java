@@ -55,42 +55,40 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
 
     public Task createTask(String filename, long segment, int syncPosition, boolean completed) {
         return new Task(filename, segment, syncPosition, completed) {
+
             public void run() {
                 maxSubmittedTasks = Math.max(maxSubmittedTasks, submittedTasks.size());
-                log.debug("Starting task segment={} position={} completed={} maxSubmittedTasks={}", segment, syncPosition, completed, maxSubmittedTasks);
-                File file = new File(DatabaseDescriptor.getCDCLogLocation(), filename);
-                if (!file.exists()) {
-                    log.debug("file={} does not exist any more, ignoring", file.getName());
-                    return;
-                }
-                long seg = CommitLogUtil.extractTimestamp(file.getName());
-
-                CommitLogReader commitLogReader = new CommitLogReader();
+                log.debug("Starting task={}", this);
+                File file = getFile();
                 try {
+                    if (!file.exists()) {
+                        log.warn("file={} does not exist any more, ignoring", file.getName());
+                        finish(TaskStatus.SUCCESS);
+                        return;
+                    }
+                    long seg = CommitLogUtil.extractTimestamp(file.getName());
+                    CommitLogReader commitLogReader = new CommitLogReader();
                     if (syncPosition > segmentOffsetWriter.position(Optional.empty(), seg)) {
                         CommitLogPosition minPosition = new CommitLogPosition(seg, segmentOffsetWriter.position(Optional.empty(), seg));
                         commitLogReader.readCommitLogSegment(commitLogReadHandler, file, minPosition, false);
-                        log.debug("Successfully processed commitlog completed={} position={} file={}",
-                                completed, syncPosition, file.getName());
+                        log.debug("Task executed {}", this);
 
-                        if (completed) {
-                            // do not transfer the active commitlog on Cassandra 4.x
-                            commitLogTransfer.onSuccessTransfer(file.toPath());
-                            segmentOffsetWriter.remove(Optional.empty(), seg);
-                        } else {
-                            // flush sent offset on disk
+                        if (!completed) {
+                            // flush sent offset on disk to restart from that position
                             segmentOffsetWriter.flush(Optional.empty(), seg);
                         }
                     }
+                    finish(TaskStatus.SUCCESS);
                 } catch (Exception e) {
-                    log.warn("Failed to read commitlog completed=" + completed + " file=" + file.getName(), e);
-                    if (completed) {
-                        // do not transfer the active commitlog on Cassandra 4.x
-                        commitLogTransfer.onErrorTransfer(file.toPath());
-                    }
+                    log.warn("Task failed {}", this, e);
+                    finish(TaskStatus.ERROR);
+                } finally {
+                    CdcMetrics.executedTasks.inc();
                 }
+            }
 
-                finish(seg);
+            public File getFile() {
+                return new File(DatabaseDescriptor.getCDCLogLocation(), filename);
             }
         };
     }

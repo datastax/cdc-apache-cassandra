@@ -22,13 +22,12 @@ import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.commitlog.CommitLogReader;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 /**
  * Consume a queue of commitlog files to read mutations.
- *
- * @author vroyer
  */
 @Slf4j
 public class CommitLogReaderServiceImpl extends CommitLogReaderService {
@@ -53,32 +52,31 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
 
     public Task createTask(String filename, long segment, int syncPosition, boolean completed) {
         return new Task(filename, segment, syncPosition, true) {
+
             public void run() {
                 maxSubmittedTasks = Math.max(maxSubmittedTasks, submittedTasks.size());
-                log.debug("Starting task segment={} position={} completed={} maxSubmittedTasks={}", segment, syncPosition, completed, maxSubmittedTasks);
-                File file = new File(DatabaseDescriptor.getCDCLogLocation(), filename);
-                if (!file.exists()) {
-                    log.debug("file={} does not exist any more, ignoring", file.getName());
-                    return;
-                }
-                long seg = CommitLogUtil.extractTimestamp(file.getName());
-
-                CommitLogReader commitLogReader = new CommitLogReader();
+                log.debug("Starting task={}", this);
+                File file = getFile();
                 try {
-                    commitLogReader.readCommitLogSegment(commitLogReadHandler, file, false);
-                    log.debug("Successfully processed commitlog file={}", file.getName());
-
-                    // do not transfer the active commitlog on Cassandra 4.x
-                    commitLogTransfer.onSuccessTransfer(file.toPath());
-                } catch (Exception e) {
-                    log.warn("Failed to read commitlog completed=" + completed + " file=" + file.getName(), e);
-                    if (completed) {
-                        // do not transfer the active commitlog on Cassandra 4.x
-                        commitLogTransfer.onErrorTransfer(file.toPath());
+                    if (!file.exists()) {
+                        log.warn("file={} does not exist any more, ignoring", file.getName());
+                        finish(TaskStatus.SUCCESS);
+                        return;
                     }
+                    CommitLogReader commitLogReader = new CommitLogReader();
+                    commitLogReader.readCommitLogSegment(commitLogReadHandler, file, false);
+                    log.debug("Task executed {}", this);
+                    finish(TaskStatus.SUCCESS);
+                } catch (Exception e) {
+                    log.warn("Task failed {}", this, e);
+                    finish(TaskStatus.ERROR);
+                } finally {
+                    CdcMetrics.executedTasks.inc();
                 }
+            }
 
-                finish(seg);
+            public File getFile() {
+                return new File(DatabaseDescriptor.getCDCLogLocation(), filename);
             }
         };
     }

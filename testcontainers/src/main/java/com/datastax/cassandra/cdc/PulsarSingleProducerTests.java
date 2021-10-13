@@ -298,14 +298,15 @@ public abstract class PulsarSingleProducerTests {
             if (!version().equals(Version.V3))
                 assertTrue(maxLatency <= 20000000);
 
-            //TODO: fix an incorrect invariant for V4+DSE, flushed CL are not marked COMPLETED
             Container.ExecResult result = cassandraContainer1.execInContainer("ls", "-1", "/var/lib/cassandra/cdc");
             String[] files = result.getStdout().split("\\n");
+            assertEquals(3, files.length);
             for(String f : files)
                 assertTrue( f.endsWith("_offset.dat") || f.equals("archives") || f.equals("errors"));
 
             Container.ExecResult result2 = cassandraContainer1.execInContainer("ls", "-1", "/var/lib/cassandra/cdc_raw");
             String[] files2 = result2.getStdout().split("\\n");
+            assertEquals(3, files2.length);
             for(String f : files2)
                 if (f.length() > 0) // cdc_raw may be empty
                     assertTrue( f.endsWith("_cdc.idx") || f.endsWith(".log"));
@@ -330,6 +331,18 @@ public abstract class PulsarSingleProducerTests {
                 Container.ExecResult pendingTasks = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=pendingTasks,type=CdcProducer","-f", "Value", "-mg");
                 String[] pendingTasksLines = pendingTasks.getStdout().split("\\n");
                 assertEquals(0, Long.parseLong(pendingTasksLines[1]));
+
+                Container.ExecResult executedTasks = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=executedTasks,type=CdcProducer","-f", "Count", "-mg");
+                String[] executedTasksLines = executedTasks.getStdout().split("\\n");
+                assertTrue(Long.parseLong(executedTasksLines[1]) < numMutation);
+
+                Container.ExecResult uncleanedTasks = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=uncleanedTasks,type=CdcProducer","-f", "Value", "-mg");
+                String[] uncleanedTasksLines = uncleanedTasks.getStdout().split("\\n");
+                assertEquals(0, Long.parseLong(uncleanedTasksLines[1]));
+
+                Container.ExecResult maxUncleanedTasks = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=maxUncleanedTasks,type=CdcProducer","-f", "Value", "-mg");
+                String[] maxUncleanedTasksLines = maxUncleanedTasks.getStdout().split("\\n");
+                assertEquals(1, Long.parseLong(maxUncleanedTasksLines[1]));
             }
         }
     }
