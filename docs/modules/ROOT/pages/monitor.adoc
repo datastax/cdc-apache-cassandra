@@ -2,23 +2,55 @@
 
 == Producer Metrics
 
-The producer JVM agent provides a dedicated MBean *CdcProducer* with the following metrics for each Cassandra node:
+The CDC producer JVM agent running in Cassandra nodes provides a dedicated MBean type=*CdcProducer* with the following metrics:
 
-[cols="1,3"]
+[cols="2,1,3"]
 |===
-|Metric |Description
+|Metric |Type |Description
 
-|SentMutations
+|sentMutations
+|Counter
 |Number of Cassandra mutations successfully sent to the streaming platform.
 
-|SentErrors
+|sentErrors
+|Counter
 |Number of errors when sending mutations to the streaming platform.
 
 |commitLogReadErrors
+|Counter
 |Number of unrecoverable commitlog file reads.
 
 |skippedMutations
+|Counter
 |Number of ignored mutations because the primary key has an unsupported column type.
+
+|executedTasks
+|Counter
+|Number of executed task to process commitlog files.
+
+|submittedTasksGauge
+|Gauge
+|Number of submitted tasks to the task dedicated thread pool.
+
+|maxSubmittedTasks
+|Gauge
+|The maximum number of submitted tasks.
+
+|pendingTasks
+|Gauge
+|Number of pending tasks to re-process a commitlog file.
+
+|maxPendingTasks
+|Gauge
+|The maximum number of pending tasks.
+
+|uncleanedTasks
+|Gauge
+|Number of tasks for which processed commitlog file have not yet been removed from the cdc_raw directory.
+
+|maxUncleanedTasks
+|Gauge
+|The maximum number of uncleaned tasks.
 
 |===
 

@@ -12,13 +12,15 @@ With CDC, Cassyour apps can consume data from an Apache Cassandra&reg; table and
 === What are the system requirements for Cassandra Source Connector?
 
 Minimum system requirement are:
+
 * Cassandra 3.11 or 4.0+,
-* Apache Pulsar 2.8.1+
+* Luna Streaming 2.7.2
 
 === What are the Cassandra Source Connector limitations?
 
 The Cassandra Source Connector:
-* Does not replay batch updates
+
+* Does not replay logged batches
 * Does not manage table truncates
 * Does not sync data available before starting the CDC producer.
 * Does not manage TTL
