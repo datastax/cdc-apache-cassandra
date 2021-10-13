@@ -11,9 +11,10 @@ jobs:
       - name: Run Antora
         uses: kameshsampath/antora-site-action@v0.2.4
         with:
-          antora_playbook: docs/site-ghpages.yaml
+          antora_playbook: site-ghpages.yaml
+          site_sources_path: docs
       - name: Publish to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: docs/build/site
+          publish_dir: build/site
