@@ -1,4 +1,4 @@
-name: cass-source-connector
+name: cassandra-source-connector
 title: DataStax Cassandra Source Connector (beta) documentation
 version: "1.0"
 display_version: "1.0"
