@@ -25,13 +25,13 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.*;
 
 @Slf4j
 public abstract class CommitLogReaderService implements Runnable, AutoCloseable
 {
-    public static final String NAME = "CommitLogReader Processor";
     public static final String ARCHIVE_FOLDER = "archives";
     public static final String ERROR_FOLDER = "errors";
 
@@ -41,12 +41,23 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
     static final ConcurrentMap<Long, Task> submittedTasks = new ConcurrentHashMap<>();
 
     /**
-     * Pending tasks to process CL files
+     * Pending tasks to process CL files.
      */
     static final ConcurrentMap<Long, Task> pendingTasks = new ConcurrentHashMap<>();
 
+    /**
+     * Uncompleted segments task for delayed task cleanup
+     */
+    static final ConcurrentMap<Long, Task> uncleanedTasks = new ConcurrentHashMap<>();
+
+    /**
+     * Identify the working segment (not immutable) to properly garbageCollect immutable CL files.
+     */
+    static volatile long lastSegment = 0;
+
     static int maxSubmittedTasks = 0;
     static int maxPendingTasks = 0;
+    static int maxUncleanedTasks = 0;
 
     final ProducerConfig config;
     final SegmentOffsetWriter segmentOffsetWriter;
@@ -95,11 +106,15 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
 
     public void submitCommitLog(File file) {
         log.debug("submitCommitLog file={}", file.getAbsolutePath());
+        long seg = CommitLogUtil.extractTimestamp(file.getName());
         if (file.getName().endsWith("_cdc.idx")) {
-            // you can have old _cdc.idx file, ignore it
-            long seg = CommitLogUtil.extractTimestamp(file.getName());
-            int pos = 0;
             try {
+                lastSegment = Math.max(lastSegment, seg);
+                if (seg > lastSegment) {
+                    garbageCollect(seg);
+                    lastSegment = seg;
+                }
+                int pos = 0;
                 List<String> lines = Files.readAllLines(file.toPath(), Charset.forName("UTF-8"));
                 if (lines.size() > 0) {
                     pos = Integer.parseInt(lines.get(0));
@@ -113,24 +128,16 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
                     Task runningTask = submittedTasks.get(seg);
                     if (pos > segmentOffsetWriter.position(Optional.empty(), seg) && (runningTask == null || pos > runningTask.syncPosition)) {
                         String commitlogName = file.getName().substring(0, file.getName().length() - "_cdc.idx".length()) + ".log";
-                        Task task = createTask(commitlogName, seg, pos, completed);
-                        pendingTasks.put(seg, task);
-                        maxPendingTasks = Math.max(maxPendingTasks, pendingTasks.size());
-                        log.debug("maxPendingTasks={}", maxPendingTasks);
-                        tryToRunPendingTask(seg);
+                        addPendingTask(createTask(commitlogName, seg, pos, completed));
                     }
                 }
             } catch(Exception ex) {
                 log.warn("error while reading file=" + file.getName(), ex);
             }
         } else if (file.getName().endsWith(".log")) {
+            // Cassandra 3.x only path
             try {
-                long seg = CommitLogUtil.extractTimestamp(file.getName());
-                Task task = createTask(file.getName(), seg, 0, true);
-                pendingTasks.put(seg, task);
-                maxPendingTasks = Math.max(maxPendingTasks, pendingTasks.size());
-                log.debug("maxPendingTasks={}", maxPendingTasks);
-                tryToRunPendingTask(seg);
+                addPendingTask(createTask(file.getName(), seg, 0, true));
             } catch(Exception ex) {
                 log.warn("error while reading file=" + file.getName(), ex);
             }
@@ -170,13 +177,20 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
     public abstract Task createTask(String commitlogName, long seg, int pos, boolean completed);
 
 
+    public void addPendingTask(Task task) {
+        pendingTasks.put(task.segment, task);
+        maxPendingTasks = Math.max(maxPendingTasks, pendingTasks.size());
+        log.trace("maxPendingTasks={}", maxPendingTasks);
+        maybeRunPendingTask(task.segment);
+    }
+
     /**
      * Start the pending task if not yet running.
      * This ensures that only on task per segment is running.
      * @param segment id
      * @return the running task or null
      */
-    public Task tryToRunPendingTask(long segment) {
+    public Task maybeRunPendingTask(long segment) {
         return submittedTasks.compute(segment, (k1, v1) -> {
             if (v1 == null) {
                 Task pendingTask = pendingTasks.get(segment);
@@ -191,6 +205,26 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
     }
 
     /**
+     * Cleanup segments discarded by a Memtable flush but not marked COMPLETED.
+     * This garbage collect immutable segments on disk and offsets from memory.
+     * @param lastSegment the last segment id
+     */
+    private void garbageCollect(long lastSegment) {
+        for(Map.Entry<Long, Task> entry : uncleanedTasks.entrySet()) {
+            if (entry.getKey() < lastSegment
+                    && submittedTasks.get(entry.getKey()) == null
+                    && pendingTasks.get(entry.getKey()) == null) {
+                entry.getValue().cleanup(entry.getValue().getStatus());
+            }
+        }
+    }
+
+    enum TaskStatus {
+        SUCCESS,
+        ERROR
+    }
+
+    /**
      * commitlog file task
      */
     @EqualsAndHashCode
@@ -202,6 +236,9 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
         final int syncPosition;
         final boolean completed;
 
+        @EqualsAndHashCode.Exclude
+        TaskStatus status = null;
+
         public Task(String filename, long segment, int syncPosition, boolean completed) {
             this.filename = filename;
             this.segment = segment;
@@ -209,10 +246,36 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
             this.completed = completed;
         }
 
+        public abstract File getFile();
 
-        public void finish(long segment) {
-            submittedTasks.remove(segment);
-            tryToRunPendingTask(segment);
+        public void finish(TaskStatus taskStatus) {
+            submittedTasks.remove(this.segment);
+            Task nextTask = maybeRunPendingTask(this.segment);
+            if (nextTask == null) {
+                if (completed) {
+                    uncleanedTasks.remove(segment);
+                    cleanup(taskStatus);
+                } else {
+                    // task will be cleaned up when processing the next segment
+                    this.status = taskStatus;
+                    uncleanedTasks.put(segment, this);
+                    maxUncleanedTasks = Math.max(maxUncleanedTasks, uncleanedTasks.size());
+                }
+            }
+        }
+
+        public void cleanup(TaskStatus status) {
+            log.debug("Cleanup segment={} status={}", segment, status);
+            File file = getFile();
+            switch (status) {
+                case SUCCESS:
+                    commitLogTransfer.onSuccessTransfer(file.toPath());
+                    break;
+                case ERROR:
+                    commitLogTransfer.onErrorTransfer(file.toPath());
+                    break;
+            }
+            segmentOffsetWriter.remove(Optional.empty(), this.segment);
         }
     }
 }

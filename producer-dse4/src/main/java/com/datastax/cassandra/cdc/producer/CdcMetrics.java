@@ -27,8 +27,11 @@ public class CdcMetrics {
 
     public static final Counter sentMutations = Metrics.counter(factory.createMetricName("SentMutations"));
     public static final Counter sentErrors = Metrics.counter(factory.createMetricName("SentErrors"));
+
     public static final Counter commitLogReadErrors = Metrics.counter(factory.createMetricName("CommitLogReadErrors"));
     public static final Counter skippedMutations = Metrics.counter(factory.createMetricName("SkippedMutations"));
+
+    public static final Counter executedTasks = Metrics.counter(factory.createMetricName("executedTasks"));
 
     public static final Gauge<Integer> submittedTasksGauge = Metrics.register(factory.createMetricName("submittedTasks"), new Gauge<Integer>()
     {
@@ -38,7 +41,7 @@ public class CdcMetrics {
         }
     });
 
-    public static final Gauge<Integer> maxSubmittedTasksGauge = Metrics.register(factory.createMetricName("maxSubmittedTasks"), new Gauge<Integer>()
+    public static final Gauge<Integer> maxSubmittedTasks = Metrics.register(factory.createMetricName("maxSubmittedTasks"), new Gauge<Integer>()
     {
         public Integer getValue()
         {
@@ -54,11 +57,27 @@ public class CdcMetrics {
         }
     });
 
-    public static final Gauge<Integer> maxPendingTasksGauge = Metrics.register(factory.createMetricName("maxPendingTasks"), new Gauge<Integer>()
+    public static final Gauge<Integer> maxPendingTasks = Metrics.register(factory.createMetricName("maxPendingTasks"), new Gauge<Integer>()
     {
         public Integer getValue()
         {
             return CommitLogReaderService.maxPendingTasks;
+        }
+    });
+
+    public static final Gauge<Integer> uncleanedTasksGauge = Metrics.register(factory.createMetricName("uncleanedTasks"), new Gauge<Integer>()
+    {
+        public Integer getValue()
+        {
+            return CommitLogReaderService.pendingTasks.size();
+        }
+    });
+
+    public static final Gauge<Integer> maxUncleanedTasks = Metrics.register(factory.createMetricName("maxUncleanedTasks"), new Gauge<Integer>()
+    {
+        public Integer getValue()
+        {
+            return CommitLogReaderService.maxUncleanedTasks;
         }
     });
 }
