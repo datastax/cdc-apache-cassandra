@@ -12,7 +12,7 @@ The Cassandra Source Connector requires:
 
 ## Documentation
 
-All documentation is available online [here](https://docs.datastax.com/en/cassandra-source-connector/index.html).
+All documentation is available online [here](https://datastax.github.io/cassandra-source-connector/).
 
 ## Limitations
 
