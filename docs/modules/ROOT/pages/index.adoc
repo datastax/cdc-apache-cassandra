@@ -5,15 +5,15 @@ for table having the CDC enabled to https://pulsar.apache.org/[Apache Pulsar]®,
 
 == Key Features
 
-* Support both Apache Cassandra 3.11+ and 4.0+
-* Support Apache Pulsar 2.8.1+.
-* Propagate Cassandra schema change to the Pulsar schema registry
-* Support JSON or AVRO message format.
+* Support both Apache Cassandra 3.11+, 4.0+ and Datastax Enterprise Server 6.8.16+
+* Support Luna Streaming 2.7.2
+* Propagate Cassandra schema change to the Apache Pulsar schema registry
+* Support AVRO message format.
 
 == Limitations
 
 * Does not manage table truncates
-* Does not replay batch updates
+* Does not replay logged batches
 * Does not sync data available before starting the CDC producer.
 * Does not manage time-to-live
 * Does not support range deletes
@@ -52,7 +52,7 @@ The Cassandra Source Connector also updates the schema-registry to dynamically r
 
 == Supported streaming platform
 
-* Apache Pulsar® 2.8.1 and later
+* Luna Streaming 2.7.2 and later
 
 [#supported-databases]
 == Supported databases
@@ -75,6 +75,7 @@ Cassandra supported CQL3 data types (with the associated AVRO type or logical-ty
 * User Defined Types (record)
 
 Cassandra static columns are supported:
+
 * On row level updates, static columns are included in the message value.
 * On partition level updates, the clustering keys are null in the message key, and the message value only has static columns on insert/update operations.
 
