@@ -12,7 +12,7 @@
 | 
 
 | *key.converter*
-| Converter class used to write the message key to the data topic
+| Converter class used to write the message key to the data topic. This setting is experimental for advanced user only.
 | class
 | 
 | 
@@ -30,7 +30,7 @@
 | 
 
 | *value.converter*
-| Converter class used to write the message value to the data topic
+| Converter class used to write the message value to the data topic. This setting is experimental for advanced user only.
 | class
 | 
 | 
@@ -159,7 +159,7 @@
 | The mutation cache entry duration in milliseconds, with a default value of 60 seconds.
 | long
 | [1000,...]
-| 600000
+| 60000
 
 | *cache.only_if_coordinator_match*
 | Cache the mutation digest only if the coordinator node is the originator node.
