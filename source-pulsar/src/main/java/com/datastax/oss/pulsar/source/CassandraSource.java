@@ -35,7 +35,6 @@ import com.datastax.oss.cdc.ConfigUtil;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import io.vavr.Tuple2;
 import io.vavr.Tuple3;
-import jdk.nashorn.internal.ir.annotations.Immutable;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Conversions;
@@ -71,6 +70,11 @@ import java.util.stream.Collectors;
 @Slf4j
 public class CassandraSource implements Source<GenericRecord>, SchemaChangeListener {
 
+    public static final String CACHE_HIT = "cache_hit";
+    public static final String QUERY_LATENCY = "query_latency";
+    public static final String REPLICATION_LATENCY = "replication_latency";
+
+    SourceContext sourceContext;
     CassandraSourceConnectorConfig config;
     CassandraClient cassandraClient;
     Consumer<KeyValue<GenericRecord, MutationValue>> consumer = null;
@@ -113,6 +117,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     @Override
     public void open(Map<String, Object> config, SourceContext sourceContext) throws Exception {
         try {
+            this.sourceContext = sourceContext;
             Map<String, String> processorConfig = ConfigUtil.flatString(config);
             log.info("openCassandraSource {}", config);
             this.config = new CassandraSourceConnectorConfig(processorConfig);
@@ -301,7 +306,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             final GenericRecord mutationKey = kv.getKey();
             final MutationValue mutationValue = kv.getValue();
 
-            log.info("Message from producer={} msgId={} key={} value={} schema {}\n",
+            log.debug("Message from producer={} msgId={} key={} value={} schema {}\n",
                     msg.getProducerName(), msg.getMessageId(), kv.getKey(), kv.getValue(), msg.getReaderSchema().orElse(null));
 
             try {
@@ -316,24 +321,34 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                 executeOrdered(msg.getKey(), () -> {
                     try {
                         if (mutationCache.isMutationProcessed(msg.getKey(), mutationValue.getMd5Digest())) {
-                            log.info("message key={} md5={} already processed", msg.getKey(), mutationValue.getMd5Digest());
+                            log.debug("message key={} md5={} already processed", msg.getKey(), mutationValue.getMd5Digest());
                             // discard duplicated mutation
                             consumer.acknowledge(msg);
                             queryResult.complete(null);
+                            sourceContext.recordMetric(CACHE_HIT, 1);
+                            sourceContext.recordMetric(QUERY_LATENCY, 0);
+                            if (msg.getProperty(Constants.WRITETIME) != null)
+                                sourceContext.recordMetric(REPLICATION_LATENCY, System.currentTimeMillis() - (Long.parseLong(msg.getProperty(Constants.WRITETIME)) / 1000));
                             return null;
                         }
 
                         List<Object> nonNullPkValues = pk.stream().filter(e -> e != null).collect(Collectors.toList());
+                        long start = System.currentTimeMillis();
                         Tuple3<Row, ConsistencyLevel, UUID> tuple = cassandraClient.selectRow(
                                 nonNullPkValues,
                                 mutationValue.getNodeId(),
                                 Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE),
                                 getSelectStatement(converterAndQueryFinal, nonNullPkValues.size()),
                                 mutationValue.getMd5Digest());
+                        long end = System.currentTimeMillis();
+                        sourceContext.recordMetric(CACHE_HIT, 0);
+                        sourceContext.recordMetric(QUERY_LATENCY, end - start);
+                        if (msg.getProperty(Constants.WRITETIME) != null)
+                            sourceContext.recordMetric(REPLICATION_LATENCY, end - (Long.parseLong(msg.getProperty(Constants.WRITETIME)) / 1000));
                         Object value = tuple._1 == null ? null : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
                         if (!config.getCacheOnlyIfCoordinatorMatch()
                                 || (tuple._3 != null && tuple._3.equals(mutationValue.getNodeId()))) {
-                            log.info("addMutation key={} md5={} pk={}", msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues);
+                            log.debug("addMutation key={} md5={} pk={}", msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues);
                             // cache the mutation digest if the coordinator is the source of this event.
                             mutationCache.addMutationMd5(msg.getKey(), mutationValue.getMd5Digest());
                         }
@@ -375,7 +390,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             }
             long duration = System.currentTimeMillis() - start;
             long throughput = duration > 0 ? (1000 * newBuffer.size()) / duration : 0;
-            log.info("Query time for {} msgs in {} ms throughput={} msgs/s discarded={} duplicate mutations", newBuffer.size(), duration, throughput, countDiscarded);
+            log.debug("Query time for {} msgs in {} ms throughput={} msgs/s discarded={} duplicate mutations", newBuffer.size(), duration, throughput, countDiscarded);
         } catch (Exception e) {
             log.error("error", e);
             // fail every message in the buffer
@@ -421,7 +436,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     @SneakyThrows
     @Override
     public void onTableUpdated(@NonNull TableMetadata current, @NonNull TableMetadata previous) {
-        log.info("onTableUpdated {} {}", current, previous);
+        log.debug("onTableUpdated {} {}", current, previous);
         if (current.getKeyspace().asInternal().equals(config.getKeyspaceName())
                 && current.getName().asInternal().equals(config.getTableName())) {
             KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(current.getKeyspace()).get();
@@ -432,7 +447,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     @SneakyThrows
     @Override
     public void onUserDefinedTypeCreated(@NonNull UserDefinedType type) {
-        log.info("onUserDefinedTypeCreated {} {}", type);
+        log.debug("onUserDefinedTypeCreated {} {}", type);
         if (type.getKeyspace().asInternal().equals(config.getKeyspaceName())) {
             KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(type.getKeyspace()).get();
             setValueConverterAndQuery(ksm, ksm.getTable(config.getTableName()).get());
@@ -441,13 +456,13 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
     @Override
     public void onUserDefinedTypeDropped(@NonNull UserDefinedType type) {
-        log.info("onUserDefinedTypeDropped {} {}", type);
+        log.debug("onUserDefinedTypeDropped {} {}", type);
     }
 
     @SneakyThrows
     @Override
     public void onUserDefinedTypeUpdated(@NonNull UserDefinedType userDefinedType, @NonNull UserDefinedType userDefinedType1) {
-        log.info("onUserDefinedTypeUpdated {} {}", userDefinedType, userDefinedType1);
+        log.debug("onUserDefinedTypeUpdated {} {}", userDefinedType, userDefinedType1);
         if (userDefinedType.getKeyspace().asCql(true).equals(config.getKeyspaceName())) {
             KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(userDefinedType.getKeyspace()).get();
             setValueConverterAndQuery(ksm, ksm.getTable(config.getTableName()).get());
