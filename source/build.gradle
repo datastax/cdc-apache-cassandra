@@ -8,18 +8,16 @@ println  "  rootDir:      ${project.rootDir}"
 println  "  projectDir:   ${project.projectDir}";
 println  "  project dir:  ${System.getProperty("user.dir")}";
 
-/* DO NOT WORK ON GITHUB ACTION
+
 task versionTxt()  {
     doFirst {
-        new File(project.projectDir, "src/main/resources/cassandra-source-version.properties")
-                .text = "$project.version\n"
+        new File(project.projectDir, "src/main/resources/cassandra-source-version.properties").text = "$project.version\n"
     }
 }
 
 compileJava {
     dependsOn versionTxt
 }
-*/
 
 
 compileTestJava {
