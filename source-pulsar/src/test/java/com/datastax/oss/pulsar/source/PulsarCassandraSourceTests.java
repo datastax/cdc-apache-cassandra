@@ -16,6 +16,7 @@
 package com.datastax.oss.pulsar.source;
 
 import com.datastax.cassandra.cdc.CqlLogicalTypes;
+import com.datastax.cassandra.cdc.ProducerTestUtil;
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.*;
@@ -51,8 +52,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import static com.datastax.cassandra.cdc.ProducerTestUtil.randomizeBuffer;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -570,14 +573,25 @@ public class PulsarCassandraSourceTests {
                 cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName +
                         " WITH replication = {'class':'SimpleStrategy','replication_factor':'2'};");
                 cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table1 (id text, a int, b int, PRIMARY KEY (id, a)) WITH cdc=true");
-                PreparedStatement statement = cqlSession.prepare("INSERT INTO " + ksName + ".table1 (id, a, b) VALUES (?,?,?)");
-                BatchStatementBuilder batchBuilder = BatchStatement.builder(BatchType.UNLOGGED);
-                for(int i = 0; i < 1000; i++) {
-                    batchBuilder.addStatement(statement.bind("a", i, i));
-                }
-                cqlSession.execute(batchBuilder.build());
             }
             deployConnector(ksName, "table1", keyConverter, valueConverter);
+
+            // run batch insert in parallel
+            Executors.newSingleThreadExecutor().submit(() -> {
+                try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                    PreparedStatement statement = cqlSession.prepare("INSERT INTO " + ksName + ".table1 (id, a, b) VALUES (?,?,?)");
+                    for(int batch = 0; batch < 10; batch++) {
+                        BatchStatementBuilder batchBuilder = BatchStatement.builder(BatchType.UNLOGGED);
+                        for (int i = 0; i < 1000; i++) {
+                            batchBuilder.addStatement(statement.bind("a" + batch, i, i));
+                        }
+                        cqlSession.execute(batchBuilder.build());
+                    }
+                    // no drain, test use NRT CDC
+                } catch (Exception e) {
+                    log.error("error:", e);
+                }
+            });
 
             try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
                 try (Consumer<GenericRecord> consumer = pulsarClient.newConsumer(org.apache.pulsar.client.api.Schema.AUTO_CONSUME())
@@ -589,16 +603,16 @@ public class PulsarCassandraSourceTests {
                         .subscribe()) {
                     Message<GenericRecord> msg;
                     int msgCount = 0;
-                    while ((msg = consumer.receive(90, TimeUnit.SECONDS)) != null && msgCount < 1000) {
+                    while ((msg = consumer.receive(90, TimeUnit.SECONDS)) != null && msgCount < 10000) {
                         msgCount++;
                         GenericObject genericObject = msg.getValue();
                         assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
                         KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
                         GenericRecord key = kv.getKey();
-                        assertEquals("a", key.getField("id"));
+                        Assert.assertTrue(((String)key.getField("id")).startsWith("a"));
                         consumer.acknowledge(msg);
                     }
-                    assertEquals(1000, msgCount);
+                    assertEquals(10000, msgCount);
                 }
             }
         } finally {
