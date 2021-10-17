@@ -7,7 +7,7 @@ If you are new to DataStax Cassandra Source Connector, these FAQs are for you.
 === What is DataStax Cassandra Source Connector?
 
 The Alpha release of Cassandra Source Connector is a new, open-source product from DataStax.
-With CDC, Cassyour apps can consume data from an Apache Cassandra&reg; table and put the updates onto a Pulsar topic, which in turn can write the data to external targets such as Elastic, Snowflake, and other platforms. By design, the Source component is simple, with a 1:1 correspondence between the Cassandra table and a single Pulsar topic.
+With CDC, your apps can consume data from an Apache Cassandra table and put the updates onto a Pulsar topic, which in turn can write the data to external targets such as Elastic, Snowflake, and other platforms. By design, the Source component is simple, with a 1:1 correspondence between the Cassandra table and a single Pulsar topic.
 
 === What are the system requirements for Cassandra Source Connector?
 
@@ -15,6 +15,7 @@ Minimum system requirement are:
 
 * Cassandra 3.11 or 4.0+,
 * Luna Streaming 2.7.2
+* Additional memory and CPU available on all nodes
 
 === What are the Cassandra Source Connector limitations?
 
@@ -32,7 +33,7 @@ Yes, DataStax Cassandra Data Connector is open source. See the <<gitHubRepos,rep
 
 === What does Cassandra Source Connector provide that I cannot get with open-source Apache Pulsar?
 
-The DataStax Cassandra Source Connector implements, in effect, the reverse of Apache Pulsar or DataStax Cassandra Sink Connector. With the CSC, the source takes data from Cassandra and puts that date onto a data topic. From there, the data can be published to external platforms like Snowflake, Elasticsearch, and so on.
+The DataStax Cassandra Source Connector implements, in effect, the reverse of Apache Pulsar or DataStax Cassandra Sink Connector. With the CSC, the source takes data from Cassandra and puts that data onto a data topic. From there, the data can be published to external platforms like Snowflake, Elasticsearch, and so on.
 
 === Which Kubernetes platforms are supported by DataStax Cassandra Source Connector?
 
@@ -49,7 +50,7 @@ Download the tar file from the DataStax [Downloads site](https://downloads.datas
 
 === What is Pulsar Heartbeat?
 
-https://github.com/datastax/pulsar-heartbeat[Pulsar Heartbeat] monitors the availability, tracks the performance, and reports failures of the Pulsar cluster. It produces synthetic workloads to measure end-to-end message pubsub latency.  Pulsar Heartbeat is a cloud-native application that can be installed by Helm within the Pulsar Kubernetes cluster.
+https://github.com/datastax/pulsar-heartbeat[Pulsar Heartbeat] monitors availability, tracks performance, and reports failures of the Pulsar cluster. Pulsar Heartbeat is a cloud-native application that can be installed by Helm within the Pulsar Kubernetes cluster.
 
 === What is Prometheus?
 
