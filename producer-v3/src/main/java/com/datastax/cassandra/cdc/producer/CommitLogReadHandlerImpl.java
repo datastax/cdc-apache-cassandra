@@ -56,13 +56,21 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     private final MutationMaker<CFMetaData> mutationMaker;
     private final MutationSender<CFMetaData> mutationSender;
     private final SegmentOffsetWriter segmentOffsetWriter;
+    private final CommitLogReaderService.Task task;
+    private volatile int markedPosition = 0;
 
     CommitLogReadHandlerImpl(ProducerConfig config,
                              SegmentOffsetWriter segmentOffsetWriter,
-                             MutationSender<CFMetaData> mutationSender) {
+                             MutationSender<CFMetaData> mutationSender,
+                             CommitLogReaderService.Task task) {
+        this.segmentOffsetWriter = segmentOffsetWriter;
         this.mutationSender = mutationSender;
         this.mutationMaker = new MutationMaker<>(config);
-        this.segmentOffsetWriter = segmentOffsetWriter;
+        this.task = task;
+    }
+
+    public int getMarkedPosition() {
+        return this.markedPosition;
     }
 
     /**
@@ -462,30 +470,16 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
     public void blockingSend(Mutation<CFMetaData> mutation) {
         log.debug("Sending mutation={}", mutation);
-        while(true) {
-            try {
-                processMutation(mutation).toCompletableFuture().get();
-                break;
-            } catch(Exception e) {
-                log.error("failed to send message to pulsar:", e);
-                CdcMetrics.sentErrors.inc();
-                try {
-                    Thread.sleep(10000);
-                } catch(InterruptedException interruptedException) {
-                }
-            }
-        }
-    }
-
-    // TODO: add exponential retry
-    CompletionStage<Void> processMutation(final Mutation<CFMetaData> mutation) throws Exception {
-        return this.mutationSender.sendMutationAsync(mutation)
-                .thenAccept(msgId -> {
-                    if (msgId != null) {
+        try {
+            this.task.sentMutations.add(this.mutationSender.sendMutationAsync(mutation)
+                    .thenAccept(msgId -> {
                         CdcMetrics.sentMutations.inc();
-                        segmentOffsetWriter.markOffset(mutation);
-                        log.debug("mutation={} sent", mutation);
-                    }
-                });
+                        log.debug("Sent mutation={}", mutation);
+                    }));
+            this.markedPosition = Math.max(this.markedPosition, mutation.getPosition());
+        } catch(Exception e) {
+            log.error("failed to send message to pulsar:", e);
+            CdcMetrics.sentErrors.inc();
+        }
     }
 }

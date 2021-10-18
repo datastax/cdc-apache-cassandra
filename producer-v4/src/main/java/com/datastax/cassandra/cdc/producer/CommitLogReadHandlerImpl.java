@@ -18,7 +18,6 @@ package com.datastax.cassandra.cdc.producer;
 import com.datastax.cassandra.cdc.producer.exceptions.CassandraConnectorSchemaException;
 import com.datastax.cassandra.cdc.producer.exceptions.CassandraConnectorTaskException;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.cql3.ColumnSpecification;
 import org.apache.cassandra.db.LivenessInfo;
 import org.apache.cassandra.db.commitlog.CommitLogDescriptor;
@@ -38,7 +37,6 @@ import org.apache.commons.codec.digest.DigestUtils;
 
 import java.nio.ByteBuffer;
 import java.util.*;
-import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 
 import static com.datastax.cassandra.cdc.producer.CommitLogReadHandlerImpl.RowType.DELETE;
@@ -55,14 +53,19 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
     private final MutationMaker<TableMetadata> mutationMaker;
     private final MutationSender<TableMetadata> mutationSender;
-    private final SegmentOffsetWriter segmentOffsetWriter;
+    private final CommitLogReaderService.Task task;
+    private volatile int markedPosition = 0;
 
     CommitLogReadHandlerImpl(ProducerConfig config,
-                             SegmentOffsetWriter segmentOffsetWriter,
-                             MutationSender<TableMetadata> mutationSender) {
+                             MutationSender<TableMetadata> mutationSender,
+                             CommitLogReaderService.Task task) {
         this.mutationSender = mutationSender;
         this.mutationMaker = new MutationMaker<>(config);
-        this.segmentOffsetWriter = segmentOffsetWriter;
+        this.task = task;
+    }
+
+    public int getMarkedPosition() {
+        return this.markedPosition;
     }
 
     /**
@@ -227,9 +230,6 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         }
 
         for (PartitionUpdate pu : mutation.getPartitionUpdates()) {
-            com.datastax.cassandra.cdc.producer.CommitLogPosition entryPosition =
-                    new com.datastax.cassandra.cdc.producer.CommitLogPosition(descriptor.id, entryLocation);
-
             try {
                 DataOutputBuffer dataOutputBuffer = new DataOutputBuffer();
                 org.apache.cassandra.db.Mutation.serializer.serialize(mutation, dataOutputBuffer, descriptor.getMessagingVersion());
@@ -237,8 +237,8 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                 process(pu, descriptor.id, entryLocation, md5Digest);
             }
             catch (Exception e) {
-                throw new RuntimeException(String.format("Failed to process PartitionUpdate %s at %s for table %s.%s.",
-                        pu.toString(), entryPosition, pu.metadata().keyspace, pu.metadata().name), e);
+                throw new RuntimeException(String.format("Failed to process PartitionUpdate %s at %d:%d for table %s.%s.",
+                        pu.toString(), descriptor.id, entryLocation, pu.metadata().keyspace, pu.metadata().name), e);
             }
         }
     }
@@ -265,7 +265,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
      * deletion or a row-level modification) or throw an exception if it isn't. The valid partition
      * update is then converted into a {@link Mutation}.
      */
-    private void process(PartitionUpdate pu,long segment, int position, String md5Digest) {
+    private void process(PartitionUpdate pu, long segment, int position, String md5Digest) {
         PartitionType partitionType = PartitionType.getPartitionType(pu);
 
         if (!PartitionType.isValid(partitionType)) {
@@ -459,28 +459,16 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
     public void blockingSend(Mutation<TableMetadata> mutation) {
         log.debug("Sending mutation={}", mutation);
-        while(true) {
-            try {
-                processMutation(mutation).toCompletableFuture().get();
-                break;
-            } catch(Exception e) {
-                log.error("failed to send message to pulsar:", e);
-                CdcMetrics.sentErrors.inc();
-                try {
-                    Thread.sleep(10000);
-                } catch(InterruptedException interruptedException) {
-                }
-            }
+        try {
+            this.task.sentMutations.add(this.mutationSender.sendMutationAsync(mutation)
+                    .thenAccept(msgId -> {
+                        CdcMetrics.sentMutations.inc();
+                        log.debug("Sent mutation={}", mutation);
+                    }));
+            this.markedPosition = Math.max(this.markedPosition, mutation.getPosition());
+        } catch(Exception e) {
+            log.error("failed to send message to pulsar:", e);
+            CdcMetrics.sentErrors.inc();
         }
-    }
-
-    // TODO: add exponential retry
-    CompletionStage<Void> processMutation(final Mutation<TableMetadata> mutation) throws Exception {
-        return this.mutationSender.sendMutationAsync(mutation)
-                .thenAccept(msgId -> {
-                    CdcMetrics.sentMutations.inc();
-                    segmentOffsetWriter.markOffset(mutation);
-                    log.debug("mutation={} sent", mutation);
-                });
     }
 }

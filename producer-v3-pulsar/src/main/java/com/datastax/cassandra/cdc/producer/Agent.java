@@ -63,9 +63,8 @@ public class Agent {
         SegmentOffsetWriter segmentOffsetFileWriter = new SegmentOffsetDummyWriter(config.cdcWorkingDir);
 
         PulsarMutationSender pulsarMutationSender = new PulsarMutationSender(config);
-        CommitLogReadHandlerImpl commitLogReadHandler = new CommitLogReadHandlerImpl(config, segmentOffsetFileWriter, pulsarMutationSender);
         CommitLogTransfer commitLogTransfer = new BlackHoleCommitLogTransfer(config);
-        CommitLogReaderServiceImpl commitLogReaderService = new CommitLogReaderServiceImpl(config, segmentOffsetFileWriter, commitLogTransfer, commitLogReadHandler);
+        CommitLogReaderServiceImpl commitLogReaderService = new CommitLogReaderServiceImpl(config, pulsarMutationSender, segmentOffsetFileWriter, commitLogTransfer);
         CommitLogProcessor commitLogProcessor = new CommitLogProcessor(DatabaseDescriptor.getCDCLogLocation(), config, commitLogTransfer, segmentOffsetFileWriter, commitLogReaderService, false);
 
         commitLogReaderService.initialize();

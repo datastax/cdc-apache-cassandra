@@ -261,7 +261,7 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
 
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
-    public CompletionStage<MessageId> sendMutationAsync(final Mutation<CFMetaData> mutation) throws PulsarClientException {
+    public CompletableFuture<MessageId> sendMutationAsync(final Mutation<CFMetaData> mutation) throws PulsarClientException {
         if (!isSupported(mutation.getMetadata())) {
             CdcMetrics.skippedMutations.inc();
             return CompletableFuture.completedFuture(null);

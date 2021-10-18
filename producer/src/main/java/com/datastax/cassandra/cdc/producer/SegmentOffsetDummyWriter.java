@@ -40,10 +40,6 @@ public class SegmentOffsetDummyWriter implements SegmentOffsetWriter, AutoClosea
     }
 
     @Override
-    public void markOffset(Mutation<?> mutation) {
-    }
-
-    @Override
     public void flush(Optional<UUID> nodeId, long segmentId) throws IOException {
     }
 

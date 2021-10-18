@@ -1,0 +1,23 @@
+version: '3.7'
+services:
+  seed_node:
+    image: "datastax/dse-server:6.8.16"
+    environment:
+      - "MAX_HEAP_SIZE=1200m"
+      - "HEAP_NEWSIZE=300m"
+      - "DS_LICENSE=accept"
+    cap_add:
+      - IPC_LOCK
+    ulimits:
+      memlock: -1
+    mem_limit: 2000m
+    ports:
+      - "9042:9042"
+      - "7199:7199"
+    volumes:
+      - ./data:/var/lib/cassandra
+  pulsar:
+    image: "datastax/lunastreaming:2.7.2"
+    environment:
+    ports:
+      - "8080:8080"
