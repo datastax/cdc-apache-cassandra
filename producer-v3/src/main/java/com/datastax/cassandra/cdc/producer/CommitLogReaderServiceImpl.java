@@ -35,7 +35,7 @@ import java.util.concurrent.TimeUnit;
 public class CommitLogReaderServiceImpl extends CommitLogReaderService {
 
     public CommitLogReaderServiceImpl(ProducerConfig config,
-                                      MutationSender mutationSender,
+                                      MutationSender<CFMetaData> mutationSender,
                                       SegmentOffsetWriter segmentOffsetWriter,
                                       CommitLogTransfer commitLogTransfer) {
         super(config, mutationSender, segmentOffsetWriter, commitLogTransfer);

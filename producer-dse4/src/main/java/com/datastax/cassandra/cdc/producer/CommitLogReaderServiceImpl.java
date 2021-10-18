@@ -36,7 +36,7 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
 
 
     public CommitLogReaderServiceImpl(ProducerConfig config,
-                                      MutationSender mutationSender,
+                                      MutationSender<TableMetadata> mutationSender,
                                       SegmentOffsetWriter segmentOffsetWriter,
                                       CommitLogTransfer commitLogTransfer) {
         super(config, mutationSender, segmentOffsetWriter, commitLogTransfer);
