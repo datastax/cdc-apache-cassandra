@@ -49,7 +49,6 @@ import org.apache.pulsar.io.core.Source;
 import org.apache.pulsar.io.core.SourceContext;
 import org.apache.pulsar.io.core.annotations.Connector;
 import org.apache.pulsar.io.core.annotations.IOType;
-import org.eclipse.jetty.util.BlockingArrayQueue;
 
 import java.lang.reflect.InvocationTargetException;
 import java.time.Duration;
@@ -100,7 +99,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
     ExecutorService[] queryExecutors;
 
-    private final BlockingArrayQueue<MyKVRecord> buffer = new BlockingArrayQueue<>();
+    private ArrayBlockingQueue<MyKVRecord> buffer;
 
     private <T> Future<T> executeOrdered(Object key, Callable<T> task) {
         return queryExecutors[Math.abs(Objects.hashCode(key)) % queryExecutors.length].submit(task);
@@ -121,6 +120,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             Map<String, String> processorConfig = ConfigUtil.flatString(config);
             log.info("openCassandraSource {}", config);
             this.config = new CassandraSourceConnectorConfig(processorConfig);
+            this.buffer = new ArrayBlockingQueue<MyKVRecord>(this.config.getBatchSize());
             this.queryExecutors = new ExecutorService[this.config.getQueryExecutors()];
             for (int i = 0; i < queryExecutors.length; i++) {
                 queryExecutors[i] = Executors.newSingleThreadExecutor();
