@@ -166,6 +166,11 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
         });
     }
 
+    Producer<KeyValue<byte[], MutationValue>> removeProducer(final CFMetaData tm) {
+        final String topicName = config.topicPrefix + tm.ksName + "." + tm.cfName;
+        return producers.remove(topicName);
+    }
+
     @Override
     public void initialize(ProducerConfig config) throws PulsarClientException {
         try {
@@ -262,24 +267,29 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public CompletionStage<MessageId> sendMutationAsync(final Mutation<CFMetaData> mutation) throws PulsarClientException {
-        if (!isSupported(mutation.getMetadata())) {
-            CdcMetrics.skippedMutations.inc();
+        try {
+            if (!isSupported(mutation.getMetadata())) {
+                CdcMetrics.skippedMutations.inc();
+                return CompletableFuture.completedFuture(null);
+            }
+            if (this.client == null) {
+                initialize(config);
+            }
+            Producer<KeyValue<byte[], MutationValue>> producer = getProducer(mutation.getMetadata());
+            org.apache.avro.Schema keySchema = getAvroKeySchema(mutation.getMetadata());
+
+            TypedMessageBuilder<KeyValue<byte[], MutationValue>> messageBuilder = producer.newMessage();
+            return messageBuilder
+                    .value(new KeyValue(
+                            serializeAvroGenericRecord(buildAvroKey(keySchema, mutation), keySchema),
+                            mutation.mutationValue()))
+                    .property(Constants.WRITETIME, mutation.getTs() + "")
+                    .property(Constants.SEGMENT_AND_POSITION, mutation.getSegment()  + ":" + mutation.getPosition())
+                    .sendAsync();
+        } catch(org.apache.pulsar.client.api.PulsarClientException e) {
+            removeProducer(mutation.getMetadata());
             return CompletableFuture.completedFuture(null);
         }
-        if (this.client == null) {
-            initialize(config);
-        }
-        Producer<KeyValue<byte[], MutationValue>> producer = getProducer(mutation.getMetadata());
-        org.apache.avro.Schema keySchema = getAvroKeySchema(mutation.getMetadata());
-
-        TypedMessageBuilder<KeyValue<byte[], MutationValue>> messageBuilder = producer.newMessage();
-        return messageBuilder
-                .value(new KeyValue(
-                        serializeAvroGenericRecord(buildAvroKey(keySchema, mutation), keySchema),
-                        mutation.mutationValue()))
-                .property(Constants.WRITETIME, mutation.getTs() + "")
-                .property(Constants.SEGMENT_AND_POSITION, mutation.getSegment()  + ":" + mutation.getPosition())
-                .sendAsync();
     }
 
     /**

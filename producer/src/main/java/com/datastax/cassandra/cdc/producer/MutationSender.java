@@ -22,5 +22,5 @@ public interface MutationSender<T> {
     default void initialize(ProducerConfig config) throws Exception {
     }
 
-    CompletionStage<?> sendMutationAsync(final Mutation<T> mutation) throws Exception;
+    CompletionStage<?> sendMutationAsync(final Mutation<T> mutation);
 }

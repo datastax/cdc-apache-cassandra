@@ -39,6 +39,7 @@ import org.apache.commons.codec.digest.DigestUtils;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import static com.datastax.cassandra.cdc.producer.CommitLogReadHandlerImpl.RowType.DELETE;
@@ -459,28 +460,39 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
     public void blockingSend(Mutation<TableMetadata> mutation) {
         log.debug("Sending mutation={}", mutation);
+        Object msgId = null;
         while(true) {
             try {
-                processMutation(mutation).toCompletableFuture().get();
+                msgId = processMutation(mutation).toCompletableFuture().get();
+                if (msgId == null) {
+                    CdcMetrics.sentErrors.inc();
+                    try {
+                        Thread.sleep(10000);
+                        log.error("retrying message={}.{}", mutation.getSegment(), mutation.getPosition());
+                    } catch(InterruptedException interruptedException) {
+                    }
+                }
                 break;
             } catch(Exception e) {
                 log.error("failed to send message to pulsar:", e);
                 CdcMetrics.sentErrors.inc();
                 try {
                     Thread.sleep(10000);
+                    log.error("retrying failed message={}.{}", mutation.getSegment(), mutation.getPosition());
                 } catch(InterruptedException interruptedException) {
                 }
             }
         }
+        log.debug("Sent msgId={} mutation={}", msgId, mutation);
     }
 
     // TODO: add exponential retry
-    CompletionStage<Void> processMutation(final Mutation<TableMetadata> mutation) throws Exception {
+    CompletionStage<Object> processMutation(final Mutation<TableMetadata> mutation) throws Exception {
         return this.mutationSender.sendMutationAsync(mutation)
-                .thenAccept(msgId -> {
+                .thenApply(msgId -> {
                     CdcMetrics.sentMutations.inc();
                     segmentOffsetWriter.markOffset(mutation);
-                    log.debug("mutation={} sent", mutation);
+                    return msgId;
                 });
     }
 }
