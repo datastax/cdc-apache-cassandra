@@ -346,8 +346,8 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                         if (msg.getProperty(Constants.WRITETIME) != null)
                             sourceContext.recordMetric(REPLICATION_LATENCY, end - (Long.parseLong(msg.getProperty(Constants.WRITETIME)) / 1000));
                         Object value = tuple._1 == null ? null : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
-                        if (!config.getCacheOnlyIfCoordinatorMatch()
-                                || (tuple._3 != null && tuple._3.equals(mutationValue.getNodeId()))) {
+                        if (ConsistencyLevel.LOCAL_QUORUM.equals(tuple._2()) &&
+                                (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._3 != null && tuple._3.equals(mutationValue.getNodeId())))) {
                             log.debug("addMutation key={} md5={} pk={}", msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues);
                             // cache the mutation digest if the coordinator is the source of this event.
                             mutationCache.addMutationMd5(msg.getKey(), mutationValue.getMd5Digest());
