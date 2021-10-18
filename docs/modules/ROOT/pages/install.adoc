@@ -28,12 +28,12 @@ producer-v4-pulsar-<version>-SNAPSHOT-all.jar
 pulsar-cassandra-source-<version>-SNAPSHOT.nar
 ----
 
-== Starting Cassandra with the producer agent.
+== Starting Cassandra with the producer agent
 
-All data node of your Cassandra datacenter must run the producer JVM agent to send mutations into the events topic of your streaming software. Start your Cassandra nodes with the appropriate producer binary matching your
+All data nodes of your Cassandra datacenter must run the producer JVM agent to send mutations into the events topic of your streaming software. Start your Cassandra nodes with the appropriate producer binary matching your
 Cassandra version (3.11 or 4.0) and your streaming platform (Apache Pulsar).
 
-As a java agent, the CDC producer parameters take place after the jar file name in the form of a comma separated list of paramName=paramValue. Here is an example for Apache Pulsar on Cassandra version 4.0 nodes:
+As a Java agent, the CDC producer parameters take place after the jar file name in the form of a comma separated list of paramName=paramValue. Here is an example for Apache Pulsar on Cassandra version 4.0 nodes:
 
 [source,language-bash]
 ----
@@ -47,11 +47,11 @@ include::producerParams.adoc[]
 == Deploy the Kafka Cassandra Source Connector
 
 In order to deploy the Cassandra Source Connector NAR file in your Pulsar cluster, you can copy it into
-the pulsar connectors directory or upload it. You have to specify th following parameters:
+the pulsar connectors directory or upload it. You have to specify the following parameters:
 
-* The connector name, remember you have one connector per replicated cassandra table.
+* The connector name- remember, you have one connector per replicated Cassandra table
 * The destination topic for Cassandra data
-* The connector configuration, see LINK
+* The xref:cfgCassandraSource.adoc[Cassandra Source connector configuration]
 
 [source,language-bash]
 ----
@@ -69,6 +69,13 @@ Then check your connector is properly running with no error:
 ----
 pulsar-admin source status --name cassandra-source-1
 ----
+
+== Monitoring and Alerting System
+
+The producer agent exposes metrics with https://docs.datastax.com/en/landing_page/doc/landing_page/metricsandalerts.html[JMX], a technology within Java that provides tools for managing and monitoring applications. 
+* https://docs.datastax.com/en/opscenter/6.8/[DSE Ops Center] can collect these exposed metrics for visualization and alerts, and pass them on to https://docs.datastax.com/en/monitoring/doc/monitoring/opsUseMetricsCollector.html[DSE Metrics Collector] for additional integration with Prometheus and Grafana.
+* The https://github.com/datastax/metric-collector-for-apache-cassandra[Metrics Collector for Apache Cassandra] with Prometheus and Grafana dashboards provides the same functionality as DSE Metrics Collector, built on the well-supported collectd agent.
+* Other monitoring tools like https://github.com/prometheus/jmx_exporter[JMX Exporter] by Prometheus are available, but may require additional tuning.
 
 include::cfgCassandraSource.adoc[]
 
