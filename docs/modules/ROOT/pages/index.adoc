@@ -29,11 +29,14 @@ The following diagram describes the general architecture.
 
 image::cassandra-source-connector.png[]
 
-1. When CDC is enabled for a given Cassandra table, the event producer running on each nodes reads the Cassandra commitlog files and emit a message for each Cassandra mutation
-in a per-table events topic.
-2. Then the source connector process these events, it fetches the mutated Cassandra row,
+1. When CDC is enabled for a given Cassandra table, the event producer running on each node reads the Cassandra commitlog files and emit a message for each Cassandra mutation in a per-table events topic. This message only include the row primary key
+2. Then the source connector process these events, it fetches the mutated Cassandra rows through LOCAL_QUORUM read (or LOCAL_ONE if it fails),
 3. and writes the row into the data topic. This ensures the most recent state of the Cassandra table is replicated into
-the data topic without the need to time re-order Cassandra mutations.
+the data topic without the need to time re-order Cassandra mutations. Of course, this does not ensure you get all the mutations, but you
+get a consistent replication of the data.
+
+In order to deduplicate mutations coming from multiple replicas, the source connector keeps a MD5 digest of the mutation in
+a memory cache if the LOCAL_QUORUM read succeed through the originator node. Step 2 and 3 are then skipped if the MD5 digest is found in the memory cache. If the LOCAL_QUORUM read through the originator node failed because the node is dead or replaced, the same mutation should arrive from another replicas, eventually after a repair, leading to a consistent replication.
 
 The Cassandra Source Connector also updates the schema-registry to dynamically reflects the Cassandra table schema. You can then deploy various sink connectors (see https://pulsar.apache.org/docs/en/io-connectors/#sink-connector[Pulsar built-in sink connectors]) to replicate data into the backends of your choice.
 
