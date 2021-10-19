@@ -1,11 +1,14 @@
 version: '3.7'
 services:
   seed_node:
-    image: "dse-server:6.8.16"
+    image: "dse-server:6.8.16-cdc"
+    container_name: dse
     environment:
       - "MAX_HEAP_SIZE=1200m"
       - "HEAP_NEWSIZE=300m"
       - "DS_LICENSE=accept"
+      - "LOCAL_JMX=no"
+      - "JVM_EXTRA_OPTS=-Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.rmi.port=7199 -javaagent:/tmp/producer-dse4-pulsar-0.2.7-SNAPSHOT-all.jar=pulsarServiceUrl=pulsar://pulsar:6650,cdcWorkingDir=/var/lib/cassandra/cdc -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8000"
     cap_add:
       - IPC_LOCK
     ulimits:
@@ -16,13 +19,13 @@ services:
       - "7199:7199"
     volumes:
       - ./build/data:/var/lib/cassandra
-
+      - ./build/libs:/tmp
 
   pulsar:
-    image: "datastax/lunastreaming:2.7.2_1.1.6"
-    container_name: pulsar
+    image: "lunastreaming:2.7.2_1.1.6-csc"
+    container_name: luna
     environment:
-      - PULSAR_MEM: " -Xms512m -Xmx512m -XX:MaxDirectMemorySize=1g"
+      - "PULSAR_MEM=-Xms512m -Xmx512m -XX:MaxDirectMemorySize=1g"
     ports:
       - '8080:8080'
       - '6650:6650'
