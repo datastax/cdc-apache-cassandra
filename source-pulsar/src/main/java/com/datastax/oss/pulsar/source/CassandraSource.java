@@ -166,11 +166,11 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                     this.config.getCacheMaxCapacity(),
                     Duration.ofMillis(this.config.getCacheExpireAfterMs()));
 
-            log.debug("Starting source connector topic={} subscription={}",
+            log.info("Starting source connector topic={} subscription={}",
                     dirtyTopicName,
                     this.config.getEventsSubscriptionName());
         } catch (Throwable err) {
-            log.error("error on open", err);
+            log.error("Error on open", err);
             throw new RuntimeException(err);
         }
     }
@@ -321,7 +321,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                 executeOrdered(msg.getKey(), () -> {
                     try {
                         if (mutationCache.isMutationProcessed(msg.getKey(), mutationValue.getMd5Digest())) {
-                            log.debug("message key={} md5={} already processed", msg.getKey(), mutationValue.getMd5Digest());
+                            log.debug("Message key={} md5={} already processed", msg.getKey(), mutationValue.getMd5Digest());
                             // discard duplicated mutation
                             consumer.acknowledge(msg);
                             queryResult.complete(null);
@@ -348,9 +348,12 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                         Object value = tuple._1 == null ? null : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
                         if (ConsistencyLevel.LOCAL_QUORUM.equals(tuple._2()) &&
                                 (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._3 != null && tuple._3.equals(mutationValue.getNodeId())))) {
-                            log.debug("addMutation key={} md5={} pk={}", msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues);
+                            log.debug("Caching mutation key={} md5={} pk={}", msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues);
                             // cache the mutation digest if the coordinator is the source of this event.
                             mutationCache.addMutationMd5(msg.getKey(), mutationValue.getMd5Digest());
+                        } else {
+                            log.debug("Not caching mutation key={} md5={} pk={} CL={} coordinator={}",
+                                    msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues, tuple._2(), tuple._3());
                         }
                         queryResult.complete(new KeyValue(msg.getKeyBytes(), value));
                     } catch (Throwable err) {
@@ -361,7 +364,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                 final MyKVRecord record = new MyKVRecord(converterAndQueryFinal, queryResult, msg);
                 newBuffer.add(record);
             } catch (Exception e) {
-                log.error("error", e);
+                log.error("Error:", e);
                 // fail every message in the buffer
                 for (MyKVRecord record : newBuffer) {
                     negativeAcknowledge(consumer, record.getMsg());
