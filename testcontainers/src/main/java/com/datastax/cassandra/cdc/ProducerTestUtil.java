@@ -16,9 +16,12 @@
 package com.datastax.cassandra.cdc;
 
 import com.datastax.oss.driver.api.core.data.CqlDuration;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.io.IOUtils;
 import org.apache.pulsar.client.api.schema.Field;
 import org.apache.pulsar.client.api.schema.GenericRecord;
 import org.junit.Assert;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.math.BigDecimal;
@@ -29,6 +32,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 
+@Slf4j
 public class ProducerTestUtil {
 
     private static final Random random = new Random();
@@ -82,8 +86,7 @@ public class ProducerTestUtil {
         }
     }
 
-    public static ByteBuffer randomizeBuffer(int size)
-    {
+    public static ByteBuffer randomizeBuffer(int size) {
         byte[] toWrap = new byte[size];
         random.nextBytes(toWrap);
         return ByteBuffer.wrap(toWrap);
@@ -93,5 +96,28 @@ public class ProducerTestUtil {
         V3,
         V4,
         DSE
+    }
+
+    public static void dumpFunctionLogs(GenericContainer<?> container, String name) {
+        try {
+            String logFile = "/pulsar/logs/functions/public/default/" + name + "/" + name + "-0.log";
+            String logs = container.<String>copyFileFromContainer(logFile, (inputStream) -> {
+                return IOUtils.toString(inputStream, "utf-8");
+            });
+            log.info("Function {} logs {}", name, logs);
+        } catch (Throwable err) {
+            log.info("Cannot download {} logs", name, err);
+        }
+    }
+
+    public static boolean cassandraLogsContains(GenericContainer<?> container, String expression) {
+        try {
+            String logFile = "/var/log/cassandra/system.log";
+            return container.<Boolean>copyFileFromContainer(logFile, (inputStream) ->
+                    IOUtils.toString(inputStream, "utf-8").contains(expression));
+        } catch (Throwable err) {
+            log.info("Cannot download {} logs", container.getContainerName(), err);
+            return false;
+        }
     }
 }

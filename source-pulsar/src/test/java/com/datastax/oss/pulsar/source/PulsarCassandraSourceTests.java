@@ -16,7 +16,6 @@
 package com.datastax.oss.pulsar.source;
 
 import com.datastax.cassandra.cdc.CqlLogicalTypes;
-import com.datastax.cassandra.cdc.ProducerTestUtil;
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.*;
@@ -26,7 +25,6 @@ import com.datastax.oss.pulsar.source.converters.NativeAvroConverter;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
 import com.datastax.testcontainers.pulsar.PulsarContainer;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.io.IOUtils;
 import org.apache.pulsar.client.api.*;
 import org.apache.pulsar.client.api.schema.Field;
 import org.apache.pulsar.client.api.schema.GenericObject;
@@ -55,7 +53,8 @@ import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import static com.datastax.cassandra.cdc.ProducerTestUtil.randomizeBuffer;
+import static com.datastax.cassandra.cdc.ProducerTestUtil.genericRecordToMap;
+import static com.datastax.cassandra.cdc.ProducerTestUtil.dumpFunctionLogs;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -286,7 +285,7 @@ public class PulsarCassandraSourceTests {
                 }
             }
         } finally {
-            dumpFunctionLogs("cassandra-source-" + ksName + "-table1");
+            dumpFunctionLogs(pulsarContainer,"cassandra-source-" + ksName + "-table1");
             undeployConnector(ksName, "table1");
         }
     }
@@ -381,7 +380,7 @@ public class PulsarCassandraSourceTests {
                 }
             }
         } finally {
-            dumpFunctionLogs("cassandra-source-" + ksName + "-table2");
+            dumpFunctionLogs(pulsarContainer, "cassandra-source-" + ksName + "-table2");
             undeployConnector(ksName, "table2");
         }
     }
@@ -540,7 +539,7 @@ public class PulsarCassandraSourceTests {
                 }
             }
         } finally {
-            dumpFunctionLogs("cassandra-source-" + ksName + "-table3");
+            dumpFunctionLogs(pulsarContainer, "cassandra-source-" + ksName + "-table3");
             undeployConnector(ksName, "table3");
         }
     }
@@ -617,7 +616,7 @@ public class PulsarCassandraSourceTests {
                 }
             }
         } finally {
-            dumpFunctionLogs("cassandra-source-" + ksName + "-table1");
+            dumpFunctionLogs(pulsarContainer, "cassandra-source-" + ksName + "-table1");
             undeployConnector(ksName, "table1");
         }
     }
@@ -685,45 +684,8 @@ public class PulsarCassandraSourceTests {
                 }
             }
         } finally {
-            dumpFunctionLogs("cassandra-source-" + ksName + "-table4");
+            dumpFunctionLogs(pulsarContainer, "cassandra-source-" + ksName + "-table4");
             undeployConnector(ksName, "table4");
-        }
-    }
-
-    static String genericRecordToString(GenericRecord genericRecord) {
-        StringBuilder sb = new StringBuilder("{");
-        for(Field field : genericRecord.getFields()) {
-            if (genericRecord.getField(field) != null) {
-                if (sb.length() > 1)
-                    sb.append(",");
-                sb.append(field.getName()).append("=");
-                if (genericRecord.getField(field) instanceof GenericRecord) {
-                    sb.append(genericRecordToString((GenericRecord) genericRecord.getField(field)));
-                } else {
-                    sb.append(genericRecord.getField(field).toString());
-                }
-            }
-        }
-        return sb.append("}").toString();
-    }
-
-    static Map<String, Object> genericRecordToMap(GenericRecord genericRecord) {
-        Map<String, Object> map = new HashMap<>();
-        for (Field field : genericRecord.getFields()) {
-            map.put(field.getName(), genericRecord.getField(field));
-        }
-        return map;
-    }
-
-    protected void dumpFunctionLogs(String name) {
-        try {
-            String logFile = "/pulsar/logs/functions/public/default/" + name + "/" + name + "-0.log";
-            String logs = pulsarContainer.<String>copyFileFromContainer(logFile, (inputStream) -> {
-                return IOUtils.toString(inputStream, "utf-8");
-            });
-            log.info("Function {} logs {}", name, logs);
-        } catch (Throwable err) {
-            log.info("Cannot download {} logs", name, err);
         }
     }
 }
