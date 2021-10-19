@@ -22,9 +22,9 @@ import org.apache.pulsar.common.schema.SchemaType;
 
 import java.util.List;;
 
-public class AvroConverter extends AbstractGenericConverter {
+public class AvroConverter extends NativeAvroConverter {
 
     public AvroConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
-        super(ksm, tm, columns, SchemaType.AVRO);
+        super(ksm, tm, columns);
     }
 }
