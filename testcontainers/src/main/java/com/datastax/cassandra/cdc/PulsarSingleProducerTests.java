@@ -381,7 +381,7 @@ public abstract class PulsarSingleProducerTests {
             }
 
             // wait the end of the network outage.
-            Thread.sleep(1000);
+            Thread.sleep(5000);
 
             int msgCount = 0;
             long maxLatency = 0;
@@ -394,7 +394,7 @@ public abstract class PulsarSingleProducerTests {
                          .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                          .subscribe()) {
                 Message<GenericRecord> msg;
-                while ((msg = consumer.receive(240, TimeUnit.SECONDS)) != null && msgCount < 2 * numMutation) {
+                while ((msg = consumer.receive(300, TimeUnit.SECONDS)) != null && msgCount < 2 * numMutation) {
                     Assert.assertNotNull("Expecting one message, check the producer log", msg);
                     msgCount++;
                     consumer.acknowledgeAsync(msg);
