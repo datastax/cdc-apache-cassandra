@@ -54,18 +54,20 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     private final MutationMaker<TableMetadata> mutationMaker;
     private final MutationSender<TableMetadata> mutationSender;
     private final CommitLogReaderService.Task task;
-    private volatile int markedPosition = 0;
+    private volatile int processedPosition = 0;
 
     CommitLogReadHandlerImpl(ProducerConfig config,
                              MutationSender<TableMetadata> mutationSender,
-                             CommitLogReaderService.Task task) {
+                             CommitLogReaderService.Task task,
+                             int currentPosition) {
         this.mutationSender = mutationSender;
         this.mutationMaker = new MutationMaker<>(config);
         this.task = task;
+        this.processedPosition = currentPosition;
     }
 
-    public int getMarkedPosition() {
-        return this.markedPosition;
+    public int getProcessedPosition() {
+        return this.processedPosition;
     }
 
     /**
@@ -319,7 +321,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
             RowData after = new RowData();
             populatePartitionColumns(after, pu);
             mutationMaker.delete(StorageService.instance.getLocalHostUUID(), segment, position,
-                    pu.maxTimestamp(), after, this::blockingSend, md5Digest, pu.metadata());
+                    pu.maxTimestamp(), after, this::sendAsync, md5Digest, pu.metadata());
         }
         catch (Exception e) {
             log.error("Fail to send delete partition at {}:{}. Reason: {}", segment, position, e);
@@ -341,17 +343,17 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         switch (rowType) {
             case INSERT:
                 mutationMaker.insert(StorageService.instance.getLocalHostUUID(), segment, position,
-                        ts, after, this::blockingSend, md5Digest, pu.metadata());
+                        ts, after, this::sendAsync, md5Digest, pu.metadata());
                 break;
 
             case UPDATE:
                 mutationMaker.update(StorageService.instance.getLocalHostUUID(), segment, position,
-                        ts, after, this::blockingSend, md5Digest, pu.metadata());
+                        ts, after, this::sendAsync, md5Digest, pu.metadata());
                 break;
 
             case DELETE:
                 mutationMaker.delete(StorageService.instance.getLocalHostUUID(), segment, position,
-                        ts, after, this::blockingSend, md5Digest, pu.metadata());
+                        ts, after, this::sendAsync, md5Digest, pu.metadata());
                 break;
 
             default:
@@ -457,7 +459,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         return values;
     }
 
-    public void blockingSend(Mutation<TableMetadata> mutation) {
+    public void sendAsync(Mutation<TableMetadata> mutation) {
         log.debug("Sending mutation={}", mutation);
         try {
             this.task.sentMutations.add(this.mutationSender.sendMutationAsync(mutation)
@@ -465,7 +467,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                         CdcMetrics.sentMutations.inc();
                         log.debug("Sent mutation={}", mutation);
                     }));
-            this.markedPosition = Math.max(this.markedPosition, mutation.getPosition());
+            this.processedPosition = Math.max(this.processedPosition, mutation.getPosition());
         } catch(Exception e) {
             log.error("failed to send message to pulsar:", e);
             CdcMetrics.sentErrors.inc();

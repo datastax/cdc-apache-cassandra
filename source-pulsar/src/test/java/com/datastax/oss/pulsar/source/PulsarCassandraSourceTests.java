@@ -201,6 +201,7 @@ public class PulsarCassandraSourceTests {
         assertEquals(0, result.getExitCode(), "undeployConnector failed:" + result.getStdout());
     }
 
+    // docker exec -it pulsar cat /pulsar/logs/functions/public/default/cassandra-source-ks1-table1/cassandra-source-ks1-table1-0.log
     public void testSinglePk(String ksName,
                              Class<? extends Converter> keyConverter,
                              Class<? extends Converter> valueConverter) throws InterruptedException, IOException {

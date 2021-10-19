@@ -46,7 +46,7 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<Runnable>(),
                 new NamedThreadFactory("CdcCommitlogProcessor"),
-                "CdcProducer");
+                CdcMetrics.CDC_PRODUCER_MBEAN_NAME);
     }
 
     @SuppressWarnings("unchecked")
@@ -61,18 +61,19 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
                 try {
                     int markedPosition = -1;
                     if (!file.exists()) {
-                        log.warn("file={} does not exist any more, ignoring", file.getName());
+                        log.warn("CL file={} does not exist any more, ignoring", file.getName());
                         finish(TaskStatus.SUCCESS, -1);
                         return;
                     }
                     long seg = CommitLogUtil.extractTimestamp(file.getName());
 
-                    if (syncPosition > segmentOffsetWriter.position(Optional.empty(), seg)) {
-                        CommitLogPosition minPosition = new CommitLogPosition(seg, segmentOffsetWriter.position(Optional.empty(), seg));
-                        CommitLogReadHandlerImpl commitLogReadHandler = new CommitLogReadHandlerImpl(config, (MutationSender<TableMetadata>) mutationSender, this);
+                    int currentPosition = segmentOffsetWriter.position(Optional.empty(), seg);
+                    if (syncPosition > currentPosition) {
+                        CommitLogPosition minPosition = new CommitLogPosition(seg, currentPosition);
+                        CommitLogReadHandlerImpl commitLogReadHandler = new CommitLogReadHandlerImpl(config, (MutationSender<TableMetadata>) mutationSender, this, currentPosition);
                         CommitLogReader commitLogReader = new CommitLogReader();
                         commitLogReader.readCommitLogSegment(commitLogReadHandler, file, minPosition, false);
-                        markedPosition = commitLogReadHandler.getMarkedPosition();
+                        markedPosition = commitLogReadHandler.getProcessedPosition();
                     }
                     finish(TaskStatus.SUCCESS, markedPosition);
                 } catch (Exception e) {

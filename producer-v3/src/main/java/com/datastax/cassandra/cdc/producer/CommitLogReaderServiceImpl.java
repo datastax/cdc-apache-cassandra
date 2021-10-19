@@ -46,7 +46,7 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<Runnable>(),
                 new NamedThreadFactory("CdcCommitlogProcessor"),
-                "CdcProducer");
+                CdcMetrics.CDC_PRODUCER_MBEAN_NAME);
     }
 
     @SuppressWarnings("unchecked")
@@ -60,7 +60,7 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
                 File file = getFile();
                 try {
                     if (!file.exists()) {
-                        log.warn("file={} does not exist any more, ignoring", file.getName());
+                        log.warn("CL file={} does not exist any more, ignoring", file.getName());
                         finish(TaskStatus.SUCCESS, -1);
                         return;
                     }
