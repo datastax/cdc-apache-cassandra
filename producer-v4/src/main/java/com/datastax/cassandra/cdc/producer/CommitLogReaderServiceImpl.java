@@ -40,8 +40,8 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
                                       CommitLogTransfer commitLogTransfer) {
         super(config, mutationSender, segmentOffsetWriter, commitLogTransfer);
         this.tasksExecutor = new JMXEnabledThreadPoolExecutor(
-                config.cdcConcurrentProcessor == -1 ? DatabaseDescriptor.getFlushWriters() : config.cdcConcurrentProcessor,
-                config.cdcConcurrentProcessor == -1 ? DatabaseDescriptor.getFlushWriters() : config.cdcConcurrentProcessor,
+                config.cdcConcurrentProcessors == -1 ? DatabaseDescriptor.getFlushWriters() : config.cdcConcurrentProcessors,
+                config.cdcConcurrentProcessors == -1 ? DatabaseDescriptor.getFlushWriters() : config.cdcConcurrentProcessors,
                 1, TimeUnit.MINUTES,
                 new LinkedBlockingQueue<>(),
                 new NamedThreadFactory("CdcCommitlogProcessor"),
