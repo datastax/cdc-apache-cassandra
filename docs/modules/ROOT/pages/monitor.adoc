@@ -30,7 +30,7 @@ The CDC producer JVM agent running in Cassandra nodes provides a dedicated MBean
 
 |submittedTasksGauge
 |Gauge
-|Number of submitted tasks to the task dedicated thread pool.
+|The current umber of submitted tasks to the dedicated thread pool.
 
 |maxSubmittedTasks
 |Gauge
@@ -38,7 +38,7 @@ The CDC producer JVM agent running in Cassandra nodes provides a dedicated MBean
 
 |pendingTasks
 |Gauge
-|Number of pending tasks to re-process a commitlog file.
+|The current number of pending tasks to re-process commitlog files.
 
 |maxPendingTasks
 |Gauge
@@ -46,7 +46,7 @@ The CDC producer JVM agent running in Cassandra nodes provides a dedicated MBean
 
 |uncleanedTasks
 |Gauge
-|Number of tasks for which processed commitlog file have not yet been removed from the cdc_raw directory.
+|The current number of tasks for which processed commitlog file have not yet been removed from the cdc_raw directory.
 
 |maxUncleanedTasks
 |Gauge
@@ -55,7 +55,7 @@ The CDC producer JVM agent running in Cassandra nodes provides a dedicated MBean
 
 == Source Connector metrics
 
-The Cassandra Source Connector also publish per message metrics:
+The Cassandra Source Connector also publishes per message metrics:
 [cols="2,3"]
 |===
 |Metric |Description

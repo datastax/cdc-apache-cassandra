@@ -20,7 +20,7 @@
 | false
 
 
-| *cdcConcurrentProcessor*
+| *cdcConcurrentProcessors*
 | The number of threads used to process commitlog files. The default value is the memtable_flush_writers.
 | integer
 | -1
