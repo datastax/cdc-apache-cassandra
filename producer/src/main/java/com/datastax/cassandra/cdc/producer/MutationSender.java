@@ -15,12 +15,12 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
-import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CompletableFuture;
 
 public interface MutationSender<T> {
 
     default void initialize(ProducerConfig config) throws Exception {
     }
 
-    CompletionStage<?> sendMutationAsync(final Mutation<T> mutation) throws Exception;
+    CompletableFuture<?> sendMutationAsync(final Mutation<T> mutation) throws Exception;
 }

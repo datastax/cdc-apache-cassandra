@@ -259,7 +259,7 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
 
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
-    public CompletionStage<MessageId> sendMutationAsync(final Mutation<TableMetadata> mutation) throws PulsarClientException {
+    public CompletableFuture<MessageId> sendMutationAsync(final Mutation<TableMetadata> mutation) throws PulsarClientException {
         if (!isSupported(mutation.getMetadata())) {
             CdcMetrics.skippedMutations.inc();
             return CompletableFuture.completedFuture(null);

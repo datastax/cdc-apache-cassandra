@@ -1,0 +1,2 @@
+FROM datastax/lunastreaming:2.7.2_1.1.6
+COPY source-pulsar/build/libs/pulsar-cassandra-source-0.2.7-SNAPSHOT.nar /

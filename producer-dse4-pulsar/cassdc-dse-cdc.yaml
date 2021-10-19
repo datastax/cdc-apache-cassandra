@@ -1,0 +1,50 @@
+# Sized to work on 3 k8s workers nodes with 2 cores / 8 GB RAM
+# See neighboring example-cassdc-full.yaml for docs for each parameter
+apiVersion: cassandra.datastax.com/v1beta1
+kind: CassandraDatacenter
+metadata:
+  name: dc1
+spec:
+  clusterName: cluster2
+  serverType: dse
+  serverVersion: "6.8.16"
+  serverImage: "vroyer/dse-server:latest"
+  managementApiAuth:
+    insecure: {}
+  size: 3
+  racks:
+    - name: rack1
+    - name: rack2
+    - name: rack3
+  resources:
+    requests:
+      memory: 4Gi
+      cpu: 1000m
+  storageConfig:
+    cassandraDataVolumeClaimSpec:
+      storageClassName: gp2
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 10Gi
+  config:
+    cassandra-yaml:
+      num_tokens: 8
+      authenticator: com.datastax.bdp.cassandra.auth.DseAuthenticator
+      authorizer: com.datastax.bdp.cassandra.auth.DseAuthorizer
+      role_manager: com.datastax.bdp.cassandra.auth.DseRoleManager
+      cdc_enabled: true
+    dse-yaml:
+      authorization_options:
+        enabled: true
+      authentication_options:
+        enabled: true
+        default_scheme: internal
+    jvm-server-options:
+      initial_heap_size: "2G"
+      max_heap_size: "2G"
+      additional-jvm-opts:
+        - "-Ddse.system_distributed_replication_dc_names=dc1"
+        - "-Ddse.system_distributed_replication_per_dc=3"
+        - "-javaagent:/producer-dse4-pulsar-0.2.7-SNAPSHOT-all.jar=pulsarServiceUrl=pulsar://pulsar-perf-aws-useast2-broker.pulsar.svc.cluster.local:6650,topicPrefix=persistent://public/default/events-,cdcWorkingDir=/var/lib/cassandra/cdc,pulsarAuthPluginClassName=org.apache.pulsar.client.impl.auth.AuthenticationToken,pulsarAuthParams=token:{{PULSAR_TOKEN}}"

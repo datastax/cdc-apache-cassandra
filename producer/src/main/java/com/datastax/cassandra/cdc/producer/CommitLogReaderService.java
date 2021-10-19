@@ -60,6 +60,7 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
     static int maxUncleanedTasks = 0;
 
     final ProducerConfig config;
+    final MutationSender<?> mutationSender;
     final SegmentOffsetWriter segmentOffsetWriter;
     final CommitLogTransfer commitLogTransfer;
 
@@ -74,9 +75,11 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
     ExecutorService tasksExecutor;
 
     public CommitLogReaderService(ProducerConfig config,
+                                  MutationSender<?> mutationSender,
                                   SegmentOffsetWriter segmentOffsetWriter,
                                   CommitLogTransfer commitLogTransfer) {
         this.config = config;
+        this.mutationSender = mutationSender;
         this.segmentOffsetWriter = segmentOffsetWriter;
         this.commitLogTransfer = commitLogTransfer;
         this.commitLogQueue = new PriorityBlockingQueue<>(128, CommitLogUtil::compareCommitLogs);
@@ -239,6 +242,9 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
         @EqualsAndHashCode.Exclude
         TaskStatus status = null;
 
+        @EqualsAndHashCode.Exclude
+        List<CompletableFuture<?>> sentMutations;
+
         public Task(String filename, long segment, int syncPosition, boolean completed) {
             this.filename = filename;
             this.segment = segment;
@@ -248,7 +254,26 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
 
         public abstract File getFile();
 
-        public void finish(TaskStatus taskStatus) {
+        public void finish(TaskStatus taskStatus, int markedPosition) {
+            if (taskStatus.equals(TaskStatus.SUCCESS)) {
+                try {
+                    for (CompletableFuture<?> completableFuture : sentMutations) {
+                        // wait for sent ack or get an exception
+                        completableFuture.join();
+                    }
+                    if (!completed && markedPosition >= 0) {
+                        // flush sent offset on disk to restart from that position
+                        segmentOffsetWriter.position(Optional.empty(), segment, markedPosition);
+                        segmentOffsetWriter.flush(Optional.empty(), segment);
+                    }
+                    log.debug("Task segment={} position={} succeed", segment, markedPosition);
+                } catch (Exception e) {
+                    // eventually resubmit self after 10s
+                    log.error("Task segment={} failed, retrying:", segment, e);
+                    pendingTasks.putIfAbsent(segment, this);
+                }
+            }
+
             submittedTasks.remove(this.segment);
             Task nextTask = maybeRunPendingTask(this.segment);
             if (nextTask == null) {

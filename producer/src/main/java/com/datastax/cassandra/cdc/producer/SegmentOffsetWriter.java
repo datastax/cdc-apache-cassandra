@@ -25,12 +25,6 @@ import java.util.UUID;
 public interface SegmentOffsetWriter {
 
     /**
-     * Set the current offset.
-     * @param mutation
-     */
-    void markOffset(Mutation<?> mutation);
-
-    /**
      * Get the current offset.
      * @return
      */

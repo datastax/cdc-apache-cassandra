@@ -20,7 +20,6 @@ import com.datastax.cassandra.cdc.producer.exceptions.CassandraConnectorTaskExce
 import lombok.extern.slf4j.Slf4j;
 import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.config.ColumnDefinition;
-import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.cql3.ColumnSpecification;
 import org.apache.cassandra.db.LivenessInfo;
 import org.apache.cassandra.db.commitlog.CommitLogDescriptor;
@@ -37,7 +36,6 @@ import org.apache.commons.codec.digest.DigestUtils;
 
 import java.nio.ByteBuffer;
 import java.util.*;
-import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 
 import static com.datastax.cassandra.cdc.producer.CommitLogReadHandlerImpl.RowType.DELETE;
@@ -56,13 +54,21 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     private final MutationMaker<CFMetaData> mutationMaker;
     private final MutationSender<CFMetaData> mutationSender;
     private final SegmentOffsetWriter segmentOffsetWriter;
+    private final CommitLogReaderService.Task task;
+    private volatile int markedPosition = 0;
 
     CommitLogReadHandlerImpl(ProducerConfig config,
                              SegmentOffsetWriter segmentOffsetWriter,
-                             MutationSender<CFMetaData> mutationSender) {
+                             MutationSender<CFMetaData> mutationSender,
+                             CommitLogReaderService.Task task) {
+        this.segmentOffsetWriter = segmentOffsetWriter;
         this.mutationSender = mutationSender;
         this.mutationMaker = new MutationMaker<>(config);
-        this.segmentOffsetWriter = segmentOffsetWriter;
+        this.task = task;
+    }
+
+    public int getMarkedPosition() {
+        return this.markedPosition;
     }
 
     /**
@@ -322,7 +328,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
             RowData after = new RowData();
             populatePartitionColumns(after, pu);
             mutationMaker.delete(StorageService.instance.getLocalHostUUID(), segment, position,
-                    pu.maxTimestamp(), after, this::blockingSend, md5Digest, pu.metadata());
+                    pu.maxTimestamp(), after, this::sendAsync, md5Digest, pu.metadata());
         }
         catch (Exception e) {
             log.error("Fail to send delete partition at {}:{}. Reason: {}", segment, position, e);
@@ -344,17 +350,17 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         switch (rowType) {
             case INSERT:
                 mutationMaker.insert(StorageService.instance.getLocalHostUUID(), segment, position,
-                        ts, after, this::blockingSend, md5Digest, pu.metadata());
+                        ts, after, this::sendAsync, md5Digest, pu.metadata());
                 break;
 
             case UPDATE:
                 mutationMaker.update(StorageService.instance.getLocalHostUUID(), segment, position,
-                        ts, after, this::blockingSend, md5Digest, pu.metadata());
+                        ts, after, this::sendAsync, md5Digest, pu.metadata());
                 break;
 
             case DELETE:
                 mutationMaker.delete(StorageService.instance.getLocalHostUUID(), segment, position,
-                        ts, after, this::blockingSend, md5Digest, pu.metadata());
+                        ts, after, this::sendAsync, md5Digest, pu.metadata());
                 break;
 
             default:
@@ -460,32 +466,18 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         return values;
     }
 
-    public void blockingSend(Mutation<CFMetaData> mutation) {
+    public void sendAsync(Mutation<CFMetaData> mutation) {
         log.debug("Sending mutation={}", mutation);
-        while(true) {
-            try {
-                processMutation(mutation).toCompletableFuture().get();
-                break;
-            } catch(Exception e) {
-                log.error("failed to send message to pulsar:", e);
-                CdcMetrics.sentErrors.inc();
-                try {
-                    Thread.sleep(10000);
-                } catch(InterruptedException interruptedException) {
-                }
-            }
-        }
-    }
-
-    // TODO: add exponential retry
-    CompletionStage<Void> processMutation(final Mutation<CFMetaData> mutation) throws Exception {
-        return this.mutationSender.sendMutationAsync(mutation)
-                .thenAccept(msgId -> {
-                    if (msgId != null) {
+        try {
+            this.task.sentMutations.add(this.mutationSender.sendMutationAsync(mutation)
+                    .thenAccept(msgId -> {
                         CdcMetrics.sentMutations.inc();
-                        segmentOffsetWriter.markOffset(mutation);
-                        log.debug("mutation={} sent", mutation);
-                    }
-                });
+                        log.debug("Sent mutation={}", mutation);
+                    }));
+            this.markedPosition = Math.max(this.markedPosition, mutation.getPosition());
+        } catch(Exception e) {
+            log.error("failed to send message to pulsar:", e);
+            CdcMetrics.sentErrors.inc();
+        }
     }
 }

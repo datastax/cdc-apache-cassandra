@@ -58,11 +58,6 @@ public class SegmentOffsetFileWriter implements SegmentOffsetWriter, AutoCloseab
     }
 
     @Override
-    public void markOffset(Mutation<?> mutation) {
-        this.segmentOffsets.put(mutation.getSegment(), mutation.getPosition());
-    }
-
-    @Override
     public void flush(Optional<UUID> nodeId, long segmentId) throws IOException {
         saveOffset(segmentId);
     }

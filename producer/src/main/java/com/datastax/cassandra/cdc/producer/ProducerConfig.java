@@ -112,10 +112,10 @@ public class ProducerConfig {
                     false, "Boolean",
                     "main", 3);
 
-    public static final String CDC_CONCURRENT_PROCESSOR = "cdcConcurrentProcessor";
-    public int cdcConcurrentProcessor = Integer.getInteger(CDC_PROPERTY_PREFIX + CDC_CONCURRENT_PROCESSOR, -1);
+    public static final String CDC_CONCURRENT_PROCESSORS = "cdcConcurrentProcessors";
+    public int cdcConcurrentProcessors = Integer.getInteger(CDC_PROPERTY_PREFIX + CDC_CONCURRENT_PROCESSORS, -1);
     public static final Setting<Integer> CDC_CONCURRENT_PROCESSOR_SETTING =
-            new Setting<>(CDC_CONCURRENT_PROCESSOR, Platform.ALL, (c, s) -> c.cdcConcurrentProcessor = Integer.parseInt(s), c -> c.cdcConcurrentProcessor,
+            new Setting<>(CDC_CONCURRENT_PROCESSORS, Platform.ALL, (c, s) -> c.cdcConcurrentProcessors = Integer.parseInt(s), c -> c.cdcConcurrentProcessors,
                     "The number of threads used to process commitlog files. The default value is the memtable_flush_writers.",
                     -1, "Integer",
                     "main", 4);

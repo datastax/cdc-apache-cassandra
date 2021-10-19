@@ -18,11 +18,12 @@ package com.datastax.cassandra.cdc.producer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.cassandra.concurrent.JMXEnabledThreadPoolExecutor;
 import org.apache.cassandra.concurrent.NamedThreadFactory;
+import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.commitlog.CommitLogReader;
 
 import java.io.File;
-import java.io.IOException;
+import java.util.Vector;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -32,44 +33,42 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class CommitLogReaderServiceImpl extends CommitLogReaderService {
 
-    private final CommitLogReadHandlerImpl commitLogReadHandler;
-
     public CommitLogReaderServiceImpl(ProducerConfig config,
+                                      MutationSender<CFMetaData> mutationSender,
                                       SegmentOffsetWriter segmentOffsetWriter,
-                                      CommitLogTransfer commitLogTransfer,
-                                      CommitLogReadHandlerImpl commitLogReadHandler) {
-        super(config, segmentOffsetWriter, commitLogTransfer);
-        this.commitLogReadHandler = commitLogReadHandler;
+                                      CommitLogTransfer commitLogTransfer) {
+        super(config, mutationSender, segmentOffsetWriter, commitLogTransfer);
         this.tasksExecutor = new JMXEnabledThreadPoolExecutor(
-                1,
-                config.cdcConcurrentProcessor == -1 ? DatabaseDescriptor.getFlushWriters() : config.cdcConcurrentProcessor,
-                DatabaseDescriptor.getCommitLogSyncPeriod() + 1000,
-                TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<Runnable>(),
+                config.cdcConcurrentProcessors == -1 ? DatabaseDescriptor.getFlushWriters() : config.cdcConcurrentProcessors,
+                config.cdcConcurrentProcessors == -1 ? DatabaseDescriptor.getFlushWriters() : config.cdcConcurrentProcessors,
+                1, TimeUnit.MINUTES,
+                new LinkedBlockingQueue<>(),
                 new NamedThreadFactory("CdcCommitlogProcessor"),
-                "CdcProducer");
+                CdcMetrics.CDC_PRODUCER_MBEAN_NAME);
     }
 
+    @SuppressWarnings("unchecked")
     public Task createTask(String filename, long segment, int syncPosition, boolean completed) {
         return new Task(filename, segment, syncPosition, true) {
 
             public void run() {
                 maxSubmittedTasks = Math.max(maxSubmittedTasks, submittedTasks.size());
+                sentMutations = new Vector<>();
                 log.debug("Starting task={}", this);
                 File file = getFile();
                 try {
                     if (!file.exists()) {
-                        log.warn("file={} does not exist any more, ignoring", file.getName());
-                        finish(TaskStatus.SUCCESS);
+                        log.warn("CL file={} does not exist any more, ignoring", file.getName());
+                        finish(TaskStatus.SUCCESS, -1);
                         return;
                     }
                     CommitLogReader commitLogReader = new CommitLogReader();
+                    CommitLogReadHandlerImpl commitLogReadHandler = new CommitLogReadHandlerImpl(config, segmentOffsetWriter, (MutationSender<CFMetaData>) mutationSender, this);
                     commitLogReader.readCommitLogSegment(commitLogReadHandler, file, false);
-                    log.debug("Task executed {}", this);
-                    finish(TaskStatus.SUCCESS);
+                    finish(TaskStatus.SUCCESS, -1);
                 } catch (Exception e) {
                     log.warn("Task failed {}", this, e);
-                    finish(TaskStatus.ERROR);
+                    finish(TaskStatus.ERROR, -1);
                 } finally {
                     CdcMetrics.executedTasks.inc();
                 }

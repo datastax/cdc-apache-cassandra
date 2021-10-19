@@ -21,10 +21,11 @@ import org.apache.cassandra.concurrent.NamedThreadFactory;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.commitlog.CommitLogPosition;
 import org.apache.cassandra.db.commitlog.CommitLogReader;
+import org.apache.cassandra.schema.TableMetadata;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.Optional;
+import java.util.Vector;
 import java.util.concurrent.*;
 
 /**
@@ -33,54 +34,49 @@ import java.util.concurrent.*;
 @Slf4j
 public class CommitLogReaderServiceImpl extends CommitLogReaderService {
 
-    private final CommitLogReadHandlerImpl commitLogReadHandler;
 
     public CommitLogReaderServiceImpl(ProducerConfig config,
+                                      MutationSender<TableMetadata> mutationSender,
                                       SegmentOffsetWriter segmentOffsetWriter,
-                                      CommitLogTransfer commitLogTransfer,
-                                      CommitLogReadHandlerImpl commitLogReadHandler) {
-        super(config, segmentOffsetWriter, commitLogTransfer);
-        this.commitLogReadHandler = commitLogReadHandler;
-        this.tasksExecutor = new JMXEnabledThreadPoolExecutor(
-                1,
-                config.cdcConcurrentProcessor == -1 ? DatabaseDescriptor.getFlushWriters() : config.cdcConcurrentProcessor,
-                DatabaseDescriptor.getCommitLogSyncPeriod() + 1000,
-                TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<Runnable>(),
+                                      CommitLogTransfer commitLogTransfer) {
+        super(config, mutationSender, segmentOffsetWriter, commitLogTransfer);
+        this.tasksExecutor = JMXEnabledThreadPoolExecutor.createAndPrestart(
+                config.cdcConcurrentProcessors == -1 ? DatabaseDescriptor.getFlushWriters() : config.cdcConcurrentProcessors,
+                1, TimeUnit.MINUTES,
+                new LinkedBlockingQueue<>(),
                 new NamedThreadFactory("CdcCommitlogProcessor"),
-                "CdcProducer",
-                new ThreadPoolExecutor.AbortPolicy()
-                );
+                CdcMetrics.CDC_PRODUCER_MBEAN_NAME);
     }
 
+    @SuppressWarnings("unchecked")
     public Task createTask(String filename, long segment, int syncPosition, boolean completed) {
         return new Task(filename, segment, syncPosition, completed) {
+
             public void run() {
                 maxSubmittedTasks = Math.max(maxSubmittedTasks, submittedTasks.size());
+                sentMutations = new Vector<>();
                 log.debug("Starting task={}", this);
                 File file = getFile();
                 try {
+                    int markedPosition = -1;
                     if (!file.exists()) {
-                        log.warn("file={} does not exist any more, ignoring", file.getName());
-                        finish(TaskStatus.SUCCESS);
+                        log.warn("CL file={} does not exist any more, ignoring", file.getName());
+                        finish(TaskStatus.SUCCESS, markedPosition);
                         return;
                     }
                     long seg = CommitLogUtil.extractTimestamp(file.getName());
-                    CommitLogReader commitLogReader = new CommitLogReader();
-
-                    if (syncPosition > segmentOffsetWriter.position(Optional.empty(),  seg)) {
-                        CommitLogPosition minPosition = new CommitLogPosition(seg, segmentOffsetWriter.position(Optional.empty(), seg));
+                    int currentPosition = segmentOffsetWriter.position(Optional.empty(), seg);
+                    if (syncPosition > currentPosition) {
+                        CommitLogPosition minPosition = new CommitLogPosition(seg, currentPosition);
+                        CommitLogReadHandlerImpl commitLogReadHandler = new CommitLogReadHandlerImpl(config, (MutationSender<TableMetadata>) mutationSender, this, currentPosition);
+                        CommitLogReader commitLogReader = new CommitLogReader();
                         commitLogReader.readCommitLogSegment(commitLogReadHandler, file, minPosition, false);
-                        log.debug("Task executed {}", this);
-                        if (!completed) {
-                            // flush sent offset on disk to restart from that position
-                            segmentOffsetWriter.flush(Optional.empty(), seg);
-                        }
+                        markedPosition = commitLogReadHandler.getProcessedPosition();
                     }
-                    finish(TaskStatus.SUCCESS);
+                    finish(TaskStatus.SUCCESS, markedPosition);
                 } catch (Exception e) {
                     log.warn("Task failed {}", this, e);
-                    finish(TaskStatus.ERROR);
+                    finish(TaskStatus.ERROR, -1);
                 } finally {
                     CdcMetrics.executedTasks.inc();
                 }

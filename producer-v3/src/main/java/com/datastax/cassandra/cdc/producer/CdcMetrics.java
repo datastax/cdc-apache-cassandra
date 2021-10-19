@@ -23,7 +23,8 @@ import org.apache.cassandra.metrics.MetricNameFactory;
 import static org.apache.cassandra.metrics.CassandraMetricsRegistry.Metrics;
 
 public class CdcMetrics {
-    private static final MetricNameFactory factory = new DefaultNameFactory("CdcProducer");
+    public static final String CDC_PRODUCER_MBEAN_NAME = "CdcProducer";
+    private static final MetricNameFactory factory = new DefaultNameFactory(CDC_PRODUCER_MBEAN_NAME);
 
     public static final Counter sentMutations = Metrics.counter(factory.createMetricName("SentMutations"));
     public static final Counter sentErrors = Metrics.counter(factory.createMetricName("SentErrors"));
