@@ -8,11 +8,11 @@
 
     export JVM_EXTRA_OPTS="-javaagent:$CSC_HOME/producer-dse4-pulsar/build/libs/producer-dse4-pulsar-<version>-SNAPSHOT-all.jar=pulsarServiceUrl=pulsar://pulsar:6650,cdcWorkingDir=/var/lib/cassandra/cdc"
 
-## Perf Testing
+## Docker Testing
 
 Build DSE docker image with CDC enabled:
 
-    docker build -t dse-server:6.8.16-cdc -f producer-dse4-pulsar/Dockerfile.dse .
+    docker build -t dse-server:6.8.16-cdc -t vroyer/dse-server:latest -f producer-dse4-pulsar/Dockerfile.dse .
 
 Build LunaStreaming image with the Cassandra source connector:
 
@@ -138,3 +138,53 @@ Check data topics throughput:
 Shutdown nodes:
 
     docker-compose stop; docker rm -f dse luna
+
+## Kubernetes testing
+
+Push DSE image into your registry:
+
+    docker push vroyer/dse-server:latest
+
+Install the datastax cassoperator:
+
+    helm install -f cass-operator-values.yaml cass-operator datastax/cass-operator
+
+Deploy a cassandra datacenter with the pulsar token:
+
+    PULSAR_TOKEN=$(kubectl get secret -n pulsar token-admin -o json | ksd | jq -r '.stringData."admin.jwt"')
+    DC_TEMPLATE=$(cat cassdc-dse-cdc.yaml | sed "s/{{PULSAR_TOKEN}}/$PULSAR_TOKEN/g")
+    echo "$DC_TEMPLATE" | kubectl apply -f -
+
+Wait the DC to be ready:
+
+    while [[ $(kubectl get cassandradatacenters.cassandra.datastax.com dc1 -o json | jq -r ".status.cassandraOperatorProgress") != "Ready" ]]; do
+        echo "waiting for cassandradatacenter dc1" && sleep 5;
+    done
+
+Load utilities:
+
+    . k8s-test-lib.sh
+
+Create a table:
+
+    run_cqlsh "CREATE KEYSPACE IF NOT EXISTS ks1 WITH REPLICATION = { 'class' : 'NetworkTopologyStrategy', 'dc1':'3'};"
+    run_cqlsh "CREATE TABLE IF NOT EXISTS ks1.table1 (a text PRIMARY KEY, b text) WITH cdc=true"
+
+Deploy Cassandra and Elasticsearch connectors:
+
+    deploy_csc
+    deploy_es_sink
+
+Stress the DSE cluster:
+
+    kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /opt/dse/resources/cassandra/tools/bin/cassandra-stress user profile=/table1.yaml no-warmup ops\(insert=1\) n=1000000 -rate threads=10 -node $CASSANDRA_SERVICE -mode native cql3 user=$USERNAME password=$PASSWORD
+
+Check topics stats:
+
+    topic_event_stats
+    topic_data_stats
+
+Undeploy the cassandra datacenter:
+
+    kubectl delete cassandradatacenter dc1
+
