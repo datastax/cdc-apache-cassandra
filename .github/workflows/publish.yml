@@ -1,7 +1,11 @@
-name: Publish to GitHub Pages
+name: Publish documentation to GitHub Pages
+
 on:
   push:
-    branches: [LS-282]
+    branches: [master]
+    paths:
+      - 'docs/**'
+
 jobs:
   build:
     runs-on: ubuntu-latest
