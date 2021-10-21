@@ -145,18 +145,19 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
                             new AvroSchemaWrapper(getAvroKeySchema(tm)),
                             Schema.AVRO(MutationValue.class),
                             KeyValueEncodingType.SEPARATED);
-                    Producer<KeyValue<byte[], MutationValue>> producer = client.newProducer(keyValueSchema)
+                    ProducerBuilder<KeyValue<byte[], MutationValue>> producerBuilder = client.newProducer(keyValueSchema)
                             .producerName(producerName)
                             .topic(k)
                             .sendTimeout(15, TimeUnit.SECONDS)
                             .hashingScheme(HashingScheme.Murmur3_32Hash)
-                            .blockIfQueueFull(true)
-                            .enableBatching(false)
-                            .batchingMaxPublishDelay(1, TimeUnit.MILLISECONDS)
-                            .batcherBuilder(BatcherBuilder.KEY_BASED)
-                            .create();
-                    log.info("Pulsar producer name={} created", producerName);
-                    return producer;
+                            .blockIfQueueFull(true);
+                    if (config.pulsarBatchDelayInMs > 0) {
+                        producerBuilder.enableBatching(true)
+                                .batchingMaxPublishDelay(config.pulsarBatchDelayInMs, TimeUnit.MILLISECONDS)
+                                .batcherBuilder(BatcherBuilder.KEY_BASED);
+                    }
+                    log.info("Pulsar producer name={} created with batching delay={}ms", producerName, config.pulsarBatchDelayInMs);
+                    return producerBuilder.create();
                 } catch (Exception e) {
                     log.error("Failed to get a pulsar producer", e);
                     throw new RuntimeException(e);

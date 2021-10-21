@@ -55,6 +55,7 @@ public class CassandraSourceConnectorConfig {
 
     public static final String EVENTS_TOPIC_NAME_CONFIG = "events.topic";
     public static final String EVENTS_SUBSCRIPTION_NAME_CONFIG = "events.subscription.name";
+    public static final String EVENTS_SUBSCRIPTION_TYPE_CONFIG = "events.subscription.type";
     public static final String DATA_TOPIC_NAME_CONFIG = "data.topic";
 
     public static final String KEYSPACE_NAME_CONFIG = "keyspace";
@@ -148,6 +149,13 @@ public class CassandraSourceConnectorConfig {
                             ConfigDef.Importance.HIGH,
                             "The pulsar events topic subscription name, with a default set to 'sub'",
                             "Pulsar only", 1, ConfigDef.Width.NONE, "SubscriptionName")
+                    .define(EVENTS_SUBSCRIPTION_TYPE_CONFIG,
+                            ConfigDef.Type.STRING,
+                            "Key_Shared",
+                            ConfigDef.ValidString.in("Exclusive", "Shared", "Failover", "Key_Shared"),
+                            ConfigDef.Importance.HIGH,
+                            "The pulsar events topic subscription type, with a default set to Key_Shared (case sensitive).",
+                            "Pulsar only", 2, ConfigDef.Width.NONE, "SubscriptionType")
                     .define(DATA_TOPIC_NAME_CONFIG,
                             ConfigDef.Type.STRING,
                             "data-topic",
@@ -601,6 +609,10 @@ public class CassandraSourceConnectorConfig {
 
     public int getBatchSize() {
         return globalConfig.getInt(BATCH_SIZE_CONFIG);
+    }
+
+    public String getEventsSubscriptionType() {
+        return globalConfig.getString(EVENTS_SUBSCRIPTION_TYPE_CONFIG);
     }
 
     public int getQueryExecutors() {

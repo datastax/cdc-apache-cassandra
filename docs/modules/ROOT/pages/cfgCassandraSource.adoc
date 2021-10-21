@@ -143,6 +143,12 @@
 | 
 | sub
 
+| *events.subscription.type*
+| The pulsar events topic subscription type, with a default set to Key_Shared (case sensitive).
+| string
+| [Exclusive, Shared, Failover, Key_Shared]
+| Key_Shared
+
 | *cache.max.digest*
 | The maximum number of digest per mutation cache entry, with a default set to 3
 | long

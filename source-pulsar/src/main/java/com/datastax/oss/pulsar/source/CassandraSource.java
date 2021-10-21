@@ -155,7 +155,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                     .consumerName("CDC Consumer")
                     .topic(dirtyTopicName)
                     .subscriptionName(this.config.getEventsSubscriptionName())
-                    .subscriptionType(SubscriptionType.Key_Shared)
+                    .subscriptionType(SubscriptionType.valueOf(this.config.getEventsSubscriptionType()))
                     .subscriptionMode(SubscriptionMode.Durable)
                     .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                     .keySharedPolicy(KeySharedPolicy.autoSplitHashRange());

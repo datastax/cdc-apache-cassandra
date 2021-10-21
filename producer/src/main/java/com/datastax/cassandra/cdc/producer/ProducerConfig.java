@@ -128,14 +128,6 @@ public class ProducerConfig {
                     "events-", "String",
                     "main", 4);
 
-    public static final String PULSAR_SERVICE_URL = "pulsarServiceUrl";
-    public String pulsarServiceUrl = System.getProperty(CDC_PROPERTY_PREFIX + PULSAR_SERVICE_URL, "pulsar://localhost:6650");
-    public static final Setting<String> PULSAR_SERVICE_URL_SETTING =
-            new Setting<>(PULSAR_SERVICE_URL, Platform.PULSAR, (c, s) -> c.pulsarServiceUrl = s, c -> c.pulsarServiceUrl,
-                    "The Pulsar broker service URL.",
-                    "pulsar://localhost:6650", "String",
-                    "pulsar", 1);
-
     public static final String SSL_PROVIDER = "sslProvider";
     public String sslProvider = System.getProperty(CDC_PROPERTY_PREFIX + SSL_PROVIDER);
     public static final Setting<String> SSL_PROVIDER_SETTING =
@@ -216,13 +208,29 @@ public class ProducerConfig {
                     false, "Boolean",
                     "ssl", 11);
 
+    public static final String PULSAR_SERVICE_URL = "pulsarServiceUrl";
+    public String pulsarServiceUrl = System.getProperty(CDC_PROPERTY_PREFIX + PULSAR_SERVICE_URL, "pulsar://localhost:6650");
+    public static final Setting<String> PULSAR_SERVICE_URL_SETTING =
+            new Setting<>(PULSAR_SERVICE_URL, Platform.PULSAR, (c, s) -> c.pulsarServiceUrl = s, c -> c.pulsarServiceUrl,
+                    "The Pulsar broker service URL.",
+                    "pulsar://localhost:6650", "String",
+                    "pulsar", 1);
+
+    public static final String PULSAR_BATCH_DELAY_IN_MS = "pulsarBatchDelayInMs";
+    public long pulsarBatchDelayInMs = Long.getLong(CDC_PROPERTY_PREFIX + PULSAR_BATCH_DELAY_IN_MS, -1L);
+    public static final Setting<Long> PULSAR_BATCH_BATCH_DELAY_IN_MS_SETTING =
+            new Setting<>(PULSAR_BATCH_DELAY_IN_MS, Platform.PULSAR, (c, s) -> c.pulsarBatchDelayInMs = Long.parseLong(s), c -> c.pulsarBatchDelayInMs,
+                    "Pulsar batching delay in milliseconds. Pulsar batching is enabled when this value is greater than zero.",
+                    -1L, "Long",
+                    "pulsar", 2);
+
     public static final String PULSAR_AUTH_PLUGIN_CLASS_NAME = "pulsarAuthPluginClassName";
     public String pulsarAuthPluginClassName = System.getProperty(CDC_PROPERTY_PREFIX + PULSAR_AUTH_PLUGIN_CLASS_NAME);
     public static final Setting<String> PULSAR_AUTH_PLUGIN_CLASS_NAME_SETTING =
             new Setting<>(PULSAR_AUTH_PLUGIN_CLASS_NAME, Platform.PULSAR, (c, s) -> c.pulsarAuthPluginClassName = s, c -> c.pulsarAuthPluginClassName,
                     "The Pulsar authentication plugin class name.",
                     null, "String",
-                    "pulsar", 2);
+                    "pulsar", 3);
 
     public static final String PULSAR_AUTH_PARAMS = "pulsarAuthParams";
     public String pulsarAuthParams = System.getProperty(CDC_PROPERTY_PREFIX + PULSAR_AUTH_PARAMS);
@@ -230,7 +238,7 @@ public class ProducerConfig {
             new Setting<>(PULSAR_AUTH_PARAMS, Platform.PULSAR, (c, s) -> c.pulsarAuthParams = s, c -> c.pulsarAuthParams,
                     "The Pulsar authentication parameters.",
                     null, "String",
-                    "pulsar", 3);
+                    "pulsar", 4);
 
     public static final Set<Setting<?>> settings;
     public static final Map<String, Setting<?>> settingMap;
@@ -243,7 +251,6 @@ public class ProducerConfig {
         set.add(CDC_CONCURRENT_PROCESSOR_SETTING);
         set.add(ERROR_COMMITLOG_REPROCESS_ENABLED_SETTING);
         set.add(TOPIC_PREFIX_SETTING);
-        set.add(PULSAR_SERVICE_URL_SETTING);
         set.add(SSL_PROVIDER_SETTING);
         set.add(SSL_TRUSTSTORE_PATH_SETTING);
         set.add(SSL_TRUSTSTORE_PASSWORD_SETTING);
@@ -254,6 +261,8 @@ public class ProducerConfig {
         set.add(SSL_ENABLED_PROTOCOLS_SETTING);
         set.add(SSL_ALLOW_INSECURE_CONNECTION_SETTING);
         set.add(SSL_HOSTNAME_VERIFICATION_ENABLE_SETTING);
+        set.add(PULSAR_SERVICE_URL_SETTING);
+        set.add(PULSAR_BATCH_BATCH_DELAY_IN_MS_SETTING);
         set.add(PULSAR_AUTH_PLUGIN_CLASS_NAME_SETTING);
         set.add(PULSAR_AUTH_PARAMS_SETTING);
         settings = Collections.unmodifiableSet(set);
@@ -280,6 +289,7 @@ public class ProducerConfig {
                 groups.add(s.group);
             orderedSettings.add(s);
         });
+        Collections.sort(groups);
 
         final Map<String, Integer> groupOrd = new HashMap<>();
         int ord = 0;

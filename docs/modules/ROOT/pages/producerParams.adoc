@@ -32,6 +32,28 @@
 | events-
 
 
+| *pulsarServiceUrl*
+| The Pulsar broker service URL.
+| string
+| pulsar://localhost:6650
+
+
+| *pulsarBatchDelayInMs*
+| Pulsar batching delay in milliseconds. Pulsar batching is enabled when this value is greater than zero.
+| long
+| -1
+
+
+| *pulsarAuthPluginClassName*
+| The Pulsar authentication plugin class name.
+| string
+| 
+
+| *pulsarAuthParams*
+| The Pulsar authentication parameters.
+| string
+| 
+
 | *sslProvider*
 | The SSL/TLS provider to use.
 | string
@@ -85,21 +107,5 @@
 | boolean
 | false
 
-
-| *pulsarServiceUrl*
-| The Pulsar broker service URL.
-| string
-| pulsar://localhost:6650
-
-
-| *pulsarAuthPluginClassName*
-| The Pulsar authentication plugin class name.
-| string
-| 
-
-| *pulsarAuthParams*
-| The Pulsar authentication parameters.
-| string
-| 
 
 |===
