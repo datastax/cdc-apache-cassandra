@@ -57,6 +57,7 @@ public class PulsarContainer<SELF extends PulsarContainer<SELF>> extends Generic
         withLogConsumer(o -> {
             log.info("[{}] {}", getContainerName(), o.getUtf8String().trim());
         });
+        withEnv("PULSAR_MEM", "-Xms512m -Xmx512m -XX:MaxDirectMemorySize=1g"); // limit memory usage
         waitingFor(new HttpWaitStrategy()
                 .forPort(BROKER_HTTP_PORT)
                 .forStatusCode(200)

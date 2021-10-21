@@ -284,6 +284,8 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
                 .withEnv("JVM_EXTRA_OPTS", String.format(Locale.ROOT,
                         "-javaagent:/%s=%s -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" +
                         (version.equals("v4") ? "*:8000" : "8000"), jarFile, agentParams))
+                .withEnv("MAX_HEAP_SIZE","1500m")
+                .withEnv("HEAP_NEWSIZE","300m")
                 .withEnv("DS_LICENSE", "accept")
                 .withStartupTimeout(Duration.ofSeconds(150));
         if (nodeIndex > 1) {
