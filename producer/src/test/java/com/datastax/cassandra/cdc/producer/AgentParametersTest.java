@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static com.datastax.cassandra.cdc.producer.ProducerConfig.*;
 
 public class AgentParametersTest {
@@ -62,6 +63,7 @@ public class AgentParametersTest {
     public void testConfigurePulsar() {
         String agentArgs = commonConfig +
                 PULSAR_SERVICE_URL + "=pulsar+ssl://mypulsar:6650\\,localhost:6651\\,localhost:6652," +
+                PULSAR_BATCH_DELAY_IN_MS + "=20," +
                 PULSAR_AUTH_PLUGIN_CLASS_NAME + "=MyAuthPlugin," +
                 PULSAR_AUTH_PARAMS + "=x:y\\,z:t," +
                 SSL_ALLOW_INSECURE_CONNECTION + "=true," +
@@ -75,6 +77,7 @@ public class AgentParametersTest {
         assertCommonConfig(config);
 
         assertEquals("pulsar+ssl://mypulsar:6650,localhost:6651,localhost:6652", config.pulsarServiceUrl);
+        assertEquals(20L, config.pulsarBatchDelayInMs);
 
         // Pulsar Auth
         assertEquals("MyAuthPlugin", config.pulsarAuthPluginClassName);

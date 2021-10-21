@@ -151,8 +151,8 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
                             .sendTimeout(15, TimeUnit.SECONDS)
                             .hashingScheme(HashingScheme.Murmur3_32Hash)
                             .blockIfQueueFull(true)
-                            .enableBatching(false)
-                            .batchingMaxPublishDelay(1, TimeUnit.MILLISECONDS)
+                            .enableBatching(config.pulsarBatchDelayInMs > 0)
+                            .batchingMaxPublishDelay(config.pulsarBatchDelayInMs, TimeUnit.MILLISECONDS)
                             .batcherBuilder(BatcherBuilder.KEY_BASED)
                             .create();
                     log.info("Pulsar producer name={} created", producerName);

@@ -136,6 +136,14 @@ public class ProducerConfig {
                     "pulsar://localhost:6650", "String",
                     "pulsar", 1);
 
+    public static final String PULSAR_BATCH_DELAY_IN_MS = "pulsarBatchDelayInMs";
+    public long pulsarBatchDelayInMs = Long.getLong(CDC_PROPERTY_PREFIX + PULSAR_BATCH_DELAY_IN_MS, -1L);
+    public static final Setting<Long> PULSAR_BATCH_BATCH_DELAY_IN_MS_SETTING =
+            new Setting<>(PULSAR_BATCH_DELAY_IN_MS, Platform.PULSAR, (c, s) -> c.pulsarBatchDelayInMs = Long.parseLong(s), c -> c.pulsarBatchDelayInMs,
+                    "Pulsar batching delay in milliseconds. Pulsar batching is enabled when this value is greater than 0",
+                    -1L, "Long",
+                    "pulsar", 2);
+
     public static final String SSL_PROVIDER = "sslProvider";
     public String sslProvider = System.getProperty(CDC_PROPERTY_PREFIX + SSL_PROVIDER);
     public static final Setting<String> SSL_PROVIDER_SETTING =
@@ -244,6 +252,7 @@ public class ProducerConfig {
         set.add(ERROR_COMMITLOG_REPROCESS_ENABLED_SETTING);
         set.add(TOPIC_PREFIX_SETTING);
         set.add(PULSAR_SERVICE_URL_SETTING);
+        set.add(PULSAR_BATCH_BATCH_DELAY_IN_MS_SETTING);
         set.add(SSL_PROVIDER_SETTING);
         set.add(SSL_TRUSTSTORE_PATH_SETTING);
         set.add(SSL_TRUSTSTORE_PASSWORD_SETTING);
