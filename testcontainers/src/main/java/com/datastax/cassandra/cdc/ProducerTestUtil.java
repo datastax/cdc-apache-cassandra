@@ -35,7 +35,7 @@ import java.util.Random;
 @Slf4j
 public class ProducerTestUtil {
 
-    private static final Random random = new Random();
+    public static final Random random = new Random();
 
     public static final DockerImageName PULSAR_IMAGE = DockerImageName.parse(
             Optional.ofNullable(System.getenv("PULSAR_IMAGE"))

@@ -16,6 +16,7 @@
 package com.datastax.cassandra.cdc;
 
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.testcontainers.ChaosNetworkContainer;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
 import com.datastax.testcontainers.pulsar.PulsarContainer;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +32,7 @@ import org.junit.Assert;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.Network;
 
@@ -40,8 +42,7 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static com.datastax.cassandra.cdc.ProducerTestUtil.PULSAR_IMAGE;
-import static com.datastax.cassandra.cdc.ProducerTestUtil.genericRecordToString;
+import static com.datastax.cassandra.cdc.ProducerTestUtil.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
@@ -200,6 +201,98 @@ public abstract class PulsarDualProducerTests {
                     assertEquals(2, digestsTable2.get(Integer.toString(i)).size());
                     assertEquals(1, digestsTable2.get(Integer.toString(i)).stream().collect(Collectors.toSet()).size());
                 }
+            }
+        }
+    }
+
+    @Test
+    public void testUnorderedMutations() throws InterruptedException, IOException {
+        String pulsarServiceUrl = "pulsar://pulsar:" + pulsarContainer.BROKER_PORT;
+        Long testId = Math.abs(random.nextLong());
+        String randomDataDir = System.getProperty("buildDir") + "/data-" + testId + "-";
+        try (CassandraContainer<?> cassandraContainer1 = createCassandraContainer(1, pulsarServiceUrl, testNetwork)
+                .withFileSystemBind(randomDataDir + "1", "/var/lib/cassandra");
+             CassandraContainer<?> cassandraContainer2 = createCassandraContainer(2, pulsarServiceUrl, testNetwork)
+                     .withFileSystemBind(randomDataDir + "2", "/var/lib/cassandra")) {
+            cassandraContainer1.start();
+            cassandraContainer2.start();
+
+            try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS ks1 WITH replication = {'class':'SimpleStrategy','replication_factor':'2'};");
+                cqlSession.execute("CREATE TABLE IF NOT EXISTS ks1.table1 (id text PRIMARY KEY, a int) WITH cdc=true");
+                cqlSession.execute("INSERT INTO ks1.table1 (id, a) VALUES('1',1)");
+            }
+
+            Thread.sleep(10000); // wait disk sync to avoid losing the first mutation.
+            cassandraContainer2.stop();
+            try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                cqlSession.execute("INSERT INTO ks1.table1 (id, a) VALUES('2',1)");
+                cqlSession.execute("DELETE FROM ks1.table1 WHERE id = ?", "2");
+            }
+            cassandraContainer2.start();
+
+            drain(cassandraContainer1, cassandraContainer2);
+
+            Map<String, List<UUID>> nodesPerPk = new HashMap<>();
+            Map<String, List<String>> digestsPerPk = new HashMap<>();
+            Map<UUID, List<String>> digestPerNode = new HashMap<>();
+            try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
+                RecordSchemaBuilder recordSchemaBuilder1 = SchemaBuilder.record("ks1.table1");
+                recordSchemaBuilder1.field("id").type(SchemaType.STRING).required();
+                SchemaInfo keySchemaInfo1 = recordSchemaBuilder1.build(SchemaType.AVRO);
+                Schema<GenericRecord> keySchema1 = Schema.generic(keySchemaInfo1);
+                Schema<KeyValue<GenericRecord, MutationValue>> schema1 = Schema.KeyValue(
+                        keySchema1,
+                        Schema.AVRO(MutationValue.class),
+                        KeyValueEncodingType.SEPARATED);
+                // pulsar-admin schemas get "persistent://public/default/events-ks1.table1"
+                // pulsar-admin topics peek-messages persistent://public/default/events-ks1.table1-partition-0 --count 3 --subscription sub1
+                try (Consumer<KeyValue<GenericRecord, MutationValue>> consumer = pulsarClient.newConsumer(schema1)
+                        .topic("events-ks1.table1")
+                        .subscriptionName("sub1")
+                        .subscriptionType(SubscriptionType.Key_Shared)
+                        .subscriptionMode(SubscriptionMode.Durable)
+                        .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+                        .subscribe()) {
+                    Message<KeyValue<GenericRecord, MutationValue>> msg;
+                    while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null &&
+                            nodesPerPk.values().stream().mapToInt(List::size).sum() < 6) {
+                        KeyValue<GenericRecord, MutationValue> kv = msg.getValue();
+                        GenericRecord key = kv.getKey();
+                        MutationValue val = kv.getValue();
+                        System.out.println("Consumer Record: topicName=" + msg.getTopicName() +
+                                " key=" + genericRecordToString(key) +
+                                " value=" + val);
+                        List<UUID> nodes = nodesPerPk.computeIfAbsent((String) key.getField("id"), k -> new ArrayList<>());
+                        nodes.add(val.getNodeId());
+                        List<String> digests = digestsPerPk.computeIfAbsent((String) key.getField("id"), k -> new ArrayList<>());
+                        digests.add(val.getMd5Digest());
+                        List<String> digest2 = digestPerNode.computeIfAbsent(val.getNodeId(), k -> new ArrayList<>());
+                        digest2.add(val.getMd5Digest());
+                        consumer.acknowledgeAsync(msg);
+                    }
+                }
+                // check mutation per node.
+                Assert.assertNotNull(nodesPerPk.get("1"));
+                assertEquals(2, nodesPerPk.get("1").size());
+                assertEquals(2, nodesPerPk.get("1").stream().collect(Collectors.toSet()).size());
+                Assert.assertNotNull(nodesPerPk.get("2"));
+                assertEquals(4, nodesPerPk.get("2").size());
+                assertEquals(2, nodesPerPk.get("2").stream().collect(Collectors.toSet()).size());
+
+                // check digests.
+                Assert.assertNotNull(digestsPerPk.get("1"));
+                assertEquals(2, digestsPerPk.get("1").size());
+                assertEquals(1, digestsPerPk.get("1").stream().collect(Collectors.toSet()).size());
+                Assert.assertNotNull(digestsPerPk.get("2"));
+                assertEquals(4, digestsPerPk.get("2").size());
+                assertEquals(2, digestsPerPk.get("2").stream().collect(Collectors.toSet()).size());
+
+                // check mutation are not in the same order from node1 and node2 (because of replayed hint handoff)
+                UUID node1 = nodesPerPk.get("1").get(0);
+                UUID node2 = nodesPerPk.get("1").get(1);
+                Assert.assertNotEquals(node1, node2);
+                Assert.assertNotEquals(digestPerNode.get(node1), digestPerNode.get(node2));
             }
         }
     }
