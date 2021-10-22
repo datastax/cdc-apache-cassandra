@@ -60,6 +60,13 @@ public abstract class PulsarDualProducerTests {
         // do nothing by default
     }
 
+    final Version version;
+
+    public PulsarDualProducerTests(Version version)
+    {
+        this.version = version;
+    }
+
     @BeforeAll
     public static void initBeforeClass() throws Exception {
         testNetwork = Network.newNetwork();
@@ -207,6 +214,11 @@ public abstract class PulsarDualProducerTests {
 
     @Test
     public void testUnorderedMutations() throws InterruptedException, IOException {
+        if (Version.V3.equals(version)) {
+            log.info("Skip this test for producer v3");
+            return;
+        }
+
         String pulsarServiceUrl = "pulsar://pulsar:" + pulsarContainer.BROKER_PORT;
         Long testId = Math.abs(random.nextLong());
         String randomDataDir = System.getProperty("buildDir") + "/data-" + testId + "-";

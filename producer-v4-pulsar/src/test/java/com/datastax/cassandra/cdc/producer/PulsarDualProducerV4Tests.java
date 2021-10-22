@@ -15,6 +15,7 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
+import com.datastax.cassandra.cdc.ProducerTestUtil;
 import com.datastax.cassandra.cdc.PulsarDualProducerTests;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
 import lombok.extern.slf4j.Slf4j;
@@ -33,10 +34,13 @@ public class PulsarDualProducerV4Tests extends PulsarDualProducerTests {
                     .orElse("cassandra:4.0-beta4")
     ).asCompatibleSubstituteFor("cassandra");
 
+    public PulsarDualProducerV4Tests() {
+        super(ProducerTestUtil.Version.V4);
+    }
+
     @Override
     public CassandraContainer<?> createCassandraContainer(int nodeIndex, String pulsarServiceUrl, Network testNetwork) {
         return CassandraContainer.createCassandraContainerWithPulsarProducer(
                 CASSANDRA_IMAGE, testNetwork, nodeIndex, "v4", pulsarServiceUrl);
     }
-
 }

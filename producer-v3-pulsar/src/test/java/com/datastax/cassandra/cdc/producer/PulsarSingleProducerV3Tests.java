@@ -38,14 +38,15 @@ public class PulsarSingleProducerV3Tests extends PulsarSingleProducerTests {
             Optional.ofNullable(System.getenv("CASSANDRA_IMAGE")).orElse("cassandra:3.11.10")
     ).asCompatibleSubstituteFor("cassandra");
 
+    public PulsarSingleProducerV3Tests() {
+        super(ProducerTestUtil.Version.V3);
+    }
+
     @Override
     public CassandraContainer<?> createCassandraContainer(int nodeIndex, String pulsarServiceUrl, Network testNetwork) {
         return CassandraContainer.createCassandraContainerWithPulsarProducer(
                 CASSANDRA_IMAGE, testNetwork, nodeIndex, "v3", pulsarServiceUrl);
     }
-
-    @Override
-    public ProducerTestUtil.Version version() { return ProducerTestUtil.Version.V3; }
 
     @Override
     public int getSegmentSize() {

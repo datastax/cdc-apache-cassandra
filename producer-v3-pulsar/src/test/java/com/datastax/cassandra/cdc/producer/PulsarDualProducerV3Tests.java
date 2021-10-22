@@ -15,6 +15,7 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
+import com.datastax.cassandra.cdc.ProducerTestUtil;
 import com.datastax.cassandra.cdc.PulsarDualProducerTests;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +35,10 @@ public class PulsarDualProducerV3Tests extends PulsarDualProducerTests {
     public static final DockerImageName CASSANDRA_IMAGE = DockerImageName.parse(
             Optional.ofNullable(System.getenv("CASSANDRA_IMAGE")).orElse("cassandra:3.11.10")
     ).asCompatibleSubstituteFor("cassandra");
+
+    public PulsarDualProducerV3Tests() {
+        super(ProducerTestUtil.Version.V3);
+    }
 
     @Override
     public CassandraContainer<?> createCassandraContainer(int nodeIndex, String pulsarServiceUrl, Network testNetwork) {

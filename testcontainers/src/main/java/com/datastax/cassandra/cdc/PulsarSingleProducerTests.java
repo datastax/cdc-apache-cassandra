@@ -67,7 +67,11 @@ public abstract class PulsarSingleProducerTests {
 
     public abstract int getSegmentSize();
 
-    public abstract Version version();
+    final Version version;
+
+    public PulsarSingleProducerTests(ProducerTestUtil.Version version) {
+        this.version = version;
+    }
 
     @BeforeAll
     public static void initBeforeClass() throws Exception {
@@ -259,7 +263,7 @@ public abstract class PulsarSingleProducerTests {
                         cqlSession.execute("INSERT INTO mt.table1 (a,b) VALUES (?, ?);", i, randomizeBuffer(getSegmentSize() / 4));
                         Thread.sleep(431);
                     }
-                    if (version().equals(Version.V3)) {
+                    if (version.equals(Version.V3)) {
                         // fill up the last CL file and flush for Cassandra 3.11
                         cqlSession.execute("CREATE TABLE IF NOT EXISTS mt.table2 (a int, b blob, PRIMARY KEY (a)) with cdc=false;");
                         for (int i = 0; i < 5; i++) {
@@ -302,7 +306,7 @@ public abstract class PulsarSingleProducerTests {
             assertEquals(numMutation, msgCount);
 
             assertTrue(maxLatency > 0);
-            if (!version().equals(Version.V3))
+            if (!version.equals(Version.V3))
                 assertTrue(maxLatency <= 20000000);
 
             Container.ExecResult result = cassandraContainer1.execInContainer("ls", "-1", "/var/lib/cassandra/cdc");
@@ -318,7 +322,7 @@ public abstract class PulsarSingleProducerTests {
                 if (f.length() > 0) // cdc_raw may be empty
                     assertTrue( f.endsWith("_cdc.idx") || f.endsWith(".log"));
 
-            if (version().equals(Version.DSE)) {
+            if (version.equals(Version.DSE4)) {
                 Container.ExecResult sentMutations = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=SentMutations,type=CdcProducer","-f", "Count", "-mg");
                 String[] sentMutationLines = sentMutations.getStdout().split("\\n");
                 assertEquals(numMutation, Long.parseLong(sentMutationLines[1]));
@@ -357,6 +361,11 @@ public abstract class PulsarSingleProducerTests {
     @Test
     @SuppressWarnings("unchecked")
     public void testPulsarReconnection() throws IOException, InterruptedException {
+        if (Version.V3.equals(version)) {
+            log.info("Skip this test for producer v3");
+            return;
+        }
+
         String pulsarServiceUrl = "pulsar://pulsar:" + pulsarContainer.BROKER_PORT;
         int numMutation = 100;
 

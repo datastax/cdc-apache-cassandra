@@ -95,7 +95,7 @@ public class ProducerTestUtil {
     public enum Version {
         V3,
         V4,
-        DSE
+        DSE4
     }
 
     public static void dumpFunctionLogs(GenericContainer<?> container, String name) {
