@@ -406,7 +406,6 @@ public abstract class PulsarSingleProducerTests {
                 }
                 assertEquals(2 * numMutation, msgCount);
                 assertTrue(maxLatency > 0);
-                assertTrue(cassandraLogsContains(cassandraContainer1, "PulsarClientException$TimeoutException"));
             }
         }
     }
