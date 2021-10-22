@@ -266,10 +266,10 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
                         segmentOffsetWriter.position(Optional.empty(), segment, markedPosition);
                         segmentOffsetWriter.flush(Optional.empty(), segment);
                     }
-                    log.debug("Task segment={} position={} succeed", segment, markedPosition);
+                    log.debug("Task segment={} completed={} position={} succeed", segment, completed, markedPosition);
                 } catch (Exception e) {
                     // eventually resubmit self after 10s
-                    log.error("Task segment={} failed, retrying:", segment, e);
+                    log.error("Task segment={} completed={} syncPosition={} failed, retrying:", segment, completed, syncPosition, e);
                     pendingTasks.putIfAbsent(segment, this);
                 }
             }
@@ -290,7 +290,7 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
         }
 
         public void cleanup(TaskStatus status) {
-            log.debug("Cleanup segment={} status={}", segment, status);
+            log.debug("Cleanup segment={} completed={} syncPosition={} status={}", segment, completed, syncPosition, status);
             File file = getFile();
             switch (status) {
                 case SUCCESS:

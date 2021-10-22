@@ -361,6 +361,11 @@ public abstract class PulsarSingleProducerTests {
     @Test
     @SuppressWarnings("unchecked")
     public void testNearRealTimeProcessing() throws IOException, InterruptedException {
+        if (version.equals(ProducerTestUtil.Version.V3)) {
+            log.info("Skipping this test for producer v3");
+            return;
+        }
+
         String pulsarServiceUrl = "pulsar://pulsar:" + pulsarContainer.BROKER_PORT;
         try (CassandraContainer<?> cassandraContainer1 = createCassandraContainer(1, pulsarServiceUrl, testNetwork)) {
             cassandraContainer1.start();
@@ -420,6 +425,48 @@ public abstract class PulsarSingleProducerTests {
                 Container.ExecResult maxUncleanedTasks = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=maxUncleanedTasks,type=CdcProducer","-f", "Value", "-mg");
                 String[] maxUncleanedTasksLines = maxUncleanedTasks.getStdout().split("\\n");
                 assertTrue(Long.parseLong(maxUncleanedTasksLines[1]) <= 1);
+            }
+        }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testInvalidSchema() throws IOException, InterruptedException {
+        String pulsarServiceUrl = "pulsar://pulsar:" + pulsarContainer.BROKER_PORT;
+        try (CassandraContainer<?> cassandraContainer1 = createCassandraContainer(1, pulsarServiceUrl, testNetwork)) {
+            cassandraContainer1.start();
+            try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS cr WITH replication = {'class':'SimpleStrategy','replication_factor':'1'};");
+                cqlSession.execute("CREATE TABLE IF NOT EXISTS cr.table1 (a int, b blob, PRIMARY KEY (a)) with cdc=true;");
+                cqlSession.execute("INSERT INTO cr.table1 (a,b) VALUES (?, ?);", 1, randomizeBuffer(1));
+                cqlSession.execute("DROP TABLE cr.table1");
+            }
+
+            try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build();
+                 Consumer<GenericRecord> consumer = pulsarClient.newConsumer(Schema.AUTO_CONSUME())
+                         .topic("events-cr.table1")
+                         .subscriptionName("sub1")
+                         .subscriptionType(SubscriptionType.Key_Shared)
+                         .subscriptionMode(SubscriptionMode.Durable)
+                         .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+                         .subscribe()) {
+
+                Message<GenericRecord> msg = consumer.receive(60, TimeUnit.SECONDS);
+                Assert.assertNotNull("Expecting one message, check the producer log", msg);
+
+                // re-create the same table with a different schema
+                try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                    cqlSession.execute("CREATE TABLE IF NOT EXISTS cr.table1 (b int, c blob, PRIMARY KEY (b)) with cdc=true;");
+                    cqlSession.execute("INSERT INTO cr.table1 (b,c) VALUES (?, ?);", 2, randomizeBuffer(1));
+                }
+
+                Message<GenericRecord> msg2 = consumer.receive(30, TimeUnit.SECONDS);
+                Assert.assertNull("Expecting no message, check the producer log", msg2);
+                if (version.equals(Version.DSE4)) {
+                    Container.ExecResult skippedMutations = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=SkippedMutations,type=CdcProducer", "-f", "Count", "-mg");
+                    String[] skippedMutationsLines = skippedMutations.getStdout().split("\\n");
+                    assertEquals(1L, Long.parseLong(skippedMutationsLines[1]));
+                }
             }
         }
     }

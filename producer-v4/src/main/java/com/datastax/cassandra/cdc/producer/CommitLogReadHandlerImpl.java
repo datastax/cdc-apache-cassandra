@@ -468,8 +468,11 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                         log.debug("Sent mutation={}", mutation);
                     }));
             this.processedPosition = Math.max(this.processedPosition, mutation.getPosition());
+        } catch(CassandraConnectorSchemaException e) {
+            log.error("Invalid primary key schema:", e);
+            CdcMetrics.skippedMutations.inc();
         } catch(Exception e) {
-            log.error("failed to send message to pulsar:", e);
+            log.error("Pulsar send failed:", e);
             CdcMetrics.sentErrors.inc();
         }
     }

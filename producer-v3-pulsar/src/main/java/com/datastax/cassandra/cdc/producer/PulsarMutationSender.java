@@ -17,6 +17,7 @@ package com.datastax.cassandra.cdc.producer;
 
 import com.datastax.cassandra.cdc.CqlLogicalTypes;
 import com.datastax.cassandra.cdc.MutationValue;
+import com.datastax.cassandra.cdc.producer.exceptions.CassandraConnectorSchemaException;
 import com.datastax.pulsar.utils.AvroSchemaWrapper;
 import com.datastax.pulsar.utils.Constants;
 import com.google.common.collect.ImmutableMap;
@@ -242,6 +243,8 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
         org.apache.avro.generic.GenericRecord genericRecord = new org.apache.avro.generic.GenericData.Record(keySchema);
         for (CellData cell : mutation.primaryKeyCells()) {
             ColumnDefinition colDef = mutation.getMetadata().getColumnDefinition(ColumnIdentifier.getInterned(cell.name, false));
+            if (keySchema.getField(cell.name) == null)
+                throw new CassandraConnectorSchemaException("Not a valid schema field: " + cell.name);
             genericRecord.put(cell.name, cqlToAvro(colDef, cell.value));
         }
         return genericRecord;
