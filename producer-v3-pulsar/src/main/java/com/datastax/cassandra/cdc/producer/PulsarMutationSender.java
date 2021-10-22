@@ -148,7 +148,7 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
                     Producer<KeyValue<byte[], MutationValue>> producer = client.newProducer(keyValueSchema)
                             .producerName(producerName)
                             .topic(k)
-                            .sendTimeout(15, TimeUnit.SECONDS)
+                            .sendTimeout(0, TimeUnit.SECONDS)
                             .hashingScheme(HashingScheme.Murmur3_32Hash)
                             .blockIfQueueFull(true)
                             .enableBatching(false)
