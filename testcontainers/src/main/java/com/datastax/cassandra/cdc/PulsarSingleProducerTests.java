@@ -432,6 +432,11 @@ public abstract class PulsarSingleProducerTests {
     @Test
     @SuppressWarnings("unchecked")
     public void testInvalidSchema() throws IOException, InterruptedException {
+        if (version.equals(ProducerTestUtil.Version.V3)) {
+            log.info("Skipping this test for producer v3");
+            return;
+        }
+
         String pulsarServiceUrl = "pulsar://pulsar:" + pulsarContainer.BROKER_PORT;
         try (CassandraContainer<?> cassandraContainer1 = createCassandraContainer(1, pulsarServiceUrl, testNetwork)) {
             cassandraContainer1.start();
