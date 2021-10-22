@@ -157,8 +157,10 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                     .subscriptionName(this.config.getEventsSubscriptionName())
                     .subscriptionType(SubscriptionType.valueOf(this.config.getEventsSubscriptionType()))
                     .subscriptionMode(SubscriptionMode.Durable)
-                    .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
-                    .keySharedPolicy(KeySharedPolicy.autoSplitHashRange());
+                    .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest);
+            if (SubscriptionType.Key_Shared.equals(SubscriptionType.valueOf(this.config.getEventsSubscriptionType()))) {
+                consumerBuilder.keySharedPolicy(KeySharedPolicy.autoSplitHashRange());
+            }
             this.consumer = consumerBuilder.subscribe();
 
             this.mutationCache = new MutationCache<>(
