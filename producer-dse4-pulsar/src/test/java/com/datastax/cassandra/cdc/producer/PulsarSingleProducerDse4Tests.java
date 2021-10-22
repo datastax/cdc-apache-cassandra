@@ -36,6 +36,10 @@ public class PulsarSingleProducerDse4Tests extends PulsarSingleProducerTests {
                     .orElse("datastax/dse-server:6.8.16")
     ).asCompatibleSubstituteFor("cassandra");
 
+    public PulsarSingleProducerDse4Tests() {
+        super(ProducerTestUtil.Version.DSE4);
+    }
+
     @Override
     public CassandraContainer<?> createCassandraContainer(int nodeIndex, String pulsarServiceUrl, Network testNetwork) {
         return CassandraContainer.createCassandraContainerWithProducer(
@@ -49,9 +53,6 @@ public class PulsarSingleProducerDse4Tests extends PulsarSingleProducerTests {
                 .withEnv("DC", CassandraContainer.LOCAL_DC)
                 .withContainerConfigLocation("/config");
     }
-
-    @Override
-    public ProducerTestUtil.Version version() { return ProducerTestUtil.Version.DSE; }
 
     @Override
     public int getSegmentSize() {

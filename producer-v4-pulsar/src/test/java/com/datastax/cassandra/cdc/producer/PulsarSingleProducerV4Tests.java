@@ -36,14 +36,15 @@ public class PulsarSingleProducerV4Tests extends PulsarSingleProducerTests {
                     .orElse("cassandra:4.0-beta4")
     ).asCompatibleSubstituteFor("cassandra");
 
+    public PulsarSingleProducerV4Tests() {
+        super(ProducerTestUtil.Version.V4);
+    }
+
     @Override
     public CassandraContainer<?> createCassandraContainer(int nodeIndex, String pulsarServiceUrl, Network testNetwork) {
         return CassandraContainer.createCassandraContainerWithPulsarProducer(
                 CASSANDRA_IMAGE, testNetwork, nodeIndex, "v4", pulsarServiceUrl);
     }
-
-    @Override
-    public ProducerTestUtil.Version version() { return ProducerTestUtil.Version.V4; }
 
     @Override
     public int getSegmentSize() {

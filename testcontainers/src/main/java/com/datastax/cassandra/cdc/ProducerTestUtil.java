@@ -31,7 +31,7 @@ import java.util.Random;
 
 public class ProducerTestUtil {
 
-    private static final Random random = new Random();
+    public static final Random random = new Random();
 
     public static final DockerImageName PULSAR_IMAGE = DockerImageName.parse(
             Optional.ofNullable(System.getenv("PULSAR_IMAGE"))
@@ -82,8 +82,7 @@ public class ProducerTestUtil {
         }
     }
 
-    public static ByteBuffer randomizeBuffer(int size)
-    {
+    public static ByteBuffer randomizeBuffer(int size) {
         byte[] toWrap = new byte[size];
         random.nextBytes(toWrap);
         return ByteBuffer.wrap(toWrap);
@@ -92,6 +91,6 @@ public class ProducerTestUtil {
     public enum Version {
         V3,
         V4,
-        DSE
+        DSE4
     }
 }

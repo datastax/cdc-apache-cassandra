@@ -18,6 +18,7 @@ package com.datastax.cassandra.cdc;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.data.CqlDuration;
 import com.datastax.pulsar.utils.Constants;
+import com.datastax.testcontainers.ChaosNetworkContainer;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
 import com.datastax.testcontainers.pulsar.PulsarContainer;
 import lombok.extern.slf4j.Slf4j;
@@ -58,6 +59,12 @@ public abstract class PulsarSingleProducerTests {
     private static Network testNetwork;
     private static PulsarContainer<?> pulsarContainer;
 
+    final ProducerTestUtil.Version version;
+
+    public PulsarSingleProducerTests(ProducerTestUtil.Version version) {
+        this.version = version;
+    }
+
     public abstract CassandraContainer<?> createCassandraContainer(int nodeIndex, String pulsarServiceUrl, Network testNetwork);
 
     public void drain(CassandraContainer... cassandraContainers) throws IOException, InterruptedException {
@@ -65,8 +72,6 @@ public abstract class PulsarSingleProducerTests {
     }
 
     public abstract int getSegmentSize();
-
-    public abstract Version version();
 
     @BeforeAll
     public static void initBeforeClass() throws Exception {
@@ -76,9 +81,15 @@ public abstract class PulsarSingleProducerTests {
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withName("pulsar"))
                 .withStartupTimeout(Duration.ofSeconds(30));
         pulsarContainer.start();
+
         Container.ExecResult result = pulsarContainer.execInContainer(
                 "/pulsar/bin/pulsar-admin", "namespaces", "set-is-allow-auto-update-schema", "public/default", "--enable");
         assertEquals(0, result.getExitCode());
+
+        // disable delete inactive topics
+        Container.ExecResult result2 = pulsarContainer.execInContainer(
+                "/pulsar/bin/pulsar-admin", "namespaces", "set-inactive-topic-policies", "--disable-delete-while-inactive", "-t", "2d", "-m", "delete_when_subscriptions_caught_up", "public/default");
+        assertEquals(0, result2.getExitCode(), "set-inactive-topic-policies failed:" + result2.getStdout());
     }
 
     @AfterAll
@@ -252,7 +263,7 @@ public abstract class PulsarSingleProducerTests {
                         cqlSession.execute("INSERT INTO mt.table1 (a,b) VALUES (?, ?);", i, randomizeBuffer(getSegmentSize() / 4));
                         Thread.sleep(431);
                     }
-                    if (version().equals(Version.V3)) {
+                    if (version.equals(Version.V3)) {
                         // fill up the last CL file and flush for Cassandra 3.11
                         cqlSession.execute("CREATE TABLE IF NOT EXISTS mt.table2 (a int, b blob, PRIMARY KEY (a)) with cdc=false;");
                         for (int i = 0; i < 5; i++) {
@@ -295,7 +306,7 @@ public abstract class PulsarSingleProducerTests {
             assertEquals(numMutation, msgCount);
 
             assertTrue(maxLatency > 0);
-            if (!version().equals(Version.V3))
+            if (!version.equals(Version.V3))
                 assertTrue(maxLatency <= 20000000);
 
             Container.ExecResult result = cassandraContainer1.execInContainer("ls", "-1", "/var/lib/cassandra/cdc");
@@ -311,7 +322,7 @@ public abstract class PulsarSingleProducerTests {
                 if (f.length() > 0) // cdc_raw may be empty
                     assertTrue( f.endsWith("_cdc.idx") || f.endsWith(".log"));
 
-            if (version().equals(Version.DSE)) {
+            if (version.equals(Version.DSE4)) {
                 Container.ExecResult sentMutations = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=SentMutations,type=CdcProducer","-f", "Count", "-mg");
                 String[] sentMutationLines = sentMutations.getStdout().split("\\n");
                 assertEquals(numMutation, Long.parseLong(sentMutationLines[1]));
@@ -343,6 +354,62 @@ public abstract class PulsarSingleProducerTests {
                 Container.ExecResult maxUncleanedTasks = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=maxUncleanedTasks,type=CdcProducer","-f", "Value", "-mg");
                 String[] maxUncleanedTasksLines = maxUncleanedTasks.getStdout().split("\\n");
                 assertEquals(1, Long.parseLong(maxUncleanedTasksLines[1]));
+            }
+        }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testPulsarReconnection() throws IOException, InterruptedException {
+        String pulsarServiceUrl = "pulsar://pulsar:" + pulsarContainer.BROKER_PORT;
+        int numMutation = 100;
+
+        try (CassandraContainer<?> cassandraContainer1 = createCassandraContainer(1, pulsarServiceUrl, testNetwork)) {
+            cassandraContainer1.start();
+            try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS pulsarfailure WITH replication = {'class':'SimpleStrategy','replication_factor':'1'};");
+                cqlSession.execute("CREATE TABLE IF NOT EXISTS pulsarfailure.table1 (a int, b blob, PRIMARY KEY (a)) with cdc=true;");
+                for (int i = 0; i < numMutation; i++) {
+                    cqlSession.execute("INSERT INTO pulsarfailure.table1 (a,b) VALUES (?, ?);", i, randomizeBuffer(getSegmentSize() / 4));
+                }
+            }
+
+            try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                ChaosNetworkContainer<?> chaosContainer = new ChaosNetworkContainer<>(pulsarContainer.getContainerName(), "100s");
+                chaosContainer.start();
+                // write 100 mutations during 100s (pulsar request timeout is 60s)
+                for (int i = 0; i < numMutation; i++) {
+                    cqlSession.execute("INSERT INTO pulsarfailure.table1 (a,b) VALUES (?, ?);", 2 * i, randomizeBuffer(getSegmentSize() / 4));
+                    Thread.sleep(1000);
+                }
+            }
+
+            // wait the end of the network outage.
+            Thread.sleep(1000);
+
+            int msgCount = 0;
+            long maxLatency = 0;
+            try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build();
+                 Consumer<GenericRecord> consumer = pulsarClient.newConsumer(Schema.AUTO_CONSUME())
+                         .topic("events-pulsarfailure.table1")
+                         .subscriptionName("sub1")
+                         .subscriptionType(SubscriptionType.Key_Shared)
+                         .subscriptionMode(SubscriptionMode.Durable)
+                         .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+                         .subscribe()) {
+                Message<GenericRecord> msg;
+                while ((msg = consumer.receive(240, TimeUnit.SECONDS)) != null && msgCount < 2 * numMutation) {
+                    Assert.assertNotNull("Expecting one message, check the producer log", msg);
+                    msgCount++;
+                    consumer.acknowledgeAsync(msg);
+
+                    long writetime = Long.parseLong(msg.getProperty(Constants.WRITETIME));
+                    long now = System.currentTimeMillis();
+                    long latency = now * 1000 - writetime;
+                    maxLatency = Math.max(maxLatency, latency);
+                }
+                assertEquals(2 * numMutation, msgCount);
+                assertTrue(maxLatency > 0);
             }
         }
     }
