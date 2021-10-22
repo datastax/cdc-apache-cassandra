@@ -213,6 +213,11 @@ public abstract class PulsarDualProducerTests {
 
     @Test
     public void testUnorderedMutations() throws InterruptedException, IOException {
+        if (version.equals(ProducerTestUtil.Version.V3)) {
+            log.info("Skipping this test for producer v3");
+            return;
+        }
+
         String pulsarServiceUrl = "pulsar://pulsar:" + pulsarContainer.BROKER_PORT;
         Long testId = Math.abs(ProducerTestUtil.random.nextLong());
         String randomDataDir = System.getProperty("buildDir") + "/data-" + testId + "-";

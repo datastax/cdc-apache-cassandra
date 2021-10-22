@@ -361,6 +361,10 @@ public abstract class PulsarSingleProducerTests {
     @Test
     @SuppressWarnings("unchecked")
     public void testPulsarReconnection() throws IOException, InterruptedException {
+        if (version.equals(ProducerTestUtil.Version.V3)) {
+            log.info("Skipping this test for producer v3");
+            return;
+        }
         String pulsarServiceUrl = "pulsar://pulsar:" + pulsarContainer.BROKER_PORT;
         int numMutation = 100;
 
