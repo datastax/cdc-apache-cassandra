@@ -360,6 +360,72 @@ public abstract class PulsarSingleProducerTests {
 
     @Test
     @SuppressWarnings("unchecked")
+    public void testNearRealTimeProcessing() throws IOException, InterruptedException {
+        String pulsarServiceUrl = "pulsar://pulsar:" + pulsarContainer.BROKER_PORT;
+        try (CassandraContainer<?> cassandraContainer1 = createCassandraContainer(1, pulsarServiceUrl, testNetwork)) {
+            cassandraContainer1.start();
+            Executors.newSingleThreadExecutor().submit(() -> {
+                try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                    cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS mt WITH replication = {'class':'SimpleStrategy','replication_factor':'1'};");
+                    cqlSession.execute("CREATE TABLE IF NOT EXISTS mt.table1 (a int, b blob, PRIMARY KEY (a)) with cdc=true;");
+                    cqlSession.execute("INSERT INTO mt.table1 (a,b) VALUES (?, ?);", 1, randomizeBuffer(1));
+                } catch (Exception e) {
+                    log.error("error:", e);
+                }
+            });
+
+            final int numMutation = 10;
+            int i = 1;
+            List<String> segAndPos = new ArrayList<>();
+            try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build();
+                 Consumer<GenericRecord> consumer = pulsarClient.newConsumer(Schema.AUTO_CONSUME())
+                         .topic("events-mt.table1")
+                         .subscriptionName("sub1")
+                         .subscriptionType(SubscriptionType.Key_Shared)
+                         .subscriptionMode(SubscriptionMode.Durable)
+                         .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+                         .subscribe()) {
+                Message<GenericRecord> msg;
+                while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null && i < numMutation) {
+                    Assert.assertNotNull("Expecting one message, check the producer log", msg);
+                    String segpos = msg.getProperty(Constants.SEGMENT_AND_POSITION);
+                    assertFalse(segAndPos.contains(segpos), "Already received mutation position=" + segpos+" positions=" + segAndPos);
+                    segAndPos.add(segpos);
+
+                    i++;
+                    try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                        cqlSession.execute("INSERT INTO mt.table1 (a,b) VALUES (?, ?);", i, randomizeBuffer(i));
+                    }
+                }
+            }
+            assertEquals(i, numMutation);
+
+            if (version.equals(Version.DSE4)) {
+                Container.ExecResult sentMutations = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=SentMutations,type=CdcProducer","-f", "Count", "-mg");
+                String[] sentMutationLines = sentMutations.getStdout().split("\\n");
+                assertEquals(numMutation, Long.parseLong(sentMutationLines[1]));
+
+                Container.ExecResult maxSubmittedTasks = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=maxSubmittedTasks,type=CdcProducer","-f", "Value", "-mg");
+                String[] maxSubmittedTasksLines = maxSubmittedTasks.getStdout().split("\\n");
+                assertEquals(1, Long.parseLong(maxSubmittedTasksLines[1]));
+
+                Container.ExecResult executedTasks = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=executedTasks,type=CdcProducer","-f", "Count", "-mg");
+                String[] executedTasksLines = executedTasks.getStdout().split("\\n");
+                assertEquals(numMutation, Long.parseLong(executedTasksLines[1]));
+
+                Container.ExecResult uncleanedTasks = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=uncleanedTasks,type=CdcProducer","-f", "Value", "-mg");
+                String[] uncleanedTasksLines = uncleanedTasks.getStdout().split("\\n");
+                assertEquals(0, Long.parseLong(uncleanedTasksLines[1]));
+
+                Container.ExecResult maxUncleanedTasks = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=maxUncleanedTasks,type=CdcProducer","-f", "Value", "-mg");
+                String[] maxUncleanedTasksLines = maxUncleanedTasks.getStdout().split("\\n");
+                assertTrue(Long.parseLong(maxUncleanedTasksLines[1]) <= 1);
+            }
+        }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     public void testPulsarReconnection() throws IOException, InterruptedException {
         if (version.equals(ProducerTestUtil.Version.V3)) {
             log.info("Skipping this test for producer v3");
