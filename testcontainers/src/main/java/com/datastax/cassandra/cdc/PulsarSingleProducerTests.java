@@ -369,15 +369,11 @@ public abstract class PulsarSingleProducerTests {
         String pulsarServiceUrl = "pulsar://pulsar:" + pulsarContainer.BROKER_PORT;
         try (CassandraContainer<?> cassandraContainer1 = createCassandraContainer(1, pulsarServiceUrl, testNetwork)) {
             cassandraContainer1.start();
-            Executors.newSingleThreadExecutor().submit(() -> {
-                try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
-                    cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS mt WITH replication = {'class':'SimpleStrategy','replication_factor':'1'};");
-                    cqlSession.execute("CREATE TABLE IF NOT EXISTS mt.table1 (a int, b blob, PRIMARY KEY (a)) with cdc=true;");
-                    cqlSession.execute("INSERT INTO mt.table1 (a,b) VALUES (?, ?);", 1, randomizeBuffer(1));
-                } catch (Exception e) {
-                    log.error("error:", e);
-                }
-            });
+            try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS mt WITH replication = {'class':'SimpleStrategy','replication_factor':'1'};");
+                cqlSession.execute("CREATE TABLE IF NOT EXISTS mt.table1 (a int, b blob, PRIMARY KEY (a)) with cdc=true;");
+                cqlSession.execute("INSERT INTO mt.table1 (a,b) VALUES (?, ?);", 1, randomizeBuffer(1));
+            }
 
             final int numMutation = 10;
             int i = 1;
@@ -391,7 +387,7 @@ public abstract class PulsarSingleProducerTests {
                          .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                          .subscribe()) {
                 Message<GenericRecord> msg;
-                while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null && i < numMutation) {
+                while ((msg = consumer.receive(90, TimeUnit.SECONDS)) != null && i < numMutation) {
                     Assert.assertNotNull("Expecting one message, check the producer log", msg);
                     String segpos = msg.getProperty(Constants.SEGMENT_AND_POSITION);
                     assertFalse(segAndPos.contains(segpos), "Already received mutation position=" + segpos+" positions=" + segAndPos);
