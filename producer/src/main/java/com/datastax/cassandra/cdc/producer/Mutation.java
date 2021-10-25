@@ -41,6 +41,7 @@ public class Mutation<T> {
     private long ts;
     private String md5Digest;
     private T metadata;
+    private Object token;
 
     public List<CellData> primaryKeyCells() {
         return rowData.primaryKeyCells();

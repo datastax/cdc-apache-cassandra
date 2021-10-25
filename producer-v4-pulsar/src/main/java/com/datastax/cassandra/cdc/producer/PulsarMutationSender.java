@@ -19,6 +19,7 @@ import com.datastax.cassandra.cdc.CqlLogicalTypes;
 import com.datastax.cassandra.cdc.MutationValue;
 import com.datastax.cassandra.cdc.producer.exceptions.CassandraConnectorSchemaException;
 import com.datastax.pulsar.utils.AvroSchemaWrapper;
+import com.datastax.pulsar.utils.Murmur3MessageRouter;
 import com.datastax.pulsar.utils.Constants;
 import com.google.common.collect.ImmutableMap;
 import lombok.extern.slf4j.Slf4j;
@@ -27,8 +28,10 @@ import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.specific.SpecificData;
 import org.apache.avro.specific.SpecificDatumWriter;
+import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.db.marshal.*;
+import org.apache.cassandra.dht.Murmur3Partitioner;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.service.StorageService;
@@ -43,7 +46,6 @@ import java.net.InetAddress;
 import java.time.*;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -148,12 +150,15 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
                             .producerName(producerName)
                             .topic(k)
                             .sendTimeout(0, TimeUnit.SECONDS)
-                            .hashingScheme(HashingScheme.Murmur3_32Hash)
                             .blockIfQueueFull(true);
                     if (config.pulsarBatchDelayInMs > 0) {
                         producerBuilder.enableBatching(true)
                                 .batchingMaxPublishDelay(config.pulsarBatchDelayInMs, TimeUnit.MILLISECONDS)
                                 .batcherBuilder(BatcherBuilder.KEY_BASED);
+                    }
+                    if (DatabaseDescriptor.getPartitionerName().equals(Murmur3Partitioner.class.getName())) {
+                        producerBuilder.messageRoutingMode(MessageRoutingMode.CustomPartition)
+                                .messageRouter(Murmur3MessageRouter.instance);
                     }
                     log.info("Pulsar producer name={} created with batching delay={}ms", producerName, config.pulsarBatchDelayInMs);
                     return producerBuilder.create();
@@ -281,6 +286,7 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
                         mutation.mutationValue()))
                 .property(Constants.WRITETIME, mutation.getTs() + "")
                 .property(Constants.SEGMENT_AND_POSITION, mutation.getSegment()  + ":" + mutation.getPosition())
+                .property(Constants.TOKEN, mutation.getToken().toString())
                 .sendAsync();
     }
 
