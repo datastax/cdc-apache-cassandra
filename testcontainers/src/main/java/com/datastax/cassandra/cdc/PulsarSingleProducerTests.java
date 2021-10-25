@@ -371,9 +371,9 @@ public abstract class PulsarSingleProducerTests {
         try (CassandraContainer<?> cassandraContainer1 = createCassandraContainer(1, pulsarServiceUrl, testNetwork)) {
             cassandraContainer1.start();
             try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
-                cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS mt WITH replication = {'class':'SimpleStrategy','replication_factor':'1'};");
-                cqlSession.execute("CREATE TABLE IF NOT EXISTS mt.table1 (a int, b blob, PRIMARY KEY (a)) with cdc=true;");
-                cqlSession.execute("INSERT INTO mt.table1 (a,b) VALUES (?, ?);", 1, randomizeBuffer(1));
+                cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS nrt WITH replication = {'class':'SimpleStrategy','replication_factor':'1'};");
+                cqlSession.execute("CREATE TABLE IF NOT EXISTS nrt.table1 (a int, b blob, PRIMARY KEY (a)) with cdc=true;");
+                cqlSession.execute("INSERT INTO nrt.table1 (a,b) VALUES (?, ?);", 1, randomizeBuffer(1));
             }
 
             final int numMutation = 10;
@@ -381,7 +381,7 @@ public abstract class PulsarSingleProducerTests {
             List<String> segAndPos = new ArrayList<>();
             try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build();
                  Consumer<GenericRecord> consumer = pulsarClient.newConsumer(Schema.AUTO_CONSUME())
-                         .topic("events-mt.table1")
+                         .topic("events-nrt.table1")
                          .subscriptionName("sub1")
                          .subscriptionType(SubscriptionType.Key_Shared)
                          .subscriptionMode(SubscriptionMode.Durable)
@@ -396,7 +396,7 @@ public abstract class PulsarSingleProducerTests {
 
                     i++;
                     try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
-                        cqlSession.execute("INSERT INTO mt.table1 (a,b) VALUES (?, ?);", i, randomizeBuffer(i));
+                        cqlSession.execute("INSERT INTO nrt.table1 (a,b) VALUES (?, ?);", i, randomizeBuffer(i));
                     }
                 }
             }
