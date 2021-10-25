@@ -20,6 +20,7 @@ import com.datastax.cassandra.cdc.MutationValue;
 import com.datastax.cassandra.cdc.producer.exceptions.CassandraConnectorSchemaException;
 import com.datastax.pulsar.utils.AvroSchemaWrapper;
 import com.datastax.pulsar.utils.Constants;
+import com.datastax.pulsar.utils.Murmur3MessageRouter;
 import com.google.common.collect.ImmutableMap;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
@@ -31,8 +32,10 @@ import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.specific.SpecificData;
 import org.apache.avro.specific.SpecificDatumWriter;
+import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.db.marshal.*;
+import org.apache.cassandra.dht.Murmur3Partitioner;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.service.StorageService;
@@ -167,6 +170,10 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
                             .batchingMaxPublishDelay(config.pulsarBatchDelayInMs, TimeUnit.MILLISECONDS)
                             .batcherBuilder(BatcherBuilder.KEY_BASED);
                 }
+                if (DatabaseDescriptor.getPartitionerName().equals(Murmur3Partitioner.class.getName())) {
+                    producerBuilder.messageRoutingMode(MessageRoutingMode.CustomPartition)
+                            .messageRouter(Murmur3MessageRouter.instance);
+                }
                 log.info("Pulsar producer name={} created with batching delay={}ms", producerName, config.pulsarBatchDelayInMs);
                 return producerBuilder.create();
             } catch (Exception e) {
@@ -287,7 +294,8 @@ public class PulsarMutationSender implements MutationSender<TableMetadata>, Auto
                         serializeAvroGenericRecord(buildAvroKey(avroSchema.schema, mutation), avroSchema.writer),
                         mutation.mutationValue()))
                 .property(Constants.WRITETIME, mutation.getTs() + "")
-                .property(Constants.SEGMENT_AND_POSITION, mutation.getSegment() + ":" + mutation.getPosition())
+                .property(Constants.SEGMENT_AND_POSITION, mutation.getSegment()  + ":" + mutation.getPosition())
+                .property(Constants.TOKEN, mutation.getToken().toString())
                 .sendAsync();
     }
 

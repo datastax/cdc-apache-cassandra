@@ -25,4 +25,9 @@ public class Constants {
      * Commitlog segment id and position message property name.
      */
     public static final String SEGMENT_AND_POSITION = "segpos";
+
+    /**
+     * Cassandra partition token.
+     */
+    public static final String TOKEN = "token";
 }

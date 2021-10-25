@@ -35,30 +35,30 @@ public class MutationMaker<T> {
 
     public void insert(UUID node, long segment, int position,
                        long tsMicro, RowData data, BlockingConsumer<Mutation<T>> consumer,
-                       String md5Digest, T t) {
-        createRecord(node, segment, position, tsMicro, data, consumer, md5Digest, t);
+                       String md5Digest, T t, Object token) {
+        createRecord(node, segment, position, tsMicro, data, consumer, md5Digest, t, token);
     }
 
     public void update(UUID node, long segment, int position,
                        long tsMicro, RowData data, BlockingConsumer<Mutation<T>> consumer,
-                       String md5Digest, T t) {
-        createRecord(node, segment, position, tsMicro, data, consumer, md5Digest, t);
+                       String md5Digest, T t, Object token) {
+        createRecord(node, segment, position, tsMicro, data, consumer, md5Digest, t, token);
     }
 
     public void delete(UUID node, long segment, int position,
                        long tsMicro, RowData data, BlockingConsumer<Mutation<T>> consumer,
-                       String md5Digest, T t) {
+                       String md5Digest, T t, Object token) {
         createRecord(node, segment, position, tsMicro,
-                data, consumer, md5Digest, t);
+                data, consumer, md5Digest, t, token);
     }
 
     private void createRecord(UUID nodeId, long segment, int position,
                               long tsMicro, RowData data, BlockingConsumer<Mutation<T>> consumer,
-                              String md5Digest, T t) {
+                              String md5Digest, T t, Object token) {
         // TODO: filter columns
         RowData filteredData = data;
 
-        Mutation<T> record = new Mutation<T>(nodeId, segment, position, filteredData, tsMicro, md5Digest, t);
+        Mutation<T> record = new Mutation<T>(nodeId, segment, position, filteredData, tsMicro, md5Digest, t, token);
         try {
             consumer.accept(record);
         }

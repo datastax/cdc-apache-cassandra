@@ -328,7 +328,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
             RowData after = new RowData();
             populatePartitionColumns(after, pu);
             mutationMaker.delete(StorageService.instance.getLocalHostUUID(), segment, position,
-                    pu.maxTimestamp(), after, this::sendAsync, md5Digest, pu.metadata());
+                    pu.maxTimestamp(), after, this::sendAsync, md5Digest, pu.metadata(), pu.partitionKey().getToken().getTokenValue());
         }
         catch (Exception e) {
             log.error("Fail to send delete partition at {}:{}. Reason: {}", segment, position, e);
@@ -350,17 +350,17 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         switch (rowType) {
             case INSERT:
                 mutationMaker.insert(StorageService.instance.getLocalHostUUID(), segment, position,
-                        ts, after, this::sendAsync, md5Digest, pu.metadata());
+                        ts, after, this::sendAsync, md5Digest, pu.metadata(), pu.partitionKey().getToken().getTokenValue());
                 break;
 
             case UPDATE:
                 mutationMaker.update(StorageService.instance.getLocalHostUUID(), segment, position,
-                        ts, after, this::sendAsync, md5Digest, pu.metadata());
+                        ts, after, this::sendAsync, md5Digest, pu.metadata(), pu.partitionKey().getToken().getTokenValue());
                 break;
 
             case DELETE:
                 mutationMaker.delete(StorageService.instance.getLocalHostUUID(), segment, position,
-                        ts, after, this::sendAsync, md5Digest, pu.metadata());
+                        ts, after, this::sendAsync, md5Digest, pu.metadata(), pu.partitionKey().getToken().getTokenValue());
                 break;
 
             default:
