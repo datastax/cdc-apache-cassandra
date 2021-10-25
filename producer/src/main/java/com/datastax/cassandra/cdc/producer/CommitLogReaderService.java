@@ -243,6 +243,7 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
         TaskStatus status = null;
 
         @EqualsAndHashCode.Exclude
+        @ToString.Exclude
         List<CompletableFuture<?>> sentMutations;
 
         public Task(String filename, long segment, int syncPosition, boolean completed) {
@@ -254,19 +255,19 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
 
         public abstract File getFile();
 
-        public void finish(TaskStatus taskStatus, int markedPosition) {
+        public void finish(TaskStatus taskStatus, int lastSentPosition) {
             if (taskStatus.equals(TaskStatus.SUCCESS)) {
                 try {
                     for (CompletableFuture<?> completableFuture : sentMutations) {
                         // wait for sent ack or get an exception
                         completableFuture.join();
                     }
-                    if (!completed && markedPosition >= 0) {
+                    if (!completed && lastSentPosition >= 0) {
                         // flush sent offset on disk to restart from that position
-                        segmentOffsetWriter.position(Optional.empty(), segment, markedPosition);
+                        segmentOffsetWriter.position(Optional.empty(), segment, lastSentPosition);
                         segmentOffsetWriter.flush(Optional.empty(), segment);
                     }
-                    log.debug("Task segment={} completed={} position={} succeed", segment, completed, markedPosition);
+                    log.debug("Task segment={} completed={} lastSentPosition={} succeed", segment, completed, lastSentPosition);
                 } catch (Exception e) {
                     // eventually resubmit self after 10s
                     log.error("Task segment={} completed={} syncPosition={} failed, retrying:", segment, completed, syncPosition, e);

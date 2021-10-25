@@ -58,10 +58,10 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
                 log.debug("Starting task={}", this);
                 File file = getFile();
                 try {
-                    int markedPosition = -1;
+                    int lastSentPosition = -1;
                     if (!file.exists()) {
                         log.warn("CL file={} does not exist any more, ignoring", file.getName());
-                        finish(TaskStatus.SUCCESS, markedPosition);
+                        finish(TaskStatus.SUCCESS, lastSentPosition);
                         return;
                     }
                     long seg = CommitLogUtil.extractTimestamp(file.getName());
@@ -71,9 +71,9 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
                         CommitLogReadHandlerImpl commitLogReadHandler = new CommitLogReadHandlerImpl(config, (MutationSender<TableMetadata>) mutationSender, this, currentPosition);
                         CommitLogReader commitLogReader = new CommitLogReader();
                         commitLogReader.readCommitLogSegment(commitLogReadHandler, file, minPosition, false);
-                        markedPosition = commitLogReadHandler.getProcessedPosition();
+                        lastSentPosition = commitLogReadHandler.getProcessedPosition();
                     }
-                    finish(TaskStatus.SUCCESS, markedPosition);
+                    finish(TaskStatus.SUCCESS, lastSentPosition);
                 } catch (Exception e) {
                     log.warn("Task failed {}", this, e);
                     finish(TaskStatus.ERROR, -1);

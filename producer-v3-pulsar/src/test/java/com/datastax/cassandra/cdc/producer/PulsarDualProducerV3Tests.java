@@ -19,8 +19,6 @@ import com.datastax.cassandra.cdc.ProducerTestUtil;
 import com.datastax.cassandra.cdc.PulsarDualProducerTests;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
 import lombok.extern.slf4j.Slf4j;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.testcontainers.containers.Network;
 import org.testcontainers.utility.DockerImageName;
 

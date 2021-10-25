@@ -261,7 +261,7 @@ public abstract class PulsarSingleProducerTests {
                     cqlSession.execute("CREATE TABLE IF NOT EXISTS mt.table1 (a int, b blob, PRIMARY KEY (a)) with cdc=true;");
                     for (int i = 0; i < numMutation; i++) {
                         cqlSession.execute("INSERT INTO mt.table1 (a,b) VALUES (?, ?);", i, randomizeBuffer(getSegmentSize() / 4));
-                        Thread.sleep(431);
+                        Thread.sleep(631);
                     }
                     if (version.equals(Version.V3)) {
                         // fill up the last CL file and flush for Cassandra 3.11
@@ -303,7 +303,8 @@ public abstract class PulsarSingleProducerTests {
                     maxLatency = Math.max(maxLatency, latency);
                 }
             }
-            assertEquals(numMutation, msgCount);
+            assertEquals(numMutation, segAndPos.size(), "Unexpected segAndPos=" + segAndPos);
+            assertEquals(numMutation, msgCount, "Unexpected msgCount=" + msgCount);
 
             assertTrue(maxLatency > 0);
             if (!version.equals(Version.V3))
