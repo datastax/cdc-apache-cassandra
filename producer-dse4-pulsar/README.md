@@ -29,7 +29,7 @@ Stress the DSE node:
 Deploy the Cassandra Source Connector:
 
     docker exec -it luna bin/pulsar-admin source create \
-    --archive /pulsar-cassandra-source-0.2.7-SNAPSHOT.nar \
+    --archive /pulsar-cassandra-source-0.2.9-SNAPSHOT.nar \
     --tenant public \
     --namespace default \
     --name cassandra-source-ks1-table1 \
