@@ -21,8 +21,12 @@ import com.datastax.cassandra.cdc.producer.exceptions.CassandraConnectorSchemaEx
 import com.datastax.pulsar.utils.AvroSchemaWrapper;
 import com.datastax.pulsar.utils.Constants;
 import com.google.common.collect.ImmutableMap;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Conversions;
+import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.specific.SpecificData;
@@ -43,7 +47,6 @@ import java.net.InetAddress;
 import java.time.*;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -74,8 +77,7 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
             .put(TimeUUIDType.instance.asCQL3Type().toString(), CqlLogicalTypes.uuidType)
             .build();
 
-    static
-    {
+    static {
         // register AVRO logical types conversion
         SpecificData.get().addLogicalTypeConversion(new CqlLogicalTypes.CqlVarintConversion());
         SpecificData.get().addLogicalTypeConversion(new CqlLogicalTypes.CqlDecimalConversion());
@@ -84,7 +86,7 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
 
     PulsarClient client;
     final Map<String, Producer<KeyValue<byte[], MutationValue>>> producers = new ConcurrentHashMap<>();
-    final Map<String, org.apache.avro.Schema> avroSchemas = new ConcurrentHashMap<>();
+    final Map<String, AvroSchema> avroSchemas = new ConcurrentHashMap<>();
 
     final ProducerConfig config;
 
@@ -92,12 +94,20 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
         this.config = config;
     }
 
+    @AllArgsConstructor
+    @ToString
+    @EqualsAndHashCode
+    static class AvroSchema {
+        org.apache.avro.Schema schema;
+        SpecificDatumWriter<GenericRecord> writer;
+    }
+
     /**
      * Build the AVRO schema for the primary key.
      * @param tableMetadata
      * @return avroSchema of the table primary key
      */
-    public org.apache.avro.Schema getAvroKeySchema(final CFMetaData tableMetadata) {
+    public AvroSchema getAvroKeySchema(final CFMetaData tableMetadata) {
         final String keyspaceAndTable = tableMetadata.ksName + "." + tableMetadata.cfName;
         return avroSchemas.computeIfAbsent(keyspaceAndTable, k -> {
             List<org.apache.avro.Schema.Field> fields = new ArrayList<>();
@@ -111,7 +121,7 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
                 fields.add(field);
             }
             org.apache.avro.Schema avroSchema = org.apache.avro.Schema.createRecord(keyspaceAndTable, SCHEMA_DOC_PREFIX + keyspaceAndTable, tableMetadata.cfName, false, fields);
-            return avroSchema;
+            return new AvroSchema(avroSchema, new SpecificDatumWriter<>(avroSchema));
         });
     }
 
@@ -121,10 +131,12 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
      * @return false if the primary key has unsupported CQL columns
      */
     public boolean isSupported(final CFMetaData tm) {
-        for (ColumnDefinition cm : tm.primaryKeyColumns()) {
-            if (!avroSchemaTypes.containsKey(cm.type.asCQL3Type().toString())) {
-                log.warn("Unsupported primary key column={}.{}.{} type={}, skipping mutation", cm.ksName, cm.cfName, cm.name, cm.type.asCQL3Type().toString());
-                return false;
+        if (!avroSchemaTypes.containsKey(tm)) {
+            for (ColumnDefinition cm : tm.primaryKeyColumns()) {
+                if (!avroSchemaTypes.containsKey(cm.type.asCQL3Type().toString())) {
+                    log.warn("Unsupported primary key column={}.{}.{} type={}, skipping mutation", cm.ksName, cm.cfName, cm.name, cm.type.asCQL3Type().toString());
+                    return false;
+                }
             }
         }
         return true;
@@ -139,32 +151,29 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
     public Producer<KeyValue<byte[], MutationValue>> getProducer(final CFMetaData tm) {
         final String topicName = config.topicPrefix + tm.ksName + "." + tm.cfName;
         final String producerName = "pulsar-producer-" + StorageService.instance.getLocalHostId() + "-" + topicName;
-        return producers.compute(topicName, (k, v) -> {
-            if (v == null) {
-                try {
-                    Schema<KeyValue<byte[], MutationValue>> keyValueSchema = Schema.KeyValue(
-                            new AvroSchemaWrapper(getAvroKeySchema(tm)),
-                            Schema.AVRO(MutationValue.class),
-                            KeyValueEncodingType.SEPARATED);
-                    ProducerBuilder<KeyValue<byte[], MutationValue>> producerBuilder = client.newProducer(keyValueSchema)
-                            .producerName(producerName)
-                            .topic(k)
-                            .sendTimeout(0, TimeUnit.SECONDS)
-                            .hashingScheme(HashingScheme.Murmur3_32Hash)
-                            .blockIfQueueFull(true);
-                    if (config.pulsarBatchDelayInMs > 0) {
-                        producerBuilder.enableBatching(true)
-                                .batchingMaxPublishDelay(config.pulsarBatchDelayInMs, TimeUnit.MILLISECONDS)
-                                .batcherBuilder(BatcherBuilder.KEY_BASED);
-                    }
-                    log.info("Pulsar producer name={} created with batching delay={}ms", producerName, config.pulsarBatchDelayInMs);
-                    return producerBuilder.create();
-                } catch (Exception e) {
-                    log.error("Failed to get a pulsar producer", e);
-                    throw new RuntimeException(e);
+        return producers.computeIfAbsent(topicName, k -> {
+            try {
+                Schema<KeyValue<byte[], MutationValue>> keyValueSchema = Schema.KeyValue(
+                        new AvroSchemaWrapper(getAvroKeySchema(tm).schema),
+                        Schema.AVRO(MutationValue.class),
+                        KeyValueEncodingType.SEPARATED);
+                ProducerBuilder<KeyValue<byte[], MutationValue>> producerBuilder = client.newProducer(keyValueSchema)
+                        .producerName(producerName)
+                        .topic(k)
+                        .sendTimeout(0, TimeUnit.SECONDS)
+                        .hashingScheme(HashingScheme.Murmur3_32Hash)
+                        .blockIfQueueFull(true);
+                if (config.pulsarBatchDelayInMs > 0) {
+                    producerBuilder.enableBatching(true)
+                            .batchingMaxPublishDelay(config.pulsarBatchDelayInMs, TimeUnit.MILLISECONDS)
+                            .batcherBuilder(BatcherBuilder.KEY_BASED);
                 }
+                log.info("Pulsar producer name={} created with batching delay={}ms", producerName, config.pulsarBatchDelayInMs);
+                return producerBuilder.create();
+            } catch (Exception e) {
+                log.error("Failed to get a pulsar producer", e);
+                throw new RuntimeException(e);
             }
-            return v;
         });
     }
 
@@ -201,35 +210,34 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
         }
     }
 
-    Object cqlToAvro(ColumnDefinition columnMetadata, Object value)
-    {
-        AbstractType<?> type = columnMetadata.type.isReversed() ? ((ReversedType)columnMetadata.type).baseType : columnMetadata.type;
+    Object cqlToAvro(ColumnDefinition columnMetadata, Object value) {
+        AbstractType<?> type = columnMetadata.type.isReversed() ? ((ReversedType) columnMetadata.type).baseType : columnMetadata.type;
         log.trace("column name={} type={} class={} value={}",
                 columnMetadata.name, type.getClass().getName(), value.getClass().getName(), value);
 
         if (type instanceof TimestampType) {
             if (value instanceof Date)
-                return ((Date)value).getTime();
+                return ((Date) value).getTime();
             if (value instanceof Instant)
-                return ((Instant)value).toEpochMilli();
+                return ((Instant) value).toEpochMilli();
         }
         if (type instanceof SimpleDateType && value instanceof Integer) {
-            long timeInMillis = Duration.ofDays((Integer)value + Integer.MIN_VALUE).toMillis();
+            long timeInMillis = Duration.ofDays((Integer) value + Integer.MIN_VALUE).toMillis();
             Instant instant = Instant.ofEpochMilli(timeInMillis);
             LocalDate localDate = LocalDateTime.ofInstant(instant, ZoneOffset.UTC).toLocalDate();
             return (int) localDate.toEpochDay(); // Avro date is an int that stores the number of days from the unix epoch
         }
         if (type instanceof TimeType && value instanceof Long) {
-            return ((Long)value / 1000); // Avro time is in microseconds
+            return ((Long) value / 1000); // Avro time is in microseconds
         }
         if (type instanceof InetAddressType) {
-            return ((InetAddress)value).getHostAddress();
+            return ((InetAddress) value).getHostAddress();
         }
         if (type instanceof ByteType) {
-            return Byte.toUnsignedInt((byte)value); // AVRO does not support INT8
+            return Byte.toUnsignedInt((byte) value); // AVRO does not support INT8
         }
         if (type instanceof ShortType) {
-            return Short.toUnsignedInt((short)value); // AVRO does not support INT16
+            return Short.toUnsignedInt((short) value); // AVRO does not support INT16
         }
         return value;
     }
@@ -250,15 +258,14 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
         return genericRecord;
     }
 
-    byte[] serializeAvroGenericRecord(org.apache.avro.generic.GenericRecord genericRecord, org.apache.avro.Schema schema) {
+    byte[] serializeAvroGenericRecord(org.apache.avro.generic.GenericRecord genericRecord, SpecificDatumWriter<org.apache.avro.generic.GenericRecord> datumWriter) {
         try {
-            SpecificDatumWriter<org.apache.avro.generic.GenericRecord> datumWriter = new SpecificDatumWriter<>(schema);
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
             BinaryEncoder binaryEncoder = new EncoderFactory().binaryEncoder(byteArrayOutputStream, null);
             datumWriter.write(genericRecord, binaryEncoder);
             binaryEncoder.flush();
             return byteArrayOutputStream.toByteArray();
-        } catch(IOException e) {
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
@@ -274,15 +281,14 @@ public class PulsarMutationSender implements MutationSender<CFMetaData>, AutoClo
             initialize(config);
         }
         Producer<KeyValue<byte[], MutationValue>> producer = getProducer(mutation.getMetadata());
-        org.apache.avro.Schema keySchema = getAvroKeySchema(mutation.getMetadata());
-
+        AvroSchema avroSchema = getAvroKeySchema(mutation.getMetadata());
         TypedMessageBuilder<KeyValue<byte[], MutationValue>> messageBuilder = producer.newMessage();
         return messageBuilder
                 .value(new KeyValue(
-                        serializeAvroGenericRecord(buildAvroKey(keySchema, mutation), keySchema),
+                        serializeAvroGenericRecord(buildAvroKey(avroSchema.schema, mutation), avroSchema.writer),
                         mutation.mutationValue()))
                 .property(Constants.WRITETIME, mutation.getTs() + "")
-                .property(Constants.SEGMENT_AND_POSITION, mutation.getSegment()  + ":" + mutation.getPosition())
+                .property(Constants.SEGMENT_AND_POSITION, mutation.getSegment() + ":" + mutation.getPosition())
                 .sendAsync();
     }
 
