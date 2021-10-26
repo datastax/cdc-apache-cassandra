@@ -26,8 +26,8 @@ import java.util.UUID;
 @NoArgsConstructor
 public class Mutation extends AbstractMutation<CFMetaData> {
 
-    public Mutation(UUID nodeId, Long segment, int position, RowData data, long tsMicro, String md5Digest, CFMetaData t, Object token) {
-        super(nodeId, segment, position, data, tsMicro, md5Digest, t, token);
+    public Mutation(UUID nodeId, Long segment, int position, Object[] pkValues, long tsMicro, String md5Digest, CFMetaData t, Object token) {
+        super(nodeId, segment, position, pkValues, tsMicro, md5Digest, t, token);
     }
 
     @Override

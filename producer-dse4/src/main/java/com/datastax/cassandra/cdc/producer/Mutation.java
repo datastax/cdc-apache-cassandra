@@ -26,8 +26,8 @@ import java.util.UUID;
 @NoArgsConstructor
 public class Mutation extends AbstractMutation<TableMetadata> {
 
-    public Mutation(UUID nodeId, Long segment, int position, RowData data, long tsMicro, String md5Digest, TableMetadata t, Object token) {
-        super(nodeId, segment, position, data, tsMicro, md5Digest, t, token);
+    public Mutation(UUID nodeId, Long segment, int position, Object[] pkValues, long tsMicro, String md5Digest, TableMetadata t, Object token) {
+        super(nodeId, segment, position, pkValues, tsMicro, md5Digest, t, token);
     }
 
     @Override
@@ -43,7 +43,7 @@ public class Mutation extends AbstractMutation<TableMetadata> {
     @Override
     public List<ColumnInfo> primaryKeyColumns() {
         List<ColumnInfo> columnInfos = new ArrayList<>();
-        for(ColumnMetadata cm :metadata.primaryKeyColumns())
+        for(ColumnMetadata cm : metadata.primaryKeyColumns())
             columnInfos.add(new ColumnInfo() {
                 @Override
                 public String name() {

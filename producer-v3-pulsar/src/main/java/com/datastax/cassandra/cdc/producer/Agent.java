@@ -17,6 +17,7 @@ package com.datastax.cassandra.cdc.producer;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.cassandra.config.DatabaseDescriptor;
+import org.apache.cassandra.service.StorageService;
 
 import java.lang.instrument.Instrumentation;
 import java.util.concurrent.ExecutorService;
@@ -73,6 +74,11 @@ public class Agent {
         ExecutorService commitLogExecutor = Executors.newSingleThreadExecutor();
         commitLogExecutor.submit(() -> {
             try {
+                do {
+                    // wait to initialize the hostID before starting
+                    Thread.sleep(1000);
+                } while(StorageService.instance.getLocalHostUUID() == null);
+
                 commitLogProcessor.initialize();
                 commitLogProcessor.start();
             } catch(Exception e) {

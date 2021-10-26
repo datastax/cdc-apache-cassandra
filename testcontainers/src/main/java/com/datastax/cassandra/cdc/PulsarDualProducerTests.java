@@ -305,7 +305,7 @@ public abstract class PulsarDualProducerTests {
                 Assert.assertNotEquals(node1, node2);
 
                 // not always in a different order, may depend on system scheduling
-                //Assert.assertNotEquals(digestPerNode.get(node1), digestPerNode.get(node2));
+                Assert.assertNotEquals(digestPerNode.get(node1), digestPerNode.get(node2));
             }
         }
     }

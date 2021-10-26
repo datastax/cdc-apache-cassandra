@@ -35,19 +35,19 @@ public abstract class AbstractMutation<T> implements TableInfo {
     private UUID nodeId;
     private long segment;
     private int position;
-    private RowData rowData;
+    private Object[] pkValues;
     private long ts;
     private String md5Digest;
     protected T metadata;
     private Object token;
 
-    public List<CellData> primaryKeyCells() {
-        return rowData.primaryKeyCells();
-    }
+    public abstract String name();
+    public abstract String keyspace();
+    public abstract List<ColumnInfo> primaryKeyColumns();
 
     public MutationValue mutationValue() {
         // TODO: Unfortunately, computing the mutation CRC require to re-serialize it because we cannot get the byte[] from the commitlog reader.
         // So, we use the timestamp here.
-        return new MutationValue(md5Digest, nodeId, rowData.nonPrimaryKeyNames());
+        return new MutationValue(md5Digest, nodeId, null);
     }
 }

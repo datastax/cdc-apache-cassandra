@@ -31,24 +31,24 @@ public abstract class AbstractMutationMaker<T> {
     }
 
     public void insert(UUID node, long segment, int position,
-                       long tsMicro, RowData data, BlockingConsumer<AbstractMutation<T>> consumer,
+                       long tsMicro, Object[] pkValues, BlockingConsumer<AbstractMutation<T>> consumer,
                        String md5Digest, T t, Object token) {
-        createRecord(node, segment, position, tsMicro, data, consumer, md5Digest, t, token);
+        createRecord(node, segment, position, tsMicro, pkValues, consumer, md5Digest, t, token);
     }
 
     public void update(UUID node, long segment, int position,
-                       long tsMicro, RowData data, BlockingConsumer<AbstractMutation<T>> consumer,
+                       long tsMicro, Object[] pkValues, BlockingConsumer<AbstractMutation<T>> consumer,
                        String md5Digest, T t, Object token) {
-        createRecord(node, segment, position, tsMicro, data, consumer, md5Digest, t, token);
+        createRecord(node, segment, position, tsMicro, pkValues, consumer, md5Digest, t, token);
     }
 
     public void delete(UUID node, long segment, int position,
-                       long tsMicro, RowData data, BlockingConsumer<AbstractMutation<T>> consumer,
+                       long tsMicro, Object[] pkValues, BlockingConsumer<AbstractMutation<T>> consumer,
                        String md5Digest, T t, Object token) {
-        createRecord(node, segment, position, tsMicro, data, consumer, md5Digest, t, token);
+        createRecord(node, segment, position, tsMicro, pkValues, consumer, md5Digest, t, token);
     }
 
     public abstract void createRecord(UUID nodeId, long segment, int position,
-                              long tsMicro, RowData data, BlockingConsumer<AbstractMutation<T>> consumer,
+                              long tsMicro, Object[] pkValues, BlockingConsumer<AbstractMutation<T>> consumer,
                               String md5Digest, T t, Object token);
 }

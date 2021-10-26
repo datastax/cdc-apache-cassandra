@@ -291,7 +291,7 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
         }
 
         public void cleanup(TaskStatus status) {
-            log.debug("Cleanup segment={} completed={} syncPosition={} status={}", segment, completed, syncPosition, status);
+            log.debug("Cleanup task={}", this, status);
             File file = getFile();
             switch (status) {
                 case SUCCESS:

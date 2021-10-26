@@ -200,10 +200,11 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
      */
     org.apache.avro.generic.GenericRecord buildAvroKey(org.apache.avro.Schema keySchema, AbstractMutation<T> mutation) {
         org.apache.avro.generic.GenericRecord genericRecord = new org.apache.avro.generic.GenericData.Record(keySchema);
-        for (CellData cell : mutation.primaryKeyCells()) {
-            if (keySchema.getField(cell.name) == null)
-                throw new CassandraConnectorSchemaException("Not a valid schema field: " + cell.name);
-            genericRecord.put(cell.name, cqlToAvro(mutation.getMetadata(), cell.name, cell.value));
+        int i = 0;
+        for (ColumnInfo columnInfo : mutation.primaryKeyColumns()) {
+            if (keySchema.getField(columnInfo.name()) == null)
+                throw new CassandraConnectorSchemaException("Not a valid schema field: " + columnInfo.name());
+            genericRecord.put(columnInfo.name(), cqlToAvro(mutation.getMetadata(), columnInfo.name(), mutation.getPkValues()[i++]));
         }
         return genericRecord;
     }

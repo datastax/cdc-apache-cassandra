@@ -98,7 +98,11 @@ public class PulsarMutationSender extends AbstractPulsarMutationSender<CFMetaDat
         ColumnDefinition columnMetadata = tableMetadata.getColumnDefinition(ColumnIdentifier.getInterned(columnName, false));
         AbstractType<?> type = columnMetadata.type.isReversed() ? ((ReversedType) columnMetadata.type).baseType : columnMetadata.type;
         log.trace("column name={} type={} class={} value={}",
-                columnMetadata.name, type.getClass().getName(), value.getClass().getName(), value);
+                columnMetadata.name, type.getClass().getName(),
+                value != null ? value.getClass().getName() : null, value);
+
+        if (value == null)
+            return null;
 
         if (type instanceof TimestampType) {
             if (value instanceof Date)

@@ -47,6 +47,7 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
     final CommitLogReaderService commitLogReaderService;
     final SegmentOffsetWriter segmentOffsetWriter;
     final ProducerConfig config;
+    final boolean withNearRealTimeCdc;
 
     public CommitLogProcessor(String cdcLogDir,
                               ProducerConfig config,
@@ -59,6 +60,7 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
         this.commitLogReaderService = commitLogReaderService;
         this.commitLogTransfer = commitLogTransfer;
         this.segmentOffsetWriter = segmentOffsetWriter;
+        this.withNearRealTimeCdc = withNearRealTimeCdc;
         this.cdcDir = new File(cdcLogDir);
         if (!cdcDir.exists()) {
             if (!cdcDir.mkdir()) {
@@ -70,18 +72,22 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
                 watchedEvents) {
             @Override
             void handleEvent(WatchEvent<?> event, Path path) {
-                if (withNearRealTimeCdc) {
-                    // for Cassandra 4.x and DSE 6.8.16+ only
-                    if (path.toString().endsWith("_cdc.idx")) {
-                        commitLogReaderService.commitLogQueue.add(path.toFile());
-                    }
-                } else {
-                    if (path.toString().endsWith(".log")) {
-                        commitLogReaderService.commitLogQueue.add(path.toFile());
-                    }
-                }
+                collectCommitlog(path);
             }
         };
+    }
+
+    private void collectCommitlog(Path path) {
+        if (withNearRealTimeCdc) {
+            // for Cassandra 4.x and DSE 6.8.16+ only
+            if (path.toString().endsWith("_cdc.idx")) {
+                commitLogReaderService.commitLogQueue.add(path.toFile());
+            }
+        } else {
+            if (path.toString().endsWith(".log")) {
+                commitLogReaderService.commitLogQueue.add(path.toFile());
+            }
+        }
     }
 
     /**
@@ -105,7 +111,7 @@ public class CommitLogProcessor extends AbstractProcessor implements AutoCloseab
             Arrays.sort(commitLogFiles, CommitLogUtil::compareCommitLogs);
             log.debug("Reading existing commit logs in {}, files={}", cdcDir, Arrays.asList(commitLogFiles));
             for (File file : commitLogFiles) {
-                commitLogReaderService.commitLogQueue.add(file);
+                collectCommitlog(file.toPath());
             }
             initial = false;
         }

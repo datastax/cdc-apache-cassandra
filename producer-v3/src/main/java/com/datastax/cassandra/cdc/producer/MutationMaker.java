@@ -31,9 +31,9 @@ public class MutationMaker extends AbstractMutationMaker<CFMetaData> {
     }
 
     public void createRecord(UUID nodeId, long segment, int position,
-                              long tsMicro, RowData data, BlockingConsumer<AbstractMutation<CFMetaData>> consumer,
+                              long tsMicro, Object[] pkValues, BlockingConsumer<AbstractMutation<CFMetaData>> consumer,
                               String md5Digest, CFMetaData t, Object token) {
-        Mutation record = new Mutation(nodeId, segment, position, data, tsMicro, md5Digest, t, token);
+        Mutation record = new Mutation(nodeId, segment, position, pkValues, tsMicro, md5Digest, t, token);
         try {
             consumer.accept(record);
         }

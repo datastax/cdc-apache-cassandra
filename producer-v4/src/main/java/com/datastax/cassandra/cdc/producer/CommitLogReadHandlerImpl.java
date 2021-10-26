@@ -318,7 +318,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
      */
     private void handlePartitionDeletion(PartitionUpdate pu, long segment, int position, String md5Digest) {
         try {
-            RowData after = new RowData();
+            Object[] after = new Object[pu.metadata().partitionKeyColumns().size() + pu.metadata().clusteringColumns().size()];
             populatePartitionColumns(after, pu);
             mutationMaker.delete(StorageService.instance.getLocalHostUUID(), segment, position,
                     pu.maxTimestamp(), after, this::sendAsync, md5Digest, pu.metadata(), pu.partitionKey().getToken().getTokenValue());
@@ -335,7 +335,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
      */
     private void handleRowModifications(Row row, RowType rowType, PartitionUpdate pu,
                                         long segment, int position, String md5Digest) {
-        RowData after = new RowData();
+        Object[] after = new Object[pu.metadata().partitionKeyColumns().size() + pu.metadata().clusteringColumns().size()];
         populatePartitionColumns(after, pu);
         populateClusteringColumns(after, row, pu);
 
@@ -361,14 +361,12 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         }
     }
 
-    private void populatePartitionColumns(RowData after, PartitionUpdate pu) {
+    private void populatePartitionColumns(Object[] after, PartitionUpdate pu) {
         List<Object> partitionKeys = getPartitionKeys(pu);
+        int i = 0;
         for (ColumnMetadata cd : pu.metadata().partitionKeyColumns()) {
             try {
-                String name = cd.name.toString();
-                Object value = partitionKeys.get(cd.position());
-                CellData cellData = new CellData(name, value, null, CellData.ColumnType.PARTITION);
-                after.addCell(cellData);
+                after[i++] = partitionKeys.get(cd.position());
             }
             catch (Exception e) {
                 throw new RuntimeException(String.format("Failed to populate Column %s with Type %s of Table %s in KeySpace %s.",
@@ -378,14 +376,12 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     }
 
     @SuppressWarnings({"unchecked","rawtypes"})
-    private void populateClusteringColumns(RowData after, Row row, PartitionUpdate pu) {
+    private void populateClusteringColumns(Object[] after, Row row, PartitionUpdate pu) {
+        int i = pu.metadata().partitionKeyColumns().size();
         for (ColumnMetadata cd : pu.metadata().clusteringColumns().stream().limit(row.clustering().size()).collect(Collectors.toList())) {
             try {
-                String name = cd.name.toString();
                 ValueAccessor valueAccessor = row.clustering().accessor();
-                Object value = cd.type.compose(valueAccessor.toBuffer(row.clustering().get(cd.position())));
-                CellData cellData = new CellData(name, value, null, CellData.ColumnType.CLUSTERING);
-                after.addCell(cellData);
+                after[i++] = cd.type.compose(valueAccessor.toBuffer(row.clustering().get(cd.position())));
             }
             catch (Exception e) {
                 throw new RuntimeException(String.format("Failed to populate Column %s with Type %s of Table %s in KeySpace %s.",
@@ -400,7 +396,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
      */
     @SuppressWarnings("checkstyle:magicnumber")
     private static List<Object> getPartitionKeys(PartitionUpdate pu) {
-        List<Object> values = new ArrayList<>();
+        List<Object> values = new ArrayList<>(pu.metadata().partitionKeyColumns().size());
         List<ColumnMetadata> columnDefinitions = pu.metadata().partitionKeyColumns();
 
         // simple partition key
