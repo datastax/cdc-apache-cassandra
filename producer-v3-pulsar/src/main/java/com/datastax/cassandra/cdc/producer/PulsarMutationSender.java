@@ -29,6 +29,7 @@ import org.apache.cassandra.service.StorageService;
 import java.net.InetAddress;
 import java.time.*;
 import java.util.Date;
+import java.util.UUID;
 
 @Slf4j
 public class PulsarMutationSender extends AbstractPulsarMutationSender<CFMetaData> {
@@ -56,14 +57,17 @@ public class PulsarMutationSender extends AbstractPulsarMutationSender<CFMetaDat
             .build();
 
     public PulsarMutationSender(ProducerConfig config) {
-        super(config,
-                StorageService.instance.getLocalHostId(),
-                DatabaseDescriptor.getPartitionerName().equals(Murmur3Partitioner.class.getName()));
+        super(config, DatabaseDescriptor.getPartitionerName().equals(Murmur3Partitioner.class.getName()));
     }
 
     @Override
     public void incSkippedMutations() {
         CdcMetrics.skippedMutations.inc();
+    }
+
+    @Override
+    public UUID getHostId() {
+        return StorageService.instance.getLocalHostUUID();
     }
 
     @Override

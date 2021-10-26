@@ -69,12 +69,10 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
     final Map<String, AvroSchema> avroSchemas = new ConcurrentHashMap<>();
 
     final ProducerConfig config;
-    final String hostId;
     final boolean useMurmur3Partitioner;
 
-    public AbstractPulsarMutationSender(ProducerConfig config, String hostId, boolean useMurmur3Partitioner) {
+    public AbstractPulsarMutationSender(ProducerConfig config, boolean useMurmur3Partitioner) {
         this.config = config;
-        this.hostId = hostId;
         this.useMurmur3Partitioner = useMurmur3Partitioner;
     }
 
@@ -82,6 +80,7 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
     public abstract Object cqlToAvro(T t, String columnName, Object value);
     public abstract boolean isSupported(final T t);
     public abstract void incSkippedMutations();
+    public abstract UUID getHostId();
 
     @Override
     public void initialize(ProducerConfig config) throws PulsarClientException {
@@ -160,7 +159,7 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
     @SuppressWarnings({"rawtypes", "unchecked"})
     public Producer<KeyValue<byte[], MutationValue>> getProducer(final TableInfo tm) {
         final String topicName = config.topicPrefix + tm.keyspace() + "." + tm.name();
-        final String producerName = "pulsar-producer-" + hostId + "-" + topicName;
+        final String producerName = "cdc-producer-" + getHostId() + "-" + topicName;
         return producers.computeIfAbsent(topicName, k -> {
             try {
                 org.apache.pulsar.client.api.Schema<KeyValue<byte[], MutationValue>> keyValueSchema = org.apache.pulsar.client.api.Schema.KeyValue(
