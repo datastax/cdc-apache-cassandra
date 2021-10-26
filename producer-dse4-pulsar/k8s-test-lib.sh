@@ -36,7 +36,7 @@ sink_list() {
 # The connector must be deployed when the keyspace exists
 deploy_csc() {
   kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH source create \
-    --archive /pulsar-cassandra-source-0.2.7-SNAPSHOT.nar \
+    --archive /pulsar-cassandra-source-0.2.9-SNAPSHOT.nar \
     --tenant public \
     --namespace default \
     --name cassandra-source-ks1-table1 \

@@ -152,8 +152,7 @@ Install the datastax cassoperator:
 Deploy a cassandra datacenter with the pulsar token:
 
     PULSAR_TOKEN=$(kubectl get secret -n pulsar token-admin -o json | ksd | jq -r '.stringData."admin.jwt"')
-    DC_TEMPLATE=$(cat cassdc-dse-cdc.yaml | sed "s/{{PULSAR_TOKEN}}/$PULSAR_TOKEN/g")
-    echo "$DC_TEMPLATE" | kubectl apply -f -
+    sed "s/{{PULSAR_TOKEN}}/$PULSAR_TOKEN/g" cassdc-dse-cdc.yaml | kubectl apply -f -
 
 Wait the DC to be ready:
 
