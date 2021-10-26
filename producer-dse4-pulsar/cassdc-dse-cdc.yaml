@@ -47,4 +47,4 @@ spec:
       additional-jvm-opts:
         - "-Ddse.system_distributed_replication_dc_names=dc1"
         - "-Ddse.system_distributed_replication_per_dc=3"
-        - "-javaagent:/producer-dse4-pulsar-0.2.7-SNAPSHOT-all.jar=pulsarServiceUrl=pulsar://pulsar-perf-aws-useast2-broker.pulsar.svc.cluster.local:6650,topicPrefix=persistent://public/default/events-,cdcWorkingDir=/var/lib/cassandra/cdc,pulsarAuthPluginClassName=org.apache.pulsar.client.impl.auth.AuthenticationToken,pulsarAuthParams=token:{{PULSAR_TOKEN}}"
+        - "-javaagent:/producer-dse4-pulsar-0.2.9-SNAPSHOT-all.jar=pulsarServiceUrl=pulsar://pulsar-perf-aws-useast2-broker.pulsar.svc.cluster.local:6650,topicPrefix=persistent://public/default/events-,cdcWorkingDir=/var/lib/cassandra/cdc,pulsarAuthPluginClassName=org.apache.pulsar.client.impl.auth.AuthenticationToken,pulsarAuthParams=token:{{PULSAR_TOKEN}}"

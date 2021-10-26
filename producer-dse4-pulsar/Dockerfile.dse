@@ -1,8 +1,4 @@
 FROM datastax/dse-server:6.8.16
-RUN sed -i 's/cdc_enabled: false/cdc_enabled: true/g' /opt/dse/resources/cassandra/conf/cassandra.yaml
-COPY producer-dse4-pulsar/build/libs/producer-dse4-pulsar-0.2.7-SNAPSHOT-all.jar /
-COPY source-pulsar/build/libs/pulsar-cassandra-source-0.2.7-SNAPSHOT.nar /
-COPY producer-dse4-pulsar/table1.yaml /
 
 # Add utilities to run the CDC test from a DSE pod
 USER root
@@ -13,3 +9,9 @@ RUN cd / && wget 'https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download
     && tar zxvf pulsar.tar.gz \
     && mkdir /apache-pulsar-2.8.0/logs \
     && chmod a+rwx /apache-pulsar-2.8.0/logs/
+USER dse
+
+RUN sed -i 's/cdc_enabled: false/cdc_enabled: true/g' /opt/dse/resources/cassandra/conf/cassandra.yaml
+COPY producer-dse4-pulsar/build/libs/producer-dse4-pulsar-0.2.9-SNAPSHOT-all.jar /
+COPY source-pulsar/build/libs/pulsar-cassandra-source-0.2.9-SNAPSHOT.nar /
+COPY producer-dse4-pulsar/table1.yaml /

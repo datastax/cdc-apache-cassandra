@@ -143,7 +143,7 @@ Shutdown nodes:
 
 Push DSE image into your registry:
 
-    docker push vroyer/dse-server:latest
+    docker push xxxxx/dse-server:latest
 
 Install the datastax cassoperator:
 
