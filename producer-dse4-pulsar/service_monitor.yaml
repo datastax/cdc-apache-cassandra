@@ -1,0 +1,38 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cluster2
+  labels:
+    cassandra.datastax.com/cluster: cluster2
+spec:
+  selector:
+    matchLabels:
+      cassandra.datastax.com/cluster: cluster2
+  targetLabels:
+    - cassandra.datastax.com/cluster
+    - cassandra.datastax.com/datacenter
+  endpoints:
+    - targetPort: 9103
+      scheme: http
+      path: /metrics
+      scrapeTimeout: 15s
+      interval: 15s
+      metricRelabelings: []
+---
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: default
+  labels:
+    prometheus: k8s
+spec:
+  replicas: 1
+  serviceAccountName: prometheus-k8s
+  securityContext: {}
+  serviceMonitorSelector:
+    matchLabels:
+      cassandra.datastax.com/cluster: cluster2
+  ruleSelector: {}
+  alerting:
+    alertmanagers: []

@@ -45,13 +45,12 @@ import static com.datastax.cassandra.cdc.producer.CommitLogReadHandlerImpl.RowTy
  *
  * This handler implementation processes each {@link org.apache.cassandra.db.Mutation} and invokes one of the registered partition handler
  * for each {@link PartitionUpdate} in the {@link org.apache.cassandra.db.Mutation} (a mutation could have multiple partitions if it is a batch update),
- * which in turn makes one or more record via the {@link MutationMaker}.
+ * which in turn makes one or more record via the {@link AbstractMutationMaker}.
  */
 @Slf4j
 public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
-    private static final boolean MARK_OFFSET = true;
 
-    private final MutationMaker<CFMetaData> mutationMaker;
+    private final AbstractMutationMaker<CFMetaData> mutationMaker;
     private final MutationSender<CFMetaData> mutationSender;
     private final SegmentOffsetWriter segmentOffsetWriter;
     private final CommitLogReaderService.Task task;
@@ -63,7 +62,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                              CommitLogReaderService.Task task) {
         this.segmentOffsetWriter = segmentOffsetWriter;
         this.mutationSender = mutationSender;
-        this.mutationMaker = new MutationMaker<>(config);
+        this.mutationMaker = new MutationMaker(config);
         this.task = task;
     }
 
@@ -272,7 +271,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     /**
      * Method which processes a partition update if it's valid (either a single-row partition-level
      * deletion or a row-level modification) or throw an exception if it isn't. The valid partition
-     * update is then converted into a {@link Mutation}.
+     * update is then converted into a {@link AbstractMutation}.
      */
     private void process(PartitionUpdate pu, long segment, int position, String md5Digest) {
         PartitionType partitionType = PartitionType.getPartitionType(pu);
@@ -320,7 +319,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
     /**
      * Handle a valid deletion event resulted from a partition-level deletion by converting Cassandra representation
-     * of this event into a {@link Mutation} object and send it to pulsar. A valid deletion
+     * of this event into a {@link AbstractMutation} object and send it to pulsar. A valid deletion
      * event means a partition only has a single row, this implies there are no clustering keys.
      */
     private void handlePartitionDeletion(PartitionUpdate pu, long segment, int position, String md5Digest) {
@@ -337,7 +336,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
     /**
      * Handle a valid event resulted from a row-level modification by converting Cassandra representation of
-     * this event into a {@link Mutation} object and sent it to pulsar. A valid event
+     * this event into a {@link AbstractMutation} object and sent it to pulsar. A valid event
      * implies this must be an insert, update, or delete.
      */
     private void handleRowModifications(Row row, RowType rowType, PartitionUpdate pu,
@@ -466,7 +465,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         return values;
     }
 
-    public void sendAsync(Mutation<CFMetaData> mutation) {
+    public void sendAsync(AbstractMutation<CFMetaData> mutation) {
         log.debug("Sending mutation={}", mutation);
         try {
             this.task.sentMutations.add(this.mutationSender.sendMutationAsync(mutation)

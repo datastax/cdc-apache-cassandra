@@ -13,21 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.datastax.pulsar.utils;
+package com.datastax.cassandra.cdc.producer;
 
-public class Constants {
-    /**
-     * Writetime message property name.
-     */
-    public static final String WRITETIME = "writetime";
+import java.util.List;
 
-    /**
-     * Commitlog segment id and position message property name.
-     */
-    public static final String SEGMENT_AND_POSITION = "segpos";
-
-    /**
-     * Cassandra partition token property name.
-     */
-    public static final String TOKEN = "token";
+interface TableInfo {
+    String name();
+    String keyspace();
+    List<ColumnInfo> primaryKeyColumns();
 }

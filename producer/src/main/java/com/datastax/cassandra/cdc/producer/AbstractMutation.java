@@ -16,10 +16,7 @@
 package com.datastax.cassandra.cdc.producer;
 
 import com.datastax.cassandra.cdc.MutationValue;
-import lombok.AllArgsConstructor;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.ToString;
+import lombok.*;
 
 import java.util.List;
 import java.util.UUID;
@@ -30,17 +27,18 @@ import java.util.UUID;
  * to a kafka connect Struct representing key/value of the change event.
  */
 @Getter
+@NoArgsConstructor
 @AllArgsConstructor
 @ToString
 @EqualsAndHashCode
-public class Mutation<T> {
+public abstract class AbstractMutation<T> implements TableInfo {
     private UUID nodeId;
     private long segment;
     private int position;
     private RowData rowData;
     private long ts;
     private String md5Digest;
-    private T metadata;
+    protected T metadata;
     private Object token;
 
     public List<CellData> primaryKeyCells() {

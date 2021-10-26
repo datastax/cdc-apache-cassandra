@@ -28,11 +28,13 @@ dependencies {
     custom project(':commons')
     custom project(':commons-pulsar')
     custom project(':producer')
+    custom project(':producer-pulsar')
     custom project(':producer-dse4')
 
     implementation project(':commons')
     implementation project(':commons-pulsar')
     implementation project(':producer')
+    implementation project(':producer-pulsar')
     implementation project(':producer-dse4')
     implementation("org.apache.avro:avro:${avroVersion}")
     implementation("org.apache.pulsar:pulsar-client:${pulsarVersion}")

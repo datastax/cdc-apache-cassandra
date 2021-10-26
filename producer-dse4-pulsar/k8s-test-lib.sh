@@ -19,10 +19,27 @@ CASSANDRA_DC="dc1"
 
 ELASTICSEARCH_URL="http://elasticsearch-master.elk.svc.cluster.local:9200"
 
+EVENT_TOPIC="persistent://public/default/events-ks1.table1"
+DATA_TOPIC="persistent://public/default/data-ks1.table1"
+
 pulsar_configure() {
   kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH namespaces set-auto-topic-creation public/default --enable
   kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH namespaces set-is-allow-auto-update-schema public/default --enable
   kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH namespaces set-retention public/default --size -1 --time -1
+}
+
+create_partitioned_topics() {
+  kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH topics create-partitioned-topic $EVENT_TOPIC --partitions 3
+  kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH topics create-partitioned-topic $DATA_TOPIC --partitions 3
+}
+
+delete_partitioned_topics() {
+  kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH topics delete-partitioned-topic $EVENT_TOPIC
+  kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH topics delete-partitioned-topic $DATA_TOPIC
+}
+
+list_topics() {
+    kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH topics list public/default
 }
 
 source_list() {
@@ -40,11 +57,11 @@ deploy_csc() {
     --tenant public \
     --namespace default \
     --name cassandra-source-ks1-table1 \
-    --destination-topic-name data-ks1.table1 \
+    --destination-topic-name $DATA_TOPIC \
     --source-config "{
       \"keyspace\": \"ks1\",
       \"table\": \"table1\",
-      \"events.topic\": \"persistent://public/default/events-ks1.table1\",
+      \"events.topic\": \"$EVENTS_TOPIC\",
       \"events.subscription.name\": \"sub1\",
       \"key.converter\": \"com.datastax.oss.pulsar.source.converters.NativeAvroConverter\",
       \"value.converter\": \"com.datastax.oss.pulsar.source.converters.NativeAvroConverter\",
@@ -81,7 +98,7 @@ deploy_es_sink() {
     --tenant public \
     --namespace default \
     --name elasticsearch-sink-ks1-table1 \
-    --inputs persistent://public/default/data-ks1.table1 \
+    --inputs $DATA_TOPIC \
     --subs-position Earliest \
     --sink-config "{
       \"elasticSearchUrl\":\"$ELASTICSEARCH_URL\",

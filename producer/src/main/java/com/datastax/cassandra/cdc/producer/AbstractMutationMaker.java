@@ -15,56 +15,40 @@
  */
 package com.datastax.cassandra.cdc.producer;
 
-import com.datastax.cassandra.cdc.producer.exceptions.CassandraConnectorTaskException;
-import lombok.extern.slf4j.Slf4j;
+import lombok.NoArgsConstructor;
 
-import java.time.Instant;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Responsible for generating ChangeRecord and/or TombstoneRecord for create/update/delete events, as well as EOF events.
  */
-@Slf4j
-public class MutationMaker<T> {
+@NoArgsConstructor
+public abstract class AbstractMutationMaker<T> {
     ProducerConfig config;
 
-    public MutationMaker(ProducerConfig config) {
+    public AbstractMutationMaker(ProducerConfig config) {
         this.config = config;
     }
 
     public void insert(UUID node, long segment, int position,
-                       long tsMicro, RowData data, BlockingConsumer<Mutation<T>> consumer,
+                       long tsMicro, RowData data, BlockingConsumer<AbstractMutation<T>> consumer,
                        String md5Digest, T t, Object token) {
         createRecord(node, segment, position, tsMicro, data, consumer, md5Digest, t, token);
     }
 
     public void update(UUID node, long segment, int position,
-                       long tsMicro, RowData data, BlockingConsumer<Mutation<T>> consumer,
+                       long tsMicro, RowData data, BlockingConsumer<AbstractMutation<T>> consumer,
                        String md5Digest, T t, Object token) {
         createRecord(node, segment, position, tsMicro, data, consumer, md5Digest, t, token);
     }
 
     public void delete(UUID node, long segment, int position,
-                       long tsMicro, RowData data, BlockingConsumer<Mutation<T>> consumer,
+                       long tsMicro, RowData data, BlockingConsumer<AbstractMutation<T>> consumer,
                        String md5Digest, T t, Object token) {
-        createRecord(node, segment, position, tsMicro,
-                data, consumer, md5Digest, t, token);
+        createRecord(node, segment, position, tsMicro, data, consumer, md5Digest, t, token);
     }
 
-    private void createRecord(UUID nodeId, long segment, int position,
-                              long tsMicro, RowData data, BlockingConsumer<Mutation<T>> consumer,
-                              String md5Digest, T t, Object token) {
-        // TODO: filter columns
-        RowData filteredData = data;
-
-        Mutation<T> record = new Mutation<T>(nodeId, segment, position, filteredData, tsMicro, md5Digest, t, token);
-        try {
-            consumer.accept(record);
-        }
-        catch (InterruptedException e) {
-            log.error("Interruption while enqueuing Change Event {}", record.toString());
-            throw new CassandraConnectorTaskException("Enqueuing has been interrupted: ", e);
-        }
-    }
+    public abstract void createRecord(UUID nodeId, long segment, int position,
+                              long tsMicro, RowData data, BlockingConsumer<AbstractMutation<T>> consumer,
+                              String md5Digest, T t, Object token);
 }

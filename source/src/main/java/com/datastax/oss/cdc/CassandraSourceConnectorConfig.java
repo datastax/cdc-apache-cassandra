@@ -154,7 +154,8 @@ public class CassandraSourceConnectorConfig {
                             "Key_Shared",
                             ConfigDef.ValidString.in("Exclusive", "Shared", "Failover", "Key_Shared"),
                             ConfigDef.Importance.HIGH,
-                            "The pulsar events topic subscription type, with a default set to Key_Shared (case sensitive).",
+                            "The pulsar events topic subscription type, with a default set to Key_Shared (case sensitive) for a non-partitioned events topic." +
+                            " If your events topic is partitioned, you should set subscription type to Failover",
                             "Pulsar only", 2, ConfigDef.Width.NONE, "SubscriptionType")
                     .define(DATA_TOPIC_NAME_CONFIG,
                             ConfigDef.Type.STRING,

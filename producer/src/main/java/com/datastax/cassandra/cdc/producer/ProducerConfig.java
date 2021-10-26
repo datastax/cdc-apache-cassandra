@@ -124,7 +124,7 @@ public class ProducerConfig {
     public String topicPrefix = System.getProperty(CDC_PROPERTY_PREFIX + TOPIC_PREFIX, "events-");
     public static final Setting<String> TOPIC_PREFIX_SETTING =
             new Setting<>(TOPIC_PREFIX, Platform.ALL, (c, s) -> c.topicPrefix = s, c -> c.topicPrefix,
-                    "The event topic prefix. The keyspace and table names are appended to that prefix to build the topic name.",
+                    "The event topic name prefix. The <keyspace_name>.<table_name> is appended to that prefix to build the topic name.",
                     "events-", "String",
                     "main", 4);
 

@@ -153,6 +153,7 @@ Deploy a cassandra datacenter with the pulsar token:
 
     PULSAR_TOKEN=$(kubectl get secret -n pulsar token-admin -o json | ksd | jq -r '.stringData."admin.jwt"')
     sed "s/{{PULSAR_TOKEN}}/$PULSAR_TOKEN/g" cassdc-dse-cdc.yaml | kubectl apply -f -
+    kubectl apply -f service_monitor.yaml
 
 Wait the DC to be ready:
 
@@ -163,6 +164,10 @@ Wait the DC to be ready:
 Load utilities:
 
     . k8s-test-lib.sh
+
+Eventually create partitioned topics:
+
+    create_partitioned_topics
 
 Create a table:
 
@@ -185,5 +190,6 @@ Check topics stats:
 
 Undeploy the cassandra datacenter:
 
+    cleanup_test
     kubectl delete cassandradatacenter dc1
 

@@ -32,6 +32,7 @@ dependencies {
     implementation project(':commons')
     implementation project(':commons-pulsar')
     implementation project(':producer')
+    implementation project(':producer-pulsar')
     implementation project(':producer-v4')
     implementation("org.apache.avro:avro:${avroVersion}")
     implementation("org.apache.pulsar:pulsar-client:${pulsarVersion}")
