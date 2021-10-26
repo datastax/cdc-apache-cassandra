@@ -31,7 +31,7 @@ appender reference in the root level section below.
 
   <appender name="SYSTEMLOG" class="ch.qos.logback.core.rolling.RollingFileAppender">
     <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-      <level>DEBUG</level>
+      <level>TRACE</level>
     </filter>
     <file>${cassandra.logdir}/system.log</file>
     <rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
@@ -77,7 +77,7 @@ appender reference in the root level section below.
 
   <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
     <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-      <level>DEBUG</level>
+      <level>TRACE</level>
     </filter>
     <encoder>
       <pattern>%-5level [%thread] %date{ISO8601} %F:%L - %msg%n</pattern>
@@ -100,5 +100,5 @@ appender reference in the root level section below.
   <logger name="org.apache.cassandra" level="INFO"/>
   <logger name="org.apache.pulsar" level="INFO"/>
   <logger name="com.thinkaurelius.thrift" level="ERROR"/>
-  <logger name="com.datastax.cassandra.cdc.producer" level="DEBUG"/>
+  <logger name="com.datastax.cassandra.cdc.producer" level="TRACE"/>
 </configuration>
