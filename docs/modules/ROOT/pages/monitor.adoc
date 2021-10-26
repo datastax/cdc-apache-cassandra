@@ -101,7 +101,7 @@ pulsar_source_user_metric__sum{tenant="public",namespace="public/default",name="
 
 == Monitoring and Alerting resources
 
-The producer agent exposes metrics with https://docs.datastax.com/en/landing_page/doc/landing_page/metricsandalerts.html[JMX], a technology within Java that provides tools for managing and monitoring applications.
+* The producer agent exposes metrics with https://docs.datastax.com/en/landing_page/doc/landing_page/metricsandalerts.html[JMX], a technology within Java that provides tools for managing and monitoring applications.
 * https://docs.datastax.com/en/opscenter/6.8/[DSE Ops Center] can collect these exposed metrics for visualization and alerts, and pass them on to https://docs.datastax.com/en/monitoring/doc/monitoring/opsUseMetricsCollector.html[DSE Metrics Collector] for additional integration with Prometheus and Grafana.
 * The https://github.com/datastax/metric-collector-for-apache-cassandra[Metrics Collector for Apache Cassandra] with Prometheus and Grafana dashboards provides the same functionality as DSE Metrics Collector, built on the well-supported collectd agent.
 * Other monitoring tools like https://github.com/prometheus/jmx_exporter[JMX Exporter] by Prometheus are available, but may require additional tuning.
