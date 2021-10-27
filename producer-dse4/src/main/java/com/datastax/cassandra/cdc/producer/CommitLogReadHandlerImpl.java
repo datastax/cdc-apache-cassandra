@@ -36,6 +36,7 @@ import org.apache.commons.codec.digest.DigestUtils;
 
 import java.nio.ByteBuffer;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import static com.datastax.cassandra.cdc.producer.CommitLogReadHandlerImpl.RowType.DELETE;
@@ -457,10 +458,13 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     public void sendAsync(AbstractMutation<TableMetadata> mutation) {
         log.debug("Sending mutation={}", mutation);
         try {
-            this.task.sentMutations.add(this.mutationSender.sendMutationAsync(mutation)
+            task.sentPositions.put(mutation.getPosition()); // may block
+            task.pendingFutures.put(mutation.getPosition(), this.mutationSender.sendMutationAsync(mutation)
                     .thenAccept(msgId -> {
                         CdcMetrics.sentMutations.inc();
                         log.debug("Sent mutation={}", mutation);
+                        task.pendingFutures.remove(mutation.getPosition());
+                        task.sentPositions.remove(mutation.getPosition());
                     }));
             this.processedPosition = Math.max(this.processedPosition, mutation.getPosition());
         } catch(CassandraConnectorSchemaException e) {

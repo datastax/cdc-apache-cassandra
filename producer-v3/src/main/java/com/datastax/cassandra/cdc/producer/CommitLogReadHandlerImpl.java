@@ -464,10 +464,13 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     public void sendAsync(AbstractMutation<CFMetaData> mutation) {
         log.debug("Sending mutation={}", mutation);
         try {
-            this.task.sentMutations.add(this.mutationSender.sendMutationAsync(mutation)
+            task.sentPositions.put(mutation.getPosition()); // may block
+            task.pendingFutures.put(mutation.getPosition(), this.mutationSender.sendMutationAsync(mutation)
                     .thenAccept(msgId -> {
                         CdcMetrics.sentMutations.inc();
                         log.debug("Sent mutation={}", mutation);
+                        task.pendingFutures.remove(mutation.getPosition());
+                        task.sentPositions.remove(mutation.getPosition());
                     }));
             this.markedPosition = Math.max(this.markedPosition, mutation.getPosition());
         } catch(CassandraConnectorSchemaException e) {

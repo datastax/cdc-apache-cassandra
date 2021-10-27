@@ -54,7 +54,8 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
 
             public void run() {
                 maxSubmittedTasks = Math.max(maxSubmittedTasks, submittedTasks.size());
-                sentMutations = new Vector<>();
+                sentPositions = new ArrayBlockingQueue<>(MAX_PENDING_SENT_MUTATION, true);
+                pendingFutures = new ConcurrentHashMap<>();
                 log.debug("Starting task={} lasSentPosition={}", this, segmentOffsetWriter.position(Optional.empty(), segment));
                 File file = getFile();
                 try {

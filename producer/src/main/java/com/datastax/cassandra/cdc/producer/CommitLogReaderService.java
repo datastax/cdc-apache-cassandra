@@ -227,6 +227,8 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
         ERROR
     }
 
+    public static final int MAX_PENDING_SENT_MUTATION = Integer.getInteger("cdc.maxPendingSentMutation", 3);
+
     /**
      * commitlog file task
      */
@@ -244,7 +246,11 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
 
         @EqualsAndHashCode.Exclude
         @ToString.Exclude
-        List<CompletableFuture<?>> sentMutations;
+        ArrayBlockingQueue<Integer> sentPositions;
+
+        @EqualsAndHashCode.Exclude
+        @ToString.Exclude
+        ConcurrentMap<Integer, CompletableFuture<?>> pendingFutures;
 
         public Task(String filename, long segment, int syncPosition, boolean completed) {
             this.filename = filename;
@@ -258,11 +264,16 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
         public void finish(TaskStatus taskStatus, int lastSentPosition) {
             if (taskStatus.equals(TaskStatus.SUCCESS)) {
                 try {
-                    for (CompletableFuture<?> completableFuture : sentMutations) {
-                        // wait for sent ack or get an exception
-                        completableFuture.join();
+                    Integer pos;
+                    while ((pos = sentPositions.poll()) != null) {
+                        CompletableFuture<?> future = pendingFutures.remove(pos);
+                        if (future != null)
+                            future.join(); // wait for remaining sent ack or get an exception
                     }
-                    if (!completed && lastSentPosition >= 0) {
+                    if (!pendingFutures.isEmpty()) {
+                        throw new IllegalStateException("Remaining pendingFutures=" + pendingFutures.size());
+                    }
+                    if (!completed && lastSentPosition > 0) {
                         // flush sent offset on disk to restart from that position
                         segmentOffsetWriter.position(Optional.empty(), segment, lastSentPosition);
                         segmentOffsetWriter.flush(Optional.empty(), segment);

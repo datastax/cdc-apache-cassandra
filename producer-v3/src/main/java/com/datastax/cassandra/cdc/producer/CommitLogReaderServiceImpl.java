@@ -24,6 +24,8 @@ import org.apache.cassandra.db.commitlog.CommitLogReader;
 
 import java.io.File;
 import java.util.Vector;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -53,7 +55,8 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
 
             public void run() {
                 maxSubmittedTasks = Math.max(maxSubmittedTasks, submittedTasks.size());
-                sentMutations = new Vector<>();
+                sentPositions = new ArrayBlockingQueue<>(MAX_PENDING_SENT_MUTATION, true);
+                pendingFutures = new ConcurrentHashMap<>();
                 log.debug("Starting task={}", this);
                 File file = getFile();
                 try {

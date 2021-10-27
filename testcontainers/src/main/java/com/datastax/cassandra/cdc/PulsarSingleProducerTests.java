@@ -90,6 +90,11 @@ public abstract class PulsarSingleProducerTests {
         Container.ExecResult result2 = pulsarContainer.execInContainer(
                 "/pulsar/bin/pulsar-admin", "namespaces", "set-inactive-topic-policies", "--disable-delete-while-inactive", "-t", "2d", "-m", "delete_when_subscriptions_caught_up", "public/default");
         assertEquals(0, result2.getExitCode(), "set-inactive-topic-policies failed:" + result2.getStdout());
+
+        // enable message deduplication
+        Container.ExecResult result3 = pulsarContainer.execInContainer(
+                "/pulsar/bin/pulsar-admin", "namespaces", "set-deduplication", "public/default", "--enable");
+        assertEquals(0, result3.getExitCode(), "set-deduplication failed:" + result2.getStdout());
     }
 
     @AfterAll
@@ -301,6 +306,7 @@ public abstract class PulsarSingleProducerTests {
                     long now = System.currentTimeMillis();
                     long latency = now * 1000 - writetime;
                     maxLatency = Math.max(maxLatency, latency);
+                    consumer.acknowledgeAsync(msg);
                 }
             }
             assertEquals(numMutation, segAndPos.size(), "Unexpected segAndPos=" + segAndPos);
@@ -398,6 +404,7 @@ public abstract class PulsarSingleProducerTests {
                     try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
                         cqlSession.execute("INSERT INTO nrt.table1 (a,b) VALUES (?, ?);", i, randomizeBuffer(i));
                     }
+                    consumer.acknowledge(msg);
                 }
             }
             assertEquals(i, numMutation);
@@ -455,6 +462,7 @@ public abstract class PulsarSingleProducerTests {
 
                 Message<GenericRecord> msg = consumer.receive(60, TimeUnit.SECONDS);
                 Assert.assertNotNull("Expecting one message, check the producer log", msg);
+                consumer.acknowledge(msg);
 
                 // re-create the same table with a different schema
                 try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
@@ -469,6 +477,7 @@ public abstract class PulsarSingleProducerTests {
                     String[] skippedMutationsLines = skippedMutations.getStdout().split("\\n");
                     assertEquals(1L, Long.parseLong(skippedMutationsLines[1]));
                 }
+                consumer.acknowledge(msg2);
             }
         }
     }
@@ -526,6 +535,7 @@ public abstract class PulsarSingleProducerTests {
                     long now = System.currentTimeMillis();
                     long latency = now * 1000 - writetime;
                     maxLatency = Math.max(maxLatency, latency);
+                    consumer.acknowledgeAsync(msg);
                 }
                 assertEquals(2 * numMutation, msgCount);
                 assertTrue(maxLatency > 0);
