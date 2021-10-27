@@ -461,18 +461,26 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         try {
             task.sentPositions.put(mutation.getPosition()); // may block
             task.pendingFutures.put(mutation.getPosition(), this.mutationSender.sendMutationAsync(mutation)
-                    .thenAccept(msgId -> {
-                        CdcMetrics.sentMutations.inc();
-                        log.debug("Sent mutation={}", mutation);
+                    .handle((msgId, t)-> {
+                        if (t == null) {
+                            CdcMetrics.sentMutations.inc();
+                            log.debug("Sent mutation={}", mutation);
+                        } else {
+                            if (t instanceof CassandraConnectorSchemaException) {
+                                log.error("Invalid primary key schema:", t);
+                                CdcMetrics.skippedMutations.inc();
+                            } else {
+                                CdcMetrics.sentErrors.inc();
+                                log.debug("Sent failed mutation=" + mutation, t);
+                            }
+                        }
                         task.pendingFutures.remove(mutation.getPosition());
                         task.sentPositions.remove(mutation.getPosition());
+                        return msgId;
                     }));
             this.processedPosition = Math.max(this.processedPosition, mutation.getPosition());
-        } catch(CassandraConnectorSchemaException e) {
-            log.error("Invalid primary key schema:", e);
-            CdcMetrics.skippedMutations.inc();
         } catch(Exception e) {
-            log.error("Pulsar send failed:", e);
+            log.error("Send failed:", e);
             CdcMetrics.sentErrors.inc();
         }
     }

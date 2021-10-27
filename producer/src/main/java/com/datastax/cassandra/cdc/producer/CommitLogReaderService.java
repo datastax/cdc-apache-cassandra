@@ -227,7 +227,7 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
         ERROR
     }
 
-    public static final int MAX_PENDING_SENT_MUTATION = Integer.getInteger("cdc.maxPendingSentMutation", 3);
+    public static final int MAX_PENDING_SENT_MUTATION = Integer.getInteger("cdc.maxPendingSentMutation", 16384);
 
     /**
      * commitlog file task
@@ -264,14 +264,8 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
         public void finish(TaskStatus taskStatus, int lastSentPosition) {
             if (taskStatus.equals(TaskStatus.SUCCESS)) {
                 try {
-                    Integer pos;
-                    while ((pos = sentPositions.poll()) != null) {
-                        CompletableFuture<?> future = pendingFutures.remove(pos);
-                        if (future != null)
-                            future.join(); // wait for remaining sent ack or get an exception
-                    }
-                    if (!pendingFutures.isEmpty()) {
-                        throw new IllegalStateException("Remaining pendingFutures=" + pendingFutures.size());
+                    for(CompletableFuture<?> future : pendingFutures.values()) {
+                        future.join(); // wait for remaining sent ack or get an exception
                     }
                     if (!completed && lastSentPosition > 0) {
                         // flush sent offset on disk to restart from that position
