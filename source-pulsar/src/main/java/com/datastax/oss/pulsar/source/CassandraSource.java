@@ -125,28 +125,13 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             for (int i = 0; i < queryExecutors.length; i++) {
                 queryExecutors[i] = Executors.newSingleThreadExecutor();
             }
-            this.cassandraClient = new CassandraClient(this.config, Version.getVersion(), sourceContext.getSourceName(), this);
-
-            if (Strings.isNullOrEmpty(this.config.getEventsTopic())) {
-                throw new IllegalArgumentException("Events topic not set.");
-            }
-
-            Tuple2<KeyspaceMetadata, TableMetadata> tuple =
-                    cassandraClient.getTableMetadata(
-                            this.config.getKeyspaceName(),
-                            this.config.getTableName());
-            if (tuple._2 == null) {
-                throw new IllegalArgumentException(String.format(Locale.ROOT, "Table %s.%s does not exist.",
-                        this.config.getKeyspaceName(),
-                        this.config.getTableName()));
-            }
-            this.pkColumns = tuple._2.getPrimaryKey().stream().map(c -> c.getName().asInternal()).collect(Collectors.toList());
-            this.keyConverter = createConverter(getKeyConverterClass(), tuple._1, tuple._2, tuple._2.getPrimaryKey());
-            this.mutationKeyConverter = new NativeAvroConverter(tuple._1, tuple._2, tuple._2.getPrimaryKey());
-            setValueConverterAndQuery(tuple._1, tuple._2);
 
             if (!Strings.isNullOrEmpty(this.config.getColumnsRegexp()) && !".*".equals(this.config.getColumnsRegexp())) {
                 this.columnPattern = Optional.of(Pattern.compile(this.config.getColumnsRegexp()));
+            }
+
+            if (Strings.isNullOrEmpty(this.config.getEventsTopic())) {
+                throw new IllegalArgumentException("Events topic not set.");
             }
 
             this.dirtyTopicName = this.config.getEventsTopic();
@@ -174,6 +159,29 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             log.error("Cannot open the connector:", err);
             throw new RuntimeException(err);
         }
+    }
+
+    void maybeInitCassandraClient() throws InvocationTargetException, NoSuchMethodException, IllegalAccessException, InstantiationException {
+        if (this.cassandraClient == null) {
+            synchronized (this) {
+                if (this.cassandraClient == null) {
+                    initCassandraClient();
+                }
+            }
+        }
+    }
+
+    void initCassandraClient() throws InvocationTargetException, NoSuchMethodException, IllegalAccessException, InstantiationException {
+        this.cassandraClient = new CassandraClient(this.config, Version.getVersion(), sourceContext.getSourceName(), this);
+        Tuple2<KeyspaceMetadata, TableMetadata> tuple = cassandraClient.getTableMetadata(this.config.getKeyspaceName(), this.config.getTableName());
+        if (tuple._2 == null) {
+            throw new IllegalArgumentException(String.format(Locale.ROOT, "Table %s.%s does not exist.",
+                    this.config.getKeyspaceName(), this.config.getTableName()));
+        }
+        this.pkColumns = tuple._2.getPrimaryKey().stream().map(c -> c.getName().asInternal()).collect(Collectors.toList());
+        this.keyConverter = createConverter(getKeyConverterClass(), tuple._1, tuple._2, tuple._2.getPrimaryKey());
+        this.mutationKeyConverter = new NativeAvroConverter(tuple._1, tuple._2, tuple._2.getPrimaryKey());
+        setValueConverterAndQuery(tuple._1, tuple._2);
     }
 
     synchronized void setValueConverterAndQuery(KeyspaceMetadata ksm, TableMetadata tableMetadata) {
@@ -259,20 +267,20 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
      * @return next message from source.  The return result should never be null
      * @throws Exception
      */
+    @Override
     @SuppressWarnings("unchecked")
     public Record<GenericRecord> read() throws Exception
     {
-        log.debug("reading from topic={}", dirtyTopicName);
-        MyKVRecord fromBuffer = buffer.poll();
-        if (fromBuffer != null) {
-            consumer.acknowledge(fromBuffer.msg);
-            return (Record) fromBuffer;
+        MyKVRecord myKVRecord = buffer.poll();
+        if (myKVRecord != null) {
+            consumer.acknowledge(myKVRecord.msg);
+            return (Record) myKVRecord;
         }
         // this methods returns only if the buffer holds at least one record
         ensureBuffer();
-        fromBuffer = buffer.poll();
-        consumer.acknowledge(fromBuffer.msg);
-        return fromBuffer;
+        myKVRecord = buffer.poll();
+        consumer.acknowledge(myKVRecord.msg);
+        return myKVRecord;
     }
 
     private void ensureBuffer() throws Exception {
@@ -303,6 +311,9 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                     continue;
                 }
             }
+
+            maybeInitCassandraClient();
+
             final KeyValue<GenericRecord, MutationValue> kv = msg.getValue();
             final GenericRecord mutationKey = kv.getKey();
             final MutationValue mutationValue = kv.getValue();
