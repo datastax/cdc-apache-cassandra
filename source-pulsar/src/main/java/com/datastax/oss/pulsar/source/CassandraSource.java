@@ -114,13 +114,13 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     }
 
     @Override
-    public void open(Map<String, Object> config, SourceContext sourceContext) throws Exception {
+    public void open(Map<String, Object> config, SourceContext sourceContext) {
         try {
             this.sourceContext = sourceContext;
             Map<String, String> processorConfig = ConfigUtil.flatString(config);
             log.info("openCassandraSource {}", config);
             this.config = new CassandraSourceConnectorConfig(processorConfig);
-            this.buffer = new ArrayBlockingQueue<MyKVRecord>(this.config.getBatchSize());
+            this.buffer = new ArrayBlockingQueue<>(this.config.getBatchSize());
             this.queryExecutors = new ExecutorService[this.config.getQueryExecutors()];
             for (int i = 0; i < queryExecutors.length; i++) {
                 queryExecutors[i] = Executors.newSingleThreadExecutor();
@@ -145,8 +145,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             this.mutationKeyConverter = new NativeAvroConverter(tuple._1, tuple._2, tuple._2.getPrimaryKey());
             setValueConverterAndQuery(tuple._1, tuple._2);
 
-            if (!Strings.isNullOrEmpty(this.config.getColumnsRegexp()) &&
-                    !".*".equals(this.config.getColumnsRegexp())) {
+            if (!Strings.isNullOrEmpty(this.config.getColumnsRegexp()) && !".*".equals(this.config.getColumnsRegexp())) {
                 this.columnPattern = Optional.of(Pattern.compile(this.config.getColumnsRegexp()));
             }
 
@@ -172,7 +171,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                     dirtyTopicName,
                     this.config.getEventsSubscriptionName());
         } catch (Throwable err) {
-            log.error("Error on open", err);
+            log.error("Cannot open the connector:", err);
             throw new RuntimeException(err);
         }
     }
@@ -242,7 +241,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         if (this.cassandraClient != null)
             this.cassandraClient.close();
         this.mutationCache = null;
@@ -452,7 +451,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     @SneakyThrows
     @Override
     public void onUserDefinedTypeCreated(@NonNull UserDefinedType type) {
-        log.debug("onUserDefinedTypeCreated {} {}", type);
+        log.debug("onUserDefinedTypeCreated {}", type);
         if (type.getKeyspace().asInternal().equals(config.getKeyspaceName())) {
             KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(type.getKeyspace()).get();
             setValueConverterAndQuery(ksm, ksm.getTable(config.getTableName()).get());
@@ -461,7 +460,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
     @Override
     public void onUserDefinedTypeDropped(@NonNull UserDefinedType type) {
-        log.debug("onUserDefinedTypeDropped {} {}", type);
+        log.debug("onUserDefinedTypeDropped {}", type);
     }
 
     @SneakyThrows
@@ -559,6 +558,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             }
         }
 
+        @Override
         public Map<String, String> getProperties() {
             return ImmutableMap.of(Constants.WRITETIME, msg.getProperty(Constants.WRITETIME));
         }
