@@ -33,11 +33,8 @@ import lombok.extern.slf4j.Slf4j;
 public final class CommitLogUtil {
     public static final Pattern FILENAME_REGEX_PATTERN = Pattern.compile("CommitLog-\\d+-(\\d+)(\\.log|_cdc\\.idx)");
 
-    private CommitLogUtil() {
-    }
-
     /**
-     * Move a commit log to a new directory. If the commit log already exists in the new directory, it woull be replaced.
+     * Move a commit log to a new directory. If the commit log already exists in the new directory, it would be replaced.
      */
     public static void moveCommitLog(File file, Path toDir) {
         try {
@@ -51,24 +48,6 @@ public final class CommitLogUtil {
         }
         catch (Exception e) {
             log.error("Failed to move the file {} from {}", file.getName(), toDir.getFileName(), e);
-        }
-    }
-
-    /**
-     * Delete a commit log and logs the error in the case the deletion failed.
-     */
-    public static void deleteCommitLog(File file) {
-        try {
-            Matcher filenameMatcher = FILENAME_REGEX_PATTERN.matcher(file.getName());
-            if (!filenameMatcher.matches()) {
-                throw new IllegalArgumentException("Cannot delete file because " + file.getName() + " does not appear to be a CommitLog");
-            }
-
-            Files.delete(file.toPath());
-            log.debug("Deleted commit log {} in cdc directory", file.getName());
-        }
-        catch (Exception e) {
-            log.error("Failed to delete the file {} from cdc directory: ", file.getName(), e);
         }
     }
 
@@ -91,29 +70,6 @@ public final class CommitLogUtil {
     public static int compareCommitLogs(File file1, File file2) {
         long ts1 = extractTimestamp(file1.getName());
         long ts2 = extractTimestamp(file2.getName());
-        return Long.compare(ts1, ts2);
-    }
-
-    /**
-     * Comparing two commit log files provided the {@link File} instances;
-     * Returns 0 if they are the same, -1 if first file is older, 1 if first file is newer.
-     */
-    public static int compareCommitLogs(Path file1, Path file2) {
-        long ts1 = extractTimestamp(file1.getFileName().toString());
-        long ts2 = extractTimestamp(file2.getFileName().toString());
-        return Long.compare(ts1, ts2);
-    }
-
-    /**
-     * Comparing two commit log files provided the file names.
-     * Returns 0 if they are the same, -1 if first file is older, 1 if first file is newer.
-     */
-    public static int compareCommitLogs(String filename1, String filename2) {
-        if (filename1.equals(filename2)) {
-            return 0;
-        }
-        long ts1 = extractTimestamp(filename1);
-        long ts2 = extractTimestamp(filename2);
         return Long.compare(ts1, ts2);
     }
 
