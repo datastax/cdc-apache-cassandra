@@ -7,6 +7,7 @@ buildscript {
     dependencies {
         classpath "io.github.lhotari.gradle-nar-plugin:gradle-nar-plugin:0.5.1"
         classpath 'com.github.jengelman.gradle.plugins:shadow:6.1.0'
+        classpath "com.avast.gradle:gradle-docker-compose-plugin:0.14.9"
     }
 }
 

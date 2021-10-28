@@ -1,7 +1,8 @@
-FROM datastax/dse-server:6.8.16
+ARG CASSANDRA_VERSION
+FROM cassandra:${CASSANDRA_VERSION}
+ARG BUILD_VERSION
 
 # Add utilities to run the CDC test from a DSE pod
-USER root
 RUN set -eux; apt-get update; apt-get install -y --no-install-recommends jq curl wget; rm -rf /var/lib/apt/lists/*;
 ADD https://github.com/josephburnett/jd/releases/download/v1.4.0/jd-amd64-linux /bin/
 RUN chmod a+x /bin/jd-amd64-linux && mv /bin/jd-amd64-linux /bin/jd
@@ -9,9 +10,11 @@ RUN cd / && wget 'https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download
     && tar zxvf pulsar.tar.gz \
     && mkdir /apache-pulsar-2.8.0/logs \
     && chmod a+rwx /apache-pulsar-2.8.0/logs/
-USER dse
 
-RUN sed -i 's/cdc_enabled: false/cdc_enabled: true/g' /opt/dse/resources/cassandra/conf/cassandra.yaml
-COPY producer-dse4-pulsar/build/libs/producer-dse4-pulsar-0.2.9-SNAPSHOT-all.jar /
-COPY source-pulsar/build/libs/pulsar-cassandra-source-0.2.9-SNAPSHOT.nar /
-COPY producer-dse4-pulsar/table1.yaml /
+RUN sed -i 's/cdc_enabled: false/cdc_enabled: true/g' /etc/cassandra/cassandra.yaml
+COPY producer-v3-pulsar-${BUILD_VERSION}-all.jar /
+COPY table1.yaml /
+COPY table2.yaml /
+
+# Add cassandra tools in the PATH
+ENV PATH="${PATH}:/opt/cassandra/tools/bin"

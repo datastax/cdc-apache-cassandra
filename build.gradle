@@ -8,11 +8,12 @@ plugins {
     id "com.gorylenko.gradle-git-properties" version "2.3.1"
     id "com.google.osdetector" version "1.7.0"
     id "kr.motd.sphinx" version "2.10.1"
-    id "com.bmuschko.docker-remote-api" version "6.7.0"
     id "com.github.hierynomus.license" version"0.16.1"
     id "com.github.hierynomus.license-report" version"0.16.1"
     id "com.github.johnrengelman.shadow" apply false
     id "io.github.lhotari.gradle-nar-plugin" apply false
+    id 'com.palantir.docker' version '0.30.0' apply false
+    id 'docker-compose' apply false
 }
 
 allprojects {
@@ -134,5 +135,11 @@ idea {
     module {
         downloadJavadoc = true
         downloadSources = true
+    }
+}
+
+task printVersion {
+    doLast {
+        println project.version
     }
 }

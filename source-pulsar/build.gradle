@@ -2,6 +2,7 @@ plugins {
     id 'java'
     id 'java-library'
     id 'io.github.lhotari.gradle-nar-plugin'
+    id 'com.palantir.docker'
 }
 
 tasks.withType(JavaCompile) {
@@ -69,3 +70,12 @@ test {
     systemProperty "producerBuildDir", project(':producer-v4-pulsar').buildDir
     systemProperty "projectVersion", project.version
 }
+
+docker {
+    name "lunastreaming:${pulsarTag}-csc"
+    dependsOn nar
+    dockerfile file('src/docker/Dockerfile')
+    files "$buildDir/libs/"
+    buildArgs([BUILD_VERSION: project.version, PULSAR_VERSION: pulsarTag])
+}
+build.dependsOn(project.tasks['docker'])
