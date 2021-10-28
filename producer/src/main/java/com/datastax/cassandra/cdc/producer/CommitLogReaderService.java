@@ -244,11 +244,11 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
 
         @EqualsAndHashCode.Exclude
         @ToString.Exclude
-        ArrayBlockingQueue<Integer> pendingPositions;
+        volatile Throwable lastException = null;
 
         @EqualsAndHashCode.Exclude
         @ToString.Exclude
-        volatile Throwable lastException = null;
+        Semaphore inflightMessagesSemaphore = new Semaphore(config.maxInflightMessagesPerTask);
 
         public Task(String filename, long segment, int syncPosition, boolean completed) {
             this.filename = filename;
@@ -262,9 +262,9 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
         public void finish(TaskStatus taskStatus, int lastSentPosition) {
             if (taskStatus.equals(TaskStatus.SUCCESS)) {
                 try {
-                    // wait completable future to finish
-                    while (pendingPositions.poll() != null) {
-                    }
+                    log.debug("Task segment={} waiting for {} in-flight messages",
+                            segment, config.maxInflightMessagesPerTask - inflightMessagesSemaphore.availablePermits());
+                    inflightMessagesSemaphore.acquireUninterruptibly(config.maxInflightMessagesPerTask);
                     if (lastException != null)
                         throw lastException;
                     if (!completed && lastSentPosition > 0) {

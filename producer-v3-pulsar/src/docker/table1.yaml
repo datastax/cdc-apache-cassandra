@@ -1,0 +1,28 @@
+keyspace: ks1
+keyspace_definition: |
+  CREATE KEYSPACE ks1 WITH replication = {'class': 'SimpleStrategy', 'replication_factor': '1'};
+#
+# Table name and create CQL
+#
+table: table1
+table_definition: |
+  CREATE TABLE table1 (a text, b text, PRIMARY KEY (a)) WITH cdc=true;
+
+columnspec:
+  - name: a
+    size: uniform(10..30)
+  - name: b
+    size: fixed(16)
+
+#
+# Specs for insert queries
+#
+insert:
+  partitions: fixed(1) # 1 partition per batch
+  batchtype: UNLOGGED # use unlogged batches
+  select: fixed(10)/10 # no chance of skipping a row when generating inserts
+
+queries:
+  read1:
+    cql: select * from table1 where a = ?
+    fields: samerow     # samerow or multirow (select arguments from the same row, or randomly from all rows in the partition)

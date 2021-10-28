@@ -31,6 +31,7 @@ public class AgentParametersTest {
                     ERROR_COMMITLOG_REPROCESS_ENABLED + "=true," +
                     CDC_DIR_POOL_INTERVAL_MS + "=1234," +
                     CDC_CONCURRENT_PROCESSORS + "=5," +
+                    MAX_INFLIGHT_MESSAGES_PER_TASK + "=50," +
                     TOPIC_PREFIX + "=events-mutations," +
                     SSL_TRUSTSTORE_PATH + "=/truststore.jks," +
                     SSL_TRUSTSTORE_PASSWORD + "=password," +
@@ -46,6 +47,7 @@ public class AgentParametersTest {
         assertEquals(true, config.errorCommitLogReprocessEnabled);
         assertEquals(1234L, config.cdcDirPollIntervalMs);
         assertEquals(5, config.cdcConcurrentProcessors);
+        assertEquals(50, config.maxInflightMessagesPerTask);
         assertEquals("events-mutations", config.topicPrefix);
 
         // common TLS settings

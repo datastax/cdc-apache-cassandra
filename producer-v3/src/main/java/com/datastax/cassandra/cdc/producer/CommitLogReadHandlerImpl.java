@@ -464,7 +464,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     public void sendAsync(AbstractMutation<CFMetaData> mutation) {
         log.debug("Sending mutation={}", mutation);
         try {
-            task.pendingPositions.put(mutation.getPosition()); // may block
+            task.inflightMessagesSemaphore.acquireUninterruptibly(); // may block
             this.mutationSender.sendMutationAsync(mutation)
                     .handle((msgId, t)-> {
                         if (t == null) {
@@ -480,7 +480,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                                 task.lastException = t;
                             }
                         }
-                        task.pendingPositions.remove(mutation.getPosition());
+                        task.inflightMessagesSemaphore.release();
                         return msgId;
                     });
         } catch(Exception e) {

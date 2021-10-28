@@ -88,13 +88,21 @@ public class ProducerConfig {
         }
     }
 
+    public static final String TOPIC_PREFIX = "topicPrefix";
+    public String topicPrefix = System.getProperty(CDC_PROPERTY_PREFIX + TOPIC_PREFIX, "events-");
+    public static final Setting<String> TOPIC_PREFIX_SETTING =
+            new Setting<>(TOPIC_PREFIX, Platform.ALL, (c, s) -> c.topicPrefix = s, c -> c.topicPrefix,
+                    "The event topic name prefix. The <keyspace_name>.<table_name> is appended to that prefix to build the topic name.",
+                    "events-", "String",
+                    "main", 1);
+
     public static final String CDC_WORKING_DIR = "cdcWorkingDir";
     public String cdcWorkingDir = System.getProperty(CDC_PROPERTY_PREFIX + CDC_WORKING_DIR, storageDir + File.separator + "cdc");
     public static final Setting<String> CDC_RELOCATION_DIR_SETTING =
             new Setting<>(CDC_WORKING_DIR, Platform.ALL, (c, s) -> c.cdcWorkingDir = s, c -> c.cdcWorkingDir,
                     "The CDC working directory where the last sent offset is saved, and where the archived and errored commitlogs files are copied.",
                     "cdc", "String",
-                    "main", 1);
+                    "main", 2);
 
     public static final String CDC_DIR_POOL_INTERVAL_MS = "cdcPoolIntervalMs";
     public long cdcDirPollIntervalMs = Long.getLong(CDC_PROPERTY_PREFIX + CDC_DIR_POOL_INTERVAL_MS, 60000L);
@@ -102,7 +110,7 @@ public class ProducerConfig {
             new Setting<>(CDC_DIR_POOL_INTERVAL_MS, Platform.ALL, (c, s) -> c.cdcDirPollIntervalMs = Long.parseLong(s), c -> c.cdcDirPollIntervalMs,
                     "The pool interval in milliseconds for watching new commit log files in the CDC raw directory.",
                     60000L, "Long",
-                    "main", 2);
+                    "main", 3);
 
     public static final String ERROR_COMMITLOG_REPROCESS_ENABLED = "errorCommitLogReprocessEnabled";
     public boolean errorCommitLogReprocessEnabled = Boolean.getBoolean(CDC_PROPERTY_PREFIX + ERROR_COMMITLOG_REPROCESS_ENABLED);
@@ -110,7 +118,7 @@ public class ProducerConfig {
             new Setting<>(ERROR_COMMITLOG_REPROCESS_ENABLED, Platform.ALL, (c, s) -> c.errorCommitLogReprocessEnabled = Boolean.parseBoolean(s), c -> c.errorCommitLogReprocessEnabled,
                     "Enable the re-processing of error commit logs files.",
                     false, "Boolean",
-                    "main", 3);
+                    "main", 4);
 
     public static final String CDC_CONCURRENT_PROCESSORS = "cdcConcurrentProcessors";
     public int cdcConcurrentProcessors = Integer.getInteger(CDC_PROPERTY_PREFIX + CDC_CONCURRENT_PROCESSORS, -1);
@@ -118,15 +126,15 @@ public class ProducerConfig {
             new Setting<>(CDC_CONCURRENT_PROCESSORS, Platform.ALL, (c, s) -> c.cdcConcurrentProcessors = Integer.parseInt(s), c -> c.cdcConcurrentProcessors,
                     "The number of threads used to process commitlog files. The default value is the memtable_flush_writers.",
                     -1, "Integer",
-                    "main", 4);
+                    "main", 5);
 
-    public static final String TOPIC_PREFIX = "topicPrefix";
-    public String topicPrefix = System.getProperty(CDC_PROPERTY_PREFIX + TOPIC_PREFIX, "events-");
-    public static final Setting<String> TOPIC_PREFIX_SETTING =
-            new Setting<>(TOPIC_PREFIX, Platform.ALL, (c, s) -> c.topicPrefix = s, c -> c.topicPrefix,
-                    "The event topic name prefix. The <keyspace_name>.<table_name> is appended to that prefix to build the topic name.",
-                    "events-", "String",
-                    "main", 4);
+    public static final String MAX_INFLIGHT_MESSAGES_PER_TASK = "maxInflightMessagesPerTask";
+    public int maxInflightMessagesPerTask = Integer.getInteger(CDC_PROPERTY_PREFIX + MAX_INFLIGHT_MESSAGES_PER_TASK, 16384);
+    public static final Setting<Integer> MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING =
+            new Setting<>(MAX_INFLIGHT_MESSAGES_PER_TASK, Platform.PULSAR, (c, s) -> c.maxInflightMessagesPerTask = Integer.parseInt(s), c -> c.maxInflightMessagesPerTask,
+                    "The maximum number of in-flight messages per commitlog processing task.",
+                    16384, "Integer",
+                    "main", 6);
 
     public static final String SSL_PROVIDER = "sslProvider";
     public String sslProvider = System.getProperty(CDC_PROPERTY_PREFIX + SSL_PROVIDER);
@@ -275,6 +283,7 @@ public class ProducerConfig {
         set.add(CDC_CONCURRENT_PROCESSOR_SETTING);
         set.add(ERROR_COMMITLOG_REPROCESS_ENABLED_SETTING);
         set.add(TOPIC_PREFIX_SETTING);
+        set.add(MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING);
         set.add(SSL_PROVIDER_SETTING);
         set.add(SSL_TRUSTSTORE_PATH_SETTING);
         set.add(SSL_TRUSTSTORE_PASSWORD_SETTING);
