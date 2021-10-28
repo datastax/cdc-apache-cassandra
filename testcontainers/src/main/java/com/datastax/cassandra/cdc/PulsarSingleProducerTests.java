@@ -541,4 +541,43 @@ public abstract class PulsarSingleProducerTests {
             }
         }
     }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testPartitionedTopic() throws IOException, InterruptedException {
+        final String pulsarServiceUrl = "pulsar://pulsar:" + pulsarContainer.BROKER_PORT;
+
+        Container.ExecResult result = pulsarContainer.execInContainer(
+                "/pulsar/bin/pulsar-admin", "topics", "create-partitioned-topic",
+                "persistent://public/default/events-pt.table1", "--partitions", "3");
+        assertEquals(0, result.getExitCode(), "create-partitioned-topic failed:" + result.getStdout());
+
+        int numMutation = 100;
+        try (CassandraContainer<?> cassandraContainer1 = createCassandraContainer(1, pulsarServiceUrl, testNetwork)) {
+            cassandraContainer1.start();
+            try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS pt WITH replication = {'class':'SimpleStrategy','replication_factor':'1'};");
+                cqlSession.execute("CREATE TABLE IF NOT EXISTS pt.table1 (a int, b blob, PRIMARY KEY (a)) with cdc=true;");
+                for (int i = 0; i < 100; i++)
+                    cqlSession.execute("INSERT INTO pt.table1 (a,b) VALUES (?, ?);", i, randomizeBuffer(i));
+            }
+
+            try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build();
+                 Consumer<GenericRecord> consumer = pulsarClient.newConsumer(Schema.AUTO_CONSUME())
+                         .topic("events-pt.table1")
+                         .subscriptionName("sub1")
+                         .subscriptionType(SubscriptionType.Key_Shared)
+                         .subscriptionMode(SubscriptionMode.Durable)
+                         .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+                         .subscribe()) {
+                Message msg;
+                int numMessage = 0;
+                while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null && numMessage < numMutation) {
+                    numMessage++;
+                    consumer.acknowledge(msg);
+                }
+                assertEquals(numMutation, numMessage);
+            }
+        }
+    }
 }
