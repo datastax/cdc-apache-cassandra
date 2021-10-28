@@ -27,7 +27,7 @@
 
 
 | *topicPrefix*
-| The event topic prefix. The keyspace and table names are appended to that prefix to build the topic name.
+| The event topic name prefix. The <keyspace_name>.<table_name> is appended to that prefix to build the topic name.
 | string
 | events-
 
@@ -42,6 +42,24 @@
 | Pulsar batching delay in milliseconds. Pulsar batching is enabled when this value is greater than zero.
 | long
 | -1
+
+
+| *pulsarKeyBasedBatcher*
+| When true, use the Pulsar KEY_BASED BatchBuilder
+| boolean
+| false
+
+
+| *pulsarMaxPendingMessages*
+| The Pulsar maximum size of a queue holding pending messages
+| integer
+| 1000
+
+
+| *pulsarMaxPendingMessagesAcrossPartitions*
+| The Pulsar maximum number of pending messages across partitions.
+| integer
+| 50000
 
 
 | *pulsarAuthPluginClassName*
