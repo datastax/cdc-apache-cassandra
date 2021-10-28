@@ -357,10 +357,6 @@ public abstract class PulsarSingleProducerTests {
                 Container.ExecResult uncleanedTasks = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=uncleanedTasks,type=CdcProducer","-f", "Value", "-mg");
                 String[] uncleanedTasksLines = uncleanedTasks.getStdout().split("\\n");
                 assertEquals(0, Long.parseLong(uncleanedTasksLines[1]));
-
-                Container.ExecResult maxUncleanedTasks = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=maxUncleanedTasks,type=CdcProducer","-f", "Value", "-mg");
-                String[] maxUncleanedTasksLines = maxUncleanedTasks.getStdout().split("\\n");
-                assertEquals(1, Long.parseLong(maxUncleanedTasksLines[1]));
             }
         }
     }
