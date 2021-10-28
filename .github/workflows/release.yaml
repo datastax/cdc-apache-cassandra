@@ -42,8 +42,8 @@ jobs:
         with:
           tag_name: ${{ github.ref }}
           release_name: Release ${{ github.ref }}
-          draft: true
-          prerelease: false
+          draft: false
+          prerelease: true
 
       - name: Upload Release Tar
         id: upload-release-tar
