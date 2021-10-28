@@ -477,7 +477,6 @@ public abstract class PulsarSingleProducerTests {
                     String[] skippedMutationsLines = skippedMutations.getStdout().split("\\n");
                     assertEquals(1L, Long.parseLong(skippedMutationsLines[1]));
                 }
-                consumer.acknowledge(msg2);
             }
         }
     }
