@@ -171,19 +171,25 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
                         .topic(k)
                         .sendTimeout(0, TimeUnit.SECONDS)
                         .hashingScheme(HashingScheme.Murmur3_32Hash)
-                        .blockIfQueueFull(true);
+                        .blockIfQueueFull(true)
+                        .maxPendingMessages(config.pulsarMaxPendingMessages)
+                        .maxPendingMessagesAcrossPartitions(config.pulsarMaxPendingMessagesAcrossPartitions)
+                        .autoUpdatePartitions(true);
+
                 if (config.pulsarBatchDelayInMs > 0) {
                     producerBuilder.enableBatching(true)
-                            .batchingMaxPublishDelay(config.pulsarBatchDelayInMs, TimeUnit.MILLISECONDS)
-                            .batcherBuilder(BatcherBuilder.KEY_BASED);
+                            .batchingMaxPublishDelay(config.pulsarBatchDelayInMs, TimeUnit.MILLISECONDS);
                 } else {
                     producerBuilder.enableBatching(false);
+                }
+                if (config.pulsarKeyBasedBatcher) {
+                    // only for single non-partitioned topic and Key_Shared subscription source connector
+                    producerBuilder.batcherBuilder(BatcherBuilder.KEY_BASED);
                 }
                 if (useMurmur3Partitioner) {
                     producerBuilder.messageRoutingMode(MessageRoutingMode.CustomPartition)
                             .messageRouter(Murmur3MessageRouter.instance);
                 }
-                producerBuilder.autoUpdatePartitions(true);
                 log.info("Pulsar producer name={} created with batching delay={}ms", producerName, config.pulsarBatchDelayInMs);
                 return producerBuilder.create();
             } catch (Exception e) {

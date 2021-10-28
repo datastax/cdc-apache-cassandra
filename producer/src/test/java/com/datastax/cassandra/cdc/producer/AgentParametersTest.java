@@ -64,6 +64,9 @@ public class AgentParametersTest {
         String agentArgs = commonConfig +
                 PULSAR_SERVICE_URL + "=pulsar+ssl://mypulsar:6650\\,localhost:6651\\,localhost:6652," +
                 PULSAR_BATCH_DELAY_IN_MS + "=20," +
+                PULSAR_KEY_BASED_BATCHER + "=true," +
+                PULSAR_MAX_PENDING_MESSAGES + "=20," +
+                PULSAR_MAX_PENDING_MESSAGES_ACROSS_PARTITIONS + "=200," +
                 PULSAR_AUTH_PLUGIN_CLASS_NAME + "=MyAuthPlugin," +
                 PULSAR_AUTH_PARAMS + "=x:y\\,z:t," +
                 SSL_ALLOW_INSECURE_CONNECTION + "=true," +
@@ -78,6 +81,9 @@ public class AgentParametersTest {
 
         assertEquals("pulsar+ssl://mypulsar:6650,localhost:6651,localhost:6652", config.pulsarServiceUrl);
         assertEquals(20L, config.pulsarBatchDelayInMs);
+        assertTrue(config.pulsarKeyBasedBatcher);
+        assertEquals(20, config.pulsarMaxPendingMessages);
+        assertEquals(200, config.pulsarMaxPendingMessagesAcrossPartitions);
 
         // Pulsar Auth
         assertEquals("MyAuthPlugin", config.pulsarAuthPluginClassName);

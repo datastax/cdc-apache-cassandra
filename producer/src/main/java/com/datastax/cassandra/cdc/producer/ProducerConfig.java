@@ -224,13 +224,37 @@ public class ProducerConfig {
                     -1L, "Long",
                     "pulsar", 2);
 
+    public static final String PULSAR_KEY_BASED_BATCHER = "pulsarKeyBasedBatcher";
+    public boolean pulsarKeyBasedBatcher = Boolean.getBoolean(CDC_PROPERTY_PREFIX + PULSAR_KEY_BASED_BATCHER);
+    public static final Setting<Boolean> PULSAR_KEY_BASED_BATCHER_SETTING =
+            new Setting<>(PULSAR_KEY_BASED_BATCHER, Platform.PULSAR, (c, s) -> c.pulsarKeyBasedBatcher = Boolean.parseBoolean(s), c -> c.pulsarKeyBasedBatcher,
+                    "When true, use the Pulsar KEY_BASED BatchBuilder",
+                    false, "Boolean",
+                    "pulsar", 3);
+
+    public static final String PULSAR_MAX_PENDING_MESSAGES = "pulsarMaxPendingMessages";
+    public int pulsarMaxPendingMessages = Integer.getInteger(CDC_PROPERTY_PREFIX + PULSAR_MAX_PENDING_MESSAGES, 1000);
+    public static final Setting<Integer> PULSAR_MAX_PENDING_MESSAGES_SETTING =
+            new Setting<>(PULSAR_MAX_PENDING_MESSAGES, Platform.PULSAR, (c, s) -> c.pulsarMaxPendingMessages = Integer.parseInt(s), c -> c.pulsarMaxPendingMessages,
+                    "The Pulsar maximum size of a queue holding pending messages",
+                    1000, "Integer",
+                    "pulsar", 4);
+
+    public static final String PULSAR_MAX_PENDING_MESSAGES_ACROSS_PARTITIONS= "pulsarMaxPendingMessagesAcrossPartitions";
+    public int pulsarMaxPendingMessagesAcrossPartitions = Integer.getInteger(CDC_PROPERTY_PREFIX + PULSAR_MAX_PENDING_MESSAGES_ACROSS_PARTITIONS, 50000);
+    public static final Setting<Integer> PULSAR_MAX_PENDING_MESSAGES_ACROSS_PARTITIONS_SETTING =
+            new Setting<>(PULSAR_MAX_PENDING_MESSAGES_ACROSS_PARTITIONS, Platform.PULSAR, (c, s) -> c.pulsarMaxPendingMessagesAcrossPartitions = Integer.parseInt(s), c -> c.pulsarMaxPendingMessagesAcrossPartitions,
+                    "The Pulsar maximum number of pending messages across partitions.",
+                    50000, "Integer",
+                    "pulsar", 5);
+
     public static final String PULSAR_AUTH_PLUGIN_CLASS_NAME = "pulsarAuthPluginClassName";
     public String pulsarAuthPluginClassName = System.getProperty(CDC_PROPERTY_PREFIX + PULSAR_AUTH_PLUGIN_CLASS_NAME);
     public static final Setting<String> PULSAR_AUTH_PLUGIN_CLASS_NAME_SETTING =
             new Setting<>(PULSAR_AUTH_PLUGIN_CLASS_NAME, Platform.PULSAR, (c, s) -> c.pulsarAuthPluginClassName = s, c -> c.pulsarAuthPluginClassName,
                     "The Pulsar authentication plugin class name.",
                     null, "String",
-                    "pulsar", 3);
+                    "pulsar", 6);
 
     public static final String PULSAR_AUTH_PARAMS = "pulsarAuthParams";
     public String pulsarAuthParams = System.getProperty(CDC_PROPERTY_PREFIX + PULSAR_AUTH_PARAMS);
@@ -238,7 +262,7 @@ public class ProducerConfig {
             new Setting<>(PULSAR_AUTH_PARAMS, Platform.PULSAR, (c, s) -> c.pulsarAuthParams = s, c -> c.pulsarAuthParams,
                     "The Pulsar authentication parameters.",
                     null, "String",
-                    "pulsar", 4);
+                    "pulsar", 7);
 
     public static final Set<Setting<?>> settings;
     public static final Map<String, Setting<?>> settingMap;
@@ -263,6 +287,9 @@ public class ProducerConfig {
         set.add(SSL_HOSTNAME_VERIFICATION_ENABLE_SETTING);
         set.add(PULSAR_SERVICE_URL_SETTING);
         set.add(PULSAR_BATCH_BATCH_DELAY_IN_MS_SETTING);
+        set.add(PULSAR_KEY_BASED_BATCHER_SETTING);
+        set.add(PULSAR_MAX_PENDING_MESSAGES_SETTING);
+        set.add(PULSAR_MAX_PENDING_MESSAGES_ACROSS_PARTITIONS_SETTING);
         set.add(PULSAR_AUTH_PLUGIN_CLASS_NAME_SETTING);
         set.add(PULSAR_AUTH_PARAMS_SETTING);
         settings = Collections.unmodifiableSet(set);
