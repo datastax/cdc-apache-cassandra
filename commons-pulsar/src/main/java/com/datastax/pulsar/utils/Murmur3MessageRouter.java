@@ -24,6 +24,6 @@ public class Murmur3MessageRouter implements MessageRouter {
 
     public int choosePartition(Message<?> msg, TopicMetadata metadata) {
         Long token = Long.parseLong(msg.getProperty(Constants.TOKEN));
-        return (short)((token >>> 48)) + Short.MAX_VALUE + 1;
+        return ((short)((token >>> 48)) + Short.MAX_VALUE + 1 ) % metadata.numPartitions();
     }
 }
