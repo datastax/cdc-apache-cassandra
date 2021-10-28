@@ -1,16 +1,16 @@
-# Docker demo
+# Docker Quick Start Guide
 
 Build docker images with CDC enabled:
 
     ./gradlew clean build -x test
 
-Start containers for version v3 (Cassandra 3), v4 (Cassandra 4), or dse4 (DSE):
+Start containers for Cassandra 3.11 (v3), Cassandra 4.0 (v4), or DSE 6.8.16+ (dse4) at your convenience:
 
     ./gradlew producer-dse4-pulsar:composeUp
     ./gradlew producer-v4-pulsar:composeUp
     ./gradlew producer-v3-pulsar:composeUp
 
-Deploy the Cassandra Source Connector:
+Deploy a Cassandra Source Connector in the pulsar container:
 
     docker exec -it pulsar bin/pulsar-admin source create \
     --source-type cassandra-source \
@@ -44,7 +44,7 @@ Stress the Cassandra node:
 
     docker exec -it cassandra cassandra-stress user profile=/table1.yaml no-warmup ops\(insert=1\) n=1000000 -rate threads=10
 
-For Cassandra 3 only, we need and fill up the working commitlog file (the one where new mutations are appended) and flush the table to get discarded commitlog files visible from the /var/lib/cassandra/cdc_raw directory:
+For Cassandra 3 only, we need to fill up the working commitlog file (the one where new mutations are appended) and flush the table to get discarded commitlog files visible from the /var/lib/cassandra/cdc_raw directory:
 
     docker exec -it cassandra cassandra-stress user profile=/table2.yaml no-warmup ops\(insert=1\) n=1000000 -rate threads=10
     docker exec -it cassandra nodetool flush

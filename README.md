@@ -1,18 +1,28 @@
-# Cassandra CDC Replication using Apache Pulsar.
+# Cassandra CDC Replication.
 
-The Cassandra Source Connector requires:
-* A message producer deployed as a JVM agent on each Cassandra data node.
+![tests](https://github.com/datastax/cassandra-source-connector/actions/workflows/ci.yaml/badge.svg)
+![documentation](https://github.com/datastax/cassandra-source-connector/actions/workflows/publish.yml/badge.svg)
+![release](https://github.com/datastax/cassandra-source-connector/actions/workflows/release.yaml/badge.svg)
+
+The Cassandra CDC replication requires:
+* A message producer deployed as a JVM agent on each Cassandra node.
 * A Cassandra Source Connector deployed in the streaming platform.
 
-| Streaming platform | Cassandra v3.x producer | Cassandra v4.x producer  | Source connector |
-| ---                | ---                     | ---                      | ---              |
-| Apache Pulsar      | [producer-v3-pulsar](producer-v3-pulsar) | [producer-v4-pulsar](producer-v4-pulsar) | [source-pulsar](source-pulsar) |
-
 ![Cassandra-source-connector](docs/modules/ROOT/assets/images/cassandra-source-connector.png)
+
+Supported streaming platform:
+* Apache Pulsar
+
+Supported Cassandra version:
+* Cassandra 3.11
+* Cassandra 4.0
+* Datastax Enterprise Server 6.8.16+
 
 ## Documentation
 
 All documentation is available online [here](https://datastax.github.io/cassandra-source-connector/).
+
+See the [QUICKSTART.md](QUICKSTART.md) page.
 
 ## Limitations
 
@@ -40,3 +50,7 @@ Cassandra supported CQL3 data types (with the associated AVRO type or logical-ty
 ## Build from the sources
 
     ./gradlew assemble
+
+## Acknowledgments
+
+Apache Cassandra, Apache Pulsar, Cassandra and Pulsar are trademarks of the Apache Software Foundation.
