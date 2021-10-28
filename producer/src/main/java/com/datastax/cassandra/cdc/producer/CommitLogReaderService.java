@@ -227,8 +227,6 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
         ERROR
     }
 
-    public static final int MAX_PENDING_SENT_MUTATION = Integer.getInteger("cdc.maxPendingSentMutation", 16384);
-
     /**
      * commitlog file task
      */
@@ -246,11 +244,11 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
 
         @EqualsAndHashCode.Exclude
         @ToString.Exclude
-        ArrayBlockingQueue<Integer> sentPositions;
+        ArrayBlockingQueue<Integer> pendingPositions;
 
         @EqualsAndHashCode.Exclude
         @ToString.Exclude
-        ConcurrentMap<Integer, CompletableFuture<?>> pendingFutures;
+        volatile Throwable lastException = null;
 
         public Task(String filename, long segment, int syncPosition, boolean completed) {
             this.filename = filename;
@@ -264,16 +262,18 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
         public void finish(TaskStatus taskStatus, int lastSentPosition) {
             if (taskStatus.equals(TaskStatus.SUCCESS)) {
                 try {
-                    for(CompletableFuture<?> future : pendingFutures.values()) {
-                        future.join(); // wait for remaining sent ack or get an exception
+                    // wait completable future to finish
+                    while (pendingPositions.poll() != null) {
                     }
+                    if (lastException != null)
+                        throw lastException;
                     if (!completed && lastSentPosition > 0) {
                         // flush sent offset on disk to restart from that position
                         segmentOffsetWriter.position(Optional.empty(), segment, lastSentPosition);
                         segmentOffsetWriter.flush(Optional.empty(), segment);
                     }
                     log.debug("Task segment={} completed={} lastSentPosition={} succeed", segment, completed, lastSentPosition);
-                } catch (Exception e) {
+                } catch (Throwable e) {
                     // eventually resubmit self after 10s
                     log.error("Task segment={} completed={} syncPosition={} failed, retrying:", segment, completed, syncPosition, e);
                     pendingTasks.putIfAbsent(segment, this);

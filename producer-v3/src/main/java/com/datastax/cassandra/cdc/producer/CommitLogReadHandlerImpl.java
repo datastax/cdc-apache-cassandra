@@ -464,8 +464,8 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     public void sendAsync(AbstractMutation<CFMetaData> mutation) {
         log.debug("Sending mutation={}", mutation);
         try {
-            task.sentPositions.put(mutation.getPosition()); // may block
-            task.pendingFutures.put(mutation.getPosition(), this.mutationSender.sendMutationAsync(mutation)
+            task.pendingPositions.put(mutation.getPosition()); // may block
+            this.mutationSender.sendMutationAsync(mutation)
                     .handle((msgId, t)-> {
                         if (t == null) {
                             CdcMetrics.sentMutations.inc();
@@ -477,12 +477,12 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                             } else {
                                 CdcMetrics.sentErrors.inc();
                                 log.debug("Sent failed mutation=" + mutation, t);
+                                task.lastException = t;
                             }
                         }
-                        task.pendingFutures.remove(mutation.getPosition());
-                        task.sentPositions.remove(mutation.getPosition());
+                        task.pendingPositions.remove(mutation.getPosition());
                         return msgId;
-                    }));
+                    });
         } catch(Exception e) {
             log.error("Send failed:", e);
             CdcMetrics.sentErrors.inc();
