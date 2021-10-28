@@ -561,7 +561,7 @@ public abstract class PulsarSingleProducerTests {
                 for (int i = 0; i < 100; i++)
                     cqlSession.execute("INSERT INTO pt.table1 (a,b) VALUES (?, ?);", i, randomizeBuffer(i));
             }
-
+            drain();
             try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build();
                  Consumer<GenericRecord> consumer = pulsarClient.newConsumer(Schema.AUTO_CONSUME())
                          .topic("events-pt.table1")
