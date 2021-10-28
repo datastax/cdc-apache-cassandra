@@ -304,8 +304,8 @@ public abstract class PulsarDualProducerTests {
                 UUID node2 = nodesPerPk.get("1").get(1);
                 Assert.assertNotEquals(node1, node2);
 
-                // not always in a different order, may depend on system scheduling
-                Assert.assertNotEquals(digestPerNode.get(node1), digestPerNode.get(node2));
+                // not always in a different order, may depend on the system scheduling
+                //Assert.assertNotEquals(digestPerNode.get(node1), digestPerNode.get(node2));
             }
         }
     }
