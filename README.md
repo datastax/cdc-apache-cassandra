@@ -12,6 +12,7 @@ The Cassandra CDC replication requires:
 
 Supported streaming platform:
 * Apache Pulsar
+* Datastax Luna Streaming
 
 Supported Cassandra version:
 * Cassandra 3.11
