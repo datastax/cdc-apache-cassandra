@@ -169,7 +169,7 @@ public class CassandraClient implements AutoCloseable {
         for (int i = 0; i < pkLength; i++)
             query = query.whereColumn(pk[i]).isEqualTo(bindMarker());
         query.limit(1);
-        log.info(query.asCql());
+        log.debug(query.asCql());
         return cqlSession.prepare(query.asCql());
     }
 
