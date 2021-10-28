@@ -2,6 +2,12 @@
 [cols="2,3,1,1"]
 |===
 |Name | Description | Type | Default
+| *topicPrefix*
+| The event topic name prefix. The <keyspace_name>.<table_name> is appended to that prefix to build the topic name.
+| string
+| events-
+
+
 | *cdcWorkingDir*
 | The CDC working directory where the last sent offset is saved, and where the archived and errored commitlogs files are copied.
 | string
@@ -26,10 +32,10 @@
 | -1
 
 
-| *topicPrefix*
-| The event topic name prefix. The <keyspace_name>.<table_name> is appended to that prefix to build the topic name.
-| string
-| events-
+| *maxInflightMessagesPerTask*
+| The maximum number of in-flight messages per commitlog processing task.
+| integer
+| 16384
 
 
 | *pulsarServiceUrl*
