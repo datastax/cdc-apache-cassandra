@@ -27,6 +27,21 @@ The Cassandra Source Connector:
 * Does not manage TTL
 * Does not support range deletes
 
+=== What's happen if Apache Pulsar is unavailable?
+
+If Apache Pulsar is not available or unreachable, the CDC producer agent keep trying to send messages, and commitlog files accumulate in the cdc_raw directory. When the disk space of the cdc_raw directory reach your **cdc_total_space_in_mb** cassandra settings (less than 4Gb by default), writes to CDC-enabled tables fails with a **CDCWriteException**, and you get the following warning message in Cassandra logs:
+
+[source,language-bash]
+----
+WARN  [CoreThread-5] 2021-10-29 09:12:52,790  NoSpamLogger.java:98 - Rejecting Mutation containing CDC-enabled table. Free up space in /mnt/data/cdc_raw.
+----
+
+In order to avoid or recover from this situation, you should increase the **cdc_total_space_in_mb** and restart the node, and also increase the write throughput to Pulsar or decrease the write throughput to your node.
+
+Increasing the Pulsar write throughput may involve the CDC producer agent configuration (the number of allocated threads, the batching delay, the number of inflight messages), your Pulsar configuration (the number of partition of your topics, the connector max throughput, the Cassandra Source Connector batching and cache settings).
+
+In last resort, if losing data is acceptable in your CDC pipeline, remove commitlog files from the cdc_raw directory, restarting the node is not needed in this case.
+
 === Is DataStax Cassandra Data Connector an open-source project?
 
 Yes, DataStax Cassandra Data Connector is open source. See the <<gitHubRepos,repos FAQ>>.
