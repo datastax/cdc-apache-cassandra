@@ -6,103 +6,112 @@
 # Requires curl, cqlsh, pulsar-admin, jq, jd (https://github.com/josephburnett/jd), see the Dockerfile.
 set -x
 
-USERNAME=$(kubectl get secret -n default cluster2-superuser -o json | ksd | jq -r '.stringData.username')
-PASSWORD=$(kubectl get secret -n default cluster2-superuser -o json | ksd | jq -r '.stringData.password')
-PULSAR_TOKEN=$(kubectl get secret -n pulsar token-admin -o json | ksd | jq -r '.stringData."admin.jwt"')
+PROJECT_VERSION="0.2.10-SNAPSHOT"
 
-PULSAR_BROKER="ssl+pulsar://pulsar-perf-aws-useast2-broker.pulsar.svc.cluster.local:6650"
-PULSAR_BROKER_HTTP="https://pulsar-perf-aws-useast2-proxy.pulsar.svc.cluster.local:8443/"
-PULSAR_ADMIN_AUTH="--auth-plugin org.apache.pulsar.client.impl.auth.AuthenticationToken --auth-params token:$PULSAR_TOKEN"
-
+CASSANDRA_USERNAME=$(kubectl get secret -n default cluster2-superuser -o json | ksd | jq -r '.stringData.username')
+CASSANDRA_PASSWORD=$(kubectl get secret -n default cluster2-superuser -o json | ksd | jq -r '.stringData.password')
 CASSANDRA_SERVICE="cluster2-dc1-service.default.svc.cluster.local"
 CASSANDRA_DC="dc1"
 
+PULSAR_ADMIN_POD="-n pulsar pulsar-perf-aws-useast2-bastion-7864787587-42sns"
+
 ELASTICSEARCH_URL="http://elasticsearch-master.elk.svc.cluster.local:9200"
 
-EVENT_TOPIC="persistent://public/default/events-ks1.table1"
+KEYSPACE="ks1"
+TABLE="table1"
+EVENTS_TOPIC="persistent://public/default/events-ks1.table1"
 DATA_TOPIC="persistent://public/default/data-ks1.table1"
 
+SOURCE_NAME="cassandra-source-${KEYSPACE}-${TABLE}"
+SINK_NAME="elasticsearch-sink-${KEYSPACE}-${TABLE}"
+INDEX_NAME="${KEYSPACE}-${TABLE}"
+
 pulsar_configure() {
-  kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH namespaces set-auto-topic-creation public/default --enable
-  kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH namespaces set-is-allow-auto-update-schema public/default --enable
-  kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH namespaces set-retention public/default --size -1 --time -1
+  kubectl exec -it $PULSAR_ADMIN_POD -- bin/pulsar-admin namespaces set-auto-topic-creation public/default --enable
+  kubectl exec -it $PULSAR_ADMIN_POD -- bin/pulsar-admin namespaces set-is-allow-auto-update-schema public/default --enable
+  kubectl exec -it $PULSAR_ADMIN_POD -- bin/pulsar-admin namespaces set-retention public/default --size -1 --time -1
 }
 
 create_partitioned_topics() {
-  kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH topics create-partitioned-topic $EVENT_TOPIC --partitions 3
-  kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH topics create-partitioned-topic $DATA_TOPIC --partitions 3
+  kubectl exec -it $PULSAR_ADMIN_POD -- bin/pulsar-admin  topics create-partitioned-topic $EVENTS_TOPIC --partitions 3
+  kubectl exec -it $PULSAR_ADMIN_POD -- bin/pulsar-admin  topics create-partitioned-topic $DATA_TOPIC --partitions 3
 }
 
 delete_partitioned_topics() {
-  kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH topics delete-partitioned-topic $EVENT_TOPIC
-  kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH topics delete-partitioned-topic $DATA_TOPIC
+  kubectl exec -it $PULSAR_ADMIN_POD -- bin/pulsar-admin  topics delete-partitioned-topic $EVENTS_TOPIC
+  kubectl exec -it $PULSAR_ADMIN_POD -- bin/pulsar-admin  topics delete-partitioned-topic $DATA_TOPIC
 }
 
 list_topics() {
-    kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH topics list public/default
+    kubectl exec -it $PULSAR_ADMIN_POD -- bin/pulsar-admin  topics list public/default
 }
 
 source_list() {
-  kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH source list
+  kubectl exec -it $PULSAR_ADMIN_POD -- bin/pulsar-admin  source list
 }
 
 sink_list() {
-  kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH sink list
+  kubectl exec -it $PULSAR_ADMIN_POD -- bin/pulsar-admin  sink list
+}
+
+copy_csc() {
+  kubectl cp -n pulsar source-pulsar/build/libs/pulsar-cassandra-source-${PROJECT_VERSION}.nar $PULSAR_ADMIN_POD:/tmp
 }
 
 # The connector must be deployed when the keyspace exists
 deploy_csc() {
-  kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH source create \
-    --archive /pulsar-cassandra-source-0.2.9-SNAPSHOT.nar \
+  kubectl exec -it $PULSAR_ADMIN_POD -- bin/pulsar-admin source create \
+    --archive /tmp/pulsar-cassandra-source-${PROJECT_VERSION}.nar \
     --tenant public \
     --namespace default \
-    --name cassandra-source-ks1-table1 \
-    --destination-topic-name $DATA_TOPIC \
+    --name $SOURCE_NAME \
+    --destination-topic-name ${DATA_TOPIC} \
     --source-config "{
-      \"keyspace\": \"ks1\",
-      \"table\": \"table1\",
-      \"events.topic\": \"$EVENTS_TOPIC\",
+      \"keyspace\": \"${KEYSPACE}\",
+      \"table\": \"${TABLE}\",
+      \"events.topic\": \"${EVENTS_TOPIC}\",
       \"events.subscription.name\": \"sub1\",
       \"key.converter\": \"com.datastax.oss.pulsar.source.converters.NativeAvroConverter\",
       \"value.converter\": \"com.datastax.oss.pulsar.source.converters.NativeAvroConverter\",
       \"contactPoints\": \"$CASSANDRA_SERVICE\",
       \"loadBalancing.localDc\": \"$CASSANDRA_DC\",
       \"auth.provider\": \"PLAIN\",
-      \"auth.username\": \"$USERNAME\",
-      \"auth.password\": \"$PASSWORD\"
+      \"auth.username\": \"$CASSANDRA_USERNAME\",
+      \"auth.password\": \"$CASSANDRA_PASSWORD\"
     }"
 }
 
 undeploy_csc() {
-  kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH source delete \
-    --tenant public \
-    --namespace default \
-    --name cassandra-source-ks1-table1
+  kubectl exec -it $PULSAR_ADMIN_POD -- bin/pulsar-admin  source delete --tenant public --namespace default --name $SOURCE_NAME
 }
 
 csc_status() {
-  kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH source status --name cassandra-source-ks1-table1
+  kubectl exec -it $PULSAR_ADMIN_POD -- bin/pulsar-admin  source status --name $SOURCE_NAME
 }
 
-topic_event_stats() {
-  kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH topics stats persistent://public/default/events-ks1.table1
+csc_logs() {
+  kubectl exec -it $PULSAR_ADMIN_POD -- cat
+}
+
+topic_events_stats() {
+  kubectl exec -it $PULSAR_ADMIN_POD -- bin/pulsar-admin  topics stats $EVENTS_TOPIC
 }
 
 topic_data_stats() {
-  kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH topics stats persistent://public/default/data-ks1.table1
+  kubectl exec -it $PULSAR_ADMIN_POD -- bin/pulsar-admin  topics stats $DATA_TOPIC
 }
 
 deploy_es_sink() {
-  kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH sink create \
+  kubectl exec -it $PULSAR_ADMIN_POD -- bin/pulsar-admin  sink create \
     --sink-type elastic_search \
     --tenant public \
     --namespace default \
-    --name elasticsearch-sink-ks1-table1 \
+    --name $SINK_NAME \
     --inputs $DATA_TOPIC \
     --subs-position Earliest \
     --sink-config "{
       \"elasticSearchUrl\":\"$ELASTICSEARCH_URL\",
-      \"indexName\":\"ks1.table1\",
+      \"indexName\":\"$INDEX_NAME\",
       \"keyIgnore\":\"false\",
       \"nullValueAction\":\"DELETE\",
       \"schemaEnable\":\"true\"
@@ -110,22 +119,19 @@ deploy_es_sink() {
 }
 
 undeploy_es_sink() {
-  kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH sink delete \
-    --tenant public \
-    --namespace default \
-    --name elasticsearch-sink-ks1-table1
+  kubectl exec -it $PULSAR_ADMIN_POD -- bin/pulsar-admin  sink delete --tenant public --namespace default --name $SINK_NAME
 }
 
 es_sink_status() {
-   kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH sink status --name elasticsearch-sink-ks1-table1
+   kubectl exec -it $PULSAR_ADMIN_POD -- bin/pulsar-admin  sink status --name $SINK_NAME
 }
 
 es_refresh() {
-  kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- curl -XPOST "$ELASTICSEARCH_URL/ks1.table1/_refresh"
+  kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- curl -XPOST "$ELASTICSEARCH_URL/$INDEX_NAME/_refresh"
 }
 
 es_total_hits() {
-  TOTAL_HIT=$(kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- curl "$ELASTICSEARCH_URL/ks1.table1/_search?pretty&size=0" 2>/dev/null | jq '.hits.total.value')
+  TOTAL_HIT=$(kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- curl "$ELASTICSEARCH_URL/$INDEX_NAME/_search?pretty&size=0" 2>/dev/null | jq '.hits.total.value')
   if [ "$TOTAL_HIT" != "${1}" ]; then
 	     echo "### total_hit : unexpected total.hits = $TOTAL_HIT"
 	     return 1
@@ -134,7 +140,7 @@ es_total_hits() {
 
 es_source_match() {
   TMP_DIR=$(mktemp -d)
-  SOURCE=$(kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- curl "$ELASTICSEARCH_URL/ks1.table1/_doc/${1}" 2>/dev/null | jq '._source')
+  SOURCE=$(kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- curl "$ELASTICSEARCH_URL/$INDEX_NAME/_doc/${1}" 2>/dev/null | jq '._source')
   echo "$SOURCE" > $TMP_DIR/source.json
   echo ${2} > $TMP_DIR/expected.json
   if [ $(jd --set $TMP_DIR/expected.json $TMP_DIR/source.json | wc -c) -ne 0 ]; then
@@ -150,8 +156,8 @@ run_cqlsh() {
 cleanup_test() {
   undeploy_csc
   undeploy_es_sink
-  kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- curl -XDELETE "$ELASTICSEARCH_URL/ks1.table1"
+  kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- curl -XDELETE "$ELASTICSEARCH_URL/$INDEX_NAME"
   cqlsh -u $USERNAME -p $PASSWORD -e "drop KEYSPACE ks1;"
-  kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH topics delete -d -f persistent://public/default/events-ks1.table1
-  kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /apache-pulsar-2.8.0/bin/pulsar-admin --admin-url $PULSAR_BROKER_HTTP $PULSAR_ADMIN_AUTH topics delete -d -f persistent://public/default/data-ks1.table1
+  kubectl exec -it $PULSAR_ADMIN_POD -- bin/pulsar-admin  topics delete -d -f $EVENTS_TOPIC
+  kubectl exec -it $PULSAR_ADMIN_POD -- bin/pulsar-admin  topics delete -d -f $DATA_TOPIC
 }
