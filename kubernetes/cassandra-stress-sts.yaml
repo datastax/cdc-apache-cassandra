@@ -1,3 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cassandra-stress
+  labels:
+    app: cassandra-stress
+spec:
+  ports:
+    - port: 8081
+      name: http-metrics
+  clusterIP: None
+  selector:
+    app: cassandra-stress
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -18,13 +32,15 @@ spec:
         prometheus.io/scrape: 'true'
         prometheus.io/port: '8081'
     spec:
+      terminationGracePeriodSeconds: 15
       containers:
         - name: cassandra-stress
           image: vroyer/cassandra-stress:latest
           command: [ "/opt/dse/resources/cassandra/tools/bin/cassandra-stress", "user", "profile=/table1.yaml", "no-warmup", "ops(insert=1)", "n=90000000000", "-rate", "threads=1", "-node", "{{CASSANDRA_SERVICE}}", "-jmx", "-mode", "native", "cql3", "user={{CASSANDRA_USERNAME}}", "password={{CASSANDRA_PASSWORD}}" ]
+          terminationMessagePolicy: FallbackToLogsOnError
           ports:
             - containerPort: 8081
-              name: prometheus
+              name: http-metrics
           env:
             - name: JVM_OPTS
               value: -Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.rmi.port=5001 -Dcom.sun.management.jmxremote.port=5001 -javaagent:/jmx_prometheus_javaagent-0.16.1.jar=8081:/jmx_exporter_config.yaml
