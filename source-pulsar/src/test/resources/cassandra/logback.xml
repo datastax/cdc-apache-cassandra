@@ -98,5 +98,5 @@ appender reference in the root level section below.
     </root>
 
     <logger name="org.apache.cassandra" level="INFO"/>
-    <logger name="com.datastax.cassandra.cdc.producer" level="DEBUG"/>
+    <logger name="com.datastax.cassandra.cdc" level="TRACE"/>
 </configuration>

@@ -23,6 +23,7 @@ import com.datastax.oss.driver.api.core.cql.*;
 import com.datastax.oss.driver.api.core.data.CqlDuration;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
 import com.datastax.oss.pulsar.source.converters.NativeAvroConverter;
+import com.datastax.testcontainers.ChaosNetworkContainer;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
 import com.datastax.testcontainers.pulsar.PulsarContainer;
 import lombok.extern.slf4j.Slf4j;
@@ -199,6 +200,30 @@ public class PulsarCassandraSourceTests {
                 "--namespace", "default",
                 "--name", "cassandra-source-" + ksName + "-" + tableName);
         assertEquals(0, result.getExitCode(), "undeployConnector failed:" + result.getStdout());
+    }
+
+    /**
+     * Check the connector is running
+     * @param ksName
+     * @param tableName
+     * @return the number of restart
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    int connectorStatus(String ksName, String tableName) throws IOException, InterruptedException {
+        Container.ExecResult result = pulsarContainer.execInContainer(
+                "/pulsar/bin/pulsar-admin", "source", "status",
+                "--name", "cassandra-source-" + ksName + "-" + tableName);
+        assertEquals(0, result.getExitCode(), "connectorStatus failed:" + result.getStdout());
+        String[] resultLines = result.getStdout().split("\\n");
+        for(int i = 0; i < resultLines.length; i++) {
+            if (resultLines[i].contains("numRestarts")) {
+                String numRestart = resultLines[i].split(":")[1];
+                numRestart = numRestart.substring(0, numRestart.length() - 1).trim();
+                return Integer.parseInt(numRestart);
+            }
+        }
+        return -1;
     }
 
     // docker exec -it pulsar cat /pulsar/logs/functions/public/default/cassandra-source-ks1-table1/cassandra-source-ks1-table1-0.log
@@ -614,6 +639,83 @@ public class PulsarCassandraSourceTests {
                         consumer.acknowledge(msg);
                     }
                     assertEquals(10000, msgCount);
+                }
+            }
+        } finally {
+            dumpFunctionLogs("cassandra-source-" + ksName + "-table1");
+            undeployConnector(ksName, "table1");
+        }
+    }
+
+    @Test
+    public void testReadTimeout() throws InterruptedException, IOException {
+        final String ksName = "ksx";
+        try(ChaosNetworkContainer<?> chaosContainer = new ChaosNetworkContainer<>(cassandraContainer2.getContainerName(), "100s")) {
+            deployConnector(ksName, "table1", NativeAvroConverter.class, NativeAvroConverter.class);
+            try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName +
+                        " WITH replication = {'class':'SimpleStrategy','replication_factor':'2'};");
+                cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table1 (id text PRIMARY KEY, a int) WITH cdc=true");
+                cqlSession.execute("INSERT INTO " + ksName + ".table1 (id, a) VALUES('1',1)");
+
+                chaosContainer.start();
+                cqlSession.execute("INSERT INTO " + ksName + ".table1 (id, a) VALUES('2',1)");
+                cqlSession.execute("INSERT INTO " + ksName + ".table1 (id, a) VALUES('3',1)");
+            }
+            try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
+                try (Consumer<GenericRecord> consumer = pulsarClient.newConsumer(org.apache.pulsar.client.api.Schema.AUTO_CONSUME())
+                        .topic(String.format(Locale.ROOT, "data-%s.table1", ksName))
+                        .subscriptionName("sub1")
+                        .subscriptionType(SubscriptionType.Key_Shared)
+                        .subscriptionMode(SubscriptionMode.Durable)
+                        .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+                        .subscribe()) {
+                    Message<GenericRecord> msg;
+                    int numMessage = 0;
+                    while ((msg = consumer.receive(130, TimeUnit.SECONDS)) != null && numMessage < 3) {
+                        numMessage++;
+                        consumer.acknowledge(msg);
+                    }
+                    assertEquals(3, numMessage);
+                    assertEquals(0, connectorStatus(ksName, "table1"));
+                }
+            }
+        } finally {
+            dumpFunctionLogs("cassandra-source-" + ksName + "-table1");
+            undeployConnector(ksName, "table1");
+        }
+    }
+
+    @Test
+    public void testConnectionFailure() throws InterruptedException, IOException {
+        final String ksName = "ksx2";
+        try(ChaosNetworkContainer<?> chaosContainer = new ChaosNetworkContainer<>(cassandraContainer1.getContainerName(), "100s")) {
+            try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName +
+                        " WITH replication = {'class':'SimpleStrategy','replication_factor':'2'};");
+                cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table1 (id text PRIMARY KEY, a int) WITH cdc=true");
+                cqlSession.execute("INSERT INTO " + ksName + ".table1 (id, a) VALUES('1',1)");
+                cqlSession.execute("INSERT INTO " + ksName + ".table1 (id, a) VALUES('2',1)");
+                cqlSession.execute("INSERT INTO " + ksName + ".table1 (id, a) VALUES('3',1)");
+            }
+            chaosContainer.start();
+            deployConnector(ksName, "table1", NativeAvroConverter.class, NativeAvroConverter.class);
+            try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
+                try (Consumer<GenericRecord> consumer = pulsarClient.newConsumer(org.apache.pulsar.client.api.Schema.AUTO_CONSUME())
+                        .topic(String.format(Locale.ROOT, "data-%s.table1", ksName))
+                        .subscriptionName("sub1")
+                        .subscriptionType(SubscriptionType.Key_Shared)
+                        .subscriptionMode(SubscriptionMode.Durable)
+                        .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+                        .subscribe()) {
+                    Message<GenericRecord> msg;
+                    int numMessage = 0;
+                    while ((msg = consumer.receive(180, TimeUnit.SECONDS)) != null && numMessage < 3) {
+                        numMessage++;
+                        consumer.acknowledge(msg);
+                    }
+                    assertEquals(3, numMessage);
+                    assertEquals(0, connectorStatus(ksName, "table1"));
                 }
             }
         } finally {

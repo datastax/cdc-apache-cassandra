@@ -52,6 +52,11 @@ public class CassandraSourceConnectorConfig {
 
     public static final String BATCH_SIZE_CONFIG = "batch.size";
     public static final String QUERY_EXECUTORS_CONFIG = "query.executors";
+    public static final String QUERY_MAX_MOBILE_AVG_LATENCY_CONFIG = "query.maxMobileAvgLatency";
+    public static final String QUERY_MIN_MOBILE_AVG_LATENCY_CONFIG = "query.minMobileAvgLatency";
+    public static final String QUERY_BACKOFF_IN_MS_CONFIG = "query.backoffInMs";
+    public static final String QUERY_MAX_BACKOFF_IN_SEC_CONFIG = "query.maxBackoffInSec";
+
 
     public static final String EVENTS_TOPIC_NAME_CONFIG = "events.topic";
     public static final String EVENTS_SUBSCRIPTION_NAME_CONFIG = "events.subscription.name";
@@ -171,7 +176,28 @@ public class CassandraSourceConnectorConfig {
                             ConfigDef.Type.INT,
                             10,
                             ConfigDef.Importance.MEDIUM,
-                            "The number of concurrent queries to be sent to Cassandra")
+                            "The initial number of threads to execute concurrent Cassandra queries")
+                    .define(QUERY_MAX_MOBILE_AVG_LATENCY_CONFIG,
+                            ConfigDef.Type.LONG,
+                            100L,
+                            ConfigDef.Importance.MEDIUM,
+                            "Maximum mobile average CQL query latency beyond which the number of executor is decreased")
+                    .define(QUERY_MIN_MOBILE_AVG_LATENCY_CONFIG,
+                            ConfigDef.Type.LONG,
+                            10L,
+                            ConfigDef.Importance.MEDIUM,
+                            "Minimum mobile average CQL query latency beyond which the number of executor is increased")
+                    .define(QUERY_BACKOFF_IN_MS_CONFIG,
+                            ConfigDef.Type.LONG,
+                            100L,
+                            ConfigDef.Importance.MEDIUM,
+                            "Retry backoff in milliseconds when there is not enough Cassandra replicas to perform the query. " +
+                                    "(Capped exponential jittered backoff)")
+                    .define(QUERY_MAX_BACKOFF_IN_SEC_CONFIG,
+                            ConfigDef.Type.LONG,
+                            3600L,
+                            ConfigDef.Importance.MEDIUM,
+                            "Maximum backoff delay in seconds when there is not enough Cassandra replicas to perform the query")
                     .define(CACHE_MAX_DIGESTS_CONFIG,
                             ConfigDef.Type.LONG,
                             "3",
@@ -626,6 +652,22 @@ public class CassandraSourceConnectorConfig {
 
     public int getMaxConcurrentRequests() {
         return globalConfig.getInt(CONCURRENT_REQUESTS_OPT);
+    }
+
+    public long getQueryMaxMobileAvgLatency() {
+        return globalConfig.getLong(QUERY_MAX_MOBILE_AVG_LATENCY_CONFIG);
+    }
+
+    public long getQueryMinMobileAvgLatency() {
+        return globalConfig.getLong(QUERY_MIN_MOBILE_AVG_LATENCY_CONFIG);
+    }
+
+    public long getQueryBackoffInMs() {
+        return globalConfig.getLong(QUERY_BACKOFF_IN_MS_CONFIG);
+    }
+
+    public long getQueryMaxBackoffInSec() {
+        return globalConfig.getLong(QUERY_MAX_BACKOFF_IN_SEC_CONFIG);
     }
 
     public boolean getCacheOnlyIfCoordinatorMatch() {
