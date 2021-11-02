@@ -47,4 +47,25 @@ spec:
       additional-jvm-opts:
         - "-Ddse.system_distributed_replication_dc_names=dc1"
         - "-Ddse.system_distributed_replication_per_dc=3"
-        - "-javaagent:/producer-dse4-pulsar-{{PROJECT_VERSION}}-all.jar=pulsarServiceUrl=pulsar://pulsar-perf-aws-useast2-broker.pulsar.svc.cluster.local:6650,topicPrefix=persistent://public/default/events-,cdcWorkingDir=/var/lib/cassandra/cdc,pulsarAuthPluginClassName=org.apache.pulsar.client.impl.auth.AuthenticationToken,pulsarAuthParams=token:{{PULSAR_TOKEN}}"
+        - "-javaagent:/producer-dse4-pulsar-{{PROJECT_VERSION}}-all.jar=pulsarServiceUrl=pulsar://pulsar-perf-aws-useast2-broker.pulsar.svc.cluster.local:6650,topicPrefix=persistent://public/default/events-,cdcWorkingDir=/var/lib/cassandra/cdc,pulsarBatchDelayInMs=100,pulsarAuthPluginClassName=org.apache.pulsar.client.impl.auth.AuthenticationToken,pulsarAuthParams=token:{{PULSAR_TOKEN}}"
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cluster2
+  labels:
+    cassandra.datastax.com/cluster: cluster2
+spec:
+  selector:
+    matchLabels:
+      cassandra.datastax.com/cluster: cluster2
+  targetLabels:
+    - cassandra.datastax.com/cluster
+    - cassandra.datastax.com/datacenter
+  endpoints:
+    - targetPort: 9103
+      scheme: http
+      path: /metrics
+      scrapeTimeout: 15s
+      interval: 15s
+      metricRelabelings: []

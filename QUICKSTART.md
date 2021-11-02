@@ -1,4 +1,4 @@
-# Docker Quick Start Guide
+# Docker Quick Start
 
 Build docker images with CDC enabled:
 
