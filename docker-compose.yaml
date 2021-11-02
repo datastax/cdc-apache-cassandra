@@ -1,8 +1,12 @@
 version: '3.7'
+networks:
+  net1:
+
 services:
   cassandra:
     image: "${CASSANDRA_IMAGE}"
     container_name: cassandra
+    networks: [ "net1" ]
     environment:
       - "MAX_HEAP_SIZE=1200m"
       - "HEAP_NEWSIZE=300m"
@@ -22,9 +26,21 @@ services:
     #volumes:
     #  - ./cassandra-data:/var/lib/cassandra
 
+  cassandra-stress:
+    image: "vroyer/cassandra-stress:latest"
+    container_name: cassandra-stress
+    networks: [ "net1" ]
+    environment:
+      - "JVM_OPTS=-Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.rmi.port=5001 -Dcom.sun.management.jmxremote.port=5001 -javaagent:/jmx_prometheus_javaagent-0.16.1.jar=8081:/jmx_exporter_config.yaml"
+    ports:
+      - "5001:5001"
+      - "8081:8081"
+    command: [ "user", "profile=/table1.yaml", "no-warmup", "ops(insert=1)", "n=100000000", "-rate", "threads=1", "-node", "cassandra", "-jmx"]
+
   pulsar:
-    image: "lunastreaming:${PULSAR_TAG}-csc"
+    image: "${PULSAR_IMAGE}"
     container_name: pulsar
+    networks: [ "net1" ]
     environment:
       - "PULSAR_MEM=-Xms512m -Xmx512m -XX:MaxDirectMemorySize=1g"
     ports:
@@ -35,6 +51,7 @@ services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:7.4.0
     container_name: elasticsearch
+    networks: [ "net1" ]
     environment:
       - xpack.security.enabled=false
       - discovery.type=single-node
@@ -56,8 +73,9 @@ services:
       - 9300:9300
 
   kibana:
-    container_name: kibana
     image: docker.elastic.co/kibana/kibana:7.4.0
+    container_name: kibana
+    networks: [ "net1" ]
     environment:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
     ports:

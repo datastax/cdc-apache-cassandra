@@ -89,21 +89,37 @@ project.afterEvaluate {
     project.tasks.publishMavenPublicationToMavenRepository.enabled = false
 }
 
-docker {
-    name "dse4-server:${dse4Version}-cdc-pulsar"
+dockerPrepare {
     dependsOn shadowJar
+}
+
+docker {
+    name "${dockerRepo}dse4-server:${dse4Version}-cdc-pulsar"
     dockerfile file('src/docker/Dockerfile')
     files "$buildDir/libs/", "src/docker/table1.yaml"
-    buildArgs([BUILD_VERSION: project.version, DSE_VERSION: dse4Version])
+    buildArgs([BUILD_VERSION: project.version, DSE_VERSION: dse4Version, COMMITMOG_SYNC_PERIOD_IN_MS: commitlog_sync_period_in_ms])
 }
 build.dependsOn(project.tasks['docker'])
 
 dockerCompose {
+    projectName = "test1"
     useComposeFiles = ['../docker-compose.yaml']
     environment.put 'PRODUCER_VERSION', 'dse4'
     environment.put 'PROJECT_VERSION', project.version
-    environment.put 'CASSANDRA_IMAGE', "dse4-server:${dse4Version}-cdc-pulsar"
-    environment.put 'PULSAR_TAG', pulsarTag
+    environment.put 'CASSANDRA_IMAGE', "${dockerRepo}dse4-server:${dse4Version}-cdc-pulsar"
+    environment.put 'PULSAR_IMAGE', "lunastreaming:${pulsarTag}-csc"
     waitForTcpPorts = false
     startedServices = ['cassandra','pulsar']
 }
+
+dockerCompose {
+    stress {
+        projectName = "test1"
+        startedServices = ['cassandra-stress']
+    }
+    elasticsearch {
+        projectName = "test1"
+        startedServices = ['elasticsearch','kibana']
+    }
+}
+
