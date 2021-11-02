@@ -651,12 +651,13 @@ public class PulsarCassandraSourceTests {
     public void testReadTimeout() throws InterruptedException, IOException {
         final String ksName = "ksx";
         try(ChaosNetworkContainer<?> chaosContainer = new ChaosNetworkContainer<>(cassandraContainer2.getContainerName(), "100s")) {
-            deployConnector(ksName, "table1", NativeAvroConverter.class, NativeAvroConverter.class);
             try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
                 cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName +
                         " WITH replication = {'class':'SimpleStrategy','replication_factor':'2'};");
                 cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table1 (id text PRIMARY KEY, a int) WITH cdc=true");
                 cqlSession.execute("INSERT INTO " + ksName + ".table1 (id, a) VALUES('1',1)");
+
+                deployConnector(ksName, "table1", NativeAvroConverter.class, NativeAvroConverter.class);
 
                 chaosContainer.start();
                 cqlSession.execute("INSERT INTO " + ksName + ".table1 (id, a) VALUES('2',1)");
@@ -672,7 +673,7 @@ public class PulsarCassandraSourceTests {
                         .subscribe()) {
                     Message<GenericRecord> msg;
                     int numMessage = 0;
-                    while ((msg = consumer.receive(130, TimeUnit.SECONDS)) != null && numMessage < 3) {
+                    while ((msg = consumer.receive(180, TimeUnit.SECONDS)) != null && numMessage < 3) {
                         numMessage++;
                         consumer.acknowledge(msg);
                     }

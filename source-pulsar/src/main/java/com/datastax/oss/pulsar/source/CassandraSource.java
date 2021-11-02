@@ -176,14 +176,14 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
     /**
      * Decrease the number of thread by 10 percent because of the provided Exception.
-     * @param exception
+     * @param throwable
      */
-    private void decreaseExecutors(Exception exception) {
+    private void decreaseExecutors(Throwable throwable) {
         if (queryExecutors.size() > 1) {
             int numberOfThreadToRemove = Math.max(1, queryExecutors.size() / 10);
             for(int i = 0; i < numberOfThreadToRemove; i++)
                 queryExecutors.remove(queryExecutors.size() - 1).shutdown();
-            log.warn("CQL read issue={}, decreasing the query executor to {} threads", exception.toString(), queryExecutors.size());
+            log.warn("CQL read issue={}, decreasing the query executor to {} threads", throwable, queryExecutors.size());
         } else {
             log.warn("CQL read issue={} with only 1 executor threads, please consider limiting the source connector throughput to avoid overloading the Cassandra cluster");
         }
@@ -197,11 +197,11 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         return ThreadLocalRandom.current().nextLong(0, waitInMs(attempt));
     }
 
-    private void backoffRetry(Exception e) {
+    private void backoffRetry(Throwable throwable) {
         consecutiveUnavailableException++;
         long pauseInMs = randomWaitInMs(consecutiveUnavailableException);
         log.warn("CQL availability issue={}, consecutiveUnavailableException={}, pausing {}ms before retrying",
-                e.toString(), consecutiveUnavailableException, pauseInMs);
+                throwable, consecutiveUnavailableException, pauseInMs);
         try {
             Thread.sleep(pauseInMs);
         } catch (InterruptedException ex) {
@@ -496,26 +496,29 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             consecutiveUnavailableException = 0;
             return usefulRecords;
         } catch (java.util.concurrent.CompletionException e) {
-            for (MyKVRecord record : newRecords) {
-                negativeAcknowledge(consumer, record.getMsg()); // fail every message in the buffer
-            }
-            Exception e2 = e;
-            if (e2.getCause() != null && e2.getCause() instanceof java.util.concurrent.ExecutionException) {
-                e2 = (java.util.concurrent.ExecutionException) e2.getCause();
+            Throwable e2 = e.getCause();
+            if (e2 instanceof java.util.concurrent.ExecutionException) {
+                e2 = e2.getCause();
             }
             log.info("CompletionException cause:", e2);
 
             if (e2 instanceof com.datastax.oss.driver.api.core.servererrors.ReadTimeoutException ||
                     e2 instanceof com.datastax.oss.driver.api.core.servererrors.OverloadedException) {
                 decreaseExecutors(e2);
+            } else if (e2 instanceof com.datastax.oss.driver.api.core.AllNodesFailedException) {
+                // just retry
             } else {
                 log.warn("Unexpected exception class=" + e.getClass() + " message=" + e.getMessage() + " cause={}" + e.getCause(), e);
                 throw e;
             }
+
+            for (MyKVRecord record : newRecords) {
+                negativeAcknowledge(consumer, record.getMsg()); // fail every message in the buffer
+            }
             backoffRetry(e2);
             return Collections.emptyList();
         } catch(com.datastax.oss.driver.api.core.AllNodesFailedException e) {
-            log.info("Exception cause:", e);
+            log.info("AllNodesFailedException:", e);
             for (MyKVRecord record : newRecords) {
                 negativeAcknowledge(consumer, record.getMsg()); // fail every message in the buffer
             }
@@ -523,7 +526,6 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             return Collections.emptyList();
         } catch(Throwable e) {
             log.error("Unrecoverable error:", e);
-            // fail every message in the buffer
             for (MyKVRecord record : newRecords) {
                 negativeAcknowledge(consumer, record.getMsg());
             }
