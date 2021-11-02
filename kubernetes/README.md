@@ -62,6 +62,8 @@ Stress the DSE cluster:
 
     kubectl exec -it pod/cluster2-dc1-rack1-sts-0 -- /opt/dse/resources/cassandra/tools/bin/cassandra-stress user profile=/table1.yaml no-warmup ops\(insert=1\) n=1000000 -rate threads=10 -node $CASSANDRA_SERVICE -mode native cql3 user=$USERNAME password=$PASSWORD
 
+Stress the DSE cluster with a statfulset of cassandra-stress pods:
+
     sed -e "s/{{CASSANDRA_SERVICE}}/$CASSANDRA_SERVICE/g" \
         -e "s/{{CASSANDRA_USERNAME}}/$CASSANDRA_USERNAME/g" \
         -e "s/{{CASSANDRA_PASSWORD}}/$CASSANDRA_PASSWORD/g" cassandra-stress-sts.yaml | kubectl apply -f -
