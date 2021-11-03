@@ -35,6 +35,7 @@ import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.metadata.Metadata;
 import com.datastax.oss.driver.api.core.metadata.Node;
+import com.datastax.oss.driver.api.core.metadata.NodeState;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.SchemaChangeListener;
@@ -314,7 +315,7 @@ public class CassandraClient implements AutoCloseable {
         Node node = null;
         if (nodeId != null) {
             node = cqlSession.getMetadata().getNodes().get(nodeId);
-            if (node != null) {
+            if (node != null && node.getState().equals(NodeState.UP)) {
                 statement = statement.setNode(node);
             }
         }
