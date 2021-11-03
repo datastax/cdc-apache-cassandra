@@ -123,7 +123,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     /**
      * Circular array of the last batch avg latencies use to compute the mobile average query latency.
      */
-    Long[] batchAvgLatencyList = new Long[10];
+    long[] batchAvgLatencyList = new long[10];
     int    batchAvgLatencyHead = 0;
     int    batchAvgLatencyListSize = 0;
 
@@ -146,7 +146,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         Preconditions.checkArgument(key != null, "message key should not be null");
         Preconditions.checkState(queryExecutors != null, "queryExecutors should not be null");
         int threadIdx = Math.abs(Objects.hashCode(key)) % queryExecutors.size();
-        log.info("Submit task key={} on thread={}/{}", key, threadIdx, queryExecutors.size());
+        log.debug("Submit task key={} on thread={}/{}", key, threadIdx, queryExecutors.size());
         return queryExecutors.get(threadIdx).submit(task);
     }
 
@@ -156,19 +156,22 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     private void adjustExecutors() {
         long batchAvgLatency = this.batchTotalLatency.get() / this.batchTotalQuery.get();
         this.batchAvgLatencyList[this.batchAvgLatencyHead] = batchAvgLatency;
-        this.batchAvgLatencyHead = this.batchAvgLatencyHead++ % this.batchAvgLatencyList.length;
+        this.batchAvgLatencyHead = (this.batchAvgLatencyHead + 1) % this.batchAvgLatencyList.length;
         this.batchAvgLatencyListSize = Math.min(batchAvgLatencyListSize + 1, this.batchAvgLatencyList.length);
 
         long latencyTotal = 0;
         for(int i = 0; i < this.batchAvgLatencyListSize; i++) {
+            log.info("batchAvgLatencyList={}, batchAvgLatencyHead={}, batchAvgLatencyListSize={}, i={}",
+                    Arrays.toString(batchAvgLatencyList),  batchAvgLatencyHead, batchAvgLatencyListSize, i);
             latencyTotal += this.batchAvgLatencyList[i];
         }
         long mobileAvgLatency = latencyTotal / batchAvgLatencyListSize;
         log.debug("mobileAvgLatency={}, batchAvgLatencyList={}", mobileAvgLatency, Arrays.toString(batchAvgLatencyList));
-        if (mobileAvgLatency < config.getQueryMinMobileAvgLatency()) {
+        if (mobileAvgLatency < config.getQueryMinMobileAvgLatency() && queryExecutors.size() < config.getQueryExecutors() ) {
             queryExecutors.add(Executors.newSingleThreadExecutor());
             log.info("mobileAvgLatency={}, increasing the query executor to {} threads", mobileAvgLatency, queryExecutors.size());
-        } else if (mobileAvgLatency > config.getQueryMaxMobileAvgLatency() && queryExecutors.size() > 1) {
+        }
+        if (mobileAvgLatency > config.getQueryMaxMobileAvgLatency() && queryExecutors.size() > 1) {
             queryExecutors.remove(queryExecutors.size() - 1).shutdown();
             log.info("mobileAvgLatency={}, decreasing the query executor to {} threads", mobileAvgLatency, queryExecutors.size());
         }
