@@ -35,6 +35,7 @@ spec:
       authorizer: com.datastax.bdp.cassandra.auth.DseAuthorizer
       role_manager: com.datastax.bdp.cassandra.auth.DseRoleManager
       cdc_enabled: true
+      cdc_total_space_in_mb: 40960
     dse-yaml:
       authorization_options:
         enabled: true
