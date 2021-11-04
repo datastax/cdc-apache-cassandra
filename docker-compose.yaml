@@ -14,7 +14,7 @@ services:
       - "CASSANDRA_DC=datacenter1"
       - "DC=datacenter1"
       - "LOCAL_JMX=no"
-      - "JVM_EXTRA_OPTS=-Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.rmi.port=7199 -javaagent:/producer-${PRODUCER_VERSION}-pulsar-${PROJECT_VERSION}-all.jar=pulsarServiceUrl=pulsar://pulsar:6650,cdcWorkingDir=/var/lib/cassandra/cdc,pulsarBatchDelayInMs=100 -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8000"
+      - "JVM_EXTRA_OPTS=-Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.rmi.port=7199 -javaagent:/producer-${PRODUCER_VERSION}-pulsar-${PROJECT_VERSION}-all.jar=pulsarServiceUrl=pulsar://pulsar:6650,cdcWorkingDir=/var/lib/cassandra/cdc,pulsarBatchDelayInMs=100 -javaagent:/jmx_prometheus_javaagent-0.16.1.jar=8081:/jmx_prometheus_exporter.yaml -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8000"
     cap_add:
       - IPC_LOCK
     ulimits:
@@ -23,18 +23,15 @@ services:
     ports:
       - "9042:9042"
       - "7199:7199"
+      - "8081:8081"
     #volumes:
     #  - ./cassandra-data:/var/lib/cassandra
 
   cassandra-stress:
     image: "vroyer/cassandra-stress:latest"
-    container_name: cassandra-stress
     networks: [ "net1" ]
     environment:
-      - "JVM_OPTS=-Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.rmi.port=5001 -Dcom.sun.management.jmxremote.port=5001 -javaagent:/jmx_prometheus_javaagent-0.16.1.jar=8081:/jmx_exporter_config.yaml"
-    ports:
-      - "5001:5001"
-      - "8081:8081"
+      - "JVM_OPTS=-Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.rmi.port=5001 -Dcom.sun.management.jmxremote.port=5001 -javaagent:/jmx_prometheus_javaagent-0.16.1.jar=8082:/jmx_exporter_config.yaml"
     command: [ "user", "profile=/table1.yaml", "no-warmup", "ops(insert=1)", "n=100000000", "-rate", "threads=1", "-node", "cassandra", "-jmx"]
 
   pulsar:
@@ -83,3 +80,33 @@ services:
     mem_limit: 500m
     depends_on:
       - elasticsearch
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    networks: [ "net1" ]
+    ports:
+      - 9090:9090
+    volumes:
+      - ./prometheus/:/etc/prometheus/
+      - ./build/prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    networks: [ "net1" ]
+    user: "472"
+    depends_on:
+      - prometheus
+    ports:
+      - 3000:3000
+    volumes:
+      - ./build/grafana_data:/var/lib/grafana
+      - ./grafana/provisioning/:/etc/grafana/provisioning/
+    env_file:
+      - ./grafana/config.monitoring

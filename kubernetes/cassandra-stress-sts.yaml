@@ -30,7 +30,7 @@ spec:
         cassandra.datastax.com/datacenter: dc1
       annotations:
         prometheus.io/scrape: 'true'
-        prometheus.io/port: '8081'
+        prometheus.io/port: '8082'
     spec:
       terminationGracePeriodSeconds: 15
       containers:

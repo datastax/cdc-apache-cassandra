@@ -89,14 +89,10 @@ project.afterEvaluate {
     project.tasks.publishMavenPublicationToMavenRepository.enabled = false
 }
 
-dockerPrepare {
-    dependsOn shadowJar
-}
-
 docker {
     name "${dockerRepo}dse4-server:${dse4Version}-cdc-pulsar"
-    dockerfile file('src/docker/Dockerfile')
-    files "$buildDir/libs/", "src/docker/table1.yaml"
+    dependsOn shadowJar
+    files "$buildDir/libs/", "src/docker/"
     buildArgs([BUILD_VERSION: project.version, DSE_VERSION: dse4Version, COMMITMOG_SYNC_PERIOD_IN_MS: commitlog_sync_period_in_ms])
 }
 build.dependsOn(project.tasks['docker'])
@@ -110,12 +106,20 @@ dockerCompose {
     environment.put 'PULSAR_IMAGE', "lunastreaming:${pulsarTag}-csc"
     waitForTcpPorts = false
     startedServices = ['cassandra','pulsar']
-}
 
-dockerCompose {
     stress {
         projectName = "test1"
         startedServices = ['cassandra-stress']
+        scale = ['cassandra-stress': 1]
+    }
+    stress2 {
+        projectName = "test1"
+        startedServices = ['cassandra-stress']
+        scale = ['cassandra-stress': 2]
+    }
+    prometheus {
+        projectName = "test1"
+        startedServices = ['prometheus','grafana']
     }
     elasticsearch {
         projectName = "test1"

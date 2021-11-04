@@ -43,7 +43,7 @@ Eventually create Pulsar partitioned topics:
 
     create_partitioned_topics
 
-Create a table:
+Create a table (otherwise cassandra-stress create the keyspace with RF=1):
 
     run_cqlsh "CREATE KEYSPACE IF NOT EXISTS ks1 WITH REPLICATION = { 'class' : 'NetworkTopologyStrategy', 'dc1':'3'};"
     run_cqlsh "CREATE TABLE IF NOT EXISTS ks1.table1 (a text PRIMARY KEY, b text) WITH cdc=true"

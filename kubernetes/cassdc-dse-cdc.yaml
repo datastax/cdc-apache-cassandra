@@ -4,6 +4,9 @@ apiVersion: cassandra.datastax.com/v1beta1
 kind: CassandraDatacenter
 metadata:
   name: dc1
+  annotations:
+    prometheus.io/scrape: 'true'
+    prometheus.io/port: '9103'
 spec:
   clusterName: cluster2
   serverType: dse

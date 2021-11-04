@@ -74,8 +74,7 @@ test {
 docker {
     name "${dockerRepo}cassandra:${cassandra3Version}-cdc-pulsar"
     dependsOn shadowJar
-    dockerfile file('src/docker/Dockerfile')
-    files "$buildDir/libs/", "src/docker/table1.yaml", "src/docker/table2.yaml"
+    files "$buildDir/libs/", "src/docker/"
     buildArgs([BUILD_VERSION: project.version, CASSANDRA_VERSION: cassandra3Version])
 }
 build.dependsOn(project.tasks['docker'])
@@ -88,4 +87,23 @@ dockerCompose {
     environment.put 'PULSAR_IMAGE', "lunastreaming:${pulsarTag}-csc"
     waitForTcpPorts = false
     startedServices = ['cassandra','pulsar']
+
+    stress {
+        projectName = "test1"
+        startedServices = ['cassandra-stress']
+        scale = ['cassandra-stress': 1]
+    }
+    stress2 {
+        projectName = "test1"
+        startedServices = ['cassandra-stress']
+        scale = ['cassandra-stress': 2]
+    }
+    prometheus {
+        projectName = "test1"
+        startedServices = ['prometheus','grafana']
+    }
+    elasticsearch {
+        projectName = "test1"
+        startedServices = ['elasticsearch','kibana']
+    }
 }
