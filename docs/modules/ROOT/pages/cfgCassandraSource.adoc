@@ -119,9 +119,33 @@
 | 
 | 200
 
+| *query.backoffInMs*
+| Retry backoff in milliseconds when there is not enough Cassandra replicas to perform the query. (Capped exponential jittered backoff)
+| long
+| 
+| 100
+
 | *query.executors*
-| The number of concurrent queries to be sent to Cassandra
+| The initial and maximum number of threads to execute concurrent Cassandra queries
 | int
+| 
+| 10
+
+| *query.maxBackoffInSec*
+| Maximum backoff delay in seconds when there is not enough Cassandra replicas to perform the query
+| long
+| 
+| 3600
+
+| *query.maxMobileAvgLatency*
+| Maximum mobile average CQL query latency beyond which the number of executor is decreased
+| long
+| 
+| 100
+
+| *query.minMobileAvgLatency*
+| Minimum mobile average CQL query latency beyond which the number of executor is increased
+| long
 | 
 | 10
 
@@ -144,7 +168,7 @@
 | sub
 
 | *events.subscription.type*
-| The pulsar events topic subscription type, with a default set to Key_Shared (case sensitive).
+| The pulsar events topic subscription type, with a default set to Key_Shared (case sensitive) for a non-partitioned events topic. If your events topic is partitioned, you should set subscription type to Failover
 | string
 | [Exclusive, Shared, Failover, Key_Shared]
 | Key_Shared

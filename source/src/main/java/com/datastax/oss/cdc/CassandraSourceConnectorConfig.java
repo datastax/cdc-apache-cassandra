@@ -176,7 +176,7 @@ public class CassandraSourceConnectorConfig {
                             ConfigDef.Type.INT,
                             10,
                             ConfigDef.Importance.MEDIUM,
-                            "The initial number of threads to execute concurrent Cassandra queries")
+                            "The initial and maximum number of threads to execute concurrent Cassandra queries")
                     .define(QUERY_MAX_MOBILE_AVG_LATENCY_CONFIG,
                             ConfigDef.Type.LONG,
                             100L,
