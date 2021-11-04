@@ -32,9 +32,9 @@ public class CdcMetrics {
     public static final Counter commitLogReadErrors = Metrics.counter(factory.createMetricName("CommitLogReadErrors"));
     public static final Counter skippedMutations = Metrics.counter(factory.createMetricName("SkippedMutations"));
 
-    public static final Counter executedTasks = Metrics.counter(factory.createMetricName("executedTasks"));
+    public static final Counter executedTasks = Metrics.counter(factory.createMetricName("ExecutedTasks"));
 
-    public static final Gauge<Integer> submittedTasksGauge = Metrics.register(factory.createMetricName("submittedTasks"), new Gauge<Integer>()
+    public static final Gauge<Integer> submittedTasksGauge = Metrics.register(factory.createMetricName("SubmittedTasks"), new Gauge<Integer>()
     {
         public Integer getValue()
         {
@@ -42,7 +42,7 @@ public class CdcMetrics {
         }
     });
 
-    public static final Gauge<Integer> maxSubmittedTasks = Metrics.register(factory.createMetricName("maxSubmittedTasks"), new Gauge<Integer>()
+    public static final Gauge<Integer> maxSubmittedTasks = Metrics.register(factory.createMetricName("MaxSubmittedTasks"), new Gauge<Integer>()
     {
         public Integer getValue()
         {
@@ -50,7 +50,7 @@ public class CdcMetrics {
         }
     });
 
-    public static final Gauge<Integer> pendingTasksGauge = Metrics.register(factory.createMetricName("pendingTasks"), new Gauge<Integer>()
+    public static final Gauge<Integer> pendingTasksGauge = Metrics.register(factory.createMetricName("PendingTasks"), new Gauge<Integer>()
     {
         public Integer getValue()
         {
@@ -58,7 +58,7 @@ public class CdcMetrics {
         }
     });
 
-    public static final Gauge<Integer> maxPendingTasks = Metrics.register(factory.createMetricName("maxPendingTasks"), new Gauge<Integer>()
+    public static final Gauge<Integer> maxPendingTasks = Metrics.register(factory.createMetricName("PaxPendingTasks"), new Gauge<Integer>()
     {
         public Integer getValue()
         {
@@ -66,7 +66,7 @@ public class CdcMetrics {
         }
     });
 
-    public static final Gauge<Integer> uncleanedTasksGauge = Metrics.register(factory.createMetricName("uncleanedTasks"), new Gauge<Integer>()
+    public static final Gauge<Integer> uncleanedTasksGauge = Metrics.register(factory.createMetricName("UncleanedTasks"), new Gauge<Integer>()
     {
         public Integer getValue()
         {
@@ -74,7 +74,7 @@ public class CdcMetrics {
         }
     });
 
-    public static final Gauge<Integer> maxUncleanedTasks = Metrics.register(factory.createMetricName("maxUncleanedTasks"), new Gauge<Integer>()
+    public static final Gauge<Integer> maxUncleanedTasks = Metrics.register(factory.createMetricName("MaxUncleanedTasks"), new Gauge<Integer>()
     {
         public Integer getValue()
         {
