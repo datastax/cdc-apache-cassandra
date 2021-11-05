@@ -11,7 +11,6 @@ The Cassandra CDC replication requires:
 ![Cassandra-source-connector](docs/modules/ROOT/assets/images/cassandra-source-connector.png)
 
 Supported streaming platform:
-* Apache Pulsar
 * Datastax Luna Streaming
 
 Supported Cassandra version:
@@ -24,6 +23,13 @@ Supported Cassandra version:
 All documentation is available online [here](https://datastax.github.io/cassandra-source-connector/).
 
 See the [QUICKSTART.md](QUICKSTART.md) page.
+
+## Demo
+
+Cassandra replicated to Elasticsearch:
+
+[![asciicast](https://asciinema.org/a/CGY6QMjDgHV0mUsNXkhuEFA7j.png)](https://asciinema.org/a/CGY6QMjDgHV0mUsNXkhuEFA7j)
+
 
 ## Limitations
 
