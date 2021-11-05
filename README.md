@@ -33,7 +33,7 @@ Cassandra data replicated to Elasticsearch:
 * Writes into Cassandra are replicated within Elasticsearch within 2 seconds.
 
 
-[![asciicast](https://asciinema.org/a/CGY6QMjDgHV0mUsNXkhuEFA7j.png)](https://asciinema.org/a/Qxgv0BzWBbIGMx9SzDkKMIpY0?speed=2&theme=tango)
+[![asciicast](https://asciinema.org/a/CGY6QMjDgHV0mUsNXkhuEFA7j.png)](https://asciinema.org/a/onFrX3CdA8aNTkccJGc7448rI?speed=2&theme=tango)
 
 ## Limitations
 
