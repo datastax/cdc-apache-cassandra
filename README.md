@@ -77,3 +77,4 @@ Cassandra supported CQL3 data types (with the associated AVRO type or logical-ty
 ## Acknowledgments
 
 Apache Cassandra, Apache Pulsar, Cassandra and Pulsar are trademarks of the Apache Software Foundation.
+Elasticsearch, is a trademark of Elasticsearch BV, registered in the U.S. and in other countries.
