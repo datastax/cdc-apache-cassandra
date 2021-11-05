@@ -31,10 +31,21 @@ Cassandra data replicated to Elasticsearch:
 
 * Create a Cassandra table with cdc enabled
 * Deploy a Cassandra source and an Elasticsearch sink into Apache Pulsar
-* Writes into Cassandra are replicated within Elasticsearch within 2 seconds.
+* Writes into Cassandra are replicated to Elasticsearch.
 
 
 [![asciicast](https://asciinema.org/a/kiEYzHQrPWhJR19nZ7tbqrDIX.png)](https://asciinema.org/a/kiEYzHQrPWhJR19nZ7tbqrDIX?speed=2&theme=tango)
+
+## Monitoring
+
+You can collect Cassandra/DSE and Pulsar metrics into Prometheus, and build a Grafana dashboard with:
+* The CQL read latency from the Cassandra Source Connector
+* The replication latency from the Cassandra Source Connector (computed from the Cassandra writetime)
+* The CDC disk space used in the cdc_raw directory (for DSE only)
+* The mutation sent throughput from a Cassandra node
+* The pulsar events and data topic rate in
+
+![CDC Dashboard](docs/modules/ROOT/assets/images/cdc-dashboard.png)
 
 ## Limitations
 
