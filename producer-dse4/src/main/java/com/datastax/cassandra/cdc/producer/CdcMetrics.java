@@ -23,7 +23,6 @@ import org.apache.cassandra.metrics.MetricNameFactory;
 import static org.apache.cassandra.metrics.CassandraMetricsRegistry.Metrics;
 
 public class CdcMetrics {
-    public static final String CDC_PRODUCER_MBEAN_NAME = "CdcProducer";
     private static final MetricNameFactory factory = new DefaultNameFactory(CDC_PRODUCER_MBEAN_NAME);
 
     public static final Counter sentMutations = Metrics.counter(factory.createMetricName("SentMutations"));
@@ -46,7 +45,7 @@ public class CdcMetrics {
     {
         public Integer getValue()
         {
-            return CommitLogReaderService.maxSubmittedTasks;
+            return CommitLogReaderService.maxSubmittedTasks.get();
         }
     });
 
@@ -62,7 +61,7 @@ public class CdcMetrics {
     {
         public Integer getValue()
         {
-            return CommitLogReaderService.maxPendingTasks;
+            return CommitLogReaderService.maxPendingTasks.get();
         }
     });
 
@@ -78,7 +77,7 @@ public class CdcMetrics {
     {
         public Integer getValue()
         {
-            return CommitLogReaderService.maxUncleanedTasks;
+            return CommitLogReaderService.maxUncleanedTasks.get();
         }
     });
 }

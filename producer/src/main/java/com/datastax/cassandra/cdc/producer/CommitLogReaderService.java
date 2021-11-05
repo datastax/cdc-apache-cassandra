@@ -28,6 +28,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.IntBinaryOperator;
 
 @Slf4j
 public abstract class CommitLogReaderService implements Runnable, AutoCloseable
@@ -55,9 +57,9 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
      */
     static volatile long lastSegment = 0;
 
-    static int maxSubmittedTasks = 0;
-    static int maxPendingTasks = 0;
-    static int maxUncleanedTasks = 0;
+    static AtomicInteger maxSubmittedTasks = new AtomicInteger(0);
+    static AtomicInteger maxPendingTasks = new AtomicInteger(0);
+    static AtomicInteger maxUncleanedTasks = new AtomicInteger(0);
 
     final ProducerConfig config;
     final MutationSender<?> mutationSender;
@@ -182,7 +184,12 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
 
     public void addPendingTask(Task task) {
         pendingTasks.put(task.segment, task);
-        maxPendingTasks = Math.max(maxPendingTasks, pendingTasks.size());
+        maxPendingTasks.getAndAccumulate(pendingTasks.size(), new IntBinaryOperator() {
+            @Override
+            public int applyAsInt(int left, int right) {
+                return Math.max(left, right);
+            }
+        });
         log.trace("maxPendingTasks={}", maxPendingTasks);
         maybeRunPendingTask(task.segment);
     }
@@ -194,17 +201,25 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
      * @return the running task or null
      */
     public Task maybeRunPendingTask(long segment) {
-        return submittedTasks.compute(segment, (k1, v1) -> {
+        Task task = submittedTasks.compute(segment, (k1, v1) -> {
             if (v1 == null) {
                 Task pendingTask = pendingTasks.get(segment);
                 if (pendingTask != null) {
                     pendingTasks.remove(segment);
                     tasksExecutor.submit(pendingTask);
+
                 }
                 return pendingTask;
             }
             return v1;
         });
+        maxSubmittedTasks.getAndAccumulate(submittedTasks.size(), new IntBinaryOperator() {
+            @Override
+            public int applyAsInt(int left, int right) {
+                return Math.max(left, right);
+            }
+        });
+        return task;
     }
 
     /**
@@ -290,7 +305,12 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
                     // task will be cleaned up when processing the next segment
                     this.status = taskStatus;
                     uncleanedTasks.put(segment, this);
-                    maxUncleanedTasks = Math.max(maxUncleanedTasks, uncleanedTasks.size());
+                    maxUncleanedTasks.getAndAccumulate(uncleanedTasks.size(), new IntBinaryOperator() {
+                        @Override
+                        public int applyAsInt(int left, int right) {
+                            return Math.max(left, right);
+                        }
+                    });
                 }
             }
         }
