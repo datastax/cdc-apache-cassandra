@@ -1,14 +1,14 @@
-= Installing the DataStax Cassandra Source Connector
+= Installing the DataStax CDC for Apache Cassandra
 
-== Download the Datastax Cassandra Source Connector
+== Download the DataStax Cassandra Source Connector for Apache Pulsar
 
 IMPORTANT: https://www.apache.org/licenses/LICENSE-2.0[Apache-2.0 license agreement].
 By downloading this DataStax product, you agree to the terms of the open-source Apache-2.0 license agreement.
 
-Perform the following steps on a Pulsar Connect node:
+Perform the following steps:
 
-. Download the tar file from the https://downloads.datastax.com/#csc[DataStax downloads site].
-If you agree, enable the *Terms* checkbox and click the download icon.
+. Download the *cassandra-source-connectors-<version>.tar* tar file from the https://github.com/datastax/cassandra-source-connector/releases[GitHub Releases page].
+
 . Extract the files:
 +
 [source,language-bash]

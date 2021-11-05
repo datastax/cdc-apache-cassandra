@@ -1,4 +1,4 @@
-== Cassandra SSL/TLS settings
+== DataStax Cassandra Source Connector for Apache Pulsar SSL/TLS settings
 
 .Table Cassandra SSL/TLS settings
 [cols="2,3,1,1,1"]
