@@ -408,23 +408,23 @@ public abstract class PulsarSingleProducerTests {
             if (version.equals(Version.DSE4)) {
                 Container.ExecResult sentMutations = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=SentMutations,type=CdcProducer","-f", "Count", "-mg");
                 String[] sentMutationLines = sentMutations.getStdout().split("\\n");
-                assertEquals(numMutation, Long.parseLong(sentMutationLines[1]));
+                assertEquals(numMutation, Long.parseLong(sentMutationLines[1]), "nodetool failed:" + sentMutations.getStdout());
 
-                Container.ExecResult maxSubmittedTasks = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=maxSubmittedTasks,type=CdcProducer","-f", "Value", "-mg");
+                Container.ExecResult maxSubmittedTasks = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=MaxSubmittedTasks,type=CdcProducer","-f", "Value", "-mg");
                 String[] maxSubmittedTasksLines = maxSubmittedTasks.getStdout().split("\\n");
-                assertEquals(1, Long.parseLong(maxSubmittedTasksLines[1]));
+                assertEquals(1, Long.parseLong(maxSubmittedTasksLines[1]), "nodetool failed:" + maxSubmittedTasks.getStdout());
 
-                Container.ExecResult executedTasks = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=executedTasks,type=CdcProducer","-f", "Count", "-mg");
+                Container.ExecResult executedTasks = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=ExecutedTasks,type=CdcProducer","-f", "Count", "-mg");
                 String[] executedTasksLines = executedTasks.getStdout().split("\\n");
-                assertEquals(numMutation, Long.parseLong(executedTasksLines[1]));
+                assertEquals(numMutation, Long.parseLong(executedTasksLines[1]), "nodetool failed:" + executedTasks.getStdout());
 
-                Container.ExecResult uncleanedTasks = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=uncleanedTasks,type=CdcProducer","-f", "Value", "-mg");
+                Container.ExecResult uncleanedTasks = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=UncleanedTasks,type=CdcProducer","-f", "Value", "-mg");
                 String[] uncleanedTasksLines = uncleanedTasks.getStdout().split("\\n");
-                assertEquals(0, Long.parseLong(uncleanedTasksLines[1]));
+                assertEquals(0, Long.parseLong(uncleanedTasksLines[1]), "nodetool failed:" + uncleanedTasks.getStdout());
 
-                Container.ExecResult maxUncleanedTasks = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=maxUncleanedTasks,type=CdcProducer","-f", "Value", "-mg");
+                Container.ExecResult maxUncleanedTasks = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=MaxUncleanedTasks,type=CdcProducer","-f", "Value", "-mg");
                 String[] maxUncleanedTasksLines = maxUncleanedTasks.getStdout().split("\\n");
-                assertTrue(Long.parseLong(maxUncleanedTasksLines[1]) <= 1);
+                assertTrue(Long.parseLong(maxUncleanedTasksLines[1]) <= 1, "nodetool failed:" + maxUncleanedTasks.getStdout());
             }
         }
     }
