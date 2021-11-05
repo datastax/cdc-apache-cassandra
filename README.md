@@ -25,6 +25,17 @@ All documentation is available online [here](https://datastax.github.io/cassandr
 
 See the [QUICKSTART.md](QUICKSTART.md) page.
 
+## Demo
+
+Cassandra data replicated to Elasticsearch:
+
+* Create a Cassandra table with cdc enabled
+* Deploy a Cassandra source and an Elasticsearch sink into Apache Pulsar
+* Writes into Cassandra are replicated within Elasticsearch within 2 seconds.
+
+
+[![asciicast](https://asciinema.org/a/kiEYzHQrPWhJR19nZ7tbqrDIX.png)](https://asciinema.org/a/kiEYzHQrPWhJR19nZ7tbqrDIX?speed=2&theme=tango)
+
 ## Limitations
 
 * Does not replay logged batches
