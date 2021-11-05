@@ -74,8 +74,7 @@ test {
 docker {
     name "lunastreaming:${pulsarTag}-csc"
     dependsOn nar
-    dockerfile file('src/docker/Dockerfile')
-    files "$buildDir/libs/"
+    files "$buildDir/libs/", "src/docker/"
     buildArgs([BUILD_VERSION: project.version, PULSAR_VERSION: pulsarTag])
 }
 build.dependsOn(project.tasks['docker'])

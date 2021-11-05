@@ -1,10 +1,14 @@
 # Docker Quick Start
 
+## Build images
+
 Build docker images with CDC enabled:
 
     ./gradlew clean build -x test
 
-Start containers for Cassandra 3.11 (v3), Cassandra 4.0 (v4), or DSE 6.8.16+ (dse4) at your convenience:
+## Start Cassandra and Pulsar
+
+Start containers for Cassandra 3.11 (v3), Cassandra 4.0 (v4), or DSE 6.8.16+ (dse4) at your convenience, and Apache Pulsar:
 
     ./gradlew producer-dse4-pulsar:composeUp
     ./gradlew producer-v4-pulsar:composeUp
@@ -26,10 +30,7 @@ Deploy a Cassandra Source Connector in the pulsar container:
       \"key.converter\": \"com.datastax.oss.pulsar.source.converters.AvroConverter\",
       \"value.converter\": \"com.datastax.oss.pulsar.source.converters.AvroConverter\",
       \"contactPoints\": \"cassandra\",
-      \"loadBalancing.localDc\": \"datacenter1\",
-      \"auth.provider\": \"PLAIN\",
-      \"auth.username\": \"cassandra\",
-      \"auth.password\": \"cassandra\"
+      \"loadBalancing.localDc\": \"datacenter1\"
     }"
 
 Check the source connector status (should be running):
@@ -54,11 +55,54 @@ Check events and data topics throughput:
     docker exec -it pulsar bin/pulsar-admin topics stats persistent://public/default/events-ks1.table1
     docker exec -it pulsar bin/pulsar-admin topics stats persistent://public/default/data-ks1.table1
 
-Check the source connector metrics:
+Check the cassandra source connector metrics:
 
     docker exec -it pulsar curl http://localhost:8080/metrics/ | grep cassandra-source-ks1-table1
 
-Shutdown containers:
+## Prometheus monitoring
+
+Start the prometheus and grafana containers to monitor the CDC replication:
+
+    ./gradlew producer-dse4-pulsar:prometheusComposeUp
+    
+Open [prometheus](http://localhost:9090) and [grafana](http://localhost:3000) (login=admin, password=admin)
+
+## Elasticsearch sink
+
+Start elasticsearch and kibana containers:
+
+    ./gradlew producer-dse4-pulsar:elasticsearchComposeUp
+
+Deploy an Elasticsearch sink connector:
+
+    docker exec -it pulsar bin/pulsar-admin sink create \
+    --sink-type elastic_search \
+    --tenant public \
+    --namespace default \
+    --name es-sink-ks1-table1 \
+    --inputs "persistent://public/default/data-ks1.table1" \
+    --subs-position Earliest \
+    --sink-config "{
+      \"elasticSearchUrl\":\"http://elasticsearch:9200\",
+      \"indexName\":\"ks1.table1\",
+      \"keyIgnore\":\"false\",
+      \"nullValueAction\":\"DELETE\",
+      \"schemaEnable\":\"true\"
+    }"
+
+Check the sink connector status (should be running):
+
+    docker exec -it pulsar bin/pulsar-admin sink status --name es-sink-ks1-table1
+
+Check the source connector logs:
+
+    docker exec -it pulsar cat /pulsar/logs/functions/public/default/es-sink-ks1-table1/es-sink-ks1-table1.log
+
+Check data are replicated in [elasticsearch](http://localhost:9200/_cat/indices)
+
+    curl http://localhost:9200/_cat/indices
+
+## Shutdown containers
 
     ./gradlew producer-dse4-pulsar:composeDown
     ./gradlew producer-v4-pulsar:composeDown

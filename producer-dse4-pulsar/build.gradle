@@ -93,7 +93,10 @@ docker {
     name "${dockerRepo}dse4-server:${dse4Version}-cdc-pulsar"
     dependsOn shadowJar
     files "$buildDir/libs/", "src/docker/"
-    buildArgs([BUILD_VERSION: project.version, DSE_VERSION: dse4Version, COMMITMOG_SYNC_PERIOD_IN_MS: commitlog_sync_period_in_ms])
+    buildArgs([BUILD_VERSION: project.version,
+               DSE_VERSION: dse4Version,
+               COMMITMOG_SYNC_PERIOD_IN_MS: commitlog_sync_period_in_ms,
+               CDC_TOTAL_SPACE_IN_MB: cdc_total_space_in_mb])
 }
 build.dependsOn(project.tasks['docker'])
 
@@ -123,7 +126,7 @@ dockerCompose {
     }
     elasticsearch {
         projectName = "test1"
-        startedServices = ['elasticsearch','kibana']
+        startedServices = ['elasticsearch']
     }
 }
 

@@ -69,18 +69,6 @@ services:
       - 9200:9200
       - 9300:9300
 
-  kibana:
-    image: docker.elastic.co/kibana/kibana:7.4.0
-    container_name: kibana
-    networks: [ "net1" ]
-    environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-    ports:
-      - 5601:5601
-    mem_limit: 500m
-    depends_on:
-      - elasticsearch
-
   prometheus:
     image: prom/prometheus
     container_name: prometheus

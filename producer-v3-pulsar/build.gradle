@@ -104,6 +104,6 @@ dockerCompose {
     }
     elasticsearch {
         projectName = "test1"
-        startedServices = ['elasticsearch','kibana']
+        startedServices = ['elasticsearch']
     }
 }
