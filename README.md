@@ -28,7 +28,7 @@ See the [QUICKSTART.md](QUICKSTART.md) page.
 
 Cassandra replicated to Elasticsearch:
 
-[![asciicast](https://asciinema.org/a/CGY6QMjDgHV0mUsNXkhuEFA7j.png)](https://asciinema.org/a/CGY6QMjDgHV0mUsNXkhuEFA7j)
+[![asciicast](https://asciinema.org/a/CGY6QMjDgHV0mUsNXkhuEFA7j.png)](https://asciinema.org/a/CGY6QMjDgHV0mUsNXkhuEFA7j?speed=2&theme=tango)
 
 
 ## Limitations
