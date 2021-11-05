@@ -7,6 +7,8 @@ on:
       - 'kubernetes/**'
       - '.github/**'
       - '**.md'
+      - 'grafana/**'
+      - 'prometheus/**'
 
 jobs:
   build:
