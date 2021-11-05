@@ -26,10 +26,14 @@ See the [QUICKSTART.md](QUICKSTART.md) page.
 
 ## Demo
 
-Cassandra replicated to Elasticsearch:
+Cassandra data replicated to Elasticsearch:
 
-[![asciicast](https://asciinema.org/a/CGY6QMjDgHV0mUsNXkhuEFA7j.png)](https://asciinema.org/a/CGY6QMjDgHV0mUsNXkhuEFA7j?speed=2&theme=tango)
+* Create a Cassandra table with cdc enabled
+* Deploy a Cassandra source and an Elasticsearch sink into Apache Pulsar
+* Writes into Cassandra are replicated within Elasticsearch within 2 seconds.
 
+
+[![asciicast](https://asciinema.org/a/CGY6QMjDgHV0mUsNXkhuEFA7j.png)](https://asciinema.org/a/Qxgv0BzWBbIGMx9SzDkKMIpY0?speed=2&theme=tango)
 
 ## Limitations
 
