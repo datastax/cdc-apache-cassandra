@@ -27,6 +27,7 @@ import java.io.File;
 import java.util.Optional;
 import java.util.Vector;
 import java.util.concurrent.*;
+import java.util.function.IntBinaryOperator;
 
 /**
  * Consume a queue of commitlog files to read mutations.
@@ -53,7 +54,12 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
         return new Task(filename, segment, syncPosition, completed) {
 
             public void run() {
-                maxSubmittedTasks = Math.max(maxSubmittedTasks, submittedTasks.size());
+                maxSubmittedTasks.getAndAccumulate(submittedTasks.size(), new IntBinaryOperator() {
+                    @Override
+                    public int applyAsInt(int left, int right) {
+                        return Math.max(left, right);
+                    }
+                });
                 log.debug("Starting task={} lasSentPosition={}", this, segmentOffsetWriter.position(Optional.empty(), segment));
                 File file = getFile();
                 try {
@@ -82,6 +88,7 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
                 }
             }
 
+            @Override
             public File getFile() {
                 return new File(DatabaseDescriptor.getCDCLogLocation(), filename);
             }

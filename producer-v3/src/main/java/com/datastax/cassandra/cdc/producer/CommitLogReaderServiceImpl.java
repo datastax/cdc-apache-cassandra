@@ -28,6 +28,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.function.IntBinaryOperator;
 
 /**
  * Consume a queue of commitlog files to read mutations.
@@ -54,7 +55,12 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
         return new Task(filename, segment, syncPosition, true) {
 
             public void run() {
-                maxSubmittedTasks = Math.max(maxSubmittedTasks, submittedTasks.size());
+                maxSubmittedTasks.getAndAccumulate(submittedTasks.size(), new IntBinaryOperator() {
+                    @Override
+                    public int applyAsInt(int left, int right) {
+                        return Math.max(left, right);
+                    }
+                });
                 log.debug("Starting task={}", this);
                 File file = getFile();
                 try {
@@ -75,6 +81,7 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
                 }
             }
 
+            @Override
             public File getFile() {
                 return new File(DatabaseDescriptor.getCDCLogLocation(), filename);
             }

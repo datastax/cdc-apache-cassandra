@@ -46,7 +46,7 @@ public class CdcMetrics {
     {
         public Integer getValue()
         {
-            return CommitLogReaderService.maxSubmittedTasks;
+            return CommitLogReaderService.maxSubmittedTasks.get();
         }
     });
 
@@ -62,7 +62,7 @@ public class CdcMetrics {
     {
         public Integer getValue()
         {
-            return CommitLogReaderService.maxPendingTasks;
+            return CommitLogReaderService.maxPendingTasks.get();
         }
     });
 
@@ -78,7 +78,7 @@ public class CdcMetrics {
     {
         public Integer getValue()
         {
-            return CommitLogReaderService.maxUncleanedTasks;
+            return CommitLogReaderService.maxUncleanedTasks.get();
         }
     });
 }
