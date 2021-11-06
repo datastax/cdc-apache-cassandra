@@ -1,0 +1,80 @@
+plugins {
+    id 'java'
+    id 'java-library'
+    id 'io.github.lhotari.gradle-nar-plugin'
+    id 'com.palantir.docker'
+}
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs += '-Xlint:none'
+}
+
+sourceSets {
+    // Make the compileOnly dependencies available when compiling/running tests
+    test.compileClasspath += configurations.compileClasspath
+    test.runtimeClasspath += configurations.compileClasspath
+}
+
+dependencies {
+    implementation project(':commons')
+    implementation project(':commons-pulsar')
+    implementation project(':source')
+
+    implementation("com.github.ben-manes.caffeine:caffeine:${caffeineVersion}")
+    implementation("io.vavr:vavr:${vavrVersion}")
+    implementation "com.datastax.oss:java-driver-core:${ossDriverVersion}"
+    implementation "com.datastax.oss:java-driver-query-builder:${ossDriverVersion}"
+
+    compileOnly("org.apache.pulsar:pulsar-client:${lunaVersion}")
+    implementation("org.apache.avro:avro:${avroVersion}")
+    compileOnly("org.apache.pulsar:pulsar-io-common:${lunaVersion}")
+    compileOnly("org.apache.pulsar:pulsar-io-core:${lunaVersion}")
+
+    testRuntimeOnly("org.slf4j:slf4j-simple:1.7.30")
+    testRuntimeOnly "org.projectlombok:lombok:${lombokVersion}"
+    testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+
+    testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
+    testImplementation project(':testcontainers')
+
+    nar "org.apache.pulsar:pulsar-io:${lunaVersion}"
+}
+
+tasks.jar.dependsOn project(':commons').jar
+jar {
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    zip64=true
+}
+
+nar {
+    archivesBaseName = 'pulsar-cassandra-source'
+    manifest {
+        attributes 'Nar-Group': 'com.datastax.oss'
+        attributes 'Nar-Id': 'pulsar-io-cassandra-source-nar'
+    }
+}
+
+assemble.dependsOn(nar)
+
+test {
+    // Add dependency on jar task, since it will be main target for testing
+    dependsOn project(':producer-v4-pulsar').shadowJar
+    dependsOn nar
+
+    // Rearrange test classpath, add compiled JAR instead of main classes
+    //classpath = project.sourceSets.test.output + configurations.testRuntimeClasspath + files(shadowJar.archiveFile)
+
+    useJUnitPlatform()
+
+    systemProperty "sourceBuildDir", buildDir
+    systemProperty "producerBuildDir", project(':producer-v4-pulsar').buildDir
+    systemProperty "projectVersion", project.version
+}
+
+docker {
+    name "lunastreaming:${lunaTag}-csc"
+    dependsOn nar
+    files "$buildDir/libs/", "src/docker/"
+    buildArgs([BUILD_VERSION: project.version, LUNA_VERSION: lunaTag])
+}
+build.dependsOn(project.tasks['docker'])

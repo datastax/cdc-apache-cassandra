@@ -18,7 +18,6 @@ include 'commons-pulsar'
 include 'testcontainers'
 include 'producer'
 include 'producer-pulsar'
-include 'source'
 include 'producer-v3'
 include 'producer-v4'
 include 'producer-dse4'
@@ -26,9 +25,12 @@ include 'producer-dse4'
 include 'producer-v3-pulsar'
 include 'producer-v4-pulsar'
 include 'producer-dse4-pulsar'
-include 'source-pulsar'
+
+include ':source'
+include ':source:pulsar'
+include 'source:luna'
 
 include 'distribution'
 include 'docs'
-
+include 'source'
 

@@ -14,7 +14,7 @@ dependencies {
     if (project.hasProperty("dse")) {
         release project(path: ':producer-dse4-pulsar', configuration: 'shadow')
     }
-    release project(path: ':source-pulsar', configuration: 'nar')
+    //release project(path: ':source:pulsar', configuration: 'nar')
 }
 
 import de.fanero.gradle.plugin.nar.Nar;
@@ -27,7 +27,7 @@ distributions {
                 include '**'
             }
             from configurations.release
-            from(project(":source-pulsar").tasks.withType(Nar))
+            from(project(":source:pulsar").tasks.withType(Nar))
         }
     }
 }
