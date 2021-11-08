@@ -58,7 +58,7 @@ public class CdcMetrics {
         }
     });
 
-    public static final Gauge<Integer> maxPendingTasks = Metrics.register(factory.createMetricName("PaxPendingTasks"), new Gauge<Integer>()
+    public static final Gauge<Integer> maxPendingTasks = Metrics.register(factory.createMetricName("MaxPendingTasks"), new Gauge<Integer>()
     {
         public Integer getValue()
         {
