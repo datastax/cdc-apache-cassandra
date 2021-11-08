@@ -469,7 +469,7 @@ public abstract class PulsarSingleNodeTests {
                 if (version.equals(AgentTestUtil.Version.DSE4)) {
                     Container.ExecResult skippedMutations = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=SkippedMutations,type=CdcAgent", "-f", "Count", "-mg");
                     String[] skippedMutationsLines = skippedMutations.getStdout().split("\\n");
-                    assertEquals(1L, Long.parseLong(skippedMutationsLines[1]));
+                    assertEquals(1L, Long.parseLong(skippedMutationsLines[1]), "skippedMutations failed:" + skippedMutations.getStdout());
                 }
             }
         }
