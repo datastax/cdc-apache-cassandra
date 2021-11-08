@@ -10,6 +10,6 @@ dependencies {
     implementation project(':commons')
     implementation project(':agent')
     implementation("org.apache.avro:avro:${avroVersion}")
-    implementation("org.apache.pulsar:pulsar-client:${lunaVersion}")
-    compileOnly("org.slf4j:slf4j-api:1.7.30")
+    implementation("com.datastax.oss:pulsar-client:${lunaVersion}")
+    compileOnly("org.slf4j:slf4j-api:${slf4jVersion}")
 }

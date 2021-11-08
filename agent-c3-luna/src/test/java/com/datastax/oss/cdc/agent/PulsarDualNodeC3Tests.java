@@ -35,7 +35,7 @@ public class PulsarDualNodeC3Tests extends PulsarDualNodeTests {
     ).asCompatibleSubstituteFor("cassandra");
 
     public PulsarDualNodeC3Tests() {
-        super(AgentTestUtil.Version.V3);
+        super(AgentTestUtil.Version.C3);
     }
 
     @Override

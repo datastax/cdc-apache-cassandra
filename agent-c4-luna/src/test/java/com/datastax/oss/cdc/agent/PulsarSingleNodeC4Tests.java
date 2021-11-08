@@ -19,9 +19,6 @@ import com.datastax.oss.cdc.AgentTestUtil;
 import com.datastax.oss.cdc.PulsarSingleNodeTests;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.cassandra.config.DatabaseDescriptor;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.testcontainers.containers.Network;
 import org.testcontainers.utility.DockerImageName;
 
@@ -36,7 +33,7 @@ public class PulsarSingleNodeC4Tests extends PulsarSingleNodeTests {
     ).asCompatibleSubstituteFor("cassandra");
 
     public PulsarSingleNodeC4Tests() {
-        super(AgentTestUtil.Version.V4);
+        super(AgentTestUtil.Version.C4);
     }
 
     @Override

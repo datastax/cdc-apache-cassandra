@@ -37,7 +37,7 @@ dependencies {
     implementation project(':agent-luna')
     implementation project(':agent-dse4')
     implementation("org.apache.avro:avro:${avroVersion}")
-    implementation("org.apache.pulsar:pulsar-client:${lunaVersion}")
+    implementation("com.datastax.oss:pulsar-client:${lunaVersion}")
 
     compileOnly("com.datastax.dse:dse-db:${dse4Version}")
     testCompileOnly("com.datastax.dse:dse-db:${dse4Version}")
@@ -50,11 +50,11 @@ dependencies {
     testImplementation "com.datastax.oss:java-driver-query-builder:${ossDriverVersion}"
 
     testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
-    testImplementation "org.testcontainers:database-commons:${testContainersVersion}"
     testImplementation project(':testcontainers')
+    testImplementation project(':testcontainers-luna')
 
-    testRuntimeOnly "org.slf4j:slf4j-api:1.7.30"
-    testRuntimeOnly "org.slf4j:slf4j-simple:1.7.30"
+    testRuntimeOnly "org.slf4j:slf4j-api:${slf4jVersion}"
+    testRuntimeOnly "org.slf4j:slf4j-simple:${slf4jVersion}"
 }
 
 test {
@@ -68,6 +68,7 @@ test {
 
     systemProperty "buildDir", buildDir
     systemProperty "projectVersion", project.version
+    systemProperty "lunaTag", lunaTag
 }
 
 shadowJar {

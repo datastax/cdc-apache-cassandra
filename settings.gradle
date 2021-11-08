@@ -15,6 +15,7 @@ rootProject.name = 'cassandra-source-connector'
 
 include 'commons'
 include 'testcontainers'
+include 'testcontainers-luna'
 
 include 'agent'
 include 'agent-luna'
@@ -29,7 +30,6 @@ include 'agent-dse4'
 include 'agent-dse4-luna'
 
 include 'connector'
-//include 'connector-pulsar'
 include 'connector-luna'
 
 include 'distribution'

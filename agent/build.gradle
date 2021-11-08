@@ -9,5 +9,5 @@ compileTestJava {
 dependencies {
     implementation project(':commons')
     implementation("org.apache.avro:avro:${avroVersion}")
-    compileOnly("org.slf4j:slf4j-api:1.7.30")
+    compileOnly("org.slf4j:slf4j-api:${slf4jVersion}")
 }

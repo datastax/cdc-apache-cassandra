@@ -24,19 +24,19 @@ dependencies {
     implementation "com.datastax.oss:java-driver-core:${ossDriverVersion}"
     implementation "com.datastax.oss:java-driver-query-builder:${ossDriverVersion}"
 
-    compileOnly("org.apache.pulsar:pulsar-client:${lunaVersion}")
+    compileOnly("com.datastax.oss:pulsar-client:${lunaVersion}")
     implementation("org.apache.avro:avro:${avroVersion}")
-    compileOnly("org.apache.pulsar:pulsar-io-common:${lunaVersion}")
-    compileOnly("org.apache.pulsar:pulsar-io-core:${lunaVersion}")
+    compileOnly("com.datastax.oss:pulsar-io-common:${lunaVersion}")
+    compileOnly("com.datastax.oss:pulsar-io-core:${lunaVersion}")
 
-    testRuntimeOnly("org.slf4j:slf4j-simple:1.7.30")
+    testRuntimeOnly("org.slf4j:slf4j-simple:${slf4jVersion}")
     testRuntimeOnly "org.projectlombok:lombok:${lombokVersion}"
     testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
 
     testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
     testImplementation project(':testcontainers')
 
-    nar "org.apache.pulsar:pulsar-io:${lunaVersion}"
+    nar "com.datastax.oss:pulsar-io:${lunaVersion}"
 }
 
 tasks.jar.dependsOn project(':commons').jar
