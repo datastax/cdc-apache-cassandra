@@ -14,7 +14,7 @@ services:
       - "CASSANDRA_DC=datacenter1"
       - "DC=datacenter1"
       - "LOCAL_JMX=no"
-      - "JVM_EXTRA_OPTS=-Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.rmi.port=7199 -javaagent:/producer-${PRODUCER_VERSION}-pulsar-${PROJECT_VERSION}-all.jar=pulsarServiceUrl=pulsar://pulsar:6650,cdcWorkingDir=/var/lib/cassandra/cdc,pulsarBatchDelayInMs=100 -javaagent:/jmx_prometheus_javaagent-0.16.1.jar=8081:/jmx_prometheus_exporter.yaml -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8000"
+      - "JVM_EXTRA_OPTS=-Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.rmi.port=7199 -javaagent:/agent-${AGENT_VERSION}-${STREAM_PLATFORM}-${PROJECT_VERSION}-all.jar=pulsarServiceUrl=pulsar://pulsar:6650,cdcWorkingDir=/var/lib/cassandra/cdc,pulsarBatchDelayInMs=100 -javaagent:/jmx_prometheus_javaagent-0.16.1.jar=8081:/jmx_prometheus_exporter.yaml -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8000"
     cap_add:
       - IPC_LOCK
     ulimits:

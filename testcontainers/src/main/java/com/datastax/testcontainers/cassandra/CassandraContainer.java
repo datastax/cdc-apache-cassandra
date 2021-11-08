@@ -242,36 +242,25 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
         return new CassandraDatabaseDelegate(this);
     }
 
-    public static CassandraContainer<?> createCassandraContainerWithPulsarProducer(DockerImageName image,
-                                                                                   Network network,
-                                                                                   int nodeIndex,
-                                                                                   String version,
-                                                                                   String pulsarServiceUrl) {
-        return createCassandraContainerWithProducer(image, network, nodeIndex, System.getProperty("buildDir"),
-                String.format("producer-%s-pulsar", version),
+    public static CassandraContainer<?> createCassandraContainerWithAgent(DockerImageName image,
+                                                                          Network network,
+                                                                          int nodeIndex,
+                                                                          String cassandraVersion,
+                                                                          String streamPlatform,
+                                                                          String pulsarServiceUrl) {
+        return createCassandraContainerWithAgent(image, network, nodeIndex, System.getProperty("buildDir"),
+                String.format("agent-%s-%s", cassandraVersion, streamPlatform),
                 String.format("pulsarServiceUrl=%s", pulsarServiceUrl),
-                version);
+                cassandraVersion);
     }
 
-    public static CassandraContainer<?> createCassandraContainerWithPulsarProducer(DockerImageName image,
-                                                                                   Network network,
-                                                                                   int nodeIndex,
-                                                                                   String producerBuildDir,
-                                                                                   String version,
-                                                                                   String pulsarServiceUrl) {
-        return createCassandraContainerWithProducer(image, network, nodeIndex, producerBuildDir,
-                String.format("producer-%s-pulsar", version),
-                String.format("pulsarServiceUrl=%s", pulsarServiceUrl),
-                version);
-    }
-
-    public static CassandraContainer<?> createCassandraContainerWithProducer(DockerImageName image,
-                                                                             Network network,
-                                                                             int nodeIndex,
-                                                                             String producerBuildDir,
-                                                                             String agentName,
-                                                                             String agentParams,
-                                                                             String version) {
+    public static CassandraContainer<?> createCassandraContainerWithAgent(DockerImageName image,
+                                                                          Network network,
+                                                                          int nodeIndex,
+                                                                          String agentBuildDir,
+                                                                          String agentName,
+                                                                          String agentParams,
+                                                                          String cassandraVersion) {
         String projectVersion = System.getProperty("projectVersion");
         String jarFile = String.format(Locale.ROOT, "%s-%s-all.jar", agentName, projectVersion);
         CassandraContainer<?> cassandraContainer = new CassandraContainer<>(image)
@@ -279,11 +268,11 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
                 .withNetwork(network)
                 .withConfigurationOverride("cassandra")
                 .withFileSystemBind(
-                        String.format(Locale.ROOT, "%s/libs/%s", producerBuildDir, jarFile),
+                        String.format(Locale.ROOT, "%s/libs/%s", agentBuildDir, jarFile),
                         String.format(Locale.ROOT, "/%s", jarFile))
                 .withEnv("JVM_EXTRA_OPTS", String.format(Locale.ROOT,
                         "-javaagent:/%s=%s -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" +
-                        (version.equals("v4") ? "*:8000" : "8000"), jarFile, agentParams))
+                        (cassandraVersion.equals("c4") ? "*:8000" : "8000"), jarFile, agentParams))
                 .withEnv("MAX_HEAP_SIZE","1500m")
                 .withEnv("HEAP_NEWSIZE","300m")
                 .withEnv("DS_LICENSE", "accept")

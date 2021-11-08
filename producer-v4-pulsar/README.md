@@ -1,9 +1,0 @@
-# Cassandra 4.x CDC producer for Pulsar
-
-## Build
-
-    ./gradlew producer-v4-pulsar:shadowJar
-
-## Run
-
-    export JVM_EXTRA_OPTS="-javaagent:$CDC_HOME/producer-v4-pulsar/build/libs/producer-v4-pulsar-<version>>-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"

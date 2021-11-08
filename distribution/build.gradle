@@ -9,12 +9,12 @@ configurations {
 }
 
 dependencies {
-    release project(path: ':producer-v3-pulsar', configuration: 'shadow')
-    release project(path: ':producer-v4-pulsar', configuration: 'shadow')
-    if (project.hasProperty("dse")) {
-        release project(path: ':producer-dse4-pulsar', configuration: 'shadow')
+    release project(path: ':agent-c3-luna', configuration: 'shadow')
+    release project(path: ':agent-c4-luna', configuration: 'shadow')
+    if (project.hasProperty("dse4")) {
+        release project(path: ':agent-dse4-luna', configuration: 'shadow')
     }
-    //release project(path: ':source:pulsar', configuration: 'nar')
+    release project(path: ':connector-luna', configuration: 'nar')
 }
 
 import de.fanero.gradle.plugin.nar.Nar;
@@ -27,7 +27,7 @@ distributions {
                 include '**'
             }
             from configurations.release
-            from(project(":source:pulsar").tasks.withType(Nar))
+            from(project(":connector-luna").tasks.withType(Nar))
         }
     }
 }

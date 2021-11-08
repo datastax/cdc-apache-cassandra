@@ -45,6 +45,9 @@ allprojects {
         compileOnly "org.projectlombok:lombok:${lombokVersion}"
         annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
 
+        testImplementation "org.projectlombok:lombok:${lombokVersion}"
+        testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+
         testImplementation 'org.junit.jupiter:junit-jupiter-api:5.1.1'
         testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.1.1'
     }

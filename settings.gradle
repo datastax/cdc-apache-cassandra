@@ -14,23 +14,24 @@ buildscript {
 rootProject.name = 'cassandra-source-connector'
 
 include 'commons'
-include 'commons-pulsar'
 include 'testcontainers'
-include 'producer'
-include 'producer-pulsar'
-include 'producer-v3'
-include 'producer-v4'
-include 'producer-dse4'
 
-include 'producer-v3-pulsar'
-include 'producer-v4-pulsar'
-include 'producer-dse4-pulsar'
+include 'agent'
+include 'agent-luna'
 
-include ':source'
-include ':source:pulsar'
-include 'source:luna'
+include 'agent-c3'
+include 'agent-c3-luna'
+
+include 'agent-c4'
+include 'agent-c4-luna'
+
+include 'agent-dse4'
+include 'agent-dse4-luna'
+
+include 'connector'
+//include 'connector-pulsar'
+include 'connector-luna'
 
 include 'distribution'
 include 'docs'
-include 'source'
 

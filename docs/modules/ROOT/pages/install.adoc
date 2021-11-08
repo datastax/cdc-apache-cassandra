@@ -23,26 +23,26 @@ The following files are unpacked into a directory such as `cassandra-source-conn
 LICENSE
 README.md
 THIRD-PARTY.txt
-producer-v3-pulsar-<version>-SNAPSHOT-all.jar
-producer-v4-pulsar-<version>-SNAPSHOT-all.jar
+agent-c3-luna-<version>-SNAPSHOT-all.jar
+agent-c4-luna-<version>-SNAPSHOT-all.jar
 pulsar-cassandra-source-<version>-SNAPSHOT.nar
 ----
 
-== Starting Cassandra with the producer agent
+== Starting Cassandra with the CDC agent
 
-All data nodes of your Cassandra datacenter must run the producer JVM agent to send mutations into the events topic of your streaming software. Start your Cassandra nodes with the appropriate producer binary matching your
+All data nodes of your Cassandra datacenter must run the CDC JVM agent to send mutations into the events topic of your streaming software. Start your Cassandra nodes with the appropriate CDC agent binary matching your
 Cassandra version (3.11 or 4.0) and your streaming platform (Apache Pulsar).
 
-As a Java agent, the CDC producer parameters take place after the jar file name in the form of a comma separated list of paramName=paramValue. Here is an example for Apache Pulsar on Cassandra version 4.0 nodes:
+As a Java agent, the CDC agent parameters take place after the jar file name in the form of a comma separated list of paramName=paramValue. Here is an example for Apache Pulsar on Cassandra version 4.0 nodes:
 
 [source,language-bash]
 ----
-export JVM_EXTRA_OPTS="-javaagent:/path/to/producer-v4-pulsar-<version>-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
+export JVM_EXTRA_OPTS="-javaagent:/path/to/agent-c4-luna-<version>-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
 ----
 
 == Producer Parameters
 
-include::producerParams.adoc[]
+include::agentParams.adoc[]
 
 == Deploy the Kafka Cassandra Source Connector
 
@@ -80,7 +80,7 @@ include::cfgCassandraJavaDriverSettings.adoc[]
 
 == Scaling up your configuration
 
-In order to increase the throughput of the CDC replication on multiple Pulsar brokers, you can configure https://pulsar.apache.org/docs/en/admin-api-topics/#manage-partitioned-topics[Pulsar partitioned topics] before starting the CDC producers. Depending on the desired latency, you can adjust the *pulsarBatchDelayInMs* to group messages.
+In order to increase the throughput of the CDC replication on multiple Pulsar brokers, you can configure https://pulsar.apache.org/docs/en/admin-api-topics/#manage-partitioned-topics[Pulsar partitioned topics] before starting the CDC agent. Depending on the desired latency, you can adjust the *pulsarBatchDelayInMs* to group messages.
 
 You can also increase the Cassandra Source connector *batch.size*, and the *query.executors*, and adjust the memory cache settings, the cache size with *cache.max.capacity*, the entry retention duration *cache.expire.after.ms* and the number of MD5 digest per primary key entry with *cache.max.digest*.
 

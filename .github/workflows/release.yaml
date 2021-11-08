@@ -32,7 +32,7 @@ jobs:
             ${{ runner.os }}-buildx-
 
       - name: Build with Gradle
-        run: ./gradlew assemble -PpulsarRepoUrl=https://repo.datastax.com/artifactory/datastax-public-releases-local -x :producer-dse4:assemble -x :producer-dse4-pulsar:assemble
+        run: ./gradlew assemble -PpulsarRepoUrl=https://repo.datastax.com/artifactory/datastax-public-releases-local -x :agent-dse4:assemble -x :agent-dse4-luna:assemble
 
       - name: Create Release
         id: create_release
@@ -75,23 +75,23 @@ jobs:
           asset_path: source-pulsar/build/libs/pulsar-cassandra-source-${{ env.CURRENT_VERSION }}.nar
           asset_name: pulsar-cassandra-source-${{ env.CURRENT_VERSION }}.nar
           asset_content_type: application/java-archive
-      - name: Upload Release producer-v3-pulsar
-        id: producer-v3-pulsar-jar
+      - name: Upload Release agent-c3-luna
+        id: agent-c3-luna-jar
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: producer-v3-pulsar/build/libs/producer-v3-pulsar-${{ env.CURRENT_VERSION }}-all.jar
-          asset_name: producer-v3-pulsar-${{ env.CURRENT_VERSION }}-all.jar
+          asset_path: agent-c3-luna/build/libs/agent-c3-luna-${{ env.CURRENT_VERSION }}-all.jar
+          asset_name: agent-c3-luna-${{ env.CURRENT_VERSION }}-all.jar
           asset_content_type: application/java-archive
-      - name: Upload Release producer-v4-pulsar
-        id: producer-v4-pulsar-jar
+      - name: Upload Release agent-c4-luna
+        id: agent-c4-luna-jar
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: producer-v4-pulsar/build/libs/producer-v4-pulsar-${{ env.CURRENT_VERSION }}-all.jar
-          asset_name: producer-v4-pulsar-${{ env.CURRENT_VERSION }}-all.jar
+          asset_path: agent-c4-luna/build/libs/agent-c4-luna-${{ env.CURRENT_VERSION }}-all.jar
+          asset_name: agent-c4-luna-${{ env.CURRENT_VERSION }}-all.jar
           asset_content_type: application/java-archive

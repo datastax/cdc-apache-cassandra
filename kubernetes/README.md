@@ -2,7 +2,7 @@
 
 Push DSE image into your registry:
 
-    ./gradlew producer-dse4-pulsar:dockerPush
+    ./gradlew agent-dse4-luna:dockerPush
 
 Install the Datastax [cass-operator](https://github.com/datastax/cass-operator):
 

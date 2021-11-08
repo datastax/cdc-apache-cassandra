@@ -8,11 +8,11 @@ Build docker images with CDC enabled:
 
 ## Start Cassandra and Pulsar
 
-Start containers for Cassandra 3.11 (v3), Cassandra 4.0 (v4), or DSE 6.8.16+ (dse4) at your convenience, and Apache Pulsar:
+Start containers for Cassandra 3.11 (c3), Cassandra 4.0 (c4), or DSE 6.8.16+ (dse4) at your convenience, and Apache Pulsar:
 
-    ./gradlew producer-dse4-pulsar:composeUp
-    ./gradlew producer-v4-pulsar:composeUp
-    ./gradlew producer-v3-pulsar:composeUp
+    ./gradlew agent-dse4-luna:composeUp
+    ./gradlew agent-c4-luna:composeUp
+    ./gradlew agent-c3-luna:composeUp
 
 Deploy a Cassandra Source Connector in the pulsar container:
 
@@ -63,7 +63,7 @@ Check the cassandra source connector metrics:
 
 Start the prometheus and grafana containers to monitor the CDC replication:
 
-    ./gradlew producer-dse4-pulsar:prometheusComposeUp
+    ./gradlew agent-dse4-pulsar:prometheusComposeUp
     
 Open [prometheus](http://localhost:9090) and [grafana](http://localhost:3000) (login=admin, password=admin)
 
@@ -71,7 +71,7 @@ Open [prometheus](http://localhost:9090) and [grafana](http://localhost:3000) (l
 
 Start elasticsearch and kibana containers:
 
-    ./gradlew producer-dse4-pulsar:elasticsearchComposeUp
+    ./gradlew agent-dse4-luna:elasticsearchComposeUp
 
 Deploy an Elasticsearch sink connector:
 
@@ -104,6 +104,6 @@ Check data are replicated in [elasticsearch](http://localhost:9200/_cat/indices)
 
 ## Shutdown containers
 
-    ./gradlew producer-dse4-pulsar:composeDown
-    ./gradlew producer-v4-pulsar:composeDown
-    ./gradlew producer-v3-pulsar:composeDown
+    ./gradlew agent-dse4-luna:composeDown
+    ./gradlew agent-v4-luna:composeDown
+    ./gradlew agent-v3-luna:composeDown
