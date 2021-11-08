@@ -1,0 +1,34 @@
+plugins {
+    id 'java-library'
+}
+
+application {
+    mainClassName = "$mainClassName"
+}
+
+jar {
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    manifest {
+        attributes 'Premain-Class': "$mainClassName"
+    }
+    zip64=true
+}
+
+tasks.jar.dependsOn project(':commons').jar
+tasks.jar.dependsOn project(':agent').jar
+
+compileTestJava {
+    options.compilerArgs += '-parameters'
+}
+
+sourceSets {
+    // Make the compileOnly dependencies available when compiling/running tests
+    test.compileClasspath += configurations.compileClasspath
+    test.runtimeClasspath += configurations.compileClasspath
+}
+
+dependencies {
+    implementation project(':commons')
+    implementation project(':agent')
+    compileOnly("com.datastax.dse:dse-db:${dse4Version}")
+}

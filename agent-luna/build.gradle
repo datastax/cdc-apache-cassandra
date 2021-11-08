@@ -1,0 +1,15 @@
+plugins {
+    id 'java-library'
+}
+
+compileTestJava {
+    options.compilerArgs += '-parameters'
+}
+
+dependencies {
+    implementation project(':commons')
+    implementation project(':agent')
+    implementation("org.apache.avro:avro:${avroVersion}")
+    implementation("com.datastax.oss:pulsar-client:${lunaVersion}")
+    compileOnly("org.slf4j:slf4j-api:${slf4jVersion}")
+}

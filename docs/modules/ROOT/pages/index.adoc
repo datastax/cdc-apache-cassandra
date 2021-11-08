@@ -14,7 +14,7 @@ for tables having Change Data Capture (CDC) enabled to https://pulsar.apache.org
 
 * Does not manage table truncates
 * Does not replay logged batches
-* Does not sync data available before starting the CDC producer.
+* Does not sync data available before starting the CDC agent.
 * Does not manage time-to-live
 * Does not support range deletes
 
@@ -22,14 +22,14 @@ for tables having Change Data Capture (CDC) enabled to https://pulsar.apache.org
 
 The DataStax Cassandra® Source Connector two components:
 
-* An event producer deployed as a JVM agent on each Cassandra data node.
+* An change agent deployed as a JVM agent on each Cassandra data node.
 * A Cassandra source connector deployed in your streaming platform.
 
 The following diagram describes the general architecture.
 
 image::cassandra-source-connector.png[]
 
-1. When CDC is enabled for a given Cassandra table, the event producer running on each node reads the Cassandra commitlog files and emits a message for each Cassandra mutation
+1. When CDC is enabled for a given Cassandra table, the change agent running on each node reads the Cassandra commitlog files and emits a message for each Cassandra mutation
 in a per-table events topic.
 2. The source connector processes these events and fetches the mutated Cassandra row.
 3. The source connector writes the row into the data topic. This ensures the most recent state of the Cassandra table is replicated into
@@ -45,15 +45,12 @@ Learn more at (https://pulsar.apache.org/docs/en/schema-manage/)[Schema Auto-Upd
 
 === Deployment matrix
 
-[cols="1,1,1,1"]
+[cols="1,1"]
 |===
-| Streaming platform | Cassandra v3.x producer | Cassandra v4.x producer  | Source connector
-
-| Apache Pulsar
-| https://github.com/datastax/cassandra-source-connector/tree/master/producer-v3-pulsar[producer-v3-pulsar]
-| https://github.com/datastax/cassandra-source-connector/tree/master/producer-v4-pulsar[producer-v4-pulsar]
-| https://github.com/datastax/cassandra-source-connector/tree/master/source-pulsar[source-pulsar]
-
+| Cassandra version | Luna Streaming
+| Cassandra v3.x | https://github.com/datastax/cassandra-source-connector/tree/master/agent-v3-pulsar[agent-c3-luna]
+| Cassandra v4.x | https://github.com/datastax/cassandra-source-connector/tree/master/agent-v4-pulsar[agent-c4-luna]
+| DSE 6.8.16+ | https://github.com/datastax/cassandra-source-connector/tree/master/agent-dse4-pulsar[agent-dse4-luna]
 |===
 
 == Supported streaming platform
@@ -91,7 +88,7 @@ Cassandra static columns are supported:
 * Does not manage table truncates
 * Does not manage TTLs
 * Does not support range deletes
-* Does not sync data available before starting the CDC producer.
+* Does not sync data available before starting the CDC agent.
 
 == Where to go next
 

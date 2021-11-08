@@ -275,7 +275,7 @@
               "options": {
                 "mode": "exclude",
                 "names": [
-                  "cassandra_cdcproducer_sentmutations"
+                  "cassandra_cdcagent_sentmutations"
                 ],
                 "prefix": "All except:",
                 "readOnly": true
@@ -314,13 +314,13 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "cassandra_cdcproducer_sentmutations",
+          "expr": "cassandra_cdcagent_sentmutations",
           "interval": "",
-          "legendFormat": "cassandra_cdcproducer_sentmutations",
+          "legendFormat": "cassandra_cdcagent_sentmutations",
           "refId": "A"
         }
       ],
-      "title": "CdcProducer sentMutations",
+      "title": "CdcAgent SentMutations",
       "type": "timeseries"
     },
     {
@@ -689,14 +689,14 @@
         },
         {
           "exemplar": true,
-          "expr": "cassandra_cdcproducer_maxsubmittedtasks",
+          "expr": "cassandra_cdcagent_maxsubmittedtasks",
           "hide": false,
           "interval": "",
-          "legendFormat": "cassandra_cdcproducer_maxsubmittedtasks",
+          "legendFormat": "cassandra_cdcagent_maxsubmittedtasks",
           "refId": "B"
         }
       ],
-      "title": "CDC Producer tasks",
+      "title": "CDC Agent tasks",
       "type": "timeseries"
     }
   ],

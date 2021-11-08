@@ -7,7 +7,7 @@ compileTestJava {
 }
 
 dependencies {
-    implementation project(':source')
+    implementation project(':connector')
     implementation("org.apache.kafka:kafka-clients:${kafkaVersion}")
     implementation("com.datastax.oss:messaging-connectors-commons-core:${messagingConnectorsCommonsVersion}")
 }

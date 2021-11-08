@@ -1,0 +1,39 @@
+plugins {
+    id 'java-library'
+}
+
+task versionTxt()  {
+    doFirst {
+        new File(project.projectDir, "src/main/resources/cassandra-source-version.properties").text = "$project.version\n"
+    }
+}
+
+compileJava {
+    dependsOn versionTxt
+}
+
+
+compileTestJava {
+    options.compilerArgs += '-parameters'
+}
+
+dependencies {
+    implementation project(':commons')
+    implementation("com.github.ben-manes.caffeine:caffeine:${caffeineVersion}")
+    implementation("io.vavr:vavr:${vavrVersion}")
+    implementation("com.datastax.oss:java-driver-core-shaded:${ossDriverVersion}")
+    implementation("com.datastax.oss:java-driver-query-builder:${ossDriverVersion}")
+    implementation("org.apache.kafka:connect-api:${kafkaVersion}")
+    implementation("com.google.guava:guava:${guavaVersion}")
+    implementation("com.datastax.oss:messaging-connectors-commons-core:${messagingConnectorsCommonsVersion}")
+
+    testImplementation("io.confluent:kafka-connect-avro-converter:${confluentVersion}")
+    testImplementation("com.datastax.oss:dsbulk-tests:1.6.0")
+    testImplementation("org.reactivestreams:reactive-streams:1.0.3")
+    testImplementation("org.junit.jupiter:junit-jupiter-params:5.7.2")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.7.2")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.7.2")
+}
+
+
+

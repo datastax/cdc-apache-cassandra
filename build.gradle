@@ -24,6 +24,7 @@ allprojects {
         maven { url "https://oss.sonatype.org/content/repositories/snapshots" }
         maven { url "https://packages.confluent.io/maven/" }
         maven { url "https://repo.typesafe.com/typesafe/releases/" }
+        maven { url "https://repo.datastax.com/artifactory/datastax-public-releases-local" }
         maven { url "https://repo.sjc.dsinternal.org/artifactory/datastax-releases-local" }
         maven { url "${pulsarRepoUrl}" }
     }
@@ -44,6 +45,9 @@ allprojects {
     dependencies {
         compileOnly "org.projectlombok:lombok:${lombokVersion}"
         annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+
+        testImplementation "org.projectlombok:lombok:${lombokVersion}"
+        testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
 
         testImplementation 'org.junit.jupiter:junit-jupiter-api:5.1.1'
         testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.1.1'

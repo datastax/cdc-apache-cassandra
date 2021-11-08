@@ -2,72 +2,84 @@
 
 == Producer Metrics
 
-The CDC producer JVM agent running in Cassandra nodes provides a dedicated MBean type=*CdcProducer* with the following metrics:
+The CDC JVM agent running in Cassandra nodes provides a dedicated MBean type=*CdcAgent* with the following metrics:
 
 [cols="2,1,3"]
 |===
 |Metric |Type |Description
 
-|sentMutations
+|SentMutations
 |Counter
 |Number of Cassandra mutations successfully sent to the streaming platform.
 
-|sentErrors
+|SentErrors
 |Counter
 |Number of errors when sending mutations to the streaming platform.
 
-|commitLogReadErrors
+|CommitLogReadErrors
 |Counter
 |Number of unrecoverable commitlog file reads.
 
-|skippedMutations
+|SkippedMutations
 |Counter
 |Number of ignored mutations because the primary key has an unsupported column type.
 
-|executedTasks
+|ExecutedTasks
 |Counter
 |Number of executed task to process commitlog files.
 
-|submittedTasksGauge
+|SubmittedTasksGauge
 |Gauge
 |The current umber of submitted tasks to the dedicated thread pool.
 
-|maxSubmittedTasks
+|MaxSubmittedTasks
 |Gauge
 |The maximum number of submitted tasks.
 
-|pendingTasks
+|PendingTasks
 |Gauge
 |The current number of pending tasks to re-process commitlog files.
 
-|maxPendingTasks
+|MaxPendingTasks
 |Gauge
 |The maximum number of pending tasks.
 
-|uncleanedTasks
+|UncleanedTasks
 |Gauge
 |The current number of tasks for which processed commitlog file have not yet been removed from the cdc_raw directory.
 
-|maxUncleanedTasks
+|MaxUncleanedTasks
 |Gauge
 |The maximum number of uncleaned tasks.
 |===
 
-== Source Connector metrics
+== Pulsar Source Connector metrics
 
-The Cassandra Source Connector also publishes per message metrics:
+The Cassandra Source Connector for Pulsar also publishes per message metrics:
 [cols="2,3"]
 |===
 |Metric |Description
 
-|cache_use
-|1 when hitting the mutation cache, 0 otherwise.
+|cache_hits
+|Number of mutation cache hits.
+
+|cache_misses
+|Number of mutation cache misses.
+
+|cache_evictions
+|Number of mutation cache evictions.
+
+|cache_size
+|Number of entries in the mutation cache.
 
 |query_latency
 |The CQL query latency in milliseconds to fetch the updated row. This is 0 when hitting the memory cache.
 
+|query_executors
+|The number of threads available to execute the CQL queries.
+
 |replication_latency
-|The replication latency in milliseconds (the pulsar publication time minus the cassandra mutation writetime).
+|The replication latency in milliseconds (the source connector processing time minus the cassandra mutation writetime).
 
 |===
 
@@ -101,7 +113,7 @@ pulsar_source_user_metric__sum{tenant="public",namespace="public/default",name="
 
 == Monitoring and Alerting resources
 
-* The producer agent exposes metrics with https://docs.datastax.com/en/landing_page/doc/landing_page/metricsandalerts.html[JMX], a technology within Java that provides tools for managing and monitoring applications.
+* The CDC change agent exposes metrics with https://docs.datastax.com/en/landing_page/doc/landing_page/metricsandalerts.html[JMX], a technology within Java that provides tools for managing and monitoring applications.
 * https://docs.datastax.com/en/opscenter/6.8/[DSE Ops Center] can collect these exposed metrics for visualization and alerts, and pass them on to https://docs.datastax.com/en/monitoring/doc/monitoring/opsUseMetricsCollector.html[DSE Metrics Collector] for additional integration with Prometheus and Grafana.
 * The https://github.com/datastax/metric-collector-for-apache-cassandra[Metrics Collector for Apache Cassandra] with Prometheus and Grafana dashboards provides the same functionality as DSE Metrics Collector, built on the well-supported collectd agent.
 * Other monitoring tools like https://github.com/prometheus/jmx_exporter[JMX Exporter] by Prometheus are available, but may require additional tuning.

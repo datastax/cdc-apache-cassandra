@@ -5,18 +5,18 @@
 ![release](https://github.com/datastax/cassandra-source-connector/actions/workflows/release.yaml/badge.svg)
 
 The Cassandra CDC replication requires:
-* A message producer deployed as a JVM agent on each Cassandra node.
+* A CDC change agent deployed as a JVM agent on each Cassandra node.
 * A Cassandra Source Connector deployed in the streaming platform.
 
 ![Cassandra-source-connector](docs/modules/ROOT/assets/images/cassandra-source-connector.png)
 
 Supported streaming platform:
-* Apache Pulsar
-* Datastax Luna Streaming
+* Apache Pulsar 2.8.1+
+* Datastax Luna Streaming 2.7.2.1.1.8+
 
 Supported Cassandra version:
-* Cassandra 3.11
-* Cassandra 4.0
+* Cassandra 3.11+
+* Cassandra 4.0+
 * Datastax Enterprise Server 6.8.16+
 
 ## Documentation
@@ -53,7 +53,7 @@ You can collect Cassandra/DSE and Pulsar metrics into Prometheus, and build a Gr
 * Does not manage table truncates
 * Does not manage TTLs
 * Does not support range deletes
-* Does not sync data available before starting the CDC producer.
+* Does not sync data available before starting the CDC agent.
 * CQL column names must not match a Pulsar primitive type name (ex: INT32)
 
 ## Supported data types
