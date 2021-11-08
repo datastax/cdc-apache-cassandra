@@ -49,7 +49,7 @@ whitelistObjectNames: [
     "org.apache.cassandra.metrics:type=Client,name=connectedThriftClients,*",
     "org.apache.cassandra.metrics:type=Table,name=WriteLatency,*",
     "org.apache.cassandra.metrics:type=Table,name=ReadLatency,*",
-    "org.apache.cassandra.metrics:type=CdcProducer,*",
+    "org.apache.cassandra.metrics:type=CdcAgent,*",
     "org.apache.cassandra.metrics:type=CommitLog,*",
     "org.apache.cassandra.net:type=FailureDetector,*",
 ]

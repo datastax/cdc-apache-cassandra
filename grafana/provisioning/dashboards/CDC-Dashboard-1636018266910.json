@@ -320,7 +320,7 @@
           "refId": "A"
         }
       ],
-      "title": "CdcProducer sentMutations",
+      "title": "CdcAgent SentMutations",
       "type": "timeseries"
     },
     {
