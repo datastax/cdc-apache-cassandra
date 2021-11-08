@@ -1,4 +1,4 @@
-# Cassandra CDC Replication.
+# Datastax CDC for Apache Cassandra.
 
 ![tests](https://github.com/datastax/cassandra-source-connector/actions/workflows/ci.yaml/badge.svg)
 ![documentation](https://github.com/datastax/cassandra-source-connector/actions/workflows/publish.yml/badge.svg)
