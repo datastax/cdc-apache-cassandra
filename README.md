@@ -11,12 +11,12 @@ The Cassandra CDC replication requires:
 ![Cassandra-source-connector](docs/modules/ROOT/assets/images/cassandra-source-connector.png)
 
 Supported streaming platform:
-* Apache Pulsar
-* Datastax Luna Streaming
+* Apache Pulsar 2.8.1+
+* Datastax Luna Streaming 2.7.2.1.1.8+
 
 Supported Cassandra version:
-* Cassandra 3.11
-* Cassandra 4.0
+* Cassandra 3.11+
+* Cassandra 4.0+
 * Datastax Enterprise Server 6.8.16+
 
 ## Documentation

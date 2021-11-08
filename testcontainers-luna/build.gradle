@@ -33,7 +33,6 @@ dependencies {
     implementation("org.apache.avro:avro:${avroVersion}")
     implementation 'org.junit.jupiter:junit-jupiter-api:5.1.1'
     implementation("com.datastax.oss:pulsar-client:${lunaVersion}")
-    //implementation("org.apache.pulsar:pulsar-client:2.7.2.1.1.6")
 
     implementation "org.testcontainers:testcontainers:${testContainersVersion}"
 

@@ -68,6 +68,7 @@ test {
     systemProperty "connectorBuildDir", buildDir
     systemProperty "agentBuildDir", project(':agent-c4-luna').buildDir
     systemProperty "projectVersion", project.version
+    systemProperty "lunaTag", lunaTag
 }
 
 docker {

@@ -17,6 +17,7 @@ package com.datastax.oss.cdc.agent;
 
 import com.datastax.oss.cdc.AgentTestUtil;
 import com.datastax.oss.cdc.PulsarDualNodeTests;
+import com.datastax.oss.cdc.PulsarSingleNodeTests;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
 import lombok.extern.slf4j.Slf4j;
 import org.testcontainers.containers.Network;
@@ -27,11 +28,6 @@ import java.util.Optional;
 @Slf4j
 public class PulsarDualNodeDse4Tests extends PulsarDualNodeTests {
 
-    public static final DockerImageName CASSANDRA_IMAGE = DockerImageName.parse(
-            Optional.ofNullable(System.getenv("CASSANDRA_IMAGE"))
-                    .orElse("vroyer/dse-server:6.8.14-3c3014b21ed-SNAPSHOT")
-    ).asCompatibleSubstituteFor("cassandra");
-
     public PulsarDualNodeDse4Tests() {
         super(AgentTestUtil.Version.DSE4);
     }
@@ -39,7 +35,7 @@ public class PulsarDualNodeDse4Tests extends PulsarDualNodeTests {
     @Override
     public CassandraContainer<?> createCassandraContainer(int nodeIndex, String pulsarServiceUrl, Network testNetwork) {
         return CassandraContainer.createCassandraContainerWithAgent(
-                        CASSANDRA_IMAGE,
+                        PulsarSingleNodeDse4Tests.CASSANDRA_IMAGE,
                         testNetwork,
                         nodeIndex,
                         System.getProperty("buildDir"),

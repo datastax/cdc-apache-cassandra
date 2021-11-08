@@ -15,8 +15,7 @@
  */
 package com.datastax.oss.pulsar.source;
 
-import com.datastax.cassandra.cdc.CqlLogicalTypes;
-import com.datastax.cassandra.cdc.ProducerTestUtil;
+import com.datastax.oss.cdc.CqlLogicalTypes;
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.*;
@@ -25,7 +24,7 @@ import com.datastax.oss.driver.api.core.type.UserDefinedType;
 import com.datastax.oss.pulsar.source.converters.NativeAvroConverter;
 import com.datastax.testcontainers.ChaosNetworkContainer;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
-import com.datastax.testcontainers.pulsar.PulsarContainer;
+import com.datastax.testcontainers.PulsarContainer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 import org.apache.pulsar.client.api.*;
@@ -56,7 +55,6 @@ import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import static com.datastax.cassandra.cdc.ProducerTestUtil.randomizeBuffer;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -67,7 +65,8 @@ public class PulsarCassandraSourceTests {
     ).asCompatibleSubstituteFor("cassandra");
 
     public static final DockerImageName PULSAR_IMAGE = DockerImageName.parse(
-            Optional.ofNullable(System.getenv("PULSAR_IMAGE")).orElse("datastax/lunastreaming:2.7.2_1.1.6")
+            Optional.ofNullable(System.getenv("PULSAR_IMAGE"))
+                    .orElse("datastax/lunastreaming:" + System.getProperty("lunaTag"))
     ).asCompatibleSubstituteFor("pulsar");
 
     private static Network testNetwork;
@@ -104,9 +103,9 @@ public class PulsarCassandraSourceTests {
         String pulsarServiceUrl = "pulsar://pulsar:" + pulsarContainer.BROKER_PORT;
         String agentBuildDir = System.getProperty("agentBuildDir");
         cassandraContainer1 = CassandraContainer.createCassandraContainerWithAgent(
-                CASSANDRA_IMAGE, testNetwork, 1, agentBuildDir, "c4", "luna", pulsarServiceUrl);
+                CASSANDRA_IMAGE, testNetwork, 1, agentBuildDir, "agent-c4-luna", "pulsarServiceUrl=" + pulsarServiceUrl, "c4");
         cassandraContainer2 = CassandraContainer.createCassandraContainerWithAgent(
-                CASSANDRA_IMAGE, testNetwork, 2, agentBuildDir, "c4", "luna", pulsarServiceUrl);
+                CASSANDRA_IMAGE, testNetwork, 2, agentBuildDir, "agent-c4-luna", "pulsarServiceUrl=" + pulsarServiceUrl, "c4");
         cassandraContainer1.start();
         cassandraContainer2.start();
 
