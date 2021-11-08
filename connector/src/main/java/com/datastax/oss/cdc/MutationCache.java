@@ -17,6 +17,7 @@ package com.datastax.oss.cdc;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.stats.CacheStats;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -68,5 +69,13 @@ public class MutationCache<K> {
     public boolean isMutationProcessed(K mutationKey, String md5Digest) {
         List<String> digests = getMutationCRCs(mutationKey);
         return digests != null && digests.contains(md5Digest);
+    }
+
+    public CacheStats stats() {
+        return mutationCache.stats();
+    }
+
+    public long estimatedSize() {
+        return mutationCache.estimatedSize();
     }
 }

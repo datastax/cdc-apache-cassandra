@@ -28,6 +28,7 @@ import com.datastax.oss.driver.api.core.metadata.schema.*;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
 import com.datastax.oss.pulsar.source.converters.NativeAvroConverter;
 import com.datastax.oss.cdc.Constants;
+import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
@@ -71,8 +72,39 @@ import java.util.stream.Collectors;
 @Slf4j
 public class CassandraSource implements Source<GenericRecord>, SchemaChangeListener {
 
-    public static final String CACHE_HIT = "cache_hit";
+    /**
+     * Metric name for the mutation cache hits.
+     */
+    public static final String CACHE_HITS = "cache_hits";
+
+    /**
+     * Metric name for the number of mutation cache miss.
+     */
+    public static final String CACHE_MISSES = "cache_misses";
+
+    /**
+     * Metric name form the mutation cache eviction count.
+     */
+    public static final String CACHE_EVICTIONS = "cache_evictions";
+
+    /**
+     * Metric name form the mutation cache estimated size.
+     */
+    public static final String CACHE_SIZE = "cache_size";
+
+    /**
+     * Metric name for the CQL query latency in milliseconds.
+     */
     public static final String QUERY_LATENCY = "query_latency";
+
+    /**
+     * Metric name for the current number of query executor threads
+     */
+    public static final String QUERY_EXECUTORS = "query_executors";
+
+    /**
+     * The metric name for the replication latency (the Cassandra write time minus the publish time)
+     */
     public static final String REPLICATION_LATENCY = "replication_latency";
 
     SourceContext sourceContext;
@@ -435,8 +467,13 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                             // ignore duplicated mutation
                             consumer.acknowledge(msg);
                             queryResult.complete(null);
-                            sourceContext.recordMetric(CACHE_HIT, 1);
+                            CacheStats cacheStats = mutationCache.stats();
+                            sourceContext.recordMetric(CACHE_HITS, cacheStats.hitCount());
+                            sourceContext.recordMetric(CACHE_MISSES, cacheStats.missCount());
+                            sourceContext.recordMetric(CACHE_EVICTIONS, cacheStats.evictionCount());
+                            sourceContext.recordMetric(CACHE_SIZE, mutationCache.estimatedSize());
                             sourceContext.recordMetric(QUERY_LATENCY, 0);
+                            sourceContext.recordMetric(QUERY_EXECUTORS, queryExecutors.size());
                             if (msg.getProperty(Constants.WRITETIME) != null)
                                 sourceContext.recordMetric(REPLICATION_LATENCY, System.currentTimeMillis() - (Long.parseLong(msg.getProperty(Constants.WRITETIME)) / 1000));
                             return null;
@@ -450,9 +487,14 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                                 Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE),
                                 getSelectStatement(converterAndQueryFinal, nonNullPkValues.size()),
                                 mutationValue.getMd5Digest());
+                        CacheStats cacheStats = mutationCache.stats();
+                        sourceContext.recordMetric(CACHE_HITS, cacheStats.hitCount());
+                        sourceContext.recordMetric(CACHE_MISSES, cacheStats.missCount());
+                        sourceContext.recordMetric(CACHE_EVICTIONS, cacheStats.evictionCount());
+                        sourceContext.recordMetric(CACHE_SIZE, mutationCache.estimatedSize());
                         long end = System.currentTimeMillis();
-                        sourceContext.recordMetric(CACHE_HIT, 0);
                         sourceContext.recordMetric(QUERY_LATENCY, end - start);
+                        sourceContext.recordMetric(QUERY_EXECUTORS, queryExecutors.size());
                         batchTotalLatency.addAndGet(end - start);
                         batchTotalQuery.incrementAndGet();
                         if (msg.getProperty(Constants.WRITETIME) != null)
