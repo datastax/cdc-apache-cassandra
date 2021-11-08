@@ -1,5 +1,6 @@
 plugins {
     id 'java-library'
+    id 'application'
 }
 
 compileTestJava {
@@ -11,3 +12,9 @@ dependencies {
     implementation("org.apache.avro:avro:${avroVersion}")
     compileOnly("org.slf4j:slf4j-api:${slf4jVersion}")
 }
+
+// generate agent parameters documentation
+application {
+    mainClassName = "com.datastax.oss.cdc.agent.AgentConfig"
+}
+

@@ -155,8 +155,10 @@ public class AsciiDocGenerator {
 
     public static void main(String[] args) {
         try {
+            String targetDir = args.length == 1 ? args[0] : "docs/modules/ROOT/pages";
+            System.out.println("Generating connector settings documentation in " + targetDir);
             AsciiDocGenerator asciiDocGenerator = new AsciiDocGenerator();
-            asciiDocGenerator.generateCassourceSourceDocs("docs/modules/ROOT/pages");
+            asciiDocGenerator.generateCassourceSourceDocs(targetDir);
         } catch (IOException e) {
             e.printStackTrace();
         }

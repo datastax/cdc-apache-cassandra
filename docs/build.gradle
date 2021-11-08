@@ -12,5 +12,9 @@ dependencies {
     implementation("com.datastax.oss:messaging-connectors-commons-core:${messagingConnectorsCommonsVersion}")
 }
 
+// generate connector settings documentation
+application {
+    mainClassName = "org.apache.kafka.common.config.AsciiDocGenerator"
+}
 
 
