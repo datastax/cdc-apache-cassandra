@@ -150,7 +150,7 @@ public class PulsarCassandraSourceTests {
 
     @Test
     public void testCompoundPkWithNativeAvroConverter() throws InterruptedException, IOException {
-        testCompoundPk("ks1", NativeAvroConverter.class, NativeAvroConverter.class);
+        testCompoundPk("ks1", null, null);
     }
 
     @Test
@@ -171,6 +171,15 @@ public class PulsarCassandraSourceTests {
     void deployConnector(String ksName, String tableName,
                          Class<? extends Converter> keyConverter,
                          Class<? extends Converter> valueConverter) throws IOException, InterruptedException {
+        String config = String.format(Locale.ROOT, "{\"%s\":\"%s\", \"%s\":\"%s\", \"%s\":\"%s\", \"%s\":\"%s\", \"%s\": \"%s\", \"%s\":\"%s\" %s %s }",
+                CassandraSourceConnectorConfig.CONTACT_POINTS_OPT, "cassandra-1",
+                CassandraSourceConnectorConfig.DC_OPT, "datacenter1",
+                CassandraSourceConnectorConfig.KEYSPACE_NAME_CONFIG, ksName,
+                CassandraSourceConnectorConfig.TABLE_NAME_CONFIG, tableName,
+                CassandraSourceConnectorConfig.EVENTS_TOPIC_NAME_CONFIG, "persistent://public/default/events-" + ksName + "." + tableName,
+                CassandraSourceConnectorConfig.EVENTS_SUBSCRIPTION_NAME_CONFIG, "sub1",
+                keyConverter == null ? "" : ",\"" + CassandraSourceConnectorConfig.KEY_CONVERTER_CLASS_CONFIG + "\":\"" + keyConverter.getName() + "\"",
+                valueConverter == null ? "" : ",\"" + CassandraSourceConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG + "\":\"" + valueConverter.getName() + "\"");
         Container.ExecResult result = pulsarContainer.execInContainer(
                 "/pulsar/bin/pulsar-admin",
                 "source", "create",
@@ -179,18 +188,11 @@ public class PulsarCassandraSourceTests {
                 "--namespace", "default",
                 "--name", "cassandra-source-" + ksName + "-" + tableName,
                 "--destination-topic-name", "data-" + ksName + "." + tableName,
-                "--source-config",
-                String.format(Locale.ROOT, "{\"%s\":\"%s\", \"%s\":\"%s\", \"%s\":\"%s\", \"%s\":\"%s\", \"%s\": \"%s\", \"%s\":\"%s\", \"%s\":\"%s\", \"%s\":\"%s\"}",
-                        CassandraSourceConnectorConfig.CONTACT_POINTS_OPT, "cassandra-1",
-                        CassandraSourceConnectorConfig.DC_OPT, "datacenter1",
-                        CassandraSourceConnectorConfig.KEYSPACE_NAME_CONFIG, ksName,
-                        CassandraSourceConnectorConfig.TABLE_NAME_CONFIG, tableName,
-                        CassandraSourceConnectorConfig.EVENTS_TOPIC_NAME_CONFIG, "persistent://public/default/events-" + ksName + "." + tableName,
-                        CassandraSourceConnectorConfig.EVENTS_SUBSCRIPTION_NAME_CONFIG, "sub1",
-                        CassandraSourceConnectorConfig.KEY_CONVERTER_CLASS_CONFIG, keyConverter.getName(),
-                        CassandraSourceConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG, valueConverter.getName()));
+                "--source-config ", config);
         assertEquals(0, result.getExitCode(), "deployConnector failed:" + result.getStdout());
     }
+
+    // Was passed main parameter '--source-config {"contactPoints":"cassandra-1", "loadBalancing.localDc":"datacenter1", "keyspace":"ks1", "table":"table1", "events.topic": "persistent://public/default/events-ks1.table1", "events.subscription.name":"sub1" ,"key.converter":"com.datastax.oss.pulsar.source.converters.NativeAvroConverter" ,"value.converter":"com.datastax.oss.pulsar.source.converters.NativeAvroConverter" }' but no main parameter was defined in your arg class
 
     void undeployConnector(String ksName, String tableName) throws IOException, InterruptedException {
         Container.ExecResult result = pulsarContainer.execInContainer(

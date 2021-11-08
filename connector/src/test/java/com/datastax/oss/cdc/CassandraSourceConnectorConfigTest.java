@@ -175,7 +175,7 @@ class CassandraSourceConnectorConfigTest {
                 .hasMessageContaining("Value must be at least 1");
     }
 
-    @Test
+
     void should_error_no_key_converter() {
         Map<String, String> props =
                 Maps.newHashMap(ImmutableMap.<String, String>builder()
@@ -188,7 +188,7 @@ class CassandraSourceConnectorConfigTest {
                 .hasMessageContaining(String.format("Missing required configuration \"%s\" which has no default value.", KEY_CONVERTER_CLASS_CONFIG));
     }
 
-    @Test
+
     void should_error_no_value_converter() {
         Map<String, String> props =
                 Maps.newHashMap(ImmutableMap.<String, String>builder()
