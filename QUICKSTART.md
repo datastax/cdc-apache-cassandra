@@ -27,8 +27,6 @@ Deploy a Cassandra Source Connector in the pulsar container:
       \"table\": \"table1\",
       \"events.topic\": \"persistent://public/default/events-ks1.table1\",
       \"events.subscription.name\": \"sub1\",
-      \"key.converter\": \"com.datastax.oss.pulsar.source.converters.AvroConverter\",
-      \"value.converter\": \"com.datastax.oss.pulsar.source.converters.AvroConverter\",
       \"contactPoints\": \"cassandra\",
       \"loadBalancing.localDc\": \"datacenter1\"
     }"
