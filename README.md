@@ -5,7 +5,7 @@
 ![release](https://github.com/datastax/cassandra-source-connector/actions/workflows/release.yaml/badge.svg)
 
 The Cassandra CDC replication requires:
-* A message agent deployed as a JVM agent on each Cassandra node.
+* A CDC change agent deployed as a JVM agent on each Cassandra node.
 * A Cassandra Source Connector deployed in the streaming platform.
 
 ![Cassandra-source-connector](docs/modules/ROOT/assets/images/cassandra-source-connector.png)
