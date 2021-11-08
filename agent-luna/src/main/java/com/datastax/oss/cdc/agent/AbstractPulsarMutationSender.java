@@ -41,6 +41,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -222,20 +223,26 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
             incSkippedMutations();
             return CompletableFuture.completedFuture(null);
         }
-        if (this.client == null) {
-            initialize(config);
+        try {
+            if (this.client == null) {
+                initialize(config);
+            }
+            Producer<KeyValue<byte[], MutationValue>> producer = getProducer(mutation);
+            AvroSchema avroSchema = getAvroKeySchema(mutation);
+            TypedMessageBuilder<KeyValue<byte[], MutationValue>> messageBuilder = producer.newMessage();
+            return messageBuilder
+                    .value(new KeyValue(
+                            serializeAvroGenericRecord(buildAvroKey(avroSchema.schema, mutation), avroSchema.writer),
+                            mutation.mutationValue()))
+                    .property(Constants.WRITETIME, mutation.getTs() + "")
+                    .property(Constants.SEGMENT_AND_POSITION, mutation.getSegment() + ":" + mutation.getPosition())
+                    .property(Constants.TOKEN, mutation.getToken().toString())
+                    .sendAsync();
+        } catch(Exception e) {
+            CompletableFuture future = new CompletableFuture<>();
+            future.completeExceptionally(e);
+            return future;
         }
-        Producer<KeyValue<byte[], MutationValue>> producer = getProducer(mutation);
-        AvroSchema avroSchema = getAvroKeySchema(mutation);
-        TypedMessageBuilder<KeyValue<byte[], MutationValue>> messageBuilder = producer.newMessage();
-        return messageBuilder
-                .value(new KeyValue(
-                        serializeAvroGenericRecord(buildAvroKey(avroSchema.schema, mutation), avroSchema.writer),
-                        mutation.mutationValue()))
-                .property(Constants.WRITETIME, mutation.getTs() + "")
-                .property(Constants.SEGMENT_AND_POSITION, mutation.getSegment()  + ":" + mutation.getPosition())
-                .property(Constants.TOKEN, mutation.getToken().toString())
-                .sendAsync();
     }
 
     /**
