@@ -1,0 +1,46 @@
+plugins {
+    id 'java'
+    id 'java-library'
+    id 'io.franzbecker.gradle-lombok' version '3.1.0'
+}
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs += '-Xlint:none'
+}
+
+lombok {
+    version = "$lombokVersion"
+}
+
+task delombok(type: io.franzbecker.gradle.lombok.task.DelombokTask) {
+    def outputDir = file("$buildDir/delombok")
+    outputs.dir(outputDir)
+    for (srcDir in project.sourceSets.main.java.srcDirs) {
+        inputs.dir(srcDir)
+        args(srcDir, "-d", outputDir)
+    }
+}
+delombok.onlyIf {
+    project.sourceSets.main.java.srcDirs.find { it.exists() }
+}
+
+dependencies {
+    implementation project(':commons')
+    implementation project(':testcontainers')
+    implementation "org.projectlombok:lombok:${lombokVersion}"
+    annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+
+    implementation("org.apache.avro:avro:${avroVersion}")
+    implementation 'org.junit.jupiter:junit-jupiter-api:5.1.1'
+    implementation("org.apache.pulsar:pulsar-client:${pulsarVersion}")
+
+    implementation "org.testcontainers:testcontainers:${testContainersVersion}"
+
+    implementation("commons-io:commons-io:2.8.0")
+    implementation("com.datastax.oss:java-driver-core:${ossDriverVersion}") {
+        // fasterxml 2.12 not compatible for com.github.docker-java
+        exclude group: 'com.fasterxml.jackson.core', module: 'jackson-core'
+        exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
+    }
+}
+
