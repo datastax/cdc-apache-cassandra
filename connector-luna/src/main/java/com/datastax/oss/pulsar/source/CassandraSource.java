@@ -193,7 +193,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
         long latencyTotal = 0;
         for(int i = 0; i < this.batchAvgLatencyListSize; i++) {
-            log.info("batchAvgLatencyList={}, batchAvgLatencyHead={}, batchAvgLatencyListSize={}, i={}",
+            log.debug("batchAvgLatencyList={}, batchAvgLatencyHead={}, batchAvgLatencyListSize={}, i={}",
                     Arrays.toString(batchAvgLatencyList),  batchAvgLatencyHead, batchAvgLatencyListSize, i);
             latencyTotal += this.batchAvgLatencyList[i];
         }
