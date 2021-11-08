@@ -44,7 +44,7 @@ export JVM_EXTRA_OPTS="-javaagent:/path/to/producer-v4-pulsar-<version>-all.jar=
 
 include::producerParams.adoc[]
 
-== Deploy the Kafka Cassandra Source Connector
+== Deploy the Cassandra Source Connector
 
 In order to deploy the Cassandra Source Connector NAR file in your Pulsar cluster, you can copy it into
 the pulsar connectors directory or upload it. You have to specify the following parameters:
