@@ -23,9 +23,9 @@ The following files are unpacked into a directory such as `cassandra-source-conn
 LICENSE
 README.md
 THIRD-PARTY.txt
-agent-c3-luna-<version>-SNAPSHOT-all.jar
-agent-c4-luna-<version>-SNAPSHOT-all.jar
-pulsar-cassandra-source-<version>-SNAPSHOT.nar
+agent-c3-luna-<version>-all.jar
+agent-c4-luna-<version>-all.jar
+pulsar-cassandra-source-<version>.nar
 ----
 
 == Starting Cassandra with the CDC agent
