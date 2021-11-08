@@ -56,16 +56,19 @@ Yes, DataStax CDC for Apache Cassandra is open source. See the <<gitHubRepos,rep
 
 === What does DataStax CDC for Apache Cassandra provide that I cannot get with open-source Apache Pulsar?
 
-The DataStax CDC for Apache Cassandra implements, in effect, the reverse of Apache Pulsar or DataStax Cassandra Sink Connector. With those sink connectors, data is taken from a Pulsar topic and put into Cassanra. With the CSC, the source takes data from Cassandra and puts that data onto a data topic. From there, the data can be published to external platforms like Elasticsearch, Snowflake, and so on.
+The DataStax CDC for Apache Cassandra implements, in effect, the reverse of Apache Pulsar or DataStax Cassandra Sink Connector. With those sink connectors, data is taken from a Pulsar topic and put into Cassandra. With CDC for Apache Cassandra, updates to a Cassandra table are converted into events and put into a data topic. From there, the data can be published to external platforms like Elasticsearch, Snowflake, and so on.
 
 === Does DataStax CDC for Apache Cassandra support Kubernetes?
 
-Yes. You can run the Source Connector for Apache Pulsar on Luna Streaming or Apache Pulsar running on any Kubernetes platform, including Minikube, K8d, Kind, Google Kubernetes Engine (GKE), Microsoft Azure Kubernetes Service, Amazon Kubernetes Service (AKS), and other commonly used platforms. You can also deploy the change agent on Kubernetes with the https://github.com/datastax/cass-operator[cass-operator].
+Yes. 
 
-[#gitHubRepos]
+You can run the Source Connector for Apache Pulsar on Luna Streaming or Apache Pulsar running on any Kubernetes platform, including Minikube, K8d, Kind, Google Kubernetes Engine (GKE), Microsoft Azure Kubernetes Service, Amazon Kubernetes Service (AKS), and other commonly used platforms. 
+
+You can deploy the change agent with Cassandra on Kubernetes with the https://github.com/datastax/cass-operator[cass-operator].
+
 === Where is the DataStax CDC for Apache Cassandra public GitHub repository?
 
-The source for this FAQs document is co-located with the DataStax CDC for Apache Cassandra repository code. For examples and additional documentation, access the [repo here](https://github.com/datastax/cassandra-source-connector).
+The source for this FAQs document is co-located with the DataStax CDC for Apache Cassandra repository code. For examples and additional documentation, access the repository https://github.com/datastax/cassandra-source-connector[here].
 
 === How do I install DataStax CDC for Apache Cassandra?
 

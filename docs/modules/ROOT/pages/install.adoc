@@ -1,5 +1,42 @@
 = Installing the DataStax CDC for Apache Cassandra
 
+== Download the DataStax Change Agent for Apache Cassandra
+
+IMPORTANT: https://www.apache.org/licenses/LICENSE-2.0[Apache-2.0 license agreement].
+By downloading this DataStax product, you agree to the terms of the open-source Apache-2.0 license agreement.
+
+Perform the following steps:
+
+. Download the change agent that matches your Cassandra type and version,  *agent-<type>-<version>.jar* JAR file,  file from the https://downloads.datastax.com/cdc[DataStax downloads page] !!UPDATE-WITH-CORRECT-INFO!!.
+
+The following files are available:
+
+[cols="1,1,1"]
+|===
+| Cassandra type | Streaming platform |  JAR file 
+
+| Apache Cassandra 3.x | Apache Pulsar/Luna Streaming | agent-c3-luna-<version>.jar
+| Apache Cassandra 4.x | Apache Pulsar/Luna Streaming | agent-c4-luna-<version>.jar
+| DSE 6.8.16+ | Apache Pulsar/Luna Streaming | agent-dse4-luna-<version>.jar
+
+|===
+
+
+== Starting Cassandra with the Change Agent for Apache Cassandra
+
+All data nodes of your Cassandra/DSE datacenter must run the change agent as a JVM agent to send mutations into the events topic of your streaming software. Start your Cassandra/DSE nodes with the appropriate producer binary matching your Cassandra/DSE version (3.11 or 4.0, 6.8.16) and your streaming platform (Luna Streaming/Apache Pulsar).
+
+As a Java agent, the change agent parameters take place after the jar file name in the form of a comma separated list of paramName=paramValue. Here is an example for Luna Streaming/Apache Pulsar on Cassandra version 4.0 nodes:
+
+[source,language-bash]
+----
+export JVM_EXTRA_OPTS="-javaagent:/path/to/agent-c4-luna-<version>-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
+----
+
+== Change Agent Parameters
+
+include::agentParams.adoc[]
+
 == Download the DataStax Cassandra Source Connector for Apache Pulsar
 
 IMPORTANT: https://www.apache.org/licenses/LICENSE-2.0[Apache-2.0 license agreement].
@@ -7,61 +44,26 @@ By downloading this DataStax product, you agree to the terms of the open-source 
 
 Perform the following steps:
 
-. Download the *cassandra-source-connectors-<version>.tar* tar file from the https://github.com/datastax/cassandra-source-connector/releases[GitHub Releases page].
+. Download the *pulsar-cassandra-source-<version>.nar.tar* tar file from the https://downloads.datastax.com/cdc[DataStax downloads page] !!UPDATE-WITH-CORRECT-INFO!!.
 
-. Extract the files:
-+
-[source,language-bash]
-----
-tar zxf cassandra-source-connector-<version>.tar.gz
-----
-+
-The following files are unpacked into a directory such as `cassandra-source-connector-<version>`:
-+
-[source,no-highlight]
-----
-LICENSE
-README.md
-THIRD-PARTY.txt
-agent-c3-luna-<version>-all.jar
-agent-c4-luna-<version>-all.jar
-pulsar-cassandra-source-<version>.nar
-----
 
-== Starting Cassandra with the CDC agent
+== Deploy the Source Connector for Apache Pulsar
 
-All data nodes of your Cassandra datacenter must run the CDC JVM agent to send mutations into the events topic of your streaming software. Start your Cassandra nodes with the appropriate CDC agent binary matching your
-Cassandra version (3.11 or 4.0) and your streaming platform (Apache Pulsar).
+In order to deploy the Source Connector NAR file in your Pulsar cluster, you upload using the "pulsar-admin sources create" command. You have to specify the following parameters:
 
-As a Java agent, the CDC agent parameters take place after the jar file name in the form of a comma separated list of paramName=paramValue. Here is an example for Apache Pulsar on Cassandra version 4.0 nodes:
-
-[source,language-bash]
-----
-export JVM_EXTRA_OPTS="-javaagent:/path/to/agent-c4-luna-<version>-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
-----
-
-== Producer Parameters
-
-include::agentParams.adoc[]
-
-== Deploy the Cassandra Source Connector
-
-In order to deploy the Cassandra Source Connector NAR file in your Pulsar cluster, you can copy it into
-the pulsar connectors directory or upload it. You have to specify the following parameters:
-
-* The connector name- remember, you have one connector per replicated Cassandra table
+* The connector name- remember, you have one connector per CDC-enabled Cassandra table
 * The destination topic for Cassandra data
 * The xref:cfgCassandraSource.adoc[Cassandra Source connector configuration]
 
 [source,language-bash]
 ----
-pulsar-admin source localrun \
+pulsar-admin source create \
 --archive /path/to/pulsar-cassandra-source-<version>.nar \
 --tenant public \
 --namespace default \
 --name cassandra-source-1 \
 --destination-topic-name data-ks1.table1 \
---source-config '{"contactPoints":"localhost:9042", "localDc":"datacenter1", "keyspace":"ks1", "table":"table1", "eventsTopicPrefix": "persistent://public/default/events-", "eventsSubscriptionName":"sub1", "keyConverter":"com.datastax.oss.pulsar.source.converters.AvroConverter","valueConverter":"com.datastax.oss.pulsar.source.converters.JsonConverter"}'
+--source-config '{"contactPoints":"localhost:9042", "localDc":"datacenter1", "keyspace":"ks1", "table":"table1", "eventsTopicPrefix": "persistent://public/default/events-", "eventsSubscriptionName":"sub1"}'
 ----
 
 Then check your connector is properly running with no error:
