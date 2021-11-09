@@ -71,7 +71,7 @@ test {
 }
 
 docker {
-    name "${dockerRepo}cassandra:${cassandra3Version}-cdc-pulsar"
+    name "${dockerRepo}cassandra:${cassandra3Version}-cdc-luna"
     dependsOn shadowJar
     files "$buildDir/libs/", "src/docker/"
     buildArgs([BUILD_VERSION: project.version, CASSANDRA_VERSION: cassandra3Version])
@@ -83,7 +83,7 @@ dockerCompose {
     environment.put 'AGENT_VERSION', 'c3'
     environment.put 'STREAM_PLATFORM', 'luna'
     environment.put 'PROJECT_VERSION', project.version
-    environment.put 'CASSANDRA_IMAGE', "cassandra:${cassandra3Version}-cdc-pulsar"
+    environment.put 'CASSANDRA_IMAGE', "cassandra:${cassandra3Version}-cdc-luna"
     environment.put 'PULSAR_IMAGE', "datastax/lunastreaming:${lunaTag}-csc"
     waitForTcpPorts = false
     startedServices = ['cassandra','pulsar']

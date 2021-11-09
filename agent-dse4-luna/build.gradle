@@ -90,7 +90,7 @@ project.afterEvaluate {
 }
 
 docker {
-    name "${dockerRepo}dse4-server:${dse4Version}-cdc-pulsar"
+    name "${dockerRepo}dse4-server:${dse4Version}-cdc-luna"
     dependsOn shadowJar
     files "$buildDir/libs/", "src/docker/"
     buildArgs([BUILD_VERSION: project.version,
@@ -106,7 +106,7 @@ dockerCompose {
     environment.put 'AGENT_VERSION', 'dse4'
     environment.put 'STREAM_PLATFORM', 'luna'
     environment.put 'PROJECT_VERSION', project.version
-    environment.put 'CASSANDRA_IMAGE', "${dockerRepo}dse4-server:${dse4Version}-cdc-pulsar"
+    environment.put 'CASSANDRA_IMAGE', "${dockerRepo}dse4-server:${dse4Version}-cdc-luna"
     environment.put 'PULSAR_IMAGE', "datastax/lunastreaming:${lunaTag}-csc"
     waitForTcpPorts = false
     startedServices = ['cassandra','pulsar']
