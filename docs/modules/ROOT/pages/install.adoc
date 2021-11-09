@@ -16,15 +16,22 @@ The following files are available in the tar file:
 |===
 | Cassandra type | Streaming platform |  JAR file 
 
-| Apache Cassandra 3.x | Apache Pulsar | agent-c3-pulsar-<version>.jar
-| Apache Cassandra 3.x | Luna Streaming | agent-c3-luna-<version>.jar
-| Apache Cassandra 4.x | Apache Pulsar | agent-c4-pulsar-<version>.jar
-| Apache Cassandra 4.x | Luna Streaming | agent-c4-luna-<version>.jar
-| DSE 6.8.16+ | Apache Pulsar | agent-dse4-pulsar-<version>.jar
-| DSE 6.8.16+ | Luna Streaming | agent-dse4-luna-<version>.jar
+| Apache Cassandra 3.x | Apache Pulsar | agent-c3-pulsar-<version>-all.jar
+| Apache Cassandra 3.x | Luna Streaming | agent-c3-luna-<version>-all.jar
+| Apache Cassandra 4.x | Apache Pulsar | agent-c4-pulsar-<version>-all.jar
+| Apache Cassandra 4.x | Luna Streaming | agent-c4-luna-<version>-all.jar
+| DSE 6.8.16+ | Apache Pulsar | agent-dse4-pulsar-<version>-all.jar
+| DSE 6.8.16+ | Luna Streaming | agent-dse4-luna-<version>-all.jar
 
 
 |===
+
+Extract the file from the tar with the following command:
+
+[source,language-bash]
+----
+tar xvf cassandra-change-agent-<version>.tar
+----
 
 Use the file that matches your Cassandra type and streaming platform.
 
@@ -79,6 +86,13 @@ The following files are available:
 | Luna Streaming | luna-cassandra-source-<version>.nar
 
 |===
+
+Extract the file from the tar with the following command:
+
+[source,language-bash]
+----
+tar xvf cassandra-source-connector-<version>.tar
+----
 
 Use the version that matches your streaming platform.
 
