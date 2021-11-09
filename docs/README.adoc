@@ -1,6 +1,6 @@
-= DataStax Cassandra Source Connector documentation
+= {csc_pulsar} documentation
 
-This repo contains the source files for the DataStax Cassandra&reg; Source Connector documentation.
+This repo contains the source files for the {csc_pulsar_first} documentation.
 
 The docs are written in asciidoc and use Antora to generate the output.
 
@@ -22,7 +22,7 @@ npm i -g @antora/cli@2.3 @antora/site-generator-default@2.3
 
 == Generating and viewing the HTML output locally
 
-The docs can be generated locally during development, to check work. 
+The docs can be generated locally during development, to check work.
 
 [source,bash]
 ----
