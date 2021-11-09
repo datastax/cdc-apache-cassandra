@@ -56,9 +56,9 @@ The change agent runs on all Cassandra data nodes. This means that it processes 
 [cols="1,1,1"]
 |===
 | Cassandra version | Apache Pulsar | Luna Streaming
-| Cassandra v3.x | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-v3-pulsar[agent-c3-pulsar] | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-v3-luna[agent-c3-luna]
-| Cassandra v4.x | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-v4-pulsar[agent-c4-pulsar] | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-v4-luna[agent-c4-luna]
-| DSE 6.8.16+ | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-dse4-pulsar[agent-dse4-pulsar] | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-dse4-luna[agent-dse4-luna]
+| Cassandra v3.x | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-c3-luna[agent-c3-luna] | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-c3-luna[agent-c3-luna]
+| Cassandra v4.x | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-c4-luna[agent-c4-luna] | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-c4-luna[agent-c4-luna]
+| DSE 6.8.16+ | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-dse4-luna[agent-dse4-luna] | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-dse4-luna[agent-dse4-luna]
 |===
 
 == Supported streaming platforms
