@@ -7,6 +7,7 @@ for tables having Change Data Capture (CDC) enabled to https://www.datastax.com/
 
 * Supports Apache Cassandra 3.11+, 4.0+, and Datastax Enterprise Server 6.8.16+
 * Supports Luna Streaming 2.7.2+ and Apache Pulsar 2.8.1+
+* De-deplicates updates from multiple replicas
 * Propagates Cassandra schema change to the built-in Pulsar schema registry
 * Supports AVRO message format
 
@@ -22,28 +23,46 @@ The following diagram describes the general architecture.
 
 image::cdc-for-cassandra-overview.png[]
 
+Since version 3.0, Cassandra has included a change data capture (CDC) feature. The CDC feature can be enabled on the table level by setting the table property cdc=true, after which any commit log containing data for a CDC-enabled table will be moved to the CDC directory specified in cassandra.yaml on discard/flush (default: cdc_raw). Since Cassandra 4.0, commit logs can be synced to the *cdc_raw* directory periodically (by default, 10 seconds). 
 
-When CDC is enabled for a given Cassandra table:
+When CDC is enabled:
 
-1. The change agent running on each node reads the Cassandra commitlog files and emits a message for each Cassandra mutation in a per-table events topic.
+1. The change agent running on each node reads the Cassandra commitlog files in the cdc_raw directory and emits a message for each Cassandra mutation on a CDC-enabled table to a per-table events topic.
 2. The source connector processes these events and fetches the mutated Cassandra row.
 3. The source connector writes the row into the data topic. This ensures the most recent state of the Cassandra table is replicated into
 the data topic without the need to time re-order Cassandra mutations.
+4. Once the change agent processes all mutations in the commit log, it deletes the file from the *cdc_raw* directory.
 
-The Datastax Source Connector for Apache Pulsar also updates the schema-registry to dynamically reflect the Cassandra table schema. You can then deploy various sink connectors (see https://pulsar.apache.org/docs/en/io-connectors/#sink-connector[Pulsar built-in sink connectors]) to replicate data into the backends of your choice.
+CDC for Apache Cassandra is tolerant of failures when processing the commit logs in the *cdc_raw* directory. It maintains a processing offset for each commit log. If the change agent restarts, it will picks up where it left off using the recorded offset value.
+
+The following table describes what is published to the data topic for each update to a CDC-enabled Cassandra table.
+
+[cols="1,1"]
+|===
+| Type | Event Data
+| insert | Key set to primary key of the row, value set to all column values
+| update | Key set to primary key of the row, value set to only updated column values
+| delete | Key set to primary key of the row, value set to null
+|===
+
+The Datastax Source Connector for Apache Pulsar updates the schema registry to dynamically reflect the Cassandra table schema. You can then deploy various sink connectors (see https://pulsar.apache.org/docs/en/io-connectors/#sink-connector[Pulsar built-in sink connectors]) to replicate data into the backends of your choice.
+
+Sink connectors processing messages from the data topic should interpret a event with a null value as a delete. With the Pulsar Elasticsearch connector, for example, you need to set *nullValueAction* to "DELETE".
+
+The change agent runs on all Cassandra data nodes. This means that it processes the original write plus its replicas. To minimize the number of duplicate events that end up in the data topic, the source connector maintain an in-memory deduplication cache. For each update to the table an MD5 digest is calculated which is used to deduplicate the updates from the replicas.
 
 
 === Deployment matrix
 
 [cols="1,1"]
 |===
-| Cassandra version | Luna Streaming
-| Cassandra v3.x | https://github.com/datastax/cassandra-source-connector/tree/master/agent-v3-pulsar[agent-c3-luna]
-| Cassandra v4.x | https://github.com/datastax/cassandra-source-connector/tree/master/agent-v4-pulsar[agent-c4-luna]
-| DSE 6.8.16+ | https://github.com/datastax/cassandra-source-connector/tree/master/agent-dse4-pulsar[agent-dse4-luna]
+| Cassandra type | Luna Streaming/Apache Pulsar
+| Cassandra v3.x | https://github.com/datastax/cassandra-source-connector/tree/master/agent-c3-luna[agent-c3-luna]
+| Cassandra v4.x | https://github.com/datastax/cassandra-source-connector/tree/master/agent-c4-luna[agent-c4-luna]
+| DSE 6.8.16+ | https://github.com/datastax/cassandra-source-connector/tree/master/agent-dse4-luna[agent-dse4-luna]
 |===
 
-== Supported streaming platform
+== Supported streaming platforms
 
 * Luna Streaming 2.7.2 and later
 * Apache Pulsar 2.8.1 and later
@@ -73,6 +92,8 @@ Cassandra static columns are supported:
 * On row level updates, static columns are included in the message value.
 * On partition level updates, the clustering keys are null in the message key, and the message value only has static columns on insert/update operations.
 
+For data types that are not supported, columns using those data types are omitted from the events sent to the data topic. If a row update contains both support and unsupported data types, the event will include only columns with supported data types.
+
 == Limitations
 
 * Does not manage table truncates
@@ -91,7 +112,7 @@ Schema registry updates on a Pulsar topic are controlled by the "is-allow-auto-u
 * "True" allows the broker to register a new schema for a topic and connect the producer if the schema is not registered.
 * "False" rejects the producer's connection to the broker if the schema is not registered.
 
-To ensure the source connector can automatically update the schema on the Pulsar topic, set the option to "true". Learn more at (https://pulsar.apache.org/docs/en/schema-manage/)[Schema Auto-Update].
+To ensure the source connector can automatically update the schema on the Pulsar topic, set the option to "True". Learn more at https://pulsar.apache.org/docs/en/schema-manage/[Schema Auto-Update].
 
 === Multiple Cassandra datacenters
 

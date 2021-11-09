@@ -52,7 +52,7 @@ For example, given a Cassandra cluster with 3 datacenters, DC1, DC2, and DC3, yo
 
 === Is DataStax CDC for Apache Cassandra an open-source project?
 
-Yes, DataStax CDC for Apache Cassandra is open source. See the <<gitHubRepos,repos FAQ>>.
+Yes, DataStax CDC for Apache Cassandra is open source using the Apache 2.0 license.
 
 === What does DataStax CDC for Apache Cassandra provide that I cannot get with open-source Apache Pulsar?
 
@@ -68,7 +68,7 @@ You can deploy the change agent with Cassandra on Kubernetes with the https://gi
 
 === Where is the DataStax CDC for Apache Cassandra public GitHub repository?
 
-The source for this FAQs document is co-located with the DataStax CDC for Apache Cassandra repository code. For examples and additional documentation, access the repository https://github.com/datastax/cassandra-source-connector[here].
+The source for this FAQs document is co-located with the DataStax CDC for Apache Cassandra repository code. For examples and additional documentation, access the repository https://github.com/datastax/cdc-apache-cassandra[here].
 
 === How do I install DataStax CDC for Apache Cassandra?
 

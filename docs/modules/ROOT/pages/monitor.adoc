@@ -53,6 +53,36 @@ The change agent is a JVM agent running in Cassandra nodes provides a dedicated 
 |The maximum number of uncleaned tasks.
 |===
 
+== Pulsar Source Connector stats
+
+The Pulsar connector framework reports stats for each connector. You can view the stats for a connector like this:
+
+[source,language-bash]
+----
+pulsar-admin source stats --name cassandra-source-1
+
+{
+  "numInstances" : 1,
+  "numRunning" : 0,
+  "instances" : [ {
+    "instanceId" : 0,
+    "status" : {
+      "running" : false,
+      "error" : "",
+      "numRestarts" : 0,
+      "numReceivedFromSource" : 0,
+      "numSystemExceptions" : 0,
+      "numSourceExceptions" : 0,
+      "numWritten" : 0,
+      "lastReceivedTime" : 0,
+      "workerId" : "pulsar-perf-aws-useast2-function-0"
+    }
+  } ]
+}
+----
+
+The stats *numReceivedFromSource* and *numWritten* indicate how many events have been processed by the source connector. If the connector has errors, the counts are shown. A description of the last seen error is displayed in the *error* field. 
+
 == Pulsar Source Connector metrics
 
 The Source Connector for Apache Pulsar also publishes per message metrics:
