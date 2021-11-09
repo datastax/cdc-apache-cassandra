@@ -48,10 +48,10 @@ jar {
 }
 
 nar {
-    archivesBaseName = 'pulsar-cassandra-source'
+    archivesBaseName = 'luna-cassandra-source'
     manifest {
         attributes 'Nar-Group': 'com.datastax.oss'
-        attributes 'Nar-Id': 'pulsar-io-cassandra-source-nar'
+        attributes 'Nar-Id': 'luna-io-cassandra-source-nar'
     }
 }
 
