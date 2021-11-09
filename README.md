@@ -3,6 +3,7 @@
 ![tests](https://github.com/datastax/cdc-apache-cassandra/actions/workflows/ci.yaml/badge.svg)
 ![documentation](https://github.com/datastax/cdc-apache-cassandra/actions/workflows/publish.yml/badge.svg)
 ![release](https://github.com/datastax/cdc-apache-cassandra/actions/workflows/release.yaml/badge.svg)
+[![GitHub release](https://img.shields.io/github/v/release/datastax/cdc-apache-cassandra.svg)](https://github.com/datastax/cdc-apache-cassandra/releases/latest)
 
 The DataStax CDC for Apache Cassandra requires:
 
