@@ -46,7 +46,7 @@ jobs:
           prerelease: true
 
       - name: Upload Connectors Release Tar
-        id: upload-release-tar
+        id: upload-connectors-release-tar
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -56,7 +56,7 @@ jobs:
           asset_name: cassandra-source-connectors-${{ env.CURRENT_VERSION }}.tar
           asset_content_type: application/tar
       - name: Upload Connectors Release Zip
-        id: upload-release-zip
+        id: upload-connectors-release-zip
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -67,7 +67,7 @@ jobs:
           asset_content_type: application/zip
 
       - name: Upload Agents Release Tar
-        id: upload-release-tar
+        id: upload-agents-release-tar
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -77,7 +77,7 @@ jobs:
           asset_name: cassandra-source-agents-${{ env.CURRENT_VERSION }}.tar
           asset_content_type: application/tar
       - name: Upload Agents Release Zip
-        id: upload-release-zip
+        id: upload-agents-release-zip
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
