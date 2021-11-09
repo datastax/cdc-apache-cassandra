@@ -1,8 +1,8 @@
 # DataStax CDC for Apache Cassandra
 
-![tests](https://github.com/datastax/cassandra-source-connector/actions/workflows/ci.yaml/badge.svg)
-![documentation](https://github.com/datastax/cassandra-source-connector/actions/workflows/publish.yml/badge.svg)
-![release](https://github.com/datastax/cassandra-source-connector/actions/workflows/release.yaml/badge.svg)
+![tests](https://github.com/datastax/cdc-apache-cassandra/actions/workflows/ci.yaml/badge.svg)
+![documentation](https://github.com/datastax/cdc-apache-cassandra/actions/workflows/publish.yml/badge.svg)
+![release](https://github.com/datastax/cdc-apache-cassandra/actions/workflows/release.yaml/badge.svg)
 
 The DataStax CDC for Apache Cassandra requires:
 

@@ -192,8 +192,6 @@ public class PulsarCassandraSourceTests {
         assertEquals(0, result.getExitCode(), "deployConnector failed:" + result.getStdout());
     }
 
-    // Was passed main parameter '--source-config {"contactPoints":"cassandra-1", "loadBalancing.localDc":"datacenter1", "keyspace":"ks1", "table":"table1", "events.topic": "persistent://public/default/events-ks1.table1", "events.subscription.name":"sub1" ,"key.converter":"com.datastax.oss.pulsar.source.converters.NativeAvroConverter" ,"value.converter":"com.datastax.oss.pulsar.source.converters.NativeAvroConverter" }' but no main parameter was defined in your arg class
-
     void undeployConnector(String ksName, String tableName) throws IOException, InterruptedException {
         Container.ExecResult result = pulsarContainer.execInContainer(
                 "/pulsar/bin/pulsar-admin", "source", "delete",

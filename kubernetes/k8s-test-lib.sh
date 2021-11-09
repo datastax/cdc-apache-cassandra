@@ -60,8 +60,6 @@ deploy_csc() {
       \"table\": \"${TABLE}\",
       \"events.topic\": \"${EVENTS_TOPIC}\",
       \"events.subscription.name\": \"sub1\",
-      \"key.converter\": \"com.datastax.oss.pulsar.source.converters.NativeAvroConverter\",
-      \"value.converter\": \"com.datastax.oss.pulsar.source.converters.NativeAvroConverter\",
       \"contactPoints\": \"$CASSANDRA_SERVICE\",
       \"loadBalancing.localDc\": \"$CASSANDRA_DC\",
       \"auth.provider\": \"PLAIN\",

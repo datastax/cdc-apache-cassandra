@@ -1,11 +1,10 @@
 ARG CASSANDRA_VERSION
 FROM cassandra:${CASSANDRA_VERSION}
-ARG STREAM_PLATFORM
 ARG BUILD_VERSION
 
 RUN sed -i 's/cdc_enabled: false/cdc_enabled: true/g' /etc/cassandra/cassandra.yaml
 
-COPY agent-v3-${STREAM_PLATFORM}-${BUILD_VERSION}-all.jar /
+COPY agent-v3-luna-${BUILD_VERSION}-all.jar /
 
 # Add cassandra-stress config
 COPY table1.yaml /
