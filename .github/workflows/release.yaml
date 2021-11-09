@@ -32,7 +32,7 @@ jobs:
             ${{ runner.os }}-buildx-
 
       - name: Build with Gradle
-        run: ./gradlew assemble -PpulsarRepoUrl=https://repo.datastax.com/artifactory/datastax-public-releases-local -x :agent-dse4:assemble -x :agent-dse4-luna:assemble
+        run: ./gradlew assemble -PpulsarRepoUrl=https://repo.datastax.com/artifactory/datastax-public-releases-local -x :agent-dse4:assemble -x :agent-dse4-luna:assemble -x :agent-dse4-pulsar:assemble
 
       - name: Create Release
         id: create_release
