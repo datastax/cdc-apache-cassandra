@@ -10,8 +10,7 @@ By downloading this DataStax product, you agree to the terms of the open-source 
 
 Perform the following steps:
 
-. Download the change agent tar file from the downloads.datastax.com/#cassandra-change-agent
-[DataStax downloads page].
+. Download the change agent tar file from the https://downloads.datastax.com/#cassandra-change-agent[DataStax downloads page].
 
 
 The following files are available in the tar file:
@@ -30,11 +29,11 @@ The following files are available in the tar file:
 
 |===
 
-Extract the file from the tar with the following command:
+Extract the files from the tar with the following command:
 
 [source,language-bash]
 ----
-tar xvf cassandra-change-agent-<version>.tar
+tar xvf cassandra-source-agents-<version>.tar
 ----
 
 Use the file that matches your Cassandra type and streaming platform.
@@ -80,13 +79,12 @@ cdc_total_space_in_mb: 50000
 include::agentParams.adoc[]
 
 == Download {csc_pulsar}
-=======
 IMPORTANT
 ====
 By downloading this DataStax product, you agree to the terms of the open-source https://www.apache.org/licenses/LICENSE-2.0[Apache-2.0 license agreement].
 ====
 
-. Download the `pulsar-cassandra-source-<version>.nar.tar` file from the https://downloads.datastax.com/#cdc[DataStax downloads page].
+. Download the `pulsar-cassandra-source-<version>.tar` file from the https://downloads.datastax.com/#cassandra-source-connector[DataStax downloads page].
 
 The following files are available:
 
@@ -99,11 +97,11 @@ The following files are available:
 
 |===
 
-Extract the file from the tar with the following command:
+Extract the files from the tar with the following command:
 
 [source,language-bash]
 ----
-tar xvf cassandra-source-connector-<version>.tar
+tar xvf cassandra-source-connectors-<version>.tar
 ----
 
 Use the version that matches your streaming platform.
