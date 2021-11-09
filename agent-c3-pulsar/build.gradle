@@ -70,11 +70,12 @@ test {
 
     useJUnitPlatform()
 
+    environment 'PULSAR_IMAGE', 'apchepulsar/pulsar:' + pulsarVersion
+    environment 'CASSANDRA_IMAGE', 'cassandra/cassandra:' + cassandra3Version
+
     systemProperty "buildDir", buildDir
     systemProperty "projectVersion", project.version
-    systemProperty "cassandraVersion", cassandra3Version
     systemProperty "pulsarDistribution", "pulsar"
-    systemProperty "pulsarVersion", pulsarVersion
 }
 
 

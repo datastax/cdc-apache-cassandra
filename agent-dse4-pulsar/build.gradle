@@ -74,11 +74,12 @@ test {
 
     useJUnitPlatform()
 
+    environment 'PULSAR_IMAGE', 'apchepulsar/pulsar:' + pulsarVersion
+    environment 'CASSANDRA_IMAGE', 'datastax/dse-server:' + dse4Version
+
     systemProperty "buildDir", buildDir
     systemProperty "projectVersion", project.version
-    systemProperty "dseVersion", dse4Version
     systemProperty "pulsarDistribution", "pulsar"
-    systemProperty "pulsarVersion", pulsarVersion
 }
 
 shadowJar {

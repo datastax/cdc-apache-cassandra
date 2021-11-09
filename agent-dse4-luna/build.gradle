@@ -68,11 +68,12 @@ test {
 
     useJUnitPlatform()
 
+    environment 'PULSAR_IMAGE', 'datastax/lunastreaming:' + lunaTag
+    environment 'CASSANDRA_IMAGE', 'datastax/dse-server:' + dse4Version
+
     systemProperty "buildDir", buildDir
     systemProperty "projectVersion", project.version
-    systemProperty "dseVersion", dse4Version
     systemProperty "pulsarDistribution", "luna"
-    systemProperty "lunaTag", lunaTag
 }
 
 shadowJar {
