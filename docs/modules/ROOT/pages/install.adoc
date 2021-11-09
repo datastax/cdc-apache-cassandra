@@ -7,7 +7,8 @@ By downloading this DataStax product, you agree to the terms of the open-source 
 
 Perform the following steps:
 
-. Download the change agent tar file from the https://downloads.datastax.com/#cac[DataStax downloads page].
+. Download the change agent tar file from the downloads.datastax.com/#cassandra-change-agent
+[DataStax downloads page].
 
 The following files are available in the tar file:
 
@@ -66,7 +67,7 @@ By downloading this DataStax product, you agree to the terms of the open-source 
 
 Perform the following steps:
 
-. Download the NAR file that matches your streaming platform from the https://downloads.datastax.com/#csc[DataStax downloads page].
+. Download the NAR file that matches your streaming platform from the downloads.datastax.com/#cassandra-source-connector[DataStax downloads page].
 
 The following files are available:
 
