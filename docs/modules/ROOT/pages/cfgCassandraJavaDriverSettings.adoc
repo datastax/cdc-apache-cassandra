@@ -1,6 +1,6 @@
-== Pass Cassandra Source Connector for Apache Pulsar settings directly to the DataStax Java driver
+== Pass {csc_pulsar} settings directly to the DataStax Java driver
 
-In your DataStax Cassandra Source Connector for Apache Pulsar configuration file, you can directly pass settings to the DataStax Java driver by using the `datastax-java-driver` prefix.
+In your {csc_pulsar_first} configuration file, you can directly pass settings to the DataStax Java driver by using the `datastax-java-driver` prefix.
 For example:
 
 [source,no-highlight]
@@ -8,17 +8,17 @@ For example:
 datastax-java-driver.basic.request.consistency=ALL
 ----
 
-== Mapping Cassandra Source Connector for Apache Pulsar settings to Java driver properties
+== Mapping {csc_pulsar} settings to Java driver properties
 
-The following table identifies functionally equivalent DataStax Cassandra Source Connector for Apache Pulsar and DataStax Java driver settings.
+The following table identifies functionally equivalent {csc_pulsar} and DataStax Java driver settings.
 
-NOTE: If you define both in your configuration, the Source Connector setting take precedence over the `datastax-java-driver.property-name`.
-If you do not provide either in your configuration, Source Connector defaults are in effect.
+NOTE: If you define both in your configuration, the {csc_pulsar} setting take precedence over the `datastax-java-driver.property-name`.
+If you do not provide either in your configuration, {csc_pulsar} defaults are in effect.
 
 For information about the Java properties, refer to the link:https://docs.datastax.com/en/developer/java-driver-dse/2.3/manual/core/configuration/[DataStax Java driver documentation.]
 
 |===
-| DataStax Cassandra Source Connector for Apache Pulsar | Using datastax-java-driver prefix
+| {csc_pulsar_first} | Using datastax-java-driver prefix
 
 | `contactPoints`
 | `datastax-java-driver.basic.contact-points`
@@ -42,7 +42,7 @@ For information about the Java properties, refer to the link:https://docs.datast
 | `datastax-java-driver.advanced.metrics.session.cql-requests.highest-latency`
 |===
 
-There is a difference between the Source Connector's `contactPoints` setting and the Java driver's `datastax-java-driver.basic.contact-points`.
+There is a difference between the {csc_pulsar}'s `contactPoints` setting and the Java driver's `datastax-java-driver.basic.contact-points`.
 For `contactPoints`, the value of the `port` is appended to every host provided by this setting.
 For `datastax-java-driver.basic.contact-points`, you must provide the fully qualified contact points (`host:port`).
 

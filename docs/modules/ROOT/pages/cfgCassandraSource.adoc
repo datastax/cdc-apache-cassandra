@@ -1,6 +1,6 @@
-== DataStax Cassandra Source Connector for Apache Pulsar settings
+== {csc_pulsar} settings
 
-.Table DataStax Cassandra Source Connector for Apache Pulsar settings
+.Table {csc_pulsar} settings
 [cols="2,3,1,1,1"]
 |===
 |Name | Description | Type | Validator | Default
@@ -8,25 +8,25 @@
 | *events.topic*
 | The topic name to listen cassandra mutation events to
 | string
-| 
-| 
+|
+|
 
 | *keyspace*
 | Cassandra keyspace name
 | string
-| 
-| 
+|
+|
 
 | *table*
 | Cassandra table name
 | string
-| 
-| 
+|
+|
 
 | *cloud.secureConnectBundle*
-| The location of the cloud secure bundle used to connect to Datastax Apache Cassandra as a service.
+| The location of the cloud secure bundle used to connect to Datastax Astra DB.
 | string
-| 
+|
 | ""
 
 | *compression*
@@ -44,37 +44,37 @@
 | *contactPoints*
 | Initial contact points
 | list
-| 
+|
 | ""
 
 | *data.topic*
 | The topic name to publish cassandra data to
 | string
-| 
+|
 | data-topic
 
 | *ignoreErrors*
 | Specifies which errors the connector should ignore when processing the record. Valid values are: None (never ignore errors), All (ignore all errors), Driver (ignore driver errors only, i.e. errors when writing to the database).
 | string
-| 
+|
 | None
 
 | *jmx*
 | Whether to enable JMX reporting
 | boolean
-| 
+|
 | true
 
 | *key.converter*
 | Converter class used to write the message key to the data topic. This setting is experimental for advanced user only.
 | class
-| 
+|
 | null
 
 | *loadBalancing.localDc*
 | The datacenter name (commonly dc1, dc2, etc.) local to the machine on which the connector is running
 | string
-| 
+|
 | ""
 
 | *maxConcurrentRequests*
@@ -110,61 +110,61 @@
 | *value.converter*
 | Converter class used to write the message value to the data topic. This setting is experimental for advanced user only.
 | class
-| 
+|
 | null
 
 | *batch.size*
 | The batch size for grouping mutations before sending them to the data topic
 | int
-| 
+|
 | 200
 
 | *query.backoffInMs*
 | Retry backoff in milliseconds when there is not enough Cassandra replicas to perform the query. (Capped exponential jittered backoff)
 | long
-| 
+|
 | 100
 
 | *query.executors*
 | The initial and maximum number of threads to execute concurrent Cassandra queries
 | int
-| 
+|
 | 10
 
 | *query.maxBackoffInSec*
 | Maximum backoff delay in seconds when there is not enough Cassandra replicas to perform the query
 | long
-| 
+|
 | 3600
 
 | *query.maxMobileAvgLatency*
 | Maximum mobile average CQL query latency beyond which the number of executor is decreased
 | long
-| 
+|
 | 100
 
 | *query.minMobileAvgLatency*
 | Minimum mobile average CQL query latency beyond which the number of executor is increased
 | long
-| 
+|
 | 10
 
 | *columns*
 | Regular expression of the Cassandra replicated column names
 | string
-| 
+|
 | .*
 
 | *jmxConnectorDomain*
 | Domain for JMX reporting
 | string
-| 
+|
 | com.datastax.oss.cdc
 
 | *events.subscription.name*
 | The pulsar events topic subscription name, with a default set to 'sub'
 | string
-| 
+|
 | sub
 
 | *events.subscription.type*
@@ -194,7 +194,7 @@
 | *cache.only_if_coordinator_match*
 | Cache the mutation digest only if the coordinator node is the originator node.
 | boolean
-| 
+|
 | true
 
 |===

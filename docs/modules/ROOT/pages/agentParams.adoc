@@ -3,7 +3,7 @@
 |===
 |Name | Description | Type | Default
 | *topicPrefix*
-| The event topic name prefix. The <keyspace_name>.<table_name> is appended to that prefix to build the topic name.
+| The event topic name prefix. The `<keyspace_name>.<table_name>` is appended to that prefix to build the topic name.
 | string
 | events-
 
@@ -15,19 +15,19 @@
 
 
 | *cdcPoolIntervalMs*
-| The pool interval in milliseconds for watching new commit log files in the CDC raw directory.
+| The pool interval in milliseconds for watching new commitlog files in the CDC raw directory.
 | long
 | 60000
 
 
 | *errorCommitLogReprocessEnabled*
-| Enable the re-processing of error commit logs files.
+| Enable the re-processing of error commitlogs files.
 | boolean
 | false
 
 
 | *cdcConcurrentProcessors*
-| The number of threads used to process commitlog files. The default value is the memtable_flush_writers.
+| The number of threads used to process commitlog files. The default value is the `memtable_flush_writers`.
 | integer
 | -1
 
@@ -51,13 +51,13 @@
 
 
 | *pulsarKeyBasedBatcher*
-| When true, use the Pulsar KEY_BASED BatchBuilder
+| When true, use the Pulsar KEY_BASED BatchBuilder.
 | boolean
 | false
 
 
 | *pulsarMaxPendingMessages*
-| The Pulsar maximum size of a queue holding pending messages
+| The Pulsar maximum size of a queue holding pending messages.
 | integer
 | 1000
 
@@ -71,27 +71,27 @@
 | *pulsarAuthPluginClassName*
 | The Pulsar authentication plugin class name.
 | string
-| 
+|
 
 | *pulsarAuthParams*
 | The Pulsar authentication parameters.
 | string
-| 
+|
 
 | *sslProvider*
 | The SSL/TLS provider to use.
 | string
-| 
+|
 
 | *sslTruststorePath*
 | The path to the SSL/TLS truststore file.
 | string
-| 
+|
 
 | *sslTruststorePassword*
 | The password for the SSL/TLS truststore.
 | string
-| 
+|
 
 | *sslTruststoreType*
 | The type of the SSL/TLS truststore.
@@ -102,17 +102,17 @@
 | *sslKeystorePath*
 | The path to the SSL/TLS keystore file.
 | string
-| 
+|
 
 | *sslKeystorePassword*
 | The password for the SSL/TLS keystore.
 | string
-| 
+|
 
 | *sslCipherSuites*
 | Defines one or more cipher suites to use for negotiating the SSL/TLS connection.
 | string
-| 
+|
 
 | *sslEnabledProtocols*
 | Enabled SSL/TLS protocols
@@ -121,7 +121,7 @@
 
 
 | *sslAllowInsecureConnection*
-| Allows insecure connections to servers whose cert has not been signed by an approved CA. You should always disable sslAllowInsecureConnection in production environments.
+| Allows insecure connections to servers whose certificate has not been signed by an approved CA. You should always disable `sslAllowInsecureConnection` in production environments.
 | boolean
 | false
 
