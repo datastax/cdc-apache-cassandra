@@ -1,7 +1,7 @@
 site:
   title: DataStax Cassandra Source Connector documentation
   url: /docs/cassandra-source-connector
-  start_page: cassandra-source-connector::index.adoc
+  start_page: cdc-apache-cassandra::index.adoc
 
 content:
   sources:
