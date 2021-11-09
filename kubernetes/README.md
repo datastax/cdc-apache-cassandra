@@ -1,6 +1,6 @@
 # Kubernetes Quick Start
 
-Push DSE image into your registry:
+Update the gradle property **dockerRepo** in the gradle.properties file, then push a DSE image into your registry:
 
     ./gradlew agent-dse4-luna:dockerPush
 
