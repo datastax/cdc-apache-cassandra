@@ -1,5 +1,5 @@
-name: cassandra-source-connector
-title: DataStax Cassandra Source Connector (beta) documentation
+name: cdc-apache-cassandra
+title: DataStax CDC for Apache Cassandra Documentation
 version: "1.0"
 display_version: "1.0"
 
