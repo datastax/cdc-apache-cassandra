@@ -41,7 +41,7 @@ public class PulsarDualNodeC3Tests extends PulsarDualNodeTests {
     @Override
     public CassandraContainer<?> createCassandraContainer(int nodeIndex, String pulsarServiceUrl, Network testNetwork) {
         return CassandraContainer.createCassandraContainerWithAgent(
-                CASSANDRA_IMAGE, testNetwork, nodeIndex, "c3", "luna", pulsarServiceUrl);
+                CASSANDRA_IMAGE, testNetwork, nodeIndex, "c3", "pulsar", pulsarServiceUrl);
     }
 
     @Override
