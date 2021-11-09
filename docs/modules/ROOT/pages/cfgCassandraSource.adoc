@@ -1,6 +1,6 @@
-== Cassandra Source Connector settings
+== DataStax Cassandra Source Connector for Apache Pulsar settings
 
-.Table Cassandra Source Connector settings
+.Table DataStax Cassandra Source Connector for Apache Pulsar settings
 [cols="2,3,1,1,1"]
 |===
 |Name | Description | Type | Validator | Default

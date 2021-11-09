@@ -1,12 +1,13 @@
-# Datastax CDC for Apache Cassandra.
+# DataStax CDC for Apache Cassandra
 
 ![tests](https://github.com/datastax/cdc-apache-cassandra/actions/workflows/ci.yaml/badge.svg)
 ![documentation](https://github.com/datastax/cdc-apache-cassandra/actions/workflows/publish.yml/badge.svg)
 ![release](https://github.com/datastax/cdc-apache-cassandra/actions/workflows/release.yaml/badge.svg)
 
-The Cassandra CDC replication requires:
-* A CDC change agent deployed as a JVM agent on each Cassandra node.
-* A Cassandra Source Connector deployed in the streaming platform.
+The DataStax CDC for Apache Cassandra requires:
+
+* DataStax Change Agent for Apache Cassandra, which is an event producer deployed as a JVM agent on each Cassandra data node.
+* Datastax Source Connector for Apache Pulsar, which is source connector deployed in your streaming platform.
 
 ![Cassandra-source-connector](docs/modules/ROOT/assets/images/cassandra-source-connector.png)
 
@@ -21,7 +22,7 @@ Supported Cassandra version:
 
 ## Documentation
 
-All documentation is available online [here](https://datastax.github.io/cdc-apache-cassandra/).
+All documentation is available online [here](https://docs.datastax.com/en/cdc-for-cassandra).
 
 See the [QUICKSTART.md](QUICKSTART.md) page.
 

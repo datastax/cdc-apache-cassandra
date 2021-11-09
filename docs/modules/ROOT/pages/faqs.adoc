@@ -1,71 +1,78 @@
-= Cassandra Source Connector FAQs
+= DataStax CDC for Apache Cassandra FAQs
 
-If you are new to DataStax Cassandra Source Connector, these FAQs are for you.
+If you are new to DataStax CDC for Apache Cassandra, these FAQs are for you.
 
 == Introduction
 
-=== What is DataStax Cassandra Source Connector?
+=== What is DataStax CDC for Apache Cassandra?
 
-The Alpha release of Cassandra Source Connector is a new, open-source product from DataStax.
-With CDC, your apps can consume data from an Apache Cassandra table and put the updates onto a Pulsar topic, which in turn can write the data to external targets such as Elastic, Snowflake, and other platforms. By design, the Source component is simple, with a 1:1 correspondence between the Cassandra table and a single Pulsar topic.
+The DataStax CDC for Apache Cassandra is a an open-source product from DataStax.
+
+With CDC for Apache Cassandra, updates to data in an Apache Cassandra is put onto a Pulsar topic, which in turn can write the data to external targets such as Elastic, Snowflake, and other platforms. The Source Connector for Apache Pulsar component is simple, with a 1:1 correspondence between the Cassandra table and a single Pulsar topic.
 
 === What are the system requirements for Cassandra Source Connector?
 
 Minimum system requirement are:
 
-* Cassandra 3.11 or 4.0+,
-* Luna Streaming 2.7.2
-* Additional memory and CPU available on all nodes
+* Cassandra 3.11 or 4.0+, DSE 6.8.16+
+* Luna Streaming 2.7.2+ or Apache Pulsar 2.8.1+
+* Additional memory and CPU available on all Cassandra nodes
 
-=== What are the Cassandra Source Connector limitations?
+=== What are the DataStax CDC for Apache Cassandra limitations?
 
-The Cassandra Source Connector:
+The DataStax CDC for Apache Cassandra:
 
-* Does not replay logged batches
 * Does not manage table truncates
 * Does not sync data available before starting the CDC agent.
-* Does not manage TTL
+* Does not replay logged batches
+* Does not manage time-to-live
 * Does not support range deletes
+* CQL column names must not match a Pulsar primitive type name (ex: INT32)
 
-=== What's happen if Apache Pulsar is unavailable?
+=== What's happen if Luna Streaming/Apache Pulsar is unavailable?
 
-If Apache Pulsar is not available or unreachable, the CDC agent keep trying to send messages, and commitlog files accumulate in the cdc_raw directory. When the disk space of the cdc_raw directory reach your **cdc_total_space_in_mb** cassandra settings (less than 4Gb by default), writes to CDC-enabled tables fails with a **CDCWriteException**, and you get the following warning message in Cassandra logs:
+If Luna Streaming/Apache Pulsar is not available or unreachable, the change agent will keep trying to send messages, and commitlog files accumulate in the cdc_raw directory. When the disk space of the cdc_raw directory reach your **cdc_total_space_in_mb** cassandra settings (less than 4Gb by default), writes to CDC-enabled tables fails with a **CDCWriteException**, and you get the following warning message in Cassandra logs:
 
 [source,language-bash]
 ----
 WARN  [CoreThread-5] 2021-10-29 09:12:52,790  NoSpamLogger.java:98 - Rejecting Mutation containing CDC-enabled table. Free up space in /mnt/data/cdc_raw.
 ----
 
-In order to avoid or recover from this situation, you should increase the **cdc_total_space_in_mb** and restart the node, and also increase the write throughput to Pulsar or decrease the write throughput to your node.
+In order to avoid or recover from this situation, you should increase the **cdc_total_space_in_mb** and restart the node. To prevent hitting this new limit, you need to increase the write throughput to Luna Streaming/Apache Pulsar or decrease the write throughput to your node.
 
-Increasing the Pulsar write throughput may involve the CDC agent configuration (the number of allocated threads, the batching delay, the number of inflight messages), your Pulsar configuration (the number of partition of your topics, the connector max throughput, the Cassandra Source Connector batching and cache settings).
+Increasing the Luna Streaming/Apache Pulsar write throughput may involve tuning the change agent configuration (the number of allocated threads, the batching delay, the number of inflight messages), the Luna Streaming/Apache Pulsar configuration (the number of partition of your topics), or the source connector configuration (query executors, batching and cache settings, connector parallelism).
 
-In last resort, if losing data is acceptable in your CDC pipeline, remove commitlog files from the cdc_raw directory, restarting the node is not needed in this case.
+As a last resort, if losing data is acceptable in your CDC pipeline, remove commitlog files from the cdc_raw directory. Restarting the node is not needed in this case.
 
-=== Is DataStax Cassandra Data Connector an open-source project?
+=== I have multiple Cassandra data centers. How do I configure DataStax CDC for Apache Cassandra?
 
-Yes, DataStax Cassandra Data Connector is open source. See the <<gitHubRepos,repos FAQ>>.
+In a multi-datacenter Cassandra configuration, only enable CDC and install the change agent in a single datacenter. To ensure the data sent to all datacenters are delivered to the data topic, makes sure that replication to the datacenter that has CDC enabled is configured on the table. 
 
-=== What does Cassandra Source Connector provide that I cannot get with open-source Apache Pulsar?
+For example, given a Cassandra cluster with 3 datacenters, DC1, DC2, and DC3, you would only enable CDC and install the change agent in DC1. To ensure all updates in DC2 and DC2 are propagated to the data topic, configure the table to replicate data from DC2 and DC3 to DC1 (ex replication = {'class': 'NetworkTopologyStrategy', 'dc1': '3', 'dc2': '3', 'dc3': '3'}). The data replicated to DC1 will be processed by the change agent and eventually end up in the data topic.
 
-The DataStax Cassandra Source Connector implements, in effect, the reverse of Apache Pulsar or DataStax Cassandra Sink Connector. With the CSC, the source takes data from Cassandra and puts that data onto a data topic. From there, the data can be published to external platforms like Snowflake, Elasticsearch, and so on.
+=== Is DataStax CDC for Apache Cassandra an open-source project?
 
-=== Which Kubernetes platforms are supported by DataStax Cassandra Source Connector?
+Yes, DataStax CDC for Apache Cassandra is open source using the Apache 2.0 license.
 
-They include Minikube, K8d, Kind, Google Kubernetes Engine (GKE), Microsoft Azure Kubernetes Service, Amazon Kubernetes Service (AKS), and other commonly used platforms. You can also deploy the CDC agent with the https://github.com/datastax/cass-operator[cass-operator].
+=== What does DataStax CDC for Apache Cassandra provide that I cannot get with open-source Apache Pulsar?
 
-[#gitHubRepos]
-=== Where is the DataStax Cassandra Source Connector public GitHub repo?
+The DataStax CDC for Apache Cassandra implements, in effect, the reverse of Apache Pulsar or DataStax Cassandra Sink Connector. With those sink connectors, data is taken from a Pulsar topic and put into Cassandra. With CDC for Apache Cassandra, updates to a Cassandra table are converted into events and put into a data topic. From there, the data can be published to external platforms like Elasticsearch, Snowflake, and so on.
 
-The source for this FAQs document is co-located with the Cassandra Source Connector repo code, examples, and additional documentation: access the [repo here](https://github.com/datastax/cassandra-source-connector).
+=== Does DataStax CDC for Apache Cassandra support Kubernetes?
 
-=== How do I install Cassandra Data Connector?
+Yes. 
 
-Download the tar file from the DataStax [Downloads site](https://downloads.datastax.com/#cdc). Then follow the xref:install.adoc[install] instructions. The tarball contains the Cassandra Data Connector distribution's NAR file.
+You can run the Source Connector for Apache Pulsar on Luna Streaming or Apache Pulsar running on any Kubernetes platform, including Minikube, K8d, Kind, Google Kubernetes Engine (GKE), Microsoft Azure Kubernetes Service, Amazon Kubernetes Service (AKS), and other commonly used platforms. 
 
-=== What is Pulsar Heartbeat?
+You can deploy the change agent with Cassandra on Kubernetes with the https://github.com/datastax/cass-operator[cass-operator].
 
-https://github.com/datastax/pulsar-heartbeat[Pulsar Heartbeat] monitors availability, tracks performance, and reports failures of the Pulsar cluster. Pulsar Heartbeat is a cloud-native application that can be installed by Helm within the Pulsar Kubernetes cluster.
+=== Where is the DataStax CDC for Apache Cassandra public GitHub repository?
+
+The source for this FAQs document is co-located with the DataStax CDC for Apache Cassandra repository code. For examples and additional documentation, access the repository https://github.com/datastax/cdc-apache-cassandra[here].
+
+=== How do I install DataStax CDC for Apache Cassandra?
+
+Follow the xref:install.adoc[install] instructions.
 
 === What is Prometheus?
 

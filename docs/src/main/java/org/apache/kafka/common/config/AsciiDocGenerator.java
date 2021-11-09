@@ -139,7 +139,7 @@ public class AsciiDocGenerator {
     public void generateCassourceSourceDocs(String outputDir) throws IOException {
         generateConfigDefDoc(Paths.get(outputDir),
                 "cfgCassandraSource.adoc",
-                "Cassandra Source Connector settings",
+                "DataStax Cassandra Source Connector for Apache Pulsar settings",
                 CassandraSourceConnectorConfig.GLOBAL_CONFIG_DEF);
 
         generateConfigDefDoc(Paths.get(outputDir),
