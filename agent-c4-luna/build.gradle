@@ -68,7 +68,7 @@ test {
     useJUnitPlatform()
 
     environment 'PULSAR_IMAGE', 'datastax/lunastreaming:' + lunaTag
-    environment 'CASSANDRA_IMAGE', 'cassandra/cassandra:' + cassandra4Version
+    environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra4Version
 
     systemProperty "buildDir", buildDir
     systemProperty "projectVersion", project.version

@@ -72,7 +72,7 @@ test {
     useJUnitPlatform()
 
     environment 'PULSAR_IMAGE', 'apachepulsar/pulsar:' + pulsarVersion
-    environment 'CASSANDRA_IMAGE', 'cassandra/cassandra:' + cassandra4Version
+    environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra4Version
 
     systemProperty "connectorBuildDir", buildDir
     systemProperty "agentBuildDir", project(':agent-c4-pulsar').buildDir
