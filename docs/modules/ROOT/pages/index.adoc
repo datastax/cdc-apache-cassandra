@@ -41,20 +41,21 @@ To manage this option, set "is-allow-auto-update-schema" to "true" or "false".
 * "True" allows the broker to register a new schema for a topic and connect the producer if the schema is not registered.
 * "False" rejects the producer's connection to the broker if the schema is not registered.
 
-Learn more at (https://pulsar.apache.org/docs/en/schema-manage/)[Schema Auto-Update].
+Learn more at https://pulsar.apache.org/docs/en/schema-manage/)[Schema Auto-Update].
 
-=== Deployment matrix
+=== Change Agent deployment matrix
 
-[cols="1,1"]
+[cols="1,1,1"]
 |===
-| Cassandra version | Luna Streaming
-| Cassandra v3.x | https://github.com/datastax/cassandra-source-connector/tree/master/agent-v3-pulsar[agent-c3-luna]
-| Cassandra v4.x | https://github.com/datastax/cassandra-source-connector/tree/master/agent-v4-pulsar[agent-c4-luna]
-| DSE 6.8.16+ | https://github.com/datastax/cassandra-source-connector/tree/master/agent-dse4-pulsar[agent-dse4-luna]
+| Cassandra version | Apache Pulsar | Luna Streaming
+| Cassandra v3.x | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-v3-pulsar[agent-c3-pulsar] | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-v3-luna[agent-c3-luna]
+| Cassandra v4.x | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-v4-pulsar[agent-c4-pulsar] | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-v4-luna[agent-c4-luna]
+| DSE 6.8.16+ | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-dse4-pulsar[agent-dse4-pulsar] | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-dse4-luna[agent-dse4-luna]
 |===
 
 == Supported streaming platform
 
+* Apache Pulsar 2.8.1 and later
 * Luna Streaming 2.7.2 and later
 
 [#supported-databases]

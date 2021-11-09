@@ -13,10 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.datastax.oss.pulsar.source.converters;
+package com.datastax.oss.cdc;
 
 import org.apache.avro.Schema;
 import org.apache.pulsar.client.api.schema.SchemaInfoProvider;
+import org.apache.pulsar.client.impl.schema.SchemaInfoImpl;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
 
@@ -31,7 +32,7 @@ public class AvroSchemaWrapper implements org.apache.pulsar.client.api.Schema<by
 
     public AvroSchemaWrapper(Schema nativeAvroSchema) {
         this.nativeAvroSchema = nativeAvroSchema;
-        this.schemaInfo = SchemaInfo.builder()
+        this.schemaInfo = SchemaInfoImpl.builder()
                 .schema(nativeAvroSchema.toString(false).getBytes(StandardCharsets.UTF_8))
                 .properties(new HashMap<>())
                 .type(SchemaType.AVRO)

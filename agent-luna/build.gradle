@@ -8,6 +8,7 @@ compileTestJava {
 
 dependencies {
     implementation project(':commons')
+    implementation project(':commons-luna')
     implementation project(':agent')
     implementation("org.apache.avro:avro:${avroVersion}")
     implementation("com.datastax.oss:pulsar-client:${lunaVersion}")

@@ -36,11 +36,11 @@ dependencies {
     implementation project(':agent-luna')
     implementation project(':agent-c3')
     implementation("org.apache.avro:avro:${avroVersion}")
+
     implementation("com.datastax.oss:pulsar-client:${lunaVersion}")
 
     compileOnly("org.apache.cassandra:cassandra-all:${cassandra3Version}")
     testCompileOnly("org.apache.cassandra:cassandra-all:${cassandra3Version}")
-
     testImplementation("org.apache.cassandra:cassandra-all:${cassandra3Version}") {
         exclude group: 'io.netty'
     }
@@ -84,7 +84,7 @@ dockerCompose {
     environment.put 'STREAM_PLATFORM', 'luna'
     environment.put 'PROJECT_VERSION', project.version
     environment.put 'CASSANDRA_IMAGE', "cassandra:${cassandra3Version}-cdc-pulsar"
-    environment.put 'PULSAR_IMAGE', "lunastreaming:${lunaTag}-csc"
+    environment.put 'PULSAR_IMAGE', "datastax/lunastreaming:${lunaTag}-csc"
     waitForTcpPorts = false
     startedServices = ['cassandra','pulsar']
 

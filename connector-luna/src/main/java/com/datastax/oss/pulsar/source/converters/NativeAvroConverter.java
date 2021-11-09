@@ -15,6 +15,7 @@
  */
 package com.datastax.oss.pulsar.source.converters;
 
+import com.datastax.oss.cdc.AvroSchemaWrapper;
 import com.datastax.oss.cdc.CqlLogicalTypes;
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.cql.ColumnDefinition;

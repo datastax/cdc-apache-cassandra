@@ -28,20 +28,22 @@ configurations {
 
 dependencies {
     custom project(':commons')
+    custom project(':commons-luna')
     custom project(':agent')
     custom project(':agent-luna')
     custom project(':agent-dse4')
 
     implementation project(':commons')
+    implementation project(':commons-luna')
     implementation project(':agent')
     implementation project(':agent-luna')
     implementation project(':agent-dse4')
+
     implementation("org.apache.avro:avro:${avroVersion}")
     implementation("com.datastax.oss:pulsar-client:${lunaVersion}")
 
     compileOnly("com.datastax.dse:dse-db:${dse4Version}")
     testCompileOnly("com.datastax.dse:dse-db:${dse4Version}")
-
     testImplementation("com.datastax.dse:dse-db:${dse4Version}") {
         exclude group: 'io.netty'
     }
@@ -105,7 +107,7 @@ dockerCompose {
     environment.put 'STREAM_PLATFORM', 'luna'
     environment.put 'PROJECT_VERSION', project.version
     environment.put 'CASSANDRA_IMAGE', "${dockerRepo}dse4-server:${dse4Version}-cdc-pulsar"
-    environment.put 'PULSAR_IMAGE', "lunastreaming:${lunaTag}-csc"
+    environment.put 'PULSAR_IMAGE', "datastax/lunastreaming:${lunaTag}-csc"
     waitForTcpPorts = false
     startedServices = ['cassandra','pulsar']
 

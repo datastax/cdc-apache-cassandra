@@ -32,7 +32,8 @@ dependencies {
 
     implementation("org.apache.avro:avro:${avroVersion}")
     implementation 'org.junit.jupiter:junit-jupiter-api:5.1.1'
-    implementation("org.apache.pulsar:pulsar-client:${pulsarVersion}")
+
+    implementation("${pulsarGroup}:pulsar-client:${pulsarVersion}")
 
     implementation "org.testcontainers:testcontainers:${testContainersVersion}"
 

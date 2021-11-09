@@ -17,7 +17,6 @@ package com.datastax.oss.cdc.agent;
 
 import com.datastax.oss.cdc.AgentTestUtil;
 import com.datastax.oss.cdc.PulsarDualNodeTests;
-import com.datastax.oss.cdc.PulsarSingleNodeTests;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
 import lombok.extern.slf4j.Slf4j;
 import org.testcontainers.containers.Network;

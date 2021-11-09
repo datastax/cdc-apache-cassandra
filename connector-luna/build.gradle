@@ -17,6 +17,7 @@ sourceSets {
 
 dependencies {
     implementation project(':commons')
+    implementation project(':commons-luna')
     implementation project(':connector')
 
     implementation("com.github.ben-manes.caffeine:caffeine:${caffeineVersion}")
@@ -24,8 +25,9 @@ dependencies {
     implementation "com.datastax.oss:java-driver-core:${ossDriverVersion}"
     implementation "com.datastax.oss:java-driver-query-builder:${ossDriverVersion}"
 
-    compileOnly("com.datastax.oss:pulsar-client:${lunaVersion}")
     implementation("org.apache.avro:avro:${avroVersion}")
+
+    compileOnly("com.datastax.oss:pulsar-client:${lunaVersion}")
     compileOnly("com.datastax.oss:pulsar-io-common:${lunaVersion}")
     compileOnly("com.datastax.oss:pulsar-io-core:${lunaVersion}")
 
@@ -72,7 +74,7 @@ test {
 }
 
 docker {
-    name "lunastreaming:${lunaTag}-csc"
+    name "${dockerRepo}/lunastreaming:${lunaTag}-csc"
     dependsOn nar
     files "$buildDir/libs/", "src/docker/"
     buildArgs([BUILD_VERSION: project.version, LUNA_VERSION: lunaTag])

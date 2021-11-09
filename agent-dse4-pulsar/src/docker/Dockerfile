@@ -9,7 +9,7 @@ RUN sed -i 's/cdc_enabled: false/cdc_enabled: true/g' /opt/dse/resources/cassand
 RUN sed -i "s/commitlog_sync_period_in_ms: 10000/commitlog_sync_period_in_ms: $COMMITMOG_SYNC_PERIOD_IN_MS/g" /opt/dse/resources/cassandra/conf/cassandra.yaml
 RUN echo "cdc_total_space_in_mb: ${CDC_TOTAL_SPACE_IN_MB}" >> /opt/dse/resources/cassandra/conf/cassandra.yaml
 
-COPY agent-dse4-luna-${BUILD_VERSION}-all.jar /
+COPY agent-dse4-pulsar-${BUILD_VERSION}-all.jar /
 
 # Add cassandra-stress config
 COPY table1.yaml /

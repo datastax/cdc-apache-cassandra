@@ -17,6 +17,7 @@ sourceSets {
 
 dependencies {
     implementation project(':commons')
+    implementation project(':commons-pulsar')
     implementation project(':connector')
 
     implementation("com.github.ben-manes.caffeine:caffeine:${caffeineVersion}")
@@ -24,10 +25,11 @@ dependencies {
     implementation "com.datastax.oss:java-driver-core:${ossDriverVersion}"
     implementation "com.datastax.oss:java-driver-query-builder:${ossDriverVersion}"
 
-    compileOnly("org.apache.pulsar:pulsar-client:${pulsarVersion}")
     implementation("org.apache.avro:avro:${avroVersion}")
-    compileOnly("org.apache.pulsar:pulsar-io-common:${pulsarVersion}")
-    compileOnly("org.apache.pulsar:pulsar-io-core:${pulsarVersion}")
+
+    compileOnly("${pulsarGroup}:pulsar-client:${pulsarVersion}")
+    compileOnly("${pulsarGroup}:pulsar-io-common:${pulsarVersion}")
+    compileOnly("${pulsarGroup}:pulsar-io-core:${pulsarVersion}")
 
     testRuntimeOnly("org.slf4j:slf4j-simple:${slf4jVersion}")
     testRuntimeOnly "org.projectlombok:lombok:${lombokVersion}"
@@ -72,7 +74,7 @@ test {
 }
 
 docker {
-    name "apachepulsar:${pulsarVersion}-csc"
+    name "${dockerRepo}apachepulsar:${pulsarVersion}-csc"
     dependsOn nar
     files "$buildDir/libs/", "src/docker/"
     buildArgs([BUILD_VERSION: project.version, PULSAR_VERSION: pulsarVersion])

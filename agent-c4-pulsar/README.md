@@ -6,4 +6,4 @@
 
 ## Run
 
-    export JVM_EXTRA_OPTS="-javaagent:$CDC_HOME/agent-c4-luna/build/libs/agent-c4-luna-<version>-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
+    export JVM_EXTRA_OPTS="-javaagent:agent-c4-pulsar/build/libs/agent-c4-pulsar-<version>-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
