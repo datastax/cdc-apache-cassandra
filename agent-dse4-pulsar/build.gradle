@@ -74,7 +74,7 @@ test {
 
     useJUnitPlatform()
 
-    environment 'PULSAR_IMAGE', 'apchepulsar/pulsar:' + pulsarVersion
+    environment 'PULSAR_IMAGE', 'apachepulsar/pulsar:' + pulsarVersion
     environment 'CASSANDRA_IMAGE', 'datastax/dse-server:' + dse4Version
 
     systemProperty "buildDir", buildDir
