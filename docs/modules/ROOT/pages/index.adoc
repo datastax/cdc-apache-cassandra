@@ -41,7 +41,7 @@ The following table describes what is published to the data topic for each updat
 |===
 | Type | Event Data
 | insert | Key set to primary key of the row, value set to all column values
-| update | Key set to primary key of the row, value set to only updated column values
+| update | Key set to primary key of the row, value set to all column values
 | delete | Key set to primary key of the row, value set to null
 |===
 
@@ -56,16 +56,23 @@ The change agent runs on all Cassandra data nodes. This means that it processes 
 [cols="1,1,1"]
 |===
 | Cassandra version | Apache Pulsar | Luna Streaming
-| Cassandra v3.x | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-c3-luna[agent-c3-luna] | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-c3-luna[agent-c3-luna]
-| Cassandra v4.x | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-c4-luna[agent-c4-luna] | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-c4-luna[agent-c4-luna]
-| DSE 6.8.16+ | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-dse4-luna[agent-dse4-luna] | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-dse4-luna[agent-dse4-luna]
+| Cassandra v3.x | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-c3-pulsar[agent-c3-pulsar] | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-c3-luna[agent-c3-luna]
+| Cassandra v4.x | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-c4-pulsar[agent-c4-pulsar] | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-c4-luna[agent-c4-luna]
+| DSE 6.8.16+ | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-dse4-pulsar[agent-dse4-pulsar] | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-dse4-luna[agent-dse4-luna]
 |===
 
 == Supported streaming platforms
 
-* Apache Pulsar 2.8.1 and later
 * Luna Streaming 2.7.2 and later
 * Apache Pulsar 2.8.1 and later
+
+=== Connector deployment matrix
+
+[cols="1,1"]
+|===
+| Apache Pulsar | Luna Streaming
+| https://github.com/datastax/cdc-apache-cassandra/tree/master/connector-pulsar[connector-pulsar] | https://github.com/datastax/cdc-apache-cassandra/tree/master/connector-luna[connector-luna]
+|===
 
 [#supported-databases]
 == Supported databases

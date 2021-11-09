@@ -7,20 +7,25 @@ By downloading this DataStax product, you agree to the terms of the open-source 
 
 Perform the following steps:
 
-. Download the change agent that matches your Cassandra type and version,  *agent-<type>-<version>.jar* JAR file,  file from the https://downloads.datastax.com/cdc[DataStax downloads page] !!UPDATE-WITH-CORRECT-INFO!!.
+. Download the change agent tar file from the https://downloads.datastax.com/#cac[DataStax downloads page].
 
-The following files are available:
+The following files are available in the tar file:
 
 [cols="1,1,1"]
 |===
 | Cassandra type | Streaming platform |  JAR file 
 
-| Apache Cassandra 3.x | Apache Pulsar/Luna Streaming | agent-c3-luna-<version>.jar
-| Apache Cassandra 4.x | Apache Pulsar/Luna Streaming | agent-c4-luna-<version>.jar
-| DSE 6.8.16+ | Apache Pulsar/Luna Streaming | agent-dse4-luna-<version>.jar
+| Apache Cassandra 3.x | Apache Pulsar | agent-c3-pulsar-<version>.jar
+| Apache Cassandra 3.x | Luna Streaming | agent-c3-luna-<version>.jar
+| Apache Cassandra 4.x | Apache Pulsar | agent-c4-pulsar-<version>.jar
+| Apache Cassandra 4.x | Luna Streaming | agent-c4-luna-<version>.jar
+| DSE 6.8.16+ | Apache Pulsar | agent-dse4-pulsar-<version>.jar
+| DSE 6.8.16+ | Luna Streaming | agent-dse4-luna-<version>.jar
+
 
 |===
 
+Use the file that matches your Cassandra type and streaming platform.
 
 == Starting Cassandra with the Change Agent for Apache Cassandra
 
@@ -61,8 +66,20 @@ By downloading this DataStax product, you agree to the terms of the open-source 
 
 Perform the following steps:
 
-. Download the *pulsar-cassandra-source-<version>.nar.tar* tar file from the https://downloads.datastax.com/cdc[DataStax downloads page] !!UPDATE-WITH-CORRECT-INFO!!.
+. Download the NAR file that matches your streaming platform from the https://downloads.datastax.com/#csc[DataStax downloads page].
 
+The following files are available:
+
+[cols="1,1"]
+|===
+| Streaming platform |  NAR file 
+
+| Apache Pulsar | pulsar-cassandra-source-<version>.nar
+| Luna Streaming | luna-cassandra-source-<version>.nar
+
+|===
+
+Use the version that matches your streaming platform.
 
 == Deploy the Source Connector for Apache Pulsar
 
