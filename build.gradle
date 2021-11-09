@@ -1,3 +1,6 @@
+import com.github.jk1.license.render.*;
+import com.github.jk1.license.filter.*;
+
 plugins {
     id 'java'
     id 'idea'
@@ -10,6 +13,7 @@ plugins {
     id "kr.motd.sphinx" version "2.10.1"
     id "com.github.hierynomus.license" version"0.16.1"
     id "com.github.hierynomus.license-report" version"0.16.1"
+    id 'com.github.jk1.dependency-license-report'
     id "com.github.johnrengelman.shadow" apply false
     id "io.github.lhotari.gradle-nar-plugin" apply false
     id 'com.palantir.docker' version '0.30.0' apply false
@@ -36,6 +40,7 @@ allprojects {
     apply plugin: 'com.google.osdetector'
     apply plugin: 'com.github.hierynomus.license'
     apply plugin: 'com.gorylenko.gradle-git-properties'
+    apply plugin: 'com.github.jk1.dependency-license-report'
 
     sourceCompatibility = 1.8
     targetCompatibility = 1.8
@@ -146,4 +151,11 @@ task printVersion {
     doLast {
         println project.version
     }
+}
+
+
+licenseReport {
+    renderers = [new CsvReportRenderer(separator:';'), new TextReportRenderer(), new InventoryHtmlReportRenderer('index.html', 'CDC License Report')]
+    filters = [new LicenseBundleNormalizer(bundlePath: rootProject.file('buildSrc/src/main/resources/license-normalizer-bundle.json'))]
+    projects = [project] + project.subprojects
 }

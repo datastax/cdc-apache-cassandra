@@ -61,7 +61,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 @Slf4j
 public class PulsarCassandraSourceTests {
     public static final DockerImageName CASSANDRA_IMAGE = DockerImageName.parse(
-            Optional.ofNullable(System.getenv("CASSANDRA_IMAGE")).orElse("cassandra:4.0-beta4")
+            Optional.ofNullable(System.getenv("CASSANDRA_IMAGE"))
+                    .orElse("cassandra:" + System.getProperty("cassandraVersion"))
     ).asCompatibleSubstituteFor("cassandra");
 
     public static final DockerImageName PULSAR_IMAGE = DockerImageName.parse(
@@ -103,9 +104,11 @@ public class PulsarCassandraSourceTests {
         String pulsarServiceUrl = "pulsar://pulsar:" + pulsarContainer.BROKER_PORT;
         String agentBuildDir = System.getProperty("agentBuildDir");
         cassandraContainer1 = CassandraContainer.createCassandraContainerWithAgent(
-                CASSANDRA_IMAGE, testNetwork, 1, agentBuildDir, "agent-c4-luna", "pulsarServiceUrl=" + pulsarServiceUrl, "c4");
+                CASSANDRA_IMAGE, testNetwork, 1, agentBuildDir, "agent-c4-" + System.getProperty("pulsarDistribution"),
+                "pulsarServiceUrl=" + pulsarServiceUrl, "c4");
         cassandraContainer2 = CassandraContainer.createCassandraContainerWithAgent(
-                CASSANDRA_IMAGE, testNetwork, 2, agentBuildDir, "agent-c4-luna", "pulsarServiceUrl=" + pulsarServiceUrl, "c4");
+                CASSANDRA_IMAGE, testNetwork, 2, agentBuildDir, "agent-c4-" + System.getProperty("pulsarDistribution"),
+                "pulsarServiceUrl=" + pulsarServiceUrl, "c4");
         cassandraContainer1.start();
         cassandraContainer2.start();
 

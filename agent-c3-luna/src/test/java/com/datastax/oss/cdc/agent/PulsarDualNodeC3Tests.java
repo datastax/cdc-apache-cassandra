@@ -30,10 +30,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @Slf4j
 public class PulsarDualNodeC3Tests extends PulsarDualNodeTests {
 
-    public static final DockerImageName CASSANDRA_IMAGE = DockerImageName.parse(
-            Optional.ofNullable(System.getenv("CASSANDRA_IMAGE")).orElse("cassandra:3.11.10")
-    ).asCompatibleSubstituteFor("cassandra");
-
     public PulsarDualNodeC3Tests() {
         super(AgentTestUtil.Version.C3);
     }
@@ -41,7 +37,8 @@ public class PulsarDualNodeC3Tests extends PulsarDualNodeTests {
     @Override
     public CassandraContainer<?> createCassandraContainer(int nodeIndex, String pulsarServiceUrl, Network testNetwork) {
         return CassandraContainer.createCassandraContainerWithAgent(
-                CASSANDRA_IMAGE, testNetwork, nodeIndex, "c3", "luna", pulsarServiceUrl);
+                PulsarSingleNodeC3Tests.CASSANDRA_IMAGE, testNetwork, nodeIndex, "c3",
+                System.getProperty("pulsarDistribution"), pulsarServiceUrl);
     }
 
     @Override

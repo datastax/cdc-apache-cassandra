@@ -31,7 +31,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class PulsarSingleNodeC3Tests extends PulsarSingleNodeTests {
 
     public static final DockerImageName CASSANDRA_IMAGE = DockerImageName.parse(
-            Optional.ofNullable(System.getenv("CASSANDRA_IMAGE")).orElse("cassandra:3.11.10")
+            Optional.ofNullable(System.getenv("CASSANDRA_IMAGE"))
+                    .orElse("cassandra:" + System.getProperty("cassandraVersion"))
     ).asCompatibleSubstituteFor("cassandra");
 
     public PulsarSingleNodeC3Tests() {
@@ -41,7 +42,8 @@ public class PulsarSingleNodeC3Tests extends PulsarSingleNodeTests {
     @Override
     public CassandraContainer<?> createCassandraContainer(int nodeIndex, String pulsarServiceUrl, Network testNetwork) {
         return CassandraContainer.createCassandraContainerWithAgent(
-                CASSANDRA_IMAGE, testNetwork, nodeIndex, "c3", "luna", pulsarServiceUrl);
+                CASSANDRA_IMAGE, testNetwork, nodeIndex, "c3",
+                System.getProperty("pulsarDistribution"), pulsarServiceUrl);
     }
 
     @Override

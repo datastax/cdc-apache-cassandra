@@ -1,6 +1,6 @@
 # Docker Quick Start
 
-## Build images
+## Build docker images
 
 Build docker images with CDC enabled:
 
@@ -103,5 +103,5 @@ Check data are replicated in [elasticsearch](http://localhost:9200/_cat/indices)
 ## Shutdown containers
 
     ./gradlew agent-dse4-luna:composeDown
-    ./gradlew agent-v4-luna:composeDown
-    ./gradlew agent-v3-luna:composeDown
+    ./gradlew agent-c4-luna:composeDown
+    ./gradlew agent-c3-luna:composeDown

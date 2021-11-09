@@ -1,20 +1,24 @@
-= Installing the DataStax CDC for Apache Cassandra
+= Installing {cdc_cass_first}
 
-== Download the DataStax Change Agent for Apache Cassandra
+== Download the DataStax Change Agent for Apache Cassandra(R)
 
-IMPORTANT: https://www.apache.org/licenses/LICENSE-2.0[Apache-2.0 license agreement].
-By downloading this DataStax product, you agree to the terms of the open-source Apache-2.0 license agreement.
+IMPORTANT
+====
+By downloading this DataStax product, you agree to the terms of the open-source https://www.apache.org/licenses/LICENSE-2.0[Apache-2.0 license agreement].
+====
+
 
 Perform the following steps:
 
 . Download the change agent tar file from the downloads.datastax.com/#cassandra-change-agent
 [DataStax downloads page].
 
+
 The following files are available in the tar file:
 
 [cols="1,1,1"]
 |===
-| Cassandra type | Streaming platform |  JAR file 
+| Cassandra type | Streaming platform |  JAR file
 
 | Apache Cassandra 3.x | Apache Pulsar | agent-c3-pulsar-<version>-all.jar
 | Apache Cassandra 3.x | Luna Streaming | agent-c3-luna-<version>-all.jar
@@ -35,11 +39,13 @@ tar xvf cassandra-change-agent-<version>.tar
 
 Use the file that matches your Cassandra type and streaming platform.
 
-== Starting Cassandra with the Change Agent for Apache Cassandra
+== Start Cassandra with the Change Agent for Cassandra
 
-All data nodes of your Cassandra/DSE datacenter must run the change agent as a JVM agent to send mutations into the events topic of your streaming software. Start your Cassandra/DSE nodes with the appropriate producer binary matching your Cassandra/DSE version (3.11 or 4.0, 6.8.16) and your streaming platform (Luna Streaming/Apache Pulsar).
+All data nodes of your Cassandra or DSE datacenter must run the change agent as a JVM agent to send mutations into the events topic of your streaming software.
+Start your Cassandra or DSE nodes with the appropriate producer binary matching your Cassandra (3.11 or 4.0) or DSE (6.8.16) version and your streaming platform (Luna Streaming or Apache Pulsar).
 
-As a Java agent, the change agent parameters take place after the jar file name in the form of a comma separated list of paramName=paramValue. Here is an example for Luna Streaming/Apache Pulsar on Cassandra version 4.0 nodes:
+As a Java agent, the change agent parameters take place after the `jar` file name in the form of a comma-separated list of `paramName=paramValue`.
+Here is an example for Luna Streaming/Apache Pulsar on Cassandra version 4.0 nodes:
 
 [source,language-bash]
 ----
@@ -48,33 +54,39 @@ export JVM_EXTRA_OPTS="-javaagent:/path/to/agent-c4-luna-<version>-all.jar=pulsa
 
 For the full set of configuration options, see xref:agentParams.adoc[Change Agent Parameters]
 
-In addition to configuring the change agent, you also must enable CDC on the Cassandra node. You do this by setting *cdc_enabled* to true in the cassandra.yaml file. 
+In addition to configuring the change agent, enable CDC on the Cassandra node by setting `cdc_enabled` to `true` in the `cassandra.yaml` file.
 
-For Cassandra 4.X and DSE 6.8.16+ you can configure the commit log sync period. This controls how often the commit logs are made available for CDC processing. The default is 10 seconds. To reduce the latency from when the table is updated to when the event is availabe in the data topic, lower the period to, for example, 2 seconds.
+For Cassandra 4.X and DSE 6.8.16+, you can configure the commit log sync period.
+This parameter controls how often the commit logs are made available for CDC processing.
+The default is 10 seconds.
+To reduce the latency from when the table is updated to when the event is available in the data topic, decrease the period, such as 2 seconds.
 
-The total amount of CDC data stored is controlled by the *cdc_total_space_in_mb* parameter. If the amount of unprocessed CDC reaches this threshold, writes to CDC enabled tables will be rejected. Make sure you have the change agent installed on the node when CDC is enabled. Without the change agent to process the CDC data, the space used will grow until it hits this limit and then writes to CDC-enabled tables will stop.
+The total amount of CDC data stored is controlled by the `cdc_total_space_in_mb` parameter.
+If the amount of unprocessed CDC reaches this threshold, writes to CDC enabled tables will be rejected.
+Make sure you have the change agent installed on the node when CDC is enabled.
+Without the change agent to process the CDC data, the space used will grow until it hits this limit and then writes to CDC-enabled tables will stop.
 
-Here is an example set of configurations for the cassandra.yaml file:
+Here is an example set of configurations for the `cassandra.yaml` file:
 
 [source,language-bash]
 ----
-    cdc_enabled: true
-    commitlog_sync_period_in_ms: 2000
-    cdc_total_space_in_mb: 50000
+cdc_enabled: true
+commitlog_sync_period_in_ms: 2000
+cdc_total_space_in_mb: 50000
 ----
 
 == Change Agent Parameters
 
 include::agentParams.adoc[]
 
-== Download the DataStax Cassandra Source Connector for Apache Pulsar
+== Download {csc_pulsar}
+=======
+IMPORTANT
+====
+By downloading this DataStax product, you agree to the terms of the open-source https://www.apache.org/licenses/LICENSE-2.0[Apache-2.0 license agreement].
+====
 
-IMPORTANT: https://www.apache.org/licenses/LICENSE-2.0[Apache-2.0 license agreement].
-By downloading this DataStax product, you agree to the terms of the open-source Apache-2.0 license agreement.
-
-Perform the following steps:
-
-. Download the NAR file that matches your streaming platform from the downloads.datastax.com/#cassandra-source-connector[DataStax downloads page].
+. Download the `pulsar-cassandra-source-<version>.nar.tar` file from the https://downloads.datastax.com/#cdc[DataStax downloads page].
 
 The following files are available:
 
@@ -96,22 +108,25 @@ tar xvf cassandra-source-connector-<version>.tar
 
 Use the version that matches your streaming platform.
 
-== Deploy the Source Connector for Apache Pulsar
+== Deploy {csc_pulsar}
 
-In order to deploy the Source Connector NAR file in your Pulsar cluster, you upload it to a Luna Streaming/Pulsar using the *pulsar-admin sources create* command. You need to deploy a source connector for each CDC-enabled table. 
+To deploy the {csc_pulsar} `NAR` file in your Pulsar cluster, upload it to Luna Streaming or Pulsar using the `pulsar-admin sources create` command.
+You need to deploy a {csc_pulsar} for each CDC-enabled table.
 
-For each CDC-enabled table, the change agent will send events to the events topic. The topic name is determined by the *topicPrefix* setting in the agent (default: events-). The <keyspace_name>.<table_name> is appended to the prefix to build the topic name.
+For each CDC-enabled table, the change agent will send events to the events topic.
+The topic name is determined by the `topicPrefix` setting in the agent (default is `events-`).
+The `<keyspace_name>.<table_name>` is appended to the prefix to build the topic name.
 
 You have to specify the following parameters:
 
 * Connector name. You have one connector per CDC-enabled Cassandra table, make sure to use a unique name.
-* Previously downloaded Cassandra Source connector NAR file.
-* Pulsar tenant and namespace where the connector will run.
-* Destination topic for Cassandra data (data topic).
-* Number of instances (parallelism) of the connector. For high-volume tables you may need to run multiple connector instances to prevent a growing backlog on the events topic.
-* Name of the events topic the connector will read from. 
+* Previously downloaded {csc_pulsar} `NAR` file.
+* Pulsar `tenant` and `namespace` where the connector will run.
+* Destination `topic` for Cassandra data (`data` topic).
+* Number of instances (parallelism) of the connector. For high-volume tables, you might need to run multiple connector instances to prevent a growing backlog on the events topic.
+* Name of the `events` topic the connector will read from.
 * Keyspace and table associated with the events topics.
-* Connection information (ex contact points and DC information) for Cassandra.
+* Connection information (such as contact points and DC information) for Cassandra.
 
 Here is an example:
 
@@ -142,9 +157,12 @@ Then check your connector is in the running state with no errors:
 pulsar-admin source status --name cassandra-source-1
 ----
 
-Once the connector is running, it will process events from the events topic and publish the result to the data topic.
+Once the connector is running, it will process events from the `events` topic and publish the result to the `data` topic.
 
-For the full set of source configuration options, see xref:cfgCassandraSource.adoc[DataStax Cassandra Source Connector for Apache Pulsar settings]. For the full set of Cassandra authentication options, see xref:cfgCassandraAuth.adoc[Cassandra Authentication settings]. For the full set of Cassandra SSL settings, see xref:cfgCassandraSSL.adoc[Cassandra SSL/TLS settings]. For advanced configuration of the Cassandra driver in the source connector, see xref:cfgCassandraJavaDriverSettings.adoc[Pass Cassandra Source Connector for Apache Pulsar settings directly to the DataStax Java driver].
+For the full set of source configuration options, see xref:cfgCassandraSource.adoc[{csc_pulsar} settings].
+For the full set of Cassandra authentication options, see xref:cfgCassandraAuth.adoc[Cassandra Authentication settings].
+For the full set of Cassandra SSL settings, see xref:cfgCassandraSSL.adoc[Cassandra SSL/TLS settings].
+For advanced configuration of the Cassandra driver in the {csc_pulsar}, see xref:cfgCassandraJavaDriverSettings.adoc[Pass {csc_pulsar} settings directly to the DataStax Java driver].
 
 == Enabling and disabling CDC on a table
 
@@ -153,33 +171,29 @@ Once the change agent is installed and the connector is running, you can enable 
 [source,language-bash]
 ----
 CREATE TABLE foo (a int, b text, PRIMARY KEY(a)) WITH cdc=true;
-
 ALTER TABLE foo WITH cdc=true;
-
 ALTER TABLE foo WITH cdc=false;
 ----
 
-When CDC is enabled on a table, updates to that table are sent by the change agent to the Cassandra source connector which further processes the event and then sends it to the data topic when it can be processed by other connectors (for example, Elasticsearch).
+When CDC is enabled on a table, updates to that table are sent by the change agent to the {csc_pulsar} which further processes the event and then sends it to the data topic when it can be processed by other connectors (for example, Elasticsearch).
 
-
-include::cfgCassandraSource.adoc[]
-
-include::cfgCassandraAuth.adoc[]
-
-include::cfgCassandraSSL.adoc[]
-
-include::cfgCassandraJavaDriverSettings.adoc[]
+For the full set of source configuration options, see xref:cfgCassandraSource.adoc[{csc_pulsar} settings].
+For the full set of Cassandra authentication options, see xref:cfgCassandraAuth.adoc[Cassandra Authentication settings].
+For the full set of Cassandra SSL settings, see xref:cfgCassandraSSL.adoc[Cassandra SSL/TLS settings].
+For advanced configuration of the Cassandra driver in the {csc_pulsar}, see xref:cfgCassandraJavaDriverSettings.adoc[Pass {csc_pulsar} settings directly to the DataStax Java driver].
 
 == Scaling up your configuration
 
-If your connector is not keeping up and the messages in the events topic are growing, you can increase the number of connector instances using the *parallelism* parameter. Pulsar ensures in-order processing using Key_Shared subscriptions.
+If your connector is not keeping up and the messages in the events topic are growing, increase the number of connector instances using the `parallelism` parameter.
+Pulsar ensures in-order processing using Key_Shared subscriptions.
 
-If the volume of data in the events topic is very high, you can https://pulsar.apache.org/docs/en/admin-api-topics/#manage-partitioned-topics[partition] the events topic to distribute the load across multiple Pulsar brokers. You should do this before starting the change agent, since by default Puslar will auto-create non-partitioned topics. If you are using partitioned topics, change *events.subscription.type* to "Failover" to ensure in-order delivery when running multiple connector instances.
+If the volume of data in the events topic is very high, https://pulsar.apache.org/docs/en/admin-api-topics/#manage-partitioned-topics[partition] the events topic to distribute the load across multiple Pulsar brokers.
+Do this before starting the change agent, since by default Puslar will auto-create non-partitioned topics.
+If you are using partitioned topics, change `events.subscription.type` to `Failover` to ensure in-order delivery when running multiple connector instances.
 
-To further improve the throughput, you can adjust the *pulsarBatchDelayInMs* in the change agent to batch messages in the change agent before sending them to Pulsar.
+To further improve the throughput, you can adjust the `pulsarBatchDelayInMs` in the change agent to batch messages in the change agent before sending them to Pulsar.
 
-To improve performance on individual connector instances as they read data from Cassandra, you can adjust the *batch.size*, and the *query.executors*. Increasing these values from their defaults will increase parallelism within the connector instances.
+To improve performance on individual connector instances as they read data from Cassandra, you can adjust the `batch.size` and the `query.executors`.
+Increasing these values from their defaults will increase parallelism within the connector instances.
 
-The deduplication cache is configurable, including the cache size with *cache.max.capacity*, the entry retention duration *cache.expire.after.ms* and the number of MD5 digest per primary key entry with *cache.max.digest*.
-
-
+The de-duplication cache is configurable, including the cache size with `cache.max.capacity`, the entry retention duration `cache.expire.after.ms` and the number of MD5 digest per primary key entry with `cache.max.digest`.
