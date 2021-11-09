@@ -1,5 +1,4 @@
 plugins {
-    id 'java'
     id 'distribution'
     id 'io.github.lhotari.gradle-nar-plugin'
 }
