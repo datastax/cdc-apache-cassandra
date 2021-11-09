@@ -21,6 +21,12 @@ compileTestJava {
     options.compilerArgs += '-parameters'
 }
 
+sourceSets {
+    main.java.srcDir project(':agent-c3-luna').sourceSets.main.java
+    test.java.srcDir project(':agent-c3-luna').sourceSets.test.java
+    test.resources.srcDir project(':agent-c3-luna').sourceSets.test.resources
+}
+
 shadowJar {
     manifest {
         inheritFrom project.tasks.jar.manifest
@@ -66,6 +72,8 @@ test {
 
     systemProperty "buildDir", buildDir
     systemProperty "projectVersion", project.version
+    systemProperty "cassandraVersion", cassandra3Version
+    systemProperty "pulsarDistribution", "pulsar"
     systemProperty "pulsarVersion", pulsarVersion
 }
 

@@ -1,4 +1,4 @@
-# Cassandra 3.x CDC agent for Luna Streaming
+# Cassandra 3.x CDC agent for Apache Pulsar
 
 ## Build
 

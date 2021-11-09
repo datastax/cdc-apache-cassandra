@@ -10,6 +10,10 @@ tasks.withType(JavaCompile) {
 }
 
 sourceSets {
+    main.java.srcDir project(':connector-luna').sourceSets.main.java
+    test.java.srcDir project(':connector-luna').sourceSets.test.java
+    test.resources.srcDir project(':connector-luna').sourceSets.test.resources
+
     // Make the compileOnly dependencies available when compiling/running tests
     test.compileClasspath += configurations.compileClasspath
     test.runtimeClasspath += configurations.compileClasspath
@@ -67,8 +71,12 @@ test {
 
     useJUnitPlatform()
 
+    environment 'PULSAR_IMAGE', 'apachepulsar/pulsar:' + pulsarVersion
+
     systemProperty "connectorBuildDir", buildDir
     systemProperty "agentBuildDir", project(':agent-c4-pulsar').buildDir
+    systemProperty "cassandraVersion", cassandra4Version
+    systemProperty "pulsarDistribution", "pulsar"
     systemProperty "projectVersion", project.version
     systemProperty "pulsarVersion", pulsarVersion
 }

@@ -67,6 +67,8 @@ test {
 
     systemProperty "buildDir", buildDir
     systemProperty "projectVersion", project.version
+    systemProperty "cassandraVersion", cassandra3Version
+    systemProperty "pulsarDistribution", "luna"
     systemProperty "lunaTag", lunaTag
 }
 

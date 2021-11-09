@@ -69,6 +69,8 @@ test {
 
     systemProperty "connectorBuildDir", buildDir
     systemProperty "agentBuildDir", project(':agent-c4-luna').buildDir
+    systemProperty "cassandraVersion", cassandra4Version
+    systemProperty "pulsarDistribution", "luna"
     systemProperty "projectVersion", project.version
     systemProperty "lunaTag", lunaTag
 }

@@ -4,7 +4,7 @@ ARG BUILD_VERSION
 
 RUN sed -i 's/cdc_enabled: false/cdc_enabled: true/g' /etc/cassandra/cassandra.yaml
 
-COPY agent-c3-pulsar27-${BUILD_VERSION}-all.jar /
+COPY agent-c3-pulsar-${BUILD_VERSION}-all.jar /
 
 # Add cassandra-stress config
 COPY table1.yaml /
