@@ -40,6 +40,7 @@ public abstract class AbstractMutation<T> implements TableInfo {
     protected T metadata;
     private Object token;
 
+    public abstract String key();
     public abstract String name();
     public abstract String keyspace();
     public abstract List<ColumnInfo> primaryKeyColumns();

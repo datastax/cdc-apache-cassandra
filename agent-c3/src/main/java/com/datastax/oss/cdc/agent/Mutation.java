@@ -31,6 +31,11 @@ public class Mutation extends AbstractMutation<CFMetaData> {
     }
 
     @Override
+    public String key() {
+        return metadata.ksName + "." + metadata.cfName;
+    }
+
+    @Override
     public String name() {
         return metadata.cfName;
     }

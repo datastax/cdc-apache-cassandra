@@ -77,13 +77,13 @@ public class PulsarMutationSender extends AbstractPulsarMutationSender<TableMeta
 
     /**
      * Check the primary key has supported columns.
-     * @param tm
+     * @param mutation
      * @return false if the primary key has unsupported CQL columns
      */
     @Override
-    public boolean isSupported(final TableMetadata tm) {
-        if (!avroSchemaTypes.containsKey(tm)) {
-            for (ColumnMetadata cm : tm.primaryKeyColumns()) {
+    public boolean isSupported(final AbstractMutation<TableMetadata> mutation) {
+        if (!avroSchemas.containsKey(mutation.key())) {
+            for (ColumnMetadata cm : mutation.metadata.primaryKeyColumns()) {
                 if (!avroSchemaTypes.containsKey(cm.type.asCQL3Type().toString())) {
                     log.warn("Unsupported primary key column={}.{}.{} type={}, skipping mutation", cm.ksName, cm.cfName, cm.name, cm.type.asCQL3Type().toString());
                     return false;
