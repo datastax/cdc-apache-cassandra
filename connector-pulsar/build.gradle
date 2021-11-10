@@ -11,6 +11,7 @@ tasks.withType(JavaCompile) {
 
 sourceSets {
     main.java.srcDir project(':connector-luna').sourceSets.main.java
+    main.resources.srcDir project(':connector-luna').sourceSets.main.resources
     test.java.srcDir project(':connector-luna').sourceSets.test.java
     test.resources.srcDir project(':connector-luna').sourceSets.test.resources
 
