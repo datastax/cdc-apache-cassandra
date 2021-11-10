@@ -46,8 +46,6 @@ public abstract class AbstractMutation<T> implements TableInfo {
     public abstract List<ColumnInfo> primaryKeyColumns();
 
     public MutationValue mutationValue() {
-        // TODO: Unfortunately, computing the mutation CRC require to re-serialize it because we cannot get the byte[] from the commitlog reader.
-        // So, we use the timestamp here.
         return new MutationValue(md5Digest, nodeId, null);
     }
 }
