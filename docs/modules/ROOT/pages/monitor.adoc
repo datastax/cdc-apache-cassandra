@@ -1,8 +1,8 @@
-= Monitor {cdc_cass_first}
+= Monitor {cdc_cass}
 
 == Change Agent Metrics
 
-The change agent is a JVM agent running in Apache Cassandra(R) nodes provides a dedicated MBean type=`CdcProducer` with the following metrics:
+The change agent is a JVM agent running in Apache Cassandra® nodes provides a dedicated MBean type=`CdcProducer` with the following metrics:
 
 [cols="2,1,3"]
 |===

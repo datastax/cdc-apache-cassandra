@@ -4,9 +4,9 @@ version: "1.0.0"
 display_version: "1.0.0"
 asciidoc:
   attributes:
-    cdc_cass_first: 'DataStax CDC for Apache Cassandra(R)'
+    cdc_cass_first: 'DataStax CDC for Apache Cassandra®'
     cdc_cass: 'CDC for Cassandra'
-    csc_pulsar_first: 'DataStax Cassandra Source Connector for Apache Pulsar(R)'
+    csc_pulsar_first: 'DataStax Cassandra Source Connector for Apache Pulsar®'
     csc_pulsar: 'CSC for Pulsar'
 nav:
 - modules/ROOT/nav.adoc
