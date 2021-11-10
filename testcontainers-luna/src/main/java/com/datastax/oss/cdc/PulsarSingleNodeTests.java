@@ -269,7 +269,7 @@ public abstract class PulsarSingleNodeTests {
                     if (version.equals(AgentTestUtil.Version.C3)) {
                         // fill up the last CL file and flush for Cassandra 3.11
                         cqlSession.execute("CREATE TABLE IF NOT EXISTS mt.table2 (a int, b blob, PRIMARY KEY (a)) with cdc=false;");
-                        for (int i = 0; i < 5; i++) {
+                        for (int i = 0; i < 8; i++) {
                             cqlSession.execute("INSERT INTO mt.table2 (a,b) VALUES (?, ?);", i, AgentTestUtil.randomizeBuffer(getSegmentSize() / 4));
                         }
                         Thread.sleep(11000); // wait for sync
@@ -293,7 +293,7 @@ public abstract class PulsarSingleNodeTests {
                          .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                          .subscribe()) {
                 Message<GenericRecord> msg;
-                while ((msg = consumer.receive(90, TimeUnit.SECONDS)) != null) {
+                while ((msg = consumer.receive(120, TimeUnit.SECONDS)) != null) {
                     Assert.assertNotNull("Expecting one message, check the agent log", msg);
                     msgCount++;
                     String segpos = msg.getProperty(Constants.SEGMENT_AND_POSITION);
