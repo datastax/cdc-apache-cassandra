@@ -1,0 +1,28 @@
+plugins {
+    id 'distribution'
+    id 'io.github.lhotari.gradle-nar-plugin'
+}
+
+configurations {
+    release
+}
+
+dependencies {
+    release project(path: ':connector-luna', configuration: 'nar')
+    release project(path: ':connector-pulsar', configuration: 'nar')
+}
+
+import de.fanero.gradle.plugin.nar.Nar;
+
+distributions {
+    main {
+        distributionBaseName = 'cassandra-source-connectors'
+        contents {
+            from('src/main') {
+                include '**'
+            }
+            from(project(":connector-luna").tasks.withType(Nar))
+            from(project(":connector-pulsar").tasks.withType(Nar))
+        }
+    }
+}

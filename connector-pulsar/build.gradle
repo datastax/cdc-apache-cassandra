@@ -10,6 +10,11 @@ tasks.withType(JavaCompile) {
 }
 
 sourceSets {
+    main.java.srcDir project(':connector-luna').sourceSets.main.java
+    main.resources.srcDir project(':connector-luna').sourceSets.main.resources
+    test.java.srcDir project(':connector-luna').sourceSets.test.java
+    test.resources.srcDir project(':connector-luna').sourceSets.test.resources
+
     // Make the compileOnly dependencies available when compiling/running tests
     test.compileClasspath += configurations.compileClasspath
     test.runtimeClasspath += configurations.compileClasspath
@@ -38,7 +43,7 @@ dependencies {
     testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
     testImplementation project(':testcontainers')
 
-    nar "org.apache.pulsar:pulsar-io:${pulsarVersion}"
+    nar "${pulsarGroup}:pulsar-io:${pulsarVersion}"
 }
 
 tasks.jar.dependsOn project(':commons').jar
@@ -67,14 +72,17 @@ test {
 
     useJUnitPlatform()
 
+    environment 'PULSAR_IMAGE', 'apachepulsar/pulsar:' + pulsarVersion
+    environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra4Version
+
     systemProperty "connectorBuildDir", buildDir
     systemProperty "agentBuildDir", project(':agent-c4-pulsar').buildDir
+    systemProperty "pulsarDistribution", "pulsar"
     systemProperty "projectVersion", project.version
-    systemProperty "pulsarVersion", pulsarVersion
 }
 
 docker {
-    name "${dockerRepo}apachepulsar:${pulsarVersion}-csc"
+    name "${dockerRepo}pulsar:${pulsarVersion}-csc"
     dependsOn nar
     files "$buildDir/libs/", "src/docker/"
     buildArgs([BUILD_VERSION: project.version, PULSAR_VERSION: pulsarVersion])

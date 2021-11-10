@@ -1,4 +1,4 @@
-= {csc_pulsar} documentation
+= DataStax CDC for Apache Cassandra documentation
 
 This repo contains the source files for the {csc_pulsar_first} documentation.
 

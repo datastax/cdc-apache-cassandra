@@ -27,11 +27,6 @@ import java.util.Optional;
 @Slf4j
 public class PulsarDualNodeC4Tests extends PulsarDualNodeTests {
 
-    public static final DockerImageName CASSANDRA_IMAGE = DockerImageName.parse(
-            Optional.ofNullable(System.getenv("CASSANDRA_IMAGE"))
-                    .orElse("cassandra:4.0-beta4")
-    ).asCompatibleSubstituteFor("cassandra");
-
     public PulsarDualNodeC4Tests() {
         super(AgentTestUtil.Version.C4);
     }
@@ -39,7 +34,8 @@ public class PulsarDualNodeC4Tests extends PulsarDualNodeTests {
     @Override
     public CassandraContainer<?> createCassandraContainer(int nodeIndex, String pulsarServiceUrl, Network testNetwork) {
         return CassandraContainer.createCassandraContainerWithAgent(
-                CASSANDRA_IMAGE, testNetwork, nodeIndex, "c4", "pulsar", pulsarServiceUrl);
+                PulsarSingleNodeC4Tests.CASSANDRA_IMAGE, testNetwork, nodeIndex, "c4",
+                System.getProperty("pulsarDistribution"), pulsarServiceUrl);
     }
 
 }

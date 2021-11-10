@@ -29,7 +29,7 @@ public class PulsarSingleNodeDse4Tests extends PulsarSingleNodeTests {
 
     public static final DockerImageName CASSANDRA_IMAGE = DockerImageName.parse(
             Optional.ofNullable(System.getenv("CASSANDRA_IMAGE"))
-                    .orElse("datastax/dse-server:6.8.16")
+                    .orElse("datastax/dse-server:" + System.getProperty("dseVersion"))
     ).asCompatibleSubstituteFor("cassandra");
 
     public PulsarSingleNodeDse4Tests() {
@@ -43,7 +43,7 @@ public class PulsarSingleNodeDse4Tests extends PulsarSingleNodeTests {
                         testNetwork,
                         nodeIndex,
                         System.getProperty("buildDir"),
-                        "agent-dse4-luna",
+                        "agent-dse4-" + System.getProperty("pulsarDistribution"),
                         String.format("pulsarServiceUrl=%s,cdcWorkingDir=/var/lib/cassandra/cdc", pulsarServiceUrl),
                         "dse4")
                 .withEnv("DC", CassandraContainer.LOCAL_DC)

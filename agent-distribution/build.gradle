@@ -1,0 +1,30 @@
+plugins {
+    id 'distribution'
+}
+
+configurations {
+    release
+}
+
+dependencies {
+    release project(path: ':agent-c3-luna', configuration: 'shadow')
+    release project(path: ':agent-c4-luna', configuration: 'shadow')
+    release project(path: ':agent-c3-pulsar', configuration: 'shadow')
+    release project(path: ':agent-c4-pulsar', configuration: 'shadow')
+    if (project.hasProperty("dse4")) {
+        release project(path: ':agent-dse4-luna', configuration: 'shadow')
+        release project(path: ':agent-dse4-pulsar', configuration: 'shadow')
+    }
+}
+
+distributions {
+    main {
+        distributionBaseName = 'cassandra-source-agents'
+        contents {
+            from('src/main') {
+                include '**'
+            }
+            from configurations.release
+        }
+    }
+}

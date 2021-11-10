@@ -7,20 +7,36 @@ IMPORTANT
 By downloading this DataStax product, you agree to the terms of the open-source https://www.apache.org/licenses/LICENSE-2.0[Apache-2.0 license agreement].
 ====
 
-Download the change agent that matches your Cassandra type and version, `agent-<type>-<version>.jar` file,  file from the https://downloads.datastax.com/#cdc[DataStax downloads page].
 
-The following files are available:
+Perform the following steps:
+
+. Download the change agent tar file from the https://downloads.datastax.com/#cassandra-change-agent[DataStax downloads page].
+
+
+The following files are available in the tar file:
 
 [cols="1,1,1"]
 |===
 | Cassandra type | Streaming platform |  JAR file
 
-| Apache Cassandra 3.x | Apache Pulsar/Luna Streaming | agent-c3-luna-<version>.jar
-| Apache Cassandra 4.x | Apache Pulsar/Luna Streaming | agent-c4-luna-<version>.jar
-| DSE 6.8.16+ | Apache Pulsar/Luna Streaming | agent-dse4-luna-<version>.jar
+| Apache Cassandra 3.x | Apache Pulsar | agent-c3-pulsar-<version>-all.jar
+| Apache Cassandra 3.x | Luna Streaming | agent-c3-luna-<version>-all.jar
+| Apache Cassandra 4.x | Apache Pulsar | agent-c4-pulsar-<version>-all.jar
+| Apache Cassandra 4.x | Luna Streaming | agent-c4-luna-<version>-all.jar
+| DSE 6.8.16+ | Apache Pulsar | agent-dse4-pulsar-<version>-all.jar
+| DSE 6.8.16+ | Luna Streaming | agent-dse4-luna-<version>-all.jar
+
 
 |===
 
+Extract the files from the tar with the following command:
+
+[source,language-bash]
+----
+tar xvf cassandra-source-agents-<version>.tar
+----
+
+Use the file that matches your Cassandra type and streaming platform.
 
 == Start Cassandra with the Change Agent for Cassandra
 
@@ -63,13 +79,32 @@ cdc_total_space_in_mb: 50000
 include::agentParams.adoc[]
 
 == Download {csc_pulsar}
-
 IMPORTANT
 ====
 By downloading this DataStax product, you agree to the terms of the open-source https://www.apache.org/licenses/LICENSE-2.0[Apache-2.0 license agreement].
 ====
 
-Download the `pulsar-cassandra-source-<version>.nar.tar` file from the https://downloads.datastax.com/#cdc[DataStax downloads page].
+. Download the `pulsar-cassandra-source-<version>.tar` file from the https://downloads.datastax.com/#cassandra-source-connector[DataStax downloads page].
+
+The following files are available:
+
+[cols="1,1"]
+|===
+| Streaming platform |  NAR file 
+
+| Apache Pulsar | pulsar-cassandra-source-<version>.nar
+| Luna Streaming | luna-cassandra-source-<version>.nar
+
+|===
+
+Extract the files from the tar with the following command:
+
+[source,language-bash]
+----
+tar xvf cassandra-source-connectors-<version>.tar
+----
+
+Use the version that matches your streaming platform.
 
 == Deploy {csc_pulsar}
 

@@ -61,7 +61,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 @Slf4j
 public class PulsarCassandraSourceTests {
     public static final DockerImageName CASSANDRA_IMAGE = DockerImageName.parse(
-            Optional.ofNullable(System.getenv("CASSANDRA_IMAGE")).orElse("cassandra:4.0-beta4")
+            Optional.ofNullable(System.getenv("CASSANDRA_IMAGE"))
+                    .orElse("cassandra:" + System.getProperty("cassandraVersion"))
     ).asCompatibleSubstituteFor("cassandra");
 
     public static final DockerImageName PULSAR_IMAGE = DockerImageName.parse(
@@ -81,7 +82,7 @@ public class PulsarCassandraSourceTests {
 
         String connectorBuildDir = System.getProperty("connectorBuildDir");
         String projectVersion = System.getProperty("projectVersion");
-        String connectorJarFile = String.format(Locale.ROOT, "pulsar-cassandra-source-%s.nar", projectVersion);
+        String connectorJarFile = String.format(Locale.ROOT,  "%s-cassandra-source-%s.nar", System.getProperty("pulsarDistribution"), projectVersion);
         pulsarContainer = new PulsarContainer<>(PULSAR_IMAGE)
                 .withNetwork(testNetwork)
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withName("pulsar"))
@@ -103,9 +104,11 @@ public class PulsarCassandraSourceTests {
         String pulsarServiceUrl = "pulsar://pulsar:" + pulsarContainer.BROKER_PORT;
         String agentBuildDir = System.getProperty("agentBuildDir");
         cassandraContainer1 = CassandraContainer.createCassandraContainerWithAgent(
-                CASSANDRA_IMAGE, testNetwork, 1, agentBuildDir, "agent-c4-luna", "pulsarServiceUrl=" + pulsarServiceUrl, "c4");
+                CASSANDRA_IMAGE, testNetwork, 1, agentBuildDir, "agent-c4-" + System.getProperty("pulsarDistribution"),
+                "pulsarServiceUrl=" + pulsarServiceUrl, "c4");
         cassandraContainer2 = CassandraContainer.createCassandraContainerWithAgent(
-                CASSANDRA_IMAGE, testNetwork, 2, agentBuildDir, "agent-c4-luna", "pulsarServiceUrl=" + pulsarServiceUrl, "c4");
+                CASSANDRA_IMAGE, testNetwork, 2, agentBuildDir, "agent-c4-" + System.getProperty("pulsarDistribution"),
+                "pulsarServiceUrl=" + pulsarServiceUrl, "c4");
         cassandraContainer1.start();
         cassandraContainer2.start();
 
@@ -198,7 +201,6 @@ public class PulsarCassandraSourceTests {
                 "--tenant", "public",
                 "--namespace", "default",
                 "--name", "cassandra-source-" + ksName + "-" + tableName);
-        assertEquals(0, result.getExitCode(), "undeployConnector failed:" + result.getStdout());
     }
 
     /**

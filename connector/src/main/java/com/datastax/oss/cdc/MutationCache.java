@@ -41,6 +41,7 @@ public class MutationCache<K> {
         mutationCache = Caffeine.newBuilder()
                 .expireAfterWrite(expireAfter.getSeconds(), TimeUnit.SECONDS)
                 .maximumSize(maxCapacity)
+                .recordStats()
                 .build();
     }
 
