@@ -1,6 +1,6 @@
-= Installing {cdc_cass_first}
+= Installing {cdc_cass}
 
-== Download the DataStax Change Agent for Apache Cassandra(R)
+== Download the DataStax Change Agent for Apache Cassandra®
 
 IMPORTANT
 ====

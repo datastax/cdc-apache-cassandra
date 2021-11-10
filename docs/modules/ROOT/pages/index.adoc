@@ -1,7 +1,7 @@
 = About {cdc_cass}
 
 {cdc_cass_first} is open-source software (OSS) that sends Cassandra mutations
-for tables having Change Data Capture (CDC) enabled to https://www.datastax.com/products/luna-streaming[Luna Streaming] or https://pulsar.apache.org/[Apache Pulsar]®, which in turn can write the data to platforms such as Elasticsearch(R) or Snowflake(R).
+for tables having Change Data Capture (CDC) enabled to https://www.datastax.com/products/luna-streaming[Luna Streaming] or https://pulsar.apache.org/[Apache Pulsar]®, which in turn can write the data to platforms such as Elasticsearch® or Snowflake®.
 
 == Key Features
 
@@ -79,7 +79,7 @@ For each update to the table, an MD5 digest is calculated to de-duplicate the up
 [#supported-databases]
 == Supported databases
 
-* Apache Cassandra(R) 3.11.x and 4.x databases
+* Apache Cassandra® 3.11.x and 4.x databases
 * Datastax Server Enterprise 6.8.16+
 
 == Supported Cassandra data structures
