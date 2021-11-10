@@ -6,7 +6,7 @@ ARG CDC_TOTAL_SPACE_IN_MB
 
 RUN sed -i 's/cdc_enabled: false/cdc_enabled: true/g' /etc/cassandra/cassandra.yaml
 RUN sed -i "s/commitlog_sync_period_in_ms: 10000/commitlog_sync_period_in_ms: $COMMITMOG_SYNC_PERIOD_IN_MS/g" /etc/cassandra/cassandra.yaml
-RUN echo "cdc_total_space_in_mb: ${CDC_TOTAL_SPACE_IN_MB}" >> /opt/dse/resources/cassandra/conf/cassandra.yaml
+RUN echo "cdc_total_space_in_mb: ${CDC_TOTAL_SPACE_IN_MB}" >> /etc/cassandra/cassandra.yaml
 
 COPY agent-c4-pulsar-${BUILD_VERSION}-all.jar /
 
