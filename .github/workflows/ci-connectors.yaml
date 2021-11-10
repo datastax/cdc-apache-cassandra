@@ -1,14 +1,6 @@
-name: Pulsar Connectors CI
+name: Test Connectors CI
 
-on:
-  push:
-    paths-ignore:
-      - 'docs/**'
-      - 'kubernetes/**'
-      - '.github/**'
-      - '**.md'
-      - 'grafana/**'
-      - 'prometheus/**'
+on: [workflow_dispatch]
 
 jobs:
   build:
