@@ -109,8 +109,8 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
     SourceContext sourceContext;
     CassandraSourceConnectorConfig config;
-    CassandraClient cassandraClient;
     Consumer<KeyValue<GenericRecord, MutationValue>> consumer = null;
+    volatile CassandraClient cassandraClient;
 
     String dirtyTopicName;
     Converter mutationKeyConverter;
@@ -441,7 +441,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                         // no more records within the timeout, but we have at least one record
                         break;
                     } else {
-                        log.debug("no message received, buffer size {}", newRecords.size());
+                        log.debug("no message received");
                         continue;
                     }
                 }
