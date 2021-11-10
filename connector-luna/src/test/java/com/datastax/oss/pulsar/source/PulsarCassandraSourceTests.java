@@ -201,7 +201,6 @@ public class PulsarCassandraSourceTests {
                 "--tenant", "public",
                 "--namespace", "default",
                 "--name", "cassandra-source-" + ksName + "-" + tableName);
-        assertEquals(0, result.getExitCode(), "undeployConnector failed:" + result.getStdout());
     }
 
     /**
