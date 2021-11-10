@@ -31,6 +31,11 @@ public class Mutation extends AbstractMutation<TableMetadata> {
     }
 
     @Override
+    public String key() {
+        return metadata.keyspace + "." + metadata.name;
+    }
+
+    @Override
     public String name() {
         return metadata.name;
     }

@@ -78,7 +78,7 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
 
     public abstract Schema getAvroSchema(String cql3Type);
     public abstract Object cqlToAvro(T t, String columnName, Object value);
-    public abstract boolean isSupported(final T t);
+    public abstract boolean isSupported(AbstractMutation<T> mutation);
     public abstract void incSkippedMutations();
     public abstract UUID getHostId();
 
@@ -135,8 +135,7 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
      * @return avroSchema of the table primary key
      */
     public AvroSchema getAvroKeySchema(final TableInfo tableInfo) {
-        final String keyspaceAndTable = tableInfo.keyspace() + "." + tableInfo.name();
-        return avroSchemas.computeIfAbsent(keyspaceAndTable, k -> {
+        return avroSchemas.computeIfAbsent(tableInfo.key(), k -> {
             List<Schema.Field> fields = new ArrayList<>();
             for (ColumnInfo cm : tableInfo.primaryKeyColumns()) {
                 org.apache.avro.Schema.Field field = new org.apache.avro.Schema.Field(cm.name(), getAvroSchema(cm.cql3Type()));
@@ -146,7 +145,7 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
                 }
                 fields.add(field);
             }
-            org.apache.avro.Schema avroSchema = org.apache.avro.Schema.createRecord(keyspaceAndTable, SCHEMA_DOC_PREFIX + keyspaceAndTable, tableInfo.name(), false, fields);
+            org.apache.avro.Schema avroSchema = org.apache.avro.Schema.createRecord(tableInfo.key(), SCHEMA_DOC_PREFIX + tableInfo.key(), tableInfo.name(), false, fields);
             return new AvroSchema(avroSchema, new SpecificDatumWriter<>(avroSchema));
         });
     }
@@ -218,7 +217,7 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
     public CompletableFuture<MessageId> sendMutationAsync(final AbstractMutation<T> mutation) throws PulsarClientException {
-        if (!isSupported(mutation.getMetadata())) {
+        if (!isSupported(mutation)) {
             incSkippedMutations();
             return CompletableFuture.completedFuture(null);
         }
