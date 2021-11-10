@@ -29,7 +29,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.IntBinaryOperator;
+import java.util.function.LongBinaryOperator;
 
 @Slf4j
 public abstract class CommitLogReaderService implements Runnable, AutoCloseable
@@ -55,7 +57,7 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
     /**
      * Identify the working segment (not immutable) to properly garbageCollect immutable CL files.
      */
-    static volatile long lastSegment = 0;
+    static AtomicLong lastSegment = new AtomicLong(0);
 
     static AtomicInteger maxSubmittedTasks = new AtomicInteger(0);
     static AtomicInteger maxPendingTasks = new AtomicInteger(0);
@@ -114,15 +116,18 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
         long seg = CommitLogUtil.extractTimestamp(file.getName());
         if (file.getName().endsWith("_cdc.idx")) {
             try {
-                lastSegment = Math.max(lastSegment, seg);
-                if (seg > lastSegment) {
+                if (seg > lastSegment.get()) {
                     garbageCollect(seg);
-                    lastSegment = seg;
                 }
-                int pos = 0;
+                lastSegment.getAndAccumulate(seg, new LongBinaryOperator() {
+                    @Override
+                    public long applyAsLong(long left, long right) {
+                        return Math.max(left, right);
+                    }
+                });
                 List<String> lines = Files.readAllLines(file.toPath(), Charset.forName("UTF-8"));
                 if (lines.size() > 0) {
-                    pos = Integer.parseInt(lines.get(0));
+                    int pos = Integer.parseInt(lines.get(0));
                     boolean completed = false;
                     try {
                         if(lines.get(1).contains("COMPLETED")) {
