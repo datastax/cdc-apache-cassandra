@@ -54,7 +54,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     private final MutationSender<CFMetaData> mutationSender;
     private final SegmentOffsetWriter segmentOffsetWriter;
     private final CommitLogReaderService.Task task;
-    private volatile int markedPosition = 0;
+    private int markedPosition = 0;
 
     CommitLogReadHandlerImpl(AgentConfig config,
                              SegmentOffsetWriter segmentOffsetWriter,

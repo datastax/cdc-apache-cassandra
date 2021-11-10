@@ -54,7 +54,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     private final AbstractMutationMaker<TableMetadata> mutationMaker;
     private final MutationSender<TableMetadata> mutationSender;
     private final CommitLogReaderService.Task task;
-    private volatile int processedPosition = 0;
+    private int processedPosition;
 
     CommitLogReadHandlerImpl(AgentConfig config,
                              MutationSender<TableMetadata> mutationSender,
