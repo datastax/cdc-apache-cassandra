@@ -1,6 +1,14 @@
 name: Agents CI
 
-on: [workflow_dispatch]
+on:
+  push:
+    paths-ignore:
+      - 'docs/**'
+      - 'kubernetes/**'
+      - '.github/**'
+      - '**.md'
+      - 'grafana/**'
+      - 'prometheus/**'
 
 jobs:
   build:
