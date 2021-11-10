@@ -62,7 +62,7 @@ The data replicated to DC1 will be processed by the change agent and eventually 
 
 === Is {cdc_cass} an open-source project?
 
-Yes, {cdc_cass} is open source using the Apache 2.0 license.
+Yes, {cdc_cass} is open source using the Apache 2.0 license. You can find the source code on the GitHub repository https://github.com/datastax/cdc-apache-cassandra[datastax/cdc-apache-cassandra].
 
 === What does {cdc_cass} provide that I cannot get with open-source Apache Pulsar?
 
