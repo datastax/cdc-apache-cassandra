@@ -1,6 +1,7 @@
 # DataStax CDC for Apache Cassandra
 
-![tests](https://github.com/datastax/cdc-apache-cassandra/actions/workflows/ci.yaml/badge.svg)
+![agents](https://github.com/datastax/cdc-apache-cassandra/actions/workflows/ci-agents.yaml/badge.svg)
+![connectors](https://github.com/datastax/cdc-apache-cassandra/actions/workflows/ci-connectors.yaml/badge.svg)
 ![documentation](https://github.com/datastax/cdc-apache-cassandra/actions/workflows/publish.yml/badge.svg)
 ![release](https://github.com/datastax/cdc-apache-cassandra/actions/workflows/release.yaml/badge.svg)
 [![GitHub release](https://img.shields.io/github/v/release/datastax/cdc-apache-cassandra.svg)](https://github.com/datastax/cdc-apache-cassandra/releases/latest)
@@ -20,6 +21,8 @@ Supported Cassandra version:
 * Cassandra 3.11+
 * Cassandra 4.0+
 * Datastax Enterprise Server 6.8.16+
+
+Note: Only Cassandra 4.0 and DSE 6.8.16+ support the near realtime CDC allowing to replicate data as soon as they are synced on disk.
 
 ## Documentation
 
