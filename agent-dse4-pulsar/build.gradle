@@ -98,9 +98,9 @@ project.afterEvaluate {
     project.tasks.publishMavenPublicationToMavenRepository.enabled = false
 }
 
+dockerPrepare.dependsOn(shadowJar)
 docker {
     name "${dockerRepo}dse4-server:${dse4Version}-cdc-pulsar"
-    dependsOn shadowJar
     files "$buildDir/libs/", "src/docker/"
     buildArgs([BUILD_VERSION: project.version,
                DSE_VERSION: dse4Version,

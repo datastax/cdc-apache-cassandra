@@ -78,10 +78,9 @@ test {
     systemProperty "pulsarDistribution", "pulsar"
 }
 
-
+dockerPrepare.dependsOn(shadowJar)
 docker {
     name "${dockerRepo}cassandra:${cassandra3Version}-cdc-pulsar"
-    dependsOn shadowJar
     files "$buildDir/libs/", "src/docker/"
     buildArgs([BUILD_VERSION: project.version, CASSANDRA_VERSION: cassandra3Version])
 }

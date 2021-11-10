@@ -81,9 +81,9 @@ test {
     systemProperty "projectVersion", project.version
 }
 
+dockerPrepare.dependsOn(nar)
 docker {
     name "${dockerRepo}pulsar:${pulsarVersion}-csc"
-    dependsOn nar
     files "$buildDir/libs/", "src/docker/"
     buildArgs([BUILD_VERSION: project.version, PULSAR_VERSION: pulsarVersion])
 }

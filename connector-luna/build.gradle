@@ -76,9 +76,9 @@ test {
     systemProperty "projectVersion", project.version
 }
 
+dockerPrepare.dependsOn(nar)
 docker {
     name "${dockerRepo}lunastreaming:${lunaTag}-csc"
-    dependsOn nar
     files "$buildDir/libs/", "src/docker/"
     buildArgs([BUILD_VERSION: project.version, LUNA_VERSION: lunaTag])
 }
