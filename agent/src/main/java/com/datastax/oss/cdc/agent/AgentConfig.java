@@ -420,7 +420,7 @@ public class AgentConfig {
                 continue;
             }
             if (! (entry.getValue() instanceof String)) {
-                throw new IllegalArgumentException(String.format("Unsupported parameter '%s' of type, only String values are allowed ", key, entry.getValue().getClass()));
+                throw new IllegalArgumentException(String.format("Unsupported parameter '%s' of type '%s', only String values are allowed ", key, entry.getValue().getClass()));
             }
             String value = (String) entry.getValue();
             Setting<?> setting = settingMap.get(key);
