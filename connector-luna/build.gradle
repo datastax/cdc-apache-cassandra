@@ -48,10 +48,10 @@ jar {
 }
 
 nar {
-    archivesBaseName = 'pulsar-cassandra-source'
+    archivesBaseName = 'luna-cassandra-source'
     manifest {
         attributes 'Nar-Group': 'com.datastax.oss'
-        attributes 'Nar-Id': 'pulsar-io-cassandra-source-nar'
+        attributes 'Nar-Id': 'luna-io-cassandra-source-nar'
     }
 }
 
@@ -67,14 +67,17 @@ test {
 
     useJUnitPlatform()
 
+    environment 'PULSAR_IMAGE', 'datastax/lunastreaming:' + lunaTag
+    environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra4Version
+
     systemProperty "connectorBuildDir", buildDir
     systemProperty "agentBuildDir", project(':agent-c4-luna').buildDir
+    systemProperty "pulsarDistribution", "luna"
     systemProperty "projectVersion", project.version
-    systemProperty "lunaTag", lunaTag
 }
 
 docker {
-    name "${dockerRepo}/lunastreaming:${lunaTag}-csc"
+    name "${dockerRepo}lunastreaming:${lunaTag}-csc"
     dependsOn nar
     files "$buildDir/libs/", "src/docker/"
     buildArgs([BUILD_VERSION: project.version, LUNA_VERSION: lunaTag])

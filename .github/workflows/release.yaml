@@ -32,7 +32,7 @@ jobs:
             ${{ runner.os }}-buildx-
 
       - name: Build with Gradle
-        run: ./gradlew assemble -PpulsarRepoUrl=https://repo.datastax.com/artifactory/datastax-public-releases-local -x :agent-dse4:assemble -x :agent-dse4-luna:assemble
+        run: ./gradlew assemble -PpulsarRepoUrl=https://repo.datastax.com/artifactory/datastax-public-releases-local -x :agent-dse4:assemble -x :agent-dse4-luna:assemble -x :agent-dse4-pulsar:assemble
 
       - name: Create Release
         id: create_release
@@ -45,36 +45,69 @@ jobs:
           draft: false
           prerelease: true
 
-      - name: Upload Release Tar
-        id: upload-release-tar
+      - name: Upload Connectors Release Tar
+        id: upload-connectors-release-tar
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: distribution/build/distributions/cassandra-source-connectors-${{ env.CURRENT_VERSION }}.tar
+          asset_path: connector-distribution/build/distributions/cassandra-source-connectors-${{ env.CURRENT_VERSION }}.tar
           asset_name: cassandra-source-connectors-${{ env.CURRENT_VERSION }}.tar
           asset_content_type: application/tar
-      - name: Upload Release Zip
-        id: upload-release-zip
+      - name: Upload Connectors Release Zip
+        id: upload-connectors-release-zip
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: distribution/build/distributions/cassandra-source-connectors-${{ env.CURRENT_VERSION }}.zip
+          asset_path: connector-distribution/build/distributions/cassandra-source-connectors-${{ env.CURRENT_VERSION }}.zip
           asset_name: cassandra-source-connectors-${{ env.CURRENT_VERSION }}.zip
           asset_content_type: application/zip
-      - name: Upload Release NAR
-        id: upload-release-nar
+
+      - name: Upload Agents Release Tar
+        id: upload-agents-release-tar
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: source-pulsar/build/libs/pulsar-cassandra-source-${{ env.CURRENT_VERSION }}.nar
+          asset_path: agent-distribution/build/distributions/cassandra-source-agents-${{ env.CURRENT_VERSION }}.tar
+          asset_name: cassandra-source-agents-${{ env.CURRENT_VERSION }}.tar
+          asset_content_type: application/tar
+      - name: Upload Agents Release Zip
+        id: upload-agents-release-zip
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
+          asset_path: agent-distribution/build/distributions/cassandra-source-agents-${{ env.CURRENT_VERSION }}.zip
+          asset_name: cassandra-source-agents-${{ env.CURRENT_VERSION }}.zip
+          asset_content_type: application/zip
+
+      - name: Upload Release Pulsar NAR
+        id: upload-release-pulsar-nar
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
+          asset_path: connector-pulsar/build/libs/pulsar-cassandra-source-${{ env.CURRENT_VERSION }}.nar
           asset_name: pulsar-cassandra-source-${{ env.CURRENT_VERSION }}.nar
           asset_content_type: application/java-archive
+      - name: Upload Release Luna NAR
+        id: upload-release-luna-nar
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
+          asset_path: connector-luna/build/libs/luna-cassandra-source-${{ env.CURRENT_VERSION }}.nar
+          asset_name: luna-cassandra-source-${{ env.CURRENT_VERSION }}.nar
+          asset_content_type: application/java-archive
+
       - name: Upload Release agent-c3-luna
         id: agent-c3-luna-jar
         uses: actions/upload-release-asset@v1
@@ -94,4 +127,25 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
           asset_path: agent-c4-luna/build/libs/agent-c4-luna-${{ env.CURRENT_VERSION }}-all.jar
           asset_name: agent-c4-luna-${{ env.CURRENT_VERSION }}-all.jar
+          asset_content_type: application/java-archive
+
+      - name: Upload Release agent-c3-pulsar
+        id: agent-c3-pulsar-jar
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
+          asset_path: agent-c3-pulsar/build/libs/agent-c3-pulsar-${{ env.CURRENT_VERSION }}-all.jar
+          asset_name: agent-c3-pulsar-${{ env.CURRENT_VERSION }}-all.jar
+          asset_content_type: application/java-archive
+      - name: Upload Release agent-c4-pulsar
+        id: agent-c4-pulsar-jar
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
+          asset_path: agent-c4-pulsar/build/libs/agent-c4-pulsar-${{ env.CURRENT_VERSION }}-all.jar
+          asset_name: agent-c4-pulsar-${{ env.CURRENT_VERSION }}-all.jar
           asset_content_type: application/java-archive

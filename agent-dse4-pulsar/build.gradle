@@ -22,6 +22,12 @@ compileTestJava {
     options.compilerArgs += '-parameters'
 }
 
+sourceSets {
+    main.java.srcDir project(':agent-dse4-luna').sourceSets.main.java
+    test.java.srcDir project(':agent-dse4-luna').sourceSets.test.java
+    test.resources.srcDir project(':agent-dse4-luna').sourceSets.test.resources
+}
+
 configurations {
     custom
 }
@@ -68,9 +74,12 @@ test {
 
     useJUnitPlatform()
 
+    environment 'PULSAR_IMAGE', 'apachepulsar/pulsar:' + pulsarVersion
+    environment 'CASSANDRA_IMAGE', 'datastax/dse-server:' + dse4Version
+
     systemProperty "buildDir", buildDir
     systemProperty "projectVersion", project.version
-    systemProperty "pulsarVersion", pulsarVersion
+    systemProperty "pulsarDistribution", "pulsar"
 }
 
 shadowJar {

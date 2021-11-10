@@ -39,7 +39,7 @@ dependencies {
 
     implementation("org.apache.avro:avro:${avroVersion}")
 
-    implementation("${pulsarGroup}:pulsar-client:${pulsarVersion}")
+    implementation("com.datastax.oss:pulsar-client:${lunaVersion}")
 
     compileOnly("org.apache.cassandra:cassandra-all:${cassandra4Version}")
     testCompileOnly("org.apache.cassandra:cassandra-all:${cassandra4Version}")
@@ -52,7 +52,7 @@ dependencies {
 
     testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
     testImplementation project(':testcontainers')
-    testImplementation project(':testcontainers-pulsar')
+    testImplementation project(':testcontainers-luna')
 
     testRuntimeOnly "org.slf4j:slf4j-api:${slf4jVersion}"
     testRuntimeOnly "org.slf4j:slf4j-simple:${slf4jVersion}"
@@ -67,9 +67,12 @@ test {
 
     useJUnitPlatform()
 
+    environment 'PULSAR_IMAGE', 'datastax/lunastreaming:' + lunaTag
+    environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra4Version
+
     systemProperty "buildDir", buildDir
     systemProperty "projectVersion", project.version
-    systemProperty "lunaTag", lunaTag
+    systemProperty "pulsarDistribution", "luna"
 }
 
 docker {

@@ -1,8 +1,8 @@
-# Cassandra 4.x CDC agent for Luna Streaming
+# Cassandra 4.x CDC agent for Apache Pulsar
 
 ## Build
 
-    ./gradlew agent-c4-luna:shadowJar
+    ./gradlew agent-c4-pulsar:shadowJar
 
 ## Run
 

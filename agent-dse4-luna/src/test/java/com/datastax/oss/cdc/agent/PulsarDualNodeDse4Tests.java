@@ -38,9 +38,9 @@ public class PulsarDualNodeDse4Tests extends PulsarDualNodeTests {
                         testNetwork,
                         nodeIndex,
                         System.getProperty("buildDir"),
-                        "agent-dse4-luna",
+                        "agent-dse4-" +  System.getProperty("pulsarDistribution"),
                         String.format("pulsarServiceUrl=%s,cdcWorkingDir=/var/lib/cassandra/cdc", pulsarServiceUrl),
-                        "dse")
+                        "dse4")
                 .withEnv("DC", CassandraContainer.LOCAL_DC)
                 .withContainerConfigLocation("/config");
     }

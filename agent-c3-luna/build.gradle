@@ -65,9 +65,12 @@ test {
 
     useJUnitPlatform()
 
+    environment 'PULSAR_IMAGE', 'datastax/lunastreaming:' + lunaTag
+    environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra3Version
+
     systemProperty "buildDir", buildDir
     systemProperty "projectVersion", project.version
-    systemProperty "lunaTag", lunaTag
+    systemProperty "pulsarDistribution", "luna"
 }
 
 docker {

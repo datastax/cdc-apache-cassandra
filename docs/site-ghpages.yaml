@@ -1,10 +1,10 @@
 site:
-  title: DataStax Cassandra Source Connector documentation
-  url: http://docs.datastax.com/en/cassandra-source-connector
+  title: DataStax CDC for Apache Cassandra documentation
+  url: http://docs.datastax.com/en/cdc-for-cassandra
   start_page: cdc-apache-cassandra::index.adoc
 
 content:
-  edit_url: 'https://github.com/datastax/cassandra-source-connector/blob/master/docs/{path}'
+  edit_url: 'https://github.com/datastax/cdc-for-cassandra/blob/master/docs/{path}'
   sources:
   - url: ..
     start-path: docs

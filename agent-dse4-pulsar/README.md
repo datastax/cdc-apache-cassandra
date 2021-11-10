@@ -1,4 +1,4 @@
-# DSE CDC agent for Luna Streaming
+# DSE CDC agent for Apache Pulsar
 
 ## Build
 
