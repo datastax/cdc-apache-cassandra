@@ -377,7 +377,7 @@ public abstract class PulsarSingleNodeTests {
             }
 
             final int numMutation = 10;
-            int i = 0;
+            int i = 1;
             List<String> segAndPos = new ArrayList<>();
             try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build();
                  Consumer<GenericRecord> consumer = pulsarClient.newConsumer(Schema.AUTO_CONSUME())
@@ -401,7 +401,7 @@ public abstract class PulsarSingleNodeTests {
                     consumer.acknowledge(msg);
                 }
             }
-            assertEquals(i, numMutation);
+            assertEquals(numMutation, i);
 
             if (version.equals(AgentTestUtil.Version.DSE4)) {
                 Container.ExecResult sentMutations = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=SentMutations,type=CdcAgent","-f", "Count", "-mg");
