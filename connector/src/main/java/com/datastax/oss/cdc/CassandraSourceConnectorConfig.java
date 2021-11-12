@@ -27,7 +27,6 @@ import com.google.common.base.Splitter;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 
@@ -616,24 +615,12 @@ public class CassandraSourceConnectorConfig {
         return globalConfig.getString(EVENTS_TOPIC_NAME_CONFIG);
     }
 
-    public String getDataTopic() {
-        return globalConfig.getString(DATA_TOPIC_NAME_CONFIG);
-    }
-
     public Class<?> getKeyConverterClass() {
         return globalConfig.getClass(KEY_CONVERTER_CLASS_CONFIG);
     }
 
     public Class<?> getValueConverterClass() {
         return globalConfig.getClass(VALUE_CONVERTER_CLASS_CONFIG);
-    }
-
-    public String getBootstrapServers() {
-        return globalConfig.getString(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG);
-    }
-
-    public String getSchemaRegistryUrl() {
-        return globalConfig.getString(SCHEMA_REGISTRY_URL_CONFIG);
     }
 
     public int getBatchSize() {
