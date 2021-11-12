@@ -753,8 +753,6 @@ class CassandraSourceConnectorConfigTest {
                 .put(KEYSPACE_NAME_CONFIG, "ks1")
                 .put(TABLE_NAME_CONFIG, "table1")
                 .put(EVENTS_TOPIC_NAME_CONFIG, "events-ks1.table1")
-                .put(KEY_CONVERTER_CLASS_CONFIG, "io.confluent.connect.avro.AvroConverter")
-                .put(VALUE_CONVERTER_CLASS_CONFIG, "io.confluent.connect.avro.AvroConverter")
                 .build();
     }
 
