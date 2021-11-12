@@ -17,7 +17,7 @@ package com.datastax.oss.cdc.agent;
 
 import java.util.List;
 
-interface TableInfo {
+public interface TableInfo {
     String key();
     String name();
     String keyspace();
