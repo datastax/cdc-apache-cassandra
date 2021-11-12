@@ -39,4 +39,4 @@ jobs:
       - name: Test with Gradle
         run: |
           docker pull gaiaadm/pumba:latest
-          ./gradlew test -PpulsarRepoUrl=https://repo.datastax.com/artifactory/datastax-public-releases-local -x :agent-dse4:test -x :agent-dse4-luna:test -x :agent-dse4-pulsar:test -x :connector-luna:test -x :connector-pulsar:test
+          ./gradlew test -PlunaVersion=2.8.0.1.1.6 -PlunaTag=2.8.0_1.1.6 -PpulsarRepoUrl=https://repo.datastax.com/artifactory/datastax-public-releases-local -x :agent-dse4:test -x :agent-dse4-luna:test -x :agent-dse4-pulsar:test -x :connector-luna:test -x :connector-pulsar:test

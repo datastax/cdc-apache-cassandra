@@ -39,4 +39,4 @@ jobs:
       - name: Test with Gradle
         run: |
           docker pull gaiaadm/pumba:latest
-          ./gradlew -PpulsarRepoUrl=https://repo.datastax.com/artifactory/datastax-public-releases-local connector-luna:test connector-pulsar:test
+          ./gradlew -PlunaVersion=2.8.0.1.1.6 -PlunaTag=2.8.0_1.1.6 -PpulsarRepoUrl=https://repo.datastax.com/artifactory/datastax-public-releases-local connector-luna:test connector-pulsar:test
