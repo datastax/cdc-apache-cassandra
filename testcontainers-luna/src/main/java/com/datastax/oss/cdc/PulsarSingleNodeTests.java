@@ -373,7 +373,7 @@ public abstract class PulsarSingleNodeTests {
             try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
                 cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS nrt WITH replication = {'class':'SimpleStrategy','replication_factor':'1'};");
                 cqlSession.execute("CREATE TABLE IF NOT EXISTS nrt.table1 (a int, b blob, PRIMARY KEY (a)) with cdc=true;");
-                cqlSession.execute("INSERT INTO nrt.table1 (a,b) VALUES (?, ?);", 1, AgentTestUtil.randomizeBuffer(1));
+                cqlSession.execute("INSERT INTO nrt.table1 (a,b) VALUES (?, ?);", 0, AgentTestUtil.randomizeBuffer(1));
             }
 
             final int numMutation = 10;
@@ -388,19 +388,22 @@ public abstract class PulsarSingleNodeTests {
                          .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                          .subscribe()) {
                 Message<GenericRecord> msg;
-                while (i < numMutation && (msg = consumer.receive(120, TimeUnit.SECONDS)) != null) {
+                while (segAndPos.size() < numMutation && (msg = consumer.receive(120, TimeUnit.SECONDS)) != null) {
                     Assert.assertNotNull("Expecting one message, check the agent log", msg);
                     String segpos = msg.getProperty(Constants.SEGMENT_AND_POSITION);
                     assertFalse(segAndPos.contains(segpos), "Already received mutation position=" + segpos+" positions=" + segAndPos);
                     segAndPos.add(segpos);
-
-                    i++;
-                    try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
-                        cqlSession.execute("INSERT INTO nrt.table1 (a,b) VALUES (?, ?);", i, AgentTestUtil.randomizeBuffer(i));
-                    }
                     consumer.acknowledge(msg);
+
+                    if (i < numMutation) {
+                        i++;
+                        try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                            cqlSession.execute("INSERT INTO nrt.table1 (a,b) VALUES (?, ?);", i, AgentTestUtil.randomizeBuffer(i));
+                        }
+                    }
                 }
             }
+            assertEquals(numMutation, segAndPos.size());
             assertEquals(numMutation, i);
 
             if (version.equals(AgentTestUtil.Version.DSE4)) {
