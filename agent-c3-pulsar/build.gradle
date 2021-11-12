@@ -91,8 +91,8 @@ dockerCompose {
     environment.put 'AGENT_VERSION', 'c3'
     environment.put 'STREAM_PLATFORM', 'pulsar'
     environment.put 'PROJECT_VERSION', project.version
-    environment.put 'CASSANDRA_IMAGE', "cassandra:${cassandra3Version}-cdc-pulsar"
-    environment.put 'PULSAR_IMAGE', "apachepulsar/pulsar:${pulsarVersion}-csc"
+    environment.put 'CASSANDRA_IMAGE', "${dockerRepo}cassandra:${cassandra3Version}-cdc-pulsar"
+    environment.put 'PULSAR_IMAGE', "${dockerRepo}pulsar:${pulsarVersion}-csc"
     waitForTcpPorts = false
     startedServices = ['cassandra','pulsar']
 
