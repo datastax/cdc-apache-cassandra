@@ -87,6 +87,7 @@ docker {
 build.dependsOn(project.tasks['docker'])
 
 dockerCompose {
+    projectName = "test1"
     useComposeFiles = ['../docker-compose.yaml']
     environment.put 'AGENT_VERSION', 'c4'
     environment.put 'STREAM_PLATFORM', 'luna'
