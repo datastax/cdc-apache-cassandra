@@ -294,8 +294,7 @@ public class PulsarCassandraSourceTests {
                     try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
                         cqlSession.execute("DELETE FROM " + ksName + ".table1 WHERE id = '1'");
                     }
-                    while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null &&
-                            mutationTable1.values().stream().mapToInt(i -> i).sum() < 6) {
+                    while (mutationTable1.values().stream().mapToInt(i -> i).sum() < 6 && (msg = consumer.receive(60, TimeUnit.SECONDS)) != null) {
                         GenericObject genericObject = msg.getValue();
                         assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
                         KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
@@ -388,8 +387,8 @@ public class PulsarCassandraSourceTests {
                     try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
                         cqlSession.execute("DELETE FROM " + ksName + ".table2 WHERE a = '1' AND b = 1");
                     }
-                    while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null &&
-                            mutationTable2.values().stream().mapToInt(i -> i).sum() < 6) {
+                    while (mutationTable2.values().stream().mapToInt(i -> i).sum() < 6 &&
+                            (msg = consumer.receive(30, TimeUnit.SECONDS)) != null) {
                         GenericObject genericObject = msg.getValue();
                         assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
                         KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
@@ -515,7 +514,7 @@ public class PulsarCassandraSourceTests {
                         .subscribe()) {
                     int mutationTable3Count = 0;
                     Message<GenericRecord> msg;
-                    while ((msg = consumer.receive(120, TimeUnit.SECONDS)) != null && mutationTable3Count < 1) {
+                    while (mutationTable3Count < 1 && (msg = consumer.receive(120, TimeUnit.SECONDS)) != null) {
                         GenericObject genericObject = msg.getValue();
                         mutationTable3Count++;
                         assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
@@ -630,7 +629,7 @@ public class PulsarCassandraSourceTests {
                         .subscribe()) {
                     Message<GenericRecord> msg;
                     int msgCount = 0;
-                    while ((msg = consumer.receive(90, TimeUnit.SECONDS)) != null && msgCount < 10000) {
+                    while ( msgCount < 10000 && (msg = consumer.receive(90, TimeUnit.SECONDS)) != null) {
                         msgCount++;
                         GenericObject genericObject = msg.getValue();
                         assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
@@ -674,7 +673,7 @@ public class PulsarCassandraSourceTests {
                         .subscribe()) {
                     Message<GenericRecord> msg;
                     int numMessage = 0;
-                    while ((msg = consumer.receive(180, TimeUnit.SECONDS)) != null && numMessage < 3) {
+                    while (numMessage < 3 && (msg = consumer.receive(180, TimeUnit.SECONDS)) != null) {
                         numMessage++;
                         consumer.acknowledge(msg);
                     }
