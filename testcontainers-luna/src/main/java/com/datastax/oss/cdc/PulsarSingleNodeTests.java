@@ -173,7 +173,7 @@ public abstract class PulsarSingleNodeTests {
                          .subscriptionMode(SubscriptionMode.Durable)
                          .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                          .subscribe()) {
-                Message<GenericRecord> msg = consumer.receive(60, TimeUnit.SECONDS);
+                Message<GenericRecord> msg = consumer.receive(90, TimeUnit.SECONDS);
                 Assert.assertNotNull("Expecting one message, check the agent log", msg);
                 GenericRecord gr = msg.getValue();
                 KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) gr.getNativeObject();
@@ -293,7 +293,7 @@ public abstract class PulsarSingleNodeTests {
                          .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                          .subscribe()) {
                 Message<GenericRecord> msg;
-                while ((msg = consumer.receive(120, TimeUnit.SECONDS)) != null) {
+                while (segAndPos.size() < numMutation && (msg = consumer.receive(120, TimeUnit.SECONDS)) != null) {
                     Assert.assertNotNull("Expecting one message, check the agent log", msg);
                     msgCount++;
                     String segpos = msg.getProperty(Constants.SEGMENT_AND_POSITION);
@@ -388,7 +388,7 @@ public abstract class PulsarSingleNodeTests {
                          .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                          .subscribe()) {
                 Message<GenericRecord> msg;
-                while ((msg = consumer.receive(90, TimeUnit.SECONDS)) != null && i < numMutation) {
+                while (i < numMutation && (msg = consumer.receive(120, TimeUnit.SECONDS)) != null) {
                     Assert.assertNotNull("Expecting one message, check the agent log", msg);
                     String segpos = msg.getProperty(Constants.SEGMENT_AND_POSITION);
                     assertFalse(segAndPos.contains(segpos), "Already received mutation position=" + segpos+" positions=" + segAndPos);
@@ -454,7 +454,7 @@ public abstract class PulsarSingleNodeTests {
                          .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                          .subscribe()) {
 
-                Message<GenericRecord> msg = consumer.receive(60, TimeUnit.SECONDS);
+                Message<GenericRecord> msg = consumer.receive(120, TimeUnit.SECONDS);
                 Assert.assertNotNull("Expecting one message, check the agent log", msg);
                 consumer.acknowledge(msg);
 
@@ -464,7 +464,7 @@ public abstract class PulsarSingleNodeTests {
                     cqlSession.execute("INSERT INTO cr.table1 (b,c) VALUES (?, ?);", 2, AgentTestUtil.randomizeBuffer(1));
                 }
 
-                Message<GenericRecord> msg2 = consumer.receive(30, TimeUnit.SECONDS);
+                Message<GenericRecord> msg2 = consumer.receive(60, TimeUnit.SECONDS);
                 Assert.assertNull("Expecting no message, check the agent log", msg2);
                 if (version.equals(AgentTestUtil.Version.DSE4)) {
                     Container.ExecResult skippedMutations = cassandraContainer1.execInContainer("nodetool", "sjk", "mx", "-b", "org.apache.cassandra.metrics:name=SkippedMutations,type=CdcAgent", "-f", "Count", "-mg");
@@ -519,7 +519,7 @@ public abstract class PulsarSingleNodeTests {
                          .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                          .subscribe()) {
                 Message<GenericRecord> msg;
-                while ((msg = consumer.receive(240, TimeUnit.SECONDS)) != null && msgCount < 2 * numMutation) {
+                while (msgCount < 2 * numMutation && (msg = consumer.receive(240, TimeUnit.SECONDS)) != null) {
                     Assert.assertNotNull("Expecting one message, check the agent log", msg);
                     msgCount++;
                     consumer.acknowledgeAsync(msg);
@@ -566,7 +566,7 @@ public abstract class PulsarSingleNodeTests {
                          .subscribe()) {
                 Message msg;
                 int numMessage = 0;
-                while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null && numMessage < numMutation) {
+                while (numMessage < numMutation && (msg = consumer.receive(120, TimeUnit.SECONDS)) != null) {
                     numMessage++;
                     consumer.acknowledge(msg);
                 }
