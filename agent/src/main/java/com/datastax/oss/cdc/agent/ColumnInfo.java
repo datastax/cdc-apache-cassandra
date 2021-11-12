@@ -15,7 +15,7 @@
  */
 package com.datastax.oss.cdc.agent;
 
-interface ColumnInfo {
+public interface ColumnInfo {
     String name();
     String cql3Type();
     boolean isClusteringKey();
