@@ -40,4 +40,4 @@ jobs:
           PULSAR_IMAGE: "datastax/lunastreaming:2.8.0_1.1.6"
         run: |
           docker pull gaiaadm/pumba:latest
-          ./gradlew -PpulsarRepoUrl=https://repo.datastax.com/artifactory/datastax-public-releases-local test:agent-c3-pulsar test:agent-c4-pulsar
+          ./gradlew -PpulsarRepoUrl=https://repo.datastax.com/artifactory/datastax-public-releases-local agent-c3-pulsar:test agent-c4-pulsar:test
