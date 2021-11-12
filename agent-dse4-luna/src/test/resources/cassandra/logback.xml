@@ -205,7 +205,7 @@ appender reference in the root level section below.
     <logger name="com.datastax.bdp.analytics.rm" level="TRACE"/>
     <logger name="com.datastax.bdp.rm" level="TRACE"/>
     <logger name="org.apache.spark.analytics.rm" level="TRACE"/>
-    <logger name="com.datastax.cassandra.cdc" level="TRACE"/>
+    <logger name="com.datastax.oss.cdc" level="TRACE"/>
     <logger name="org.apache.pulsar" level="INFO"/>
 
 </configuration>
