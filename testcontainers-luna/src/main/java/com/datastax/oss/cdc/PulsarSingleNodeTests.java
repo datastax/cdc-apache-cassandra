@@ -388,7 +388,7 @@ public abstract class PulsarSingleNodeTests {
                          .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                          .subscribe()) {
                 Message<GenericRecord> msg;
-                while (i < numMutation && (msg = consumer.receive(120, TimeUnit.SECONDS)) != null) {
+                while (i <= numMutation && (msg = consumer.receive(120, TimeUnit.SECONDS)) != null) {
                     Assert.assertNotNull("Expecting one message, check the agent log", msg);
                     String segpos = msg.getProperty(Constants.SEGMENT_AND_POSITION);
                     assertFalse(segAndPos.contains(segpos), "Already received mutation position=" + segpos+" positions=" + segAndPos);
