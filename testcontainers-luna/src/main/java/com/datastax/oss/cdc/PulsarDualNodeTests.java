@@ -132,8 +132,8 @@ public abstract class PulsarDualNodeTests {
                         .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                         .subscribe()) {
                     Message<KeyValue<GenericRecord, MutationValue>> msg;
-                    while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null &&
-                            nodesTable1.values().stream().mapToInt(List::size).sum() < 6) {
+                    // don't check the number of received mutations in order to check if we receive unexpected additional mutations
+                    while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null) {
                         KeyValue<GenericRecord, MutationValue> kv = msg.getValue();
                         GenericRecord key = kv.getKey();
                         MutationValue val = kv.getValue();
@@ -264,8 +264,8 @@ public abstract class PulsarDualNodeTests {
                         .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                         .subscribe()) {
                     Message<KeyValue<GenericRecord, MutationValue>> msg;
-                    while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null &&
-                            nodesPerPk.values().stream().mapToInt(List::size).sum() < 6) {
+                    while (nodesPerPk.values().stream().mapToInt(List::size).sum() < 6 &&
+                            (msg = consumer.receive(90, TimeUnit.SECONDS)) != null) {
                         KeyValue<GenericRecord, MutationValue> kv = msg.getValue();
                         GenericRecord key = kv.getKey();
                         MutationValue val = kv.getValue();
