@@ -162,7 +162,7 @@ pipeline {
           steps {
             script {
               try {
-                sh './gradlew clean build --no-daemon' //run a gradle task
+                sh './gradlew clean build -x agent-c3-luna -x agent-c3-pulsar -x agent-c4-luna -x agent-c4-pulsar --no-daemon' //run a gradle task
               } finally {
                 junit '**/build/test-results/test/*.xml'
                 //make the junit test results available in any case (success & failure)
