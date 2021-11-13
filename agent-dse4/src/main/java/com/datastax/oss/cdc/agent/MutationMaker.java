@@ -30,13 +30,13 @@ public class MutationMaker extends AbstractMutationMaker<TableMetadata> {
     }
 
     public void createRecord(UUID nodeId, long segment, int position,
-                              long tsMicro, Object[] pkValues, BlockingConsumer<AbstractMutation<TableMetadata>> consumer,
-                              String md5Digest, TableMetadata t, Object token) {
+                             long tsMicro, Object[] pkValues,
+                             BlockingConsumer<AbstractMutation<TableMetadata>> consumer,
+                             String md5Digest, TableMetadata t, Object token) {
         Mutation record = new Mutation(nodeId, segment, position, pkValues, tsMicro, md5Digest, t, token);
         try {
             consumer.accept(record);
-        }
-        catch (InterruptedException e) {
+        } catch (InterruptedException e) {
             log.error("Interruption while enqueuing Change Event {}", record);
             throw new CassandraConnectorTaskException("Enqueuing has been interrupted: ", e);
         }
