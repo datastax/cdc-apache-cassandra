@@ -51,22 +51,12 @@ import static com.datastax.oss.cdc.agent.CommitLogReadHandlerImpl.RowType.DELETE
 public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
     private final AbstractMutationMaker<TableMetadata> mutationMaker;
-    private final MutationSender<TableMetadata> mutationSender;
-    private final CommitLogReaderService.Task task;
-    private int processedPosition;
+    private final BlockingConsumer<AbstractMutation<TableMetadata>> blockingConsumer;
 
     CommitLogReadHandlerImpl(AgentConfig config,
-                             MutationSender<TableMetadata> mutationSender,
-                             CommitLogReaderService.Task task,
-                             int currentPosition) {
-        this.mutationSender = mutationSender;
+                             BlockingConsumer<AbstractMutation<TableMetadata>> blockingConsumer) {
         this.mutationMaker = new MutationMaker(config);
-        this.task = task;
-        this.processedPosition = currentPosition;
-    }
-
-    public int getProcessedPosition() {
-        return this.processedPosition;
+        this.blockingConsumer = blockingConsumer;
     }
 
     /**
@@ -322,7 +312,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
             Object[] after = new Object[pu.metadata().partitionKeyColumns().size() + pu.metadata().clusteringColumns().size()];
             populatePartitionColumns(after, pu);
             mutationMaker.delete(StorageService.instance.getLocalHostUUID(), segment, position,
-                    pu.maxTimestamp(), after, this::sendAsync, md5Digest, pu.metadata(), pu.partitionKey().getToken().getTokenValue());
+                    pu.maxTimestamp(), after, blockingConsumer, md5Digest, pu.metadata(), pu.partitionKey().getToken().getTokenValue());
         }
         catch (Exception e) {
             log.error("Fail to send delete partition at {}:{}. Reason: {}", segment, position, e);
@@ -343,17 +333,17 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         switch (rowType) {
             case INSERT:
                 mutationMaker.insert(StorageService.instance.getLocalHostUUID(), segment, position,
-                        ts, after, this::sendAsync, md5Digest, pu.metadata(), pu.partitionKey().getToken().getTokenValue());
+                        ts, after, blockingConsumer, md5Digest, pu.metadata(), pu.partitionKey().getToken().getTokenValue());
                 break;
 
             case UPDATE:
                 mutationMaker.update(StorageService.instance.getLocalHostUUID(), segment, position,
-                        ts, after, this::sendAsync, md5Digest, pu.metadata(), pu.partitionKey().getToken().getTokenValue());
+                        ts, after, blockingConsumer, md5Digest, pu.metadata(), pu.partitionKey().getToken().getTokenValue());
                 break;
 
             case DELETE:
                 mutationMaker.delete(StorageService.instance.getLocalHostUUID(), segment, position,
-                        ts, after, this::sendAsync, md5Digest, pu.metadata(), pu.partitionKey().getToken().getTokenValue());
+                        ts, after, blockingConsumer, md5Digest, pu.metadata(), pu.partitionKey().getToken().getTokenValue());
                 break;
 
             default:
@@ -452,34 +442,5 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         }
 
         return values;
-    }
-
-    public void sendAsync(AbstractMutation<TableMetadata> mutation) {
-        log.debug("Sending mutation={}", mutation);
-        try {
-            task.inflightMessagesSemaphore.acquireUninterruptibly(); // may block
-            this.mutationSender.sendMutationAsync(mutation)
-                    .handle((msgId, t)-> {
-                        if (t == null) {
-                            CdcMetrics.sentMutations.inc();
-                            log.debug("Sent mutation={}", mutation);
-                        } else {
-                            if (t instanceof CassandraConnectorSchemaException) {
-                                log.error("Invalid primary key schema:", t);
-                                CdcMetrics.skippedMutations.inc();
-                            } else {
-                                CdcMetrics.sentErrors.inc();
-                                log.debug("Sent failed mutation=" + mutation, t);
-                                task.lastException = t;
-                            }
-                        }
-                        task.inflightMessagesSemaphore.release();
-                        return msgId;
-                    });
-            this.processedPosition = Math.max(this.processedPosition, mutation.getPosition());
-        } catch(Exception e) {
-            log.error("Send failed:", e);
-            CdcMetrics.sentErrors.inc();
-        }
     }
 }

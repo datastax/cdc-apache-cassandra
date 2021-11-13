@@ -15,6 +15,7 @@
  */
 package com.datastax.oss.cdc.agent;
 
+import com.datastax.oss.cdc.agent.exceptions.CassandraConnectorSchemaException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.cassandra.concurrent.JMXEnabledThreadPoolExecutor;
 import org.apache.cassandra.concurrent.NamedThreadFactory;
@@ -34,7 +35,6 @@ import java.util.function.IntBinaryOperator;
 @Slf4j
 public class CommitLogReaderServiceImpl extends CommitLogReaderService {
 
-
     public CommitLogReaderServiceImpl(AgentConfig config,
                                       MutationSender<TableMetadata> mutationSender,
                                       SegmentOffsetWriter segmentOffsetWriter,
@@ -51,6 +51,8 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
     @SuppressWarnings("unchecked")
     public Task createTask(String filename, long segment, int syncPosition, boolean completed) {
         return new Task(filename, segment, syncPosition, completed) {
+            CommitLogReadHandlerImpl commitLogReadHandlerImpl;
+            int maxPosition = 0;
 
             public void run() {
                 maxSubmittedTasks.getAndAccumulate(submittedTasks.size(), new IntBinaryOperator() {
@@ -62,22 +64,20 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
                 log.debug("Starting task={}", this);
                 File file = getFile();
                 try {
-                    int lastSentPosition = -1;
                     if (!file.exists()) {
                         log.warn("CL file={} does not exist any more, ignoring", file.getName());
-                        finish(TaskStatus.SUCCESS, lastSentPosition);
+                        finish(TaskStatus.SUCCESS, -1);
                         return;
                     }
                     long seg = CommitLogUtil.extractTimestamp(file.getName());
                     int currentPosition = segmentOffsetWriter.position(Optional.empty(), seg);
                     if (syncPosition > currentPosition) {
+                        commitLogReadHandlerImpl = new CommitLogReadHandlerImpl(config, this::sendAsync);
                         CommitLogPosition minPosition = new CommitLogPosition(seg, currentPosition);
-                        CommitLogReadHandlerImpl commitLogReadHandler = new CommitLogReadHandlerImpl(config, (MutationSender<TableMetadata>) mutationSender, this, currentPosition);
                         CommitLogReader commitLogReader = new CommitLogReader();
-                        commitLogReader.readCommitLogSegment(commitLogReadHandler, file, minPosition, false);
-                        lastSentPosition = commitLogReadHandler.getProcessedPosition();
+                        commitLogReader.readCommitLogSegment(commitLogReadHandlerImpl, file, minPosition, false);
                     }
-                    finish(TaskStatus.SUCCESS, lastSentPosition);
+                    finish(TaskStatus.SUCCESS, maxPosition);
                 } catch (Exception e) {
                     log.warn("Task failed {}", this, e);
                     finish(TaskStatus.ERROR, -1);
@@ -89,6 +89,39 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
             @Override
             public File getFile() {
                 return new File(DatabaseDescriptor.getCDCLogLocation(), filename);
+            }
+
+            public CompletableFuture<?> sendAsync(AbstractMutation<TableMetadata> mutation) {
+                log.debug("Sending mutation={}", mutation);
+                try {
+                    inflightMessagesSemaphore.acquireUninterruptibly(); // may block
+                    CompletableFuture<?> future = ((MutationSender<TableMetadata>) mutationSender).sendMutationAsync(mutation)
+                            .handle((msgId, t)-> {
+                                if (t == null) {
+                                    CdcMetrics.sentMutations.inc();
+                                    log.debug("Sent mutation={}", mutation);
+                                } else {
+                                    if (t instanceof CassandraConnectorSchemaException) {
+                                        log.error("Invalid primary key schema:", t);
+                                        CdcMetrics.skippedMutations.inc();
+                                    } else {
+                                        CdcMetrics.sentErrors.inc();
+                                        log.debug("Sent failed mutation=" + mutation, t);
+                                        lastException = t;
+                                    }
+                                }
+                                inflightMessagesSemaphore.release();
+                                return msgId;
+                            });
+                    maxPosition = Math.max(maxPosition, mutation.getPosition());
+                    return future;
+                } catch(Exception e) {
+                    log.error("Send failed:", e);
+                    CdcMetrics.sentErrors.inc();
+                    CompletableFuture future = new CompletableFuture();
+                    future.completeExceptionally(e);
+                    return future;
+                }
             }
         };
     }
