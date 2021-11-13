@@ -88,7 +88,7 @@ shadowJar {
     }
     configurations = [project.configurations.custom]
     // relocate AVRO because dse-db depends on avro 1.7.7
-    relocate 'org.apache.avro', 'com.datastax.cassandra.cdc.avro'
+    relocate 'org.apache.avro', 'com.datastax.oss.cdc.avro'
 }
 
 jar.enabled = false
