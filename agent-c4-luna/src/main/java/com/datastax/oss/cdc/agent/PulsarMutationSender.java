@@ -71,7 +71,7 @@ public class PulsarMutationSender extends AbstractPulsarMutationSender<TableMeta
     }
 
     @Override
-    public org.apache.avro.Schema getAvroSchema(String cql3Type) {
+    public org.apache.avro.Schema getNativeSchema(String cql3Type) {
         return avroSchemaTypes.get(cql3Type);
     }
 
@@ -82,7 +82,7 @@ public class PulsarMutationSender extends AbstractPulsarMutationSender<TableMeta
      */
     @Override
     public boolean isSupported(final AbstractMutation<TableMetadata> mutation) {
-        if (!avroSchemas.containsKey(mutation.key())) {
+        if (!pkSchemas.containsKey(mutation.key())) {
             for (ColumnMetadata cm : mutation.metadata.primaryKeyColumns()) {
                 if (!avroSchemaTypes.containsKey(cm.type.asCQL3Type().toString())) {
                     log.warn("Unsupported primary key column={}.{}.{} type={}, skipping mutation", cm.ksName, cm.cfName, cm.name, cm.type.asCQL3Type().toString());

@@ -25,7 +25,6 @@ import org.apache.cassandra.dht.Murmur3Partitioner;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.service.StorageService;
-import org.objectweb.asm.tree.AbstractInsnNode;
 
 import java.net.InetAddress;
 import java.time.*;
@@ -72,8 +71,13 @@ public class PulsarMutationSender extends AbstractPulsarMutationSender<TableMeta
     }
 
     @Override
-    public org.apache.avro.Schema getAvroSchema(String cql3Type) {
+    public org.apache.avro.Schema getNativeSchema(String cql3Type) {
         return avroSchemaTypes.get(cql3Type);
+    }
+
+    @Override
+    public SchemaAndWriter getPkSchema(String key) {
+        return pkSchemas.get(key);
     }
 
     /**
@@ -83,7 +87,7 @@ public class PulsarMutationSender extends AbstractPulsarMutationSender<TableMeta
      */
     @Override
     public boolean isSupported(final AbstractMutation<TableMetadata> mutation) {
-        if (!avroSchemas.containsKey(mutation.key())) {
+        if (!pkSchemas.containsKey(mutation.key())) {
             for (ColumnMetadata cm : mutation.metadata.primaryKeyColumns()) {
                 if (!avroSchemaTypes.containsKey(cm.type.asCQL3Type().toString())) {
                     log.warn("Unsupported primary key column={}.{}.{} type={}, skipping mutation", cm.ksName, cm.cfName, cm.name, cm.type.asCQL3Type().toString());

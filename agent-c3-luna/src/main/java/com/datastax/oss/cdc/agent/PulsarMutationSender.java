@@ -34,7 +34,7 @@ import java.util.UUID;
 @Slf4j
 public class PulsarMutationSender extends AbstractPulsarMutationSender<CFMetaData> {
 
-    private static final ImmutableMap<String, org.apache.avro.Schema> avroSchemaTypes = ImmutableMap.<String, org.apache.avro.Schema>builder()
+    private static final ImmutableMap<String, org.apache.avro.Schema> avroNativeTypes = ImmutableMap.<String, org.apache.avro.Schema>builder()
             .put(UTF8Type.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.STRING))
             .put(AsciiType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.STRING))
             .put(BooleanType.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.BOOLEAN))
@@ -71,8 +71,8 @@ public class PulsarMutationSender extends AbstractPulsarMutationSender<CFMetaDat
     }
 
     @Override
-    public org.apache.avro.Schema getAvroSchema(String cql3Type) {
-        return avroSchemaTypes.get(cql3Type);
+    public org.apache.avro.Schema getNativeSchema(String cql3Type) {
+        return avroNativeTypes.get(cql3Type);
     }
 
     /**
@@ -82,9 +82,9 @@ public class PulsarMutationSender extends AbstractPulsarMutationSender<CFMetaDat
      */
     @Override
     public boolean isSupported(final AbstractMutation<CFMetaData> mutation) {
-        if (!avroSchemas.containsKey(mutation.key())) {
+        if (!pkSchemas.containsKey(mutation.key())) {
             for (ColumnDefinition cm : mutation.metadata.primaryKeyColumns()) {
-                if (!avroSchemaTypes.containsKey(cm.type.asCQL3Type().toString())) {
+                if (!avroNativeTypes.containsKey(cm.type.asCQL3Type().toString())) {
                     log.warn("Unsupported primary key column={}.{}.{} type={}, skipping mutation", cm.ksName, cm.cfName, cm.name, cm.type.asCQL3Type().toString());
                     return false;
                 }
