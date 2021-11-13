@@ -23,6 +23,7 @@ import com.datastax.oss.cdc.Murmur3MessageRouter;
 import com.datastax.oss.cdc.Constants;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Conversions;
@@ -59,14 +60,14 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
     @AllArgsConstructor
     @ToString
     @EqualsAndHashCode
-    static class AvroSchema {
+    public static class SchemaAndWriter {
         org.apache.avro.Schema schema;
         SpecificDatumWriter<GenericRecord> writer;
     }
 
     volatile PulsarClient client;
     final Map<String, Producer<KeyValue<byte[], MutationValue>>> producers = new ConcurrentHashMap<>();
-    final Map<String, AvroSchema> avroSchemas = new ConcurrentHashMap<>();
+    final Map<String, SchemaAndWriter> pkSchemas = new ConcurrentHashMap<>();
 
     final AgentConfig config;
     final boolean useMurmur3Partitioner;
@@ -76,11 +77,15 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
         this.useMurmur3Partitioner = useMurmur3Partitioner;
     }
 
-    public abstract Schema getAvroSchema(String cql3Type);
+    public abstract Schema getNativeSchema(String cql3Type);
     public abstract Object cqlToAvro(T t, String columnName, Object value);
     public abstract boolean isSupported(AbstractMutation<T> mutation);
     public abstract void incSkippedMutations();
     public abstract UUID getHostId();
+
+    public SchemaAndWriter getPkSchema(String key) {
+        return pkSchemas.get(key);
+    }
 
     @Override
     public void initialize(AgentConfig config) throws PulsarClientException {
@@ -134,11 +139,11 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
      * @param tableInfo
      * @return avroSchema of the table primary key
      */
-    public AvroSchema getAvroKeySchema(final TableInfo tableInfo) {
-        return avroSchemas.computeIfAbsent(tableInfo.key(), k -> {
+    public SchemaAndWriter getAvroKeySchema(final TableInfo tableInfo) {
+        return pkSchemas.computeIfAbsent(tableInfo.key(), k -> {
             List<Schema.Field> fields = new ArrayList<>();
             for (ColumnInfo cm : tableInfo.primaryKeyColumns()) {
-                org.apache.avro.Schema.Field field = new org.apache.avro.Schema.Field(cm.name(), getAvroSchema(cm.cql3Type()));
+                org.apache.avro.Schema.Field field = new org.apache.avro.Schema.Field(cm.name(), getNativeSchema(cm.cql3Type()));
                 if (cm.isClusteringKey()) {
                     // clustering keys are optional
                     field = new org.apache.avro.Schema.Field(cm.name(), org.apache.avro.SchemaBuilder.unionOf().nullType().and().type(field.schema()).endUnion());
@@ -146,8 +151,21 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
                 fields.add(field);
             }
             org.apache.avro.Schema avroSchema = org.apache.avro.Schema.createRecord(tableInfo.key(), SCHEMA_DOC_PREFIX + tableInfo.key(), tableInfo.name(), false, fields);
-            return new AvroSchema(avroSchema, new SpecificDatumWriter<>(avroSchema));
+            return new SchemaAndWriter(avroSchema, new SpecificDatumWriter<>(avroSchema));
         });
+    }
+
+    @AllArgsConstructor
+    @ToString
+    public static class TopicAndProducerName {
+        public final String topicName;
+        public final String producerName;
+    }
+
+    public TopicAndProducerName topicAndProducerName(final TableInfo tm) {
+        return new TopicAndProducerName(
+                config.topicPrefix + tm.key(),
+                "cdc-producer-" + getHostId() + "-" + tm.key());
     }
 
     /**
@@ -156,17 +174,22 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
      * @return the pulsar producer
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
-    public Producer<KeyValue<byte[], MutationValue>> getProducer(final TableInfo tm) {
-        final String topicName = config.topicPrefix + tm.keyspace() + "." + tm.name();
-        final String producerName = "cdc-producer-" + getHostId() + "-" + topicName;
-        return producers.computeIfAbsent(topicName, k -> {
+    public Producer<KeyValue<byte[], MutationValue>> getProducer(final TableInfo tm) throws PulsarClientException {
+        if (this.client == null) {
+            synchronized (this) {
+                if (this.client == null)
+                    initialize(config);
+            }
+        }
+        final TopicAndProducerName topicAndProducerName = topicAndProducerName(tm);
+        return producers.computeIfAbsent(topicAndProducerName.topicName, k -> {
             try {
                 org.apache.pulsar.client.api.Schema<KeyValue<byte[], MutationValue>> keyValueSchema = org.apache.pulsar.client.api.Schema.KeyValue(
                         new AvroSchemaWrapper(getAvroKeySchema(tm).schema),
                         org.apache.pulsar.client.api.Schema.AVRO(MutationValue.class),
                         KeyValueEncodingType.SEPARATED);
                 ProducerBuilder<KeyValue<byte[], MutationValue>> producerBuilder = client.newProducer(keyValueSchema)
-                        .producerName(producerName)
+                        .producerName(topicAndProducerName.producerName)
                         .topic(k)
                         .sendTimeout(0, TimeUnit.SECONDS)
                         .hashingScheme(HashingScheme.Murmur3_32Hash)
@@ -189,7 +212,8 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
                     producerBuilder.messageRoutingMode(MessageRoutingMode.CustomPartition)
                             .messageRouter(Murmur3MessageRouter.instance);
                 }
-                log.info("Pulsar producer name={} created with batching delay={}ms", producerName, config.pulsarBatchDelayInMs);
+                log.info("Pulsar producer name={} created with batching delay={}ms",
+                        topicAndProducerName.producerName, config.pulsarBatchDelayInMs);
                 return producerBuilder.create();
             } catch (Exception e) {
                 log.error("Failed to get a pulsar producer", e);
@@ -222,15 +246,12 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
             return CompletableFuture.completedFuture(null);
         }
         try {
-            if (this.client == null) {
-                initialize(config);
-            }
             Producer<KeyValue<byte[], MutationValue>> producer = getProducer(mutation);
-            AvroSchema avroSchema = getAvroKeySchema(mutation);
+            SchemaAndWriter schemaAndWriter = getAvroKeySchema(mutation);
             TypedMessageBuilder<KeyValue<byte[], MutationValue>> messageBuilder = producer.newMessage();
             return messageBuilder
                     .value(new KeyValue(
-                            serializeAvroGenericRecord(buildAvroKey(avroSchema.schema, mutation), avroSchema.writer),
+                            serializeAvroGenericRecord(buildAvroKey(schemaAndWriter.schema, mutation), schemaAndWriter.writer),
                             mutation.mutationValue()))
                     .property(Constants.WRITETIME, mutation.getTs() + "")
                     .property(Constants.SEGMENT_AND_POSITION, mutation.getSegment() + ":" + mutation.getPosition())
@@ -291,7 +312,12 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
     @Override
     public void close() {
         try {
-            this.client.close();
+            if (client != null) {
+                synchronized (this) {
+                    if (client != null)
+                        this.client.close();
+                }
+            }
         } catch (PulsarClientException e) {
             log.warn("close failed:", e);
         }
