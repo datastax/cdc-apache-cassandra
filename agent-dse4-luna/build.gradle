@@ -85,12 +85,8 @@ shadowJar {
     relocate 'org.apache.avro', 'com.datastax.oss.cdc.avro'
 }
 
-jar.enabled = false
+jar.enabled = true
 assemble.dependsOn(shadowJar)
-project.afterEvaluate {
-    project.tasks.generatePomFileForMavenPublication.enabled = false
-    project.tasks.publishMavenPublicationToMavenRepository.enabled = false
-}
 
 docker {
     name "${dockerRepo}dse4-server:${dse4Version}-cdc-luna"

@@ -118,7 +118,7 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
                 } catch(Exception e) {
                     log.error("Send failed:", e);
                     CdcMetrics.sentErrors.inc();
-                    CompletableFuture future = new CompletableFuture();
+                    CompletableFuture<?> future = new CompletableFuture<>();
                     future.completeExceptionally(e);
                     return future;
                 }
