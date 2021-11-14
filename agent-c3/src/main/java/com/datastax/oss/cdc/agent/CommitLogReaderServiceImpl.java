@@ -52,12 +52,6 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
         return new Task(filename, segment, syncPosition, true) {
 
             public void run() {
-                maxSubmittedTasks.getAndAccumulate(submittedTasks.size(), new IntBinaryOperator() {
-                    @Override
-                    public int applyAsInt(int left, int right) {
-                        return Math.max(left, right);
-                    }
-                });
                 log.debug("Starting task={}", this);
                 File file = getFile();
                 try {
