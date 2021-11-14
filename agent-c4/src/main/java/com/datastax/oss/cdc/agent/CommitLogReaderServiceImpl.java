@@ -67,7 +67,7 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
                     int currentPosition = segmentOffsetWriter.position(Optional.empty(), seg);
                     if (syncPosition >= currentPosition) {
                         CommitLogPosition minPosition = new CommitLogPosition(seg, currentPosition);
-                        CommitLogReadHandlerImpl commitLogReadHandler = new CommitLogReadHandlerImpl(config, (MutationSender<TableMetadata>) mutationSender, this, currentPosition);
+                        CommitLogReadHandlerImpl commitLogReadHandler = new CommitLogReadHandlerImpl((MutationSender<TableMetadata>) mutationSender, this, currentPosition);
                         CommitLogReader commitLogReader = new CommitLogReader();
                         commitLogReader.readCommitLogSegment(commitLogReadHandler, file, minPosition, false);
                         lastSentPosition = commitLogReadHandler.getProcessedPosition();

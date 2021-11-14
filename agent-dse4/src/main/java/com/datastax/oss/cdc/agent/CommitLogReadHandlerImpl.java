@@ -50,12 +50,11 @@ import static com.datastax.oss.cdc.agent.CommitLogReadHandlerImpl.RowType.DELETE
 @Slf4j
 public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
-    private final AbstractMutationMaker<TableMetadata> mutationMaker;
-    private final BlockingConsumer<AbstractMutation<TableMetadata>> blockingConsumer;
+    private final AbstractMutationMaker<TableMetadata, Mutation> mutationMaker;
+    private final BlockingConsumer<Mutation> blockingConsumer;
 
-    CommitLogReadHandlerImpl(AgentConfig config,
-                             BlockingConsumer<AbstractMutation<TableMetadata>> blockingConsumer) {
-        this.mutationMaker = new MutationMaker(config);
+    public CommitLogReadHandlerImpl(BlockingConsumer<Mutation> blockingConsumer) {
+        this.mutationMaker = new MutationMaker();
         this.blockingConsumer = blockingConsumer;
     }
 

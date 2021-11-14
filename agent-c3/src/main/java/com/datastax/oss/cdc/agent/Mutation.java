@@ -15,7 +15,6 @@
  */
 package com.datastax.oss.cdc.agent;
 
-import lombok.NoArgsConstructor;
 import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.config.ColumnDefinition;
 
@@ -23,7 +22,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-@NoArgsConstructor
 public class Mutation extends AbstractMutation<CFMetaData> {
 
     public Mutation(UUID nodeId, Long segment, int position, Object[] pkValues, long tsMicro, String md5Digest, CFMetaData t, Object token) {

@@ -51,17 +51,16 @@ import static com.datastax.oss.cdc.agent.CommitLogReadHandlerImpl.RowType.DELETE
 @Slf4j
 public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
-    private final AbstractMutationMaker<TableMetadata> mutationMaker;
+    private final AbstractMutationMaker<TableMetadata, Mutation> mutationMaker;
     private final MutationSender<TableMetadata> mutationSender;
     private final CommitLogReaderService.Task task;
     private int processedPosition;
 
-    CommitLogReadHandlerImpl(AgentConfig config,
-                             MutationSender<TableMetadata> mutationSender,
+    CommitLogReadHandlerImpl(MutationSender<TableMetadata> mutationSender,
                              CommitLogReaderService.Task task,
                              int currentPosition) {
         this.mutationSender = mutationSender;
-        this.mutationMaker = new MutationMaker(config);
+        this.mutationMaker = new MutationMaker();
         this.task = task;
         this.processedPosition = currentPosition;
     }
@@ -455,7 +454,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         return values;
     }
 
-    public void sendAsync(AbstractMutation<TableMetadata> mutation) {
+    public void sendAsync(Mutation mutation) {
         log.debug("Sending mutation={}", mutation);
         try {
             task.inflightMessagesSemaphore.acquireUninterruptibly(); // may block
