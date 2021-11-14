@@ -66,7 +66,7 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
                     long seg = CommitLogUtil.extractTimestamp(file.getName());
                     int currentPosition = segmentOffsetWriter.position(Optional.empty(), seg);
                     if (syncPosition > currentPosition) {
-                        commitLogReadHandlerImpl = new CommitLogReadHandlerImpl(config, this::sendAsync);
+                        commitLogReadHandlerImpl = new CommitLogReadHandlerImpl(this::sendAsync);
                         CommitLogPosition minPosition = new CommitLogPosition(seg, currentPosition);
                         CommitLogReader commitLogReader = new CommitLogReader();
                         commitLogReader.readCommitLogSegment(commitLogReadHandlerImpl, file, minPosition, false);

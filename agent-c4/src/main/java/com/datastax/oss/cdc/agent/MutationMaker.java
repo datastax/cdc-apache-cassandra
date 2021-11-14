@@ -22,14 +22,10 @@ import org.apache.cassandra.schema.TableMetadata;
 import java.util.UUID;
 
 @Slf4j
-public class MutationMaker extends AbstractMutationMaker<TableMetadata> {
-
-    public MutationMaker(AgentConfig config) {
-        super(config);
-    }
+public class MutationMaker extends AbstractMutationMaker<TableMetadata, Mutation> {
 
     public void createRecord(UUID nodeId, long segment, int position,
-                              long tsMicro, Object[] pkValues, BlockingConsumer<AbstractMutation<TableMetadata>> consumer,
+                              long tsMicro, Object[] pkValues, BlockingConsumer<Mutation> consumer,
                               String md5Digest, TableMetadata t, Object token) {
         Mutation record = new Mutation(nodeId, segment, position, pkValues, tsMicro, md5Digest, t, token);
         try {

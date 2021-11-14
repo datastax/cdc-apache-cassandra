@@ -19,36 +19,28 @@ import lombok.NoArgsConstructor;
 
 import java.util.UUID;
 
-/**
- * Responsible for generating ChangeRecord and/or TombstoneRecord for create/update/delete events, as well as EOF events.
- */
 @NoArgsConstructor
-public abstract class AbstractMutationMaker<T> {
-    AgentConfig config;
-
-    public AbstractMutationMaker(AgentConfig config) {
-        this.config = config;
-    }
+public abstract class AbstractMutationMaker<T, M> {
 
     public void insert(UUID node, long segment, int position,
-                       long tsMicro, Object[] pkValues, BlockingConsumer<AbstractMutation<T>> consumer,
+                       long tsMicro, Object[] pkValues, BlockingConsumer<M> consumer,
                        String md5Digest, T t, Object token) {
         createRecord(node, segment, position, tsMicro, pkValues, consumer, md5Digest, t, token);
     }
 
     public void update(UUID node, long segment, int position,
-                       long tsMicro, Object[] pkValues, BlockingConsumer<AbstractMutation<T>> consumer,
+                       long tsMicro, Object[] pkValues, BlockingConsumer<M> consumer,
                        String md5Digest, T t, Object token) {
         createRecord(node, segment, position, tsMicro, pkValues, consumer, md5Digest, t, token);
     }
 
     public void delete(UUID node, long segment, int position,
-                       long tsMicro, Object[] pkValues, BlockingConsumer<AbstractMutation<T>> consumer,
+                       long tsMicro, Object[] pkValues, BlockingConsumer<M> consumer,
                        String md5Digest, T t, Object token) {
         createRecord(node, segment, position, tsMicro, pkValues, consumer, md5Digest, t, token);
     }
 
     public abstract void createRecord(UUID nodeId, long segment, int position,
-                              long tsMicro, Object[] pkValues, BlockingConsumer<AbstractMutation<T>> consumer,
+                              long tsMicro, Object[] pkValues, BlockingConsumer<M> consumer,
                               String md5Digest, T t, Object token);
 }

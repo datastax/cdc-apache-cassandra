@@ -50,7 +50,7 @@ import static com.datastax.oss.cdc.agent.CommitLogReadHandlerImpl.RowType.DELETE
 @Slf4j
 public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
 
-    private final AbstractMutationMaker<CFMetaData> mutationMaker;
+    private final AbstractMutationMaker<CFMetaData, Mutation> mutationMaker;
     private final MutationSender<CFMetaData> mutationSender;
     private final SegmentOffsetWriter segmentOffsetWriter;
     private final CommitLogReaderService.Task task;
@@ -62,7 +62,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
                              CommitLogReaderService.Task task) {
         this.segmentOffsetWriter = segmentOffsetWriter;
         this.mutationSender = mutationSender;
-        this.mutationMaker = new MutationMaker(config);
+        this.mutationMaker = new MutationMaker();
         this.task = task;
     }
 
@@ -461,7 +461,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         return values;
     }
 
-    public void sendAsync(AbstractMutation<CFMetaData> mutation) {
+    public void sendAsync(Mutation mutation) {
         log.debug("Sending mutation={}", mutation);
         try {
             task.inflightMessagesSemaphore.acquireUninterruptibly(); // may block

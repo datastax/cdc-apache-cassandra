@@ -15,7 +15,6 @@
  */
 package com.datastax.oss.cdc.agent;
 
-import lombok.NoArgsConstructor;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
 
@@ -23,7 +22,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-@NoArgsConstructor
 public class Mutation extends AbstractMutation<TableMetadata> {
 
     public Mutation(UUID nodeId, Long segment, int position, Object[] pkValues, long tsMicro, String md5Digest, TableMetadata t, Object token) {
