@@ -227,7 +227,8 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
 
     public static CqlSession getCqlSession(ContainerState containerState, Object meterRegistry) {
         ProgrammaticDriverConfigLoaderBuilder configLoaderBuilder = new DefaultProgrammaticDriverConfigLoaderBuilder()
-                .withDuration(DefaultDriverOption.REQUEST_TIMEOUT, Duration.ofSeconds(15));
+                .withDuration(DefaultDriverOption.REQUEST_TIMEOUT, Duration.ofSeconds(15))
+                .withDuration(DefaultDriverOption.CONNECTION_CONNECT_TIMEOUT, Duration.ofSeconds(60));
 
         InetSocketAddress endpoint = new InetSocketAddress(containerState.getHost(), containerState.getMappedPort(CQL_PORT));
         final CqlSessionBuilder builder = CqlSession.builder()
