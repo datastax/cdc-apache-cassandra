@@ -17,6 +17,9 @@ package com.datastax.testcontainers.cassandra;
 
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
+import com.datastax.oss.driver.api.core.config.DefaultDriverOption;
+import com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
+import com.datastax.oss.driver.internal.core.config.typesafe.DefaultProgrammaticDriverConfigLoaderBuilder;
 import com.datastax.testcontainers.cassandra.delegate.CassandraDatabaseDelegate;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -223,9 +226,13 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
     }
 
     public static CqlSession getCqlSession(ContainerState containerState, Object meterRegistry) {
+        ProgrammaticDriverConfigLoaderBuilder configLoaderBuilder = new DefaultProgrammaticDriverConfigLoaderBuilder()
+                .withDuration(DefaultDriverOption.REQUEST_TIMEOUT, Duration.ofSeconds(15));
+
         InetSocketAddress endpoint = new InetSocketAddress(containerState.getHost(), containerState.getMappedPort(CQL_PORT));
         final CqlSessionBuilder builder = CqlSession.builder()
                 .addContactPoint(endpoint)
+                .withConfigLoader(configLoaderBuilder.build())
                 .withLocalDatacenter(LOCAL_DC);
 
         if (meterRegistry != null) {
