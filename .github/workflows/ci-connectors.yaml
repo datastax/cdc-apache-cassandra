@@ -36,6 +36,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-
 
+      - name: Cache local Maven repository
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven2-${{ hashFiles('**/build.gradle') }}
+          restore-keys: ${{ runner.os }}-maven2-
+
       - name: Test with Gradle
         env:
           DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
