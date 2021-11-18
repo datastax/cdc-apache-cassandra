@@ -228,7 +228,8 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
     public static CqlSession getCqlSession(ContainerState containerState, Object meterRegistry) {
         ProgrammaticDriverConfigLoaderBuilder configLoaderBuilder = new DefaultProgrammaticDriverConfigLoaderBuilder()
                 .withDuration(DefaultDriverOption.REQUEST_TIMEOUT, Duration.ofSeconds(15))
-                .withDuration(DefaultDriverOption.CONNECTION_CONNECT_TIMEOUT, Duration.ofSeconds(60));
+                .withDuration(DefaultDriverOption.CONNECTION_CONNECT_TIMEOUT, Duration.ofSeconds(120))
+                .withDuration(DefaultDriverOption.CONTROL_CONNECTION_TIMEOUT, Duration.ofSeconds(120));
 
         InetSocketAddress endpoint = new InetSocketAddress(containerState.getHost(), containerState.getMappedPort(CQL_PORT));
         final CqlSessionBuilder builder = CqlSession.builder()
@@ -284,7 +285,7 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
                 .withEnv("MAX_HEAP_SIZE","1500m")
                 .withEnv("HEAP_NEWSIZE","300m")
                 .withEnv("DS_LICENSE", "accept")
-                .withStartupTimeout(Duration.ofSeconds(150));
+                .withStartupTimeout(Duration.ofSeconds(180));
         if (nodeIndex > 1) {
             cassandraContainer.withEnv("CASSANDRA_SEEDS", "cassandra-1");   // for Cassandra
             cassandraContainer.withEnv("SEEDS", "cassandra-1");             // for DSE
