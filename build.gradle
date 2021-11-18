@@ -160,7 +160,6 @@ task printVersion {
     }
 }
 
-
 licenseReport {
     renderers = [new CsvReportRenderer(separator:';'), new TextReportRenderer(), new InventoryHtmlReportRenderer('index.html', 'CDC License Report')]
     filters = [new LicenseBundleNormalizer(bundlePath: rootProject.file('buildSrc/src/main/resources/license-normalizer-bundle.json'))]
