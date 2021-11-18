@@ -38,8 +38,8 @@ jobs:
 
       - name: Test with Gradle
         env:
-          DSE_REPO_USERNAME: ${{ secrets.GITHUB_DSE_REPO_USERNAME }}
-          DSE_REPO_PASSWORD: ${{ secrets.GITHUB_DSE_REPO_PASSWORD }}
+          DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
+          DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
         run: |
           docker pull gaiaadm/pumba:latest
           echo "DSE_REPO_USERNAME=$DSE_REPO_USERNAME"

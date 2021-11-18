@@ -31,16 +31,17 @@ allprojects {
         maven { url "https://repo.datastax.com/artifactory/datastax-public-releases-local" }
         maven { url "${pulsarRepoUrl}" }
         maven {
-            credentials {
-                username "$dseRepoUsername"
-                password "$dseRepoPassword"
+            if (project.hasProperty('dseRepoUsername') && project.hasProperty('dseRepoPassword')) {
+                credentials {
+                    username "$dseRepoUsername"
+                    password "$dseRepoPassword"
+                }
             }
             url "https://repo.datastax.com/artifactory/dse"
         }
         maven { url "https://repo.sjc.dsinternal.org/artifactory/datastax-releases-local" }
     }
 
-    
     apply plugin: 'idea'
     apply plugin: 'jacoco'
     apply plugin: 'java-library'
