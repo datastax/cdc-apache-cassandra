@@ -71,8 +71,12 @@ allprojects {
     test {
         useJUnitPlatform()
         testLogging {
-            exceptionFormat = 'full'
-            showStandardStreams = true
+            events "failed"
+            showExceptions true
+            exceptionFormat "full"
+            showCauses true
+            showStackTraces true
+            showStandardStreams = false
         }
     }
 
