@@ -141,11 +141,12 @@ pulsar-admin source create \
     "events.topic": "persistent://public/default/events-cdc-ks1.table1",
     "keyspace": "ks1",
     "table": "table1",
-    "contactPoints": "localhost:9042",
+    "contactPoints": "localhost",
+    "port": 9042
     "loadBalancing.localDc": "DC1",
     "auth.provider": "PLAIN",
-    "auth.username\": "<username>",
-    "auth.password\": "<password>",
+    "auth.username": "<username>",
+    "auth.password": "<password>",
 }'
 ----
 
