@@ -42,4 +42,5 @@ jobs:
           DSE_REPO_PASSWORD: ${{ secrets.GITHUB_DSE_REPO_PASSWORD }}
         run: |
           docker pull gaiaadm/pumba:latest
-          ./gradlew test -PdseRepoUsername="$DSE_REPO_USERNAME" -PdseRepoPassword="$DSE_REPO_PASSWORD" -PpulsarRepoUrl=https://repo.datastax.com/artifactory/datastax-public-releases-local -x agent-c3-luna:test -x agent-c3-pulsar:test -x agent-c4-luna:test -x agent-c4-pulsar:test -x :connector-luna:test -x :connector-pulsar:test
+          echo "DSE_REPO_USERNAME=$DSE_REPO_USERNAME"
+          ./gradlew -PdseRepoUsername="$DSE_REPO_USERNAME" -PdseRepoPassword="$DSE_REPO_PASSWORD" -PpulsarRepoUrl=https://repo.datastax.com/artifactory/datastax-public-releases-local agent-dse4:compileJava
