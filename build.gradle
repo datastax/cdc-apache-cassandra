@@ -40,6 +40,7 @@ allprojects {
         maven { url "https://repo.sjc.dsinternal.org/artifactory/datastax-releases-local" }
     }
 
+    
     apply plugin: 'idea'
     apply plugin: 'jacoco'
     apply plugin: 'java-library'
