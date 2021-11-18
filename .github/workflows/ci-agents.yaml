@@ -43,4 +43,4 @@ jobs:
         run: |
           docker pull gaiaadm/pumba:latest
           echo "DSE_REPO_USERNAME=$DSE_REPO_USERNAME"
-          ./gradlew -PdseRepoUsername="$DSE_REPO_USERNAME" -PdseRepoPassword="$DSE_REPO_PASSWORD" -PpulsarRepoUrl=https://repo.datastax.com/artifactory/datastax-public-releases-local agent-dse4:compileJava
+          ./gradlew test -PdseRepoUsername="$DSE_REPO_USERNAME" -PdseRepoPassword="$DSE_REPO_PASSWORD" -PpulsarRepoUrl=https://repo.datastax.com/artifactory/datastax-public-releases-local -x :connector-luna:test -x :connector-pulsar:test
