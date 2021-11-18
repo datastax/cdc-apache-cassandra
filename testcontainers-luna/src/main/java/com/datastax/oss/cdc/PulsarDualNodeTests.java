@@ -225,7 +225,7 @@ public abstract class PulsarDualNodeTests {
                      .withFileSystemBind(randomDataDir + "2", "/var/lib/cassandra")) {
             cassandraContainer1.start();
             cassandraContainer2.start();
-
+            Thread.sleep(30); // wait for DSE
             try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
                 cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS ks1 WITH replication = {'class':'SimpleStrategy','replication_factor':'2'};");
                 cqlSession.execute("CREATE TABLE IF NOT EXISTS ks1.table1 (id text PRIMARY KEY, a int) WITH cdc=true");
