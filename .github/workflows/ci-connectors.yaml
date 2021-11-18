@@ -37,6 +37,9 @@ jobs:
             ${{ runner.os }}-buildx-
 
       - name: Test with Gradle
+        env:
+          DSE_REPO_USERNAME: ${{ secrets.GITHUB_DSE_REPO_USERNAME }}
+          DSE_REPO_PASSWORD: ${{ secrets.GITHUB_DSE_REPO_PASSWORD }}
         run: |
           docker pull gaiaadm/pumba:latest
-          ./gradlew -PpulsarRepoUrl=https://repo.datastax.com/artifactory/datastax-public-releases-local connector-luna:test connector-pulsar:test
+          ./gradlew -PdseRepoUsername="$DSE_REPO_USERNAME" -PdseRepoPassword="$DSE_REPO_PASSWORD" -PpulsarRepoUrl=https://repo.datastax.com/artifactory/datastax-public-releases-local connector-luna:test connector-pulsar:test
