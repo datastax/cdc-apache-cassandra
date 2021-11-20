@@ -138,13 +138,13 @@
 | 3600
 
 | *query.maxMobileAvgLatency*
-| Maximum mobile average CQL query latency beyond which the number of executor is decreased
+| Maximum mobile average CQL query latency beyond which the number of executors is decreased
 | long
 |
 | 100
 
 | *query.minMobileAvgLatency*
-| Minimum mobile average CQL query latency beyond which the number of executor is increased
+| Minimum mobile average CQL query latency beyond which the number of executors is increased
 | long
 |
 | 10

@@ -84,7 +84,7 @@ IMPORTANT
 By downloading this DataStax product, you agree to the terms of the open-source https://www.apache.org/licenses/LICENSE-2.0[Apache-2.0 license agreement].
 ====
 
-. Download the `pulsar-cassandra-source-<version>.tar` file from the https://downloads.datastax.com/#cassandra-source-connector[DataStax downloads page].
+. Download the `cassandra-source-connectors-<version>.tar` file from the https://downloads.datastax.com/#cassandra-source-connector[DataStax downloads page].
 
 The following files are available:
 
@@ -164,7 +164,7 @@ For advanced configuration of the Cassandra driver in the {csc_pulsar}, see xref
 
 == Enabling and disabling CDC on a table
 
-Once the change agent is installed and the connector is running, you can enable or disabled CDC on table using the following commands:
+Once the change agent is installed and the connector is running, you can enable or disable CDC on table using the following commands:
 
 [source,language-bash]
 ----
