@@ -302,6 +302,13 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     }
 
     /**
+     * @return the node id
+     */
+    public UUID getHostId() {
+        return StorageService.instance.getLocalHostUUID();
+    }
+
+    /**
      * Handle a valid deletion event resulted from a partition-level deletion by converting Cassandra representation
      * of this event into a {@link AbstractMutation} object and send it to pulsar. A valid deletion
      * event means a partition only has a single row, this implies there are no clustering keys.
@@ -310,7 +317,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         try {
             Object[] after = new Object[pu.metadata().partitionKeyColumns().size() + pu.metadata().clusteringColumns().size()];
             populatePartitionColumns(after, pu);
-            mutationMaker.delete(StorageService.instance.getLocalHostUUID(), segment, position,
+            mutationMaker.delete(getHostId(), segment, position,
                     pu.maxTimestamp(), after, blockingConsumer, md5Digest, pu.metadata(), pu.partitionKey().getToken().getTokenValue());
         }
         catch (Exception e) {
@@ -331,17 +338,17 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         long ts = rowType == DELETE ? row.deletion().time().markedForDeleteAt() : pu.maxTimestamp();
         switch (rowType) {
             case INSERT:
-                mutationMaker.insert(StorageService.instance.getLocalHostUUID(), segment, position,
+                mutationMaker.insert(getHostId(), segment, position,
                         ts, after, blockingConsumer, md5Digest, pu.metadata(), pu.partitionKey().getToken().getTokenValue());
                 break;
 
             case UPDATE:
-                mutationMaker.update(StorageService.instance.getLocalHostUUID(), segment, position,
+                mutationMaker.update(getHostId(), segment, position,
                         ts, after, blockingConsumer, md5Digest, pu.metadata(), pu.partitionKey().getToken().getTokenValue());
                 break;
 
             case DELETE:
-                mutationMaker.delete(StorageService.instance.getLocalHostUUID(), segment, position,
+                mutationMaker.delete(getHostId(), segment, position,
                         ts, after, blockingConsumer, md5Digest, pu.metadata(), pu.partitionKey().getToken().getTokenValue());
                 break;
 
