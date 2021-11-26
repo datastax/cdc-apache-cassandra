@@ -52,12 +52,12 @@ The {csc_pulsar} updates the schema registry to dynamically reflect the Cassandr
 You can then deploy various sink connectors to replicate data into the backends of your choice.
 For more, see https://pulsar.apache.org/docs/en/io-connectors/#sink-connector[Pulsar built-in sink connectors].
 
-Sink connectors processing messages from the data topic should interpret a event with a null value as a delete.
+Sink connectors processing messages from the data topic should interpret an event with a null value as a delete.
 For example, with the Pulsar Elasticsearch connector, you need to set `nullValueAction` to `DELETE`.
 
 The change agent runs on all Cassandra data nodes.
 This means that the agent processes the original write plus its replicas.
-To minimize the number of duplicate events that end up in the data topic, the {csc_pulsar} maintain an in-memory de-duplication cache.
+To minimize the number of duplicate events that end up in the data topic, the {csc_pulsar} maintains an in-memory de-duplication cache.
 For each update to the table, an MD5 digest is calculated to de-duplicate the updates from the replicas.
 
 === Change Agent deployment matrix
@@ -139,19 +139,19 @@ If a row update contains both supported and unsupported data types, the event wi
 
 Schema registry updates on a Pulsar topic are controlled by the `is-allow-auto-update-schema` option.
 
-* `True` allows the broker to register a new schema for a topic and connect the producer if the schema is not registered.
-* `False` rejects the producer's connection to the broker if the schema is not registered.
+* `true` allows the broker to register a new schema for a topic and connect the producer if the schema is not registered.
+* `false` rejects the producer's connection to the broker if the schema is not registered.
 
-To ensure the {csc_pulsar} can automatically update the schema on the Pulsar topic, set the option to `True`. For more, see https://pulsar.apache.org/docs/en/schema-manage/[Schema Auto-Update].
+To ensure the {csc_pulsar} can automatically update the schema on the Pulsar topic, set the option to `true`. For more, see https://pulsar.apache.org/docs/en/schema-manage/[Schema Auto-Update].
 
 === Multiple Cassandra datacenters
 
 In a multi-datacenter Cassandra configuration, enable CDC and install the change agent in only one datacenter.
-To ensure the data sent to all datacenters are delivered to the data topic, make sure that replication to the datacenter that has CDC enabled on the table.
+To ensure the data sent to all datacenters are delivered to the data topic, make sure to configure replication to the datacenter that has CDC enabled on the table.
 
 For example, given a Cassandra cluster with three datacenters (DC1, DC2, and DC3), you would enable CDC and install the change agent in only DC1.
-To ensure all updates in DC2 and DC2 are propagated to the data topic, configure the table to replicate data from DC2 and DC3 to DC1.
-For example, `replication = {'class': 'NetworkTopologyStrategy', 'dc1': '3', 'dc2': '3', 'dc3': '3'})`.
+To ensure all updates in DC2 and DC3 are propagated to the data topic, configure the table's keyspace to replicate data from DC2 and DC3 to DC1.
+For example, `replication = {'class': 'NetworkTopologyStrategy', 'dc1': 3, 'dc2': 3, 'dc3': 3})`.
 The data replicated to DC1 will be processed by the change agent and eventually end up in the data topic.
 
 == Where to go next
