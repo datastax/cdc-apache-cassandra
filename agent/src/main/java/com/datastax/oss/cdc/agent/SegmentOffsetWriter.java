@@ -43,6 +43,12 @@ public interface SegmentOffsetWriter {
     void flush(Optional<UUID> nodeId, long segmentId) throws IOException;
 
     /**
+     * Load all persisted offsets into memory
+     * @throws IOException
+     */
+    void loadOffsets() throws IOException;
+
+    /**
      * Remove the offset for a segment
      * @param nodeId
      * @param segmentId
