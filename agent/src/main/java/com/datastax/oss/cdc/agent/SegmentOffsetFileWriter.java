@@ -98,6 +98,7 @@ public class SegmentOffsetFileWriter implements SegmentOffsetWriter, AutoCloseab
         }
     }
 
+    @Override
     public void loadOffsets() throws IOException {
         for(File f : new File(cdcLogDir).listFiles(f -> f.isFile() && COMMITLOG_OFFSETS_REGEX_PATTERN.matcher(f.getName()).matches())) {
             long segment = Long.parseLong(f.getName().substring(0, f.getName().length() - COMMITLOG_OFFSET_FILE_SUFFIX.length()));

@@ -40,6 +40,10 @@ public class SegmentOffsetDummyWriter implements SegmentOffsetWriter, AutoClosea
     }
 
     @Override
+    public void loadOffsets() throws IOException {
+    }
+
+    @Override
     public void remove(Optional<UUID> nodeId, long segmentId) {
     }
 
