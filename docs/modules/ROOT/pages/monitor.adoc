@@ -2,7 +2,7 @@
 
 == Change Agent Metrics
 
-The change agent is a JVM agent running in Apache Cassandra® nodes provides a dedicated MBean type=`CdcAgent` with the following metrics:
+The change agent is a JVM agent running in Apache Cassandra® nodes and provides a dedicated MBean type=`CdcAgent` with the following metrics:
 
 [cols="2,1,3"]
 |===
@@ -26,7 +26,7 @@ The change agent is a JVM agent running in Apache Cassandra® nodes provides a d
 
 |ExecutedTasks
 |Counter
-|Number of executed task to process commitlog files.
+|Number of executed tasks to process commitlog files.
 
 |SubmittedTasks
 |Gauge

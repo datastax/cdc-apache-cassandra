@@ -14,8 +14,8 @@
 | cdc
 
 
-| *cdcPoolIntervalMs*
-| The pool interval in milliseconds for watching new commitlog files in the CDC raw directory.
+| *cdcPollIntervalMs*
+| The poll interval in milliseconds for watching new commitlog files in the CDC raw directory.
 | long
 | 60000
 

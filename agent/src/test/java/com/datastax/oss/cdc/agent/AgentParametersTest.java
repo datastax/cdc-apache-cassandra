@@ -29,7 +29,7 @@ public class AgentParametersTest {
     String commonConfig =
             CDC_WORKING_DIR + "=cdc_working," +
                     ERROR_COMMITLOG_REPROCESS_ENABLED + "=true," +
-                    CDC_DIR_POOL_INTERVAL_MS + "=1234," +
+                    CDC_DIR_POLL_INTERVAL_MS + "=1234," +
                     CDC_CONCURRENT_PROCESSORS + "=5," +
                     MAX_INFLIGHT_MESSAGES_PER_TASK + "=50," +
                     TOPIC_PREFIX + "=events-mutations," +

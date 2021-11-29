@@ -35,7 +35,7 @@ public class AgentConfig {
     public static final String storageDir = System.getProperty("cassandra.storagedir", null);
 
     public enum Platform {
-        ALL, PULSAR;
+        ALL, PULSAR
     }
 
     @AllArgsConstructor
@@ -104,11 +104,11 @@ public class AgentConfig {
                     "cdc", "String",
                     "main", 2);
 
-    public static final String CDC_DIR_POOL_INTERVAL_MS = "cdcPoolIntervalMs";
-    public long cdcDirPollIntervalMs = Long.getLong(CDC_PROPERTY_PREFIX + CDC_DIR_POOL_INTERVAL_MS, 60000L);
-    public static final Setting<Long> CDC_DIR_POOL_INTERVAL_MS_SETTING =
-            new Setting<>(CDC_DIR_POOL_INTERVAL_MS, Platform.ALL, (c, s) -> c.cdcDirPollIntervalMs = Long.parseLong(s), c -> c.cdcDirPollIntervalMs,
-                    "The pool interval in milliseconds for watching new commit log files in the CDC raw directory.",
+    public static final String CDC_DIR_POLL_INTERVAL_MS = "cdcPollIntervalMs";
+    public long cdcDirPollIntervalMs = Long.getLong(CDC_PROPERTY_PREFIX + CDC_DIR_POLL_INTERVAL_MS, 60000L);
+    public static final Setting<Long> CDC_DIR_POLL_INTERVAL_MS_SETTING =
+            new Setting<>(CDC_DIR_POLL_INTERVAL_MS, Platform.ALL, (c, s) -> c.cdcDirPollIntervalMs = Long.parseLong(s), c -> c.cdcDirPollIntervalMs,
+                    "The poll interval in milliseconds for watching new commit log files in the CDC raw directory.",
                     60000L, "Long",
                     "main", 3);
 
@@ -279,7 +279,7 @@ public class AgentConfig {
         // don't use guava
         Set<Setting<?>> set = new HashSet<>();
         set.add(CDC_RELOCATION_DIR_SETTING);
-        set.add(CDC_DIR_POOL_INTERVAL_MS_SETTING);
+        set.add(CDC_DIR_POLL_INTERVAL_MS_SETTING);
         set.add(CDC_CONCURRENT_PROCESSOR_SETTING);
         set.add(ERROR_COMMITLOG_REPROCESS_ENABLED_SETTING);
         set.add(TOPIC_PREFIX_SETTING);
@@ -420,7 +420,7 @@ public class AgentConfig {
                 continue;
             }
             if (! (entry.getValue() instanceof String)) {
-                throw new IllegalArgumentException(String.format("Unsupported parameter '%s' of type, only String values are allowed ", key, entry.getValue().getClass()));
+                throw new IllegalArgumentException(String.format("Unsupported parameter '%s' of type %s, only String values are allowed ", key, entry.getValue().getClass()));
             }
             String value = (String) entry.getValue();
             Setting<?> setting = settingMap.get(key);

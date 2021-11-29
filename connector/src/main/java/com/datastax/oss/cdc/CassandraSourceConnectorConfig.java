@@ -181,12 +181,12 @@ public class CassandraSourceConnectorConfig {
                             ConfigDef.Type.LONG,
                             100L,
                             ConfigDef.Importance.MEDIUM,
-                            "Maximum mobile average CQL query latency beyond which the number of executor is decreased")
+                            "Maximum mobile average CQL query latency beyond which the number of executors is decreased")
                     .define(QUERY_MIN_MOBILE_AVG_LATENCY_CONFIG,
                             ConfigDef.Type.LONG,
                             10L,
                             ConfigDef.Importance.MEDIUM,
-                            "Minimum mobile average CQL query latency beyond which the number of executor is increased")
+                            "Minimum mobile average CQL query latency beyond which the number of executors is increased")
                     .define(QUERY_BACKOFF_IN_MS_CONFIG,
                             ConfigDef.Type.LONG,
                             100L,
@@ -429,9 +429,9 @@ public class CassandraSourceConnectorConfig {
 
     private void validateCompressionType() {
         String compressionTypeValue = javaDriverSettings.get(COMPRESSION_DRIVER_SETTING);
-        if (!(compressionTypeValue.toLowerCase().equals("none")
-                || compressionTypeValue.toLowerCase().equals("snappy")
-                || compressionTypeValue.toLowerCase().equals("lz4"))) {
+        if (!("none".equalsIgnoreCase(compressionTypeValue)
+                || "snappy".equalsIgnoreCase(compressionTypeValue)
+                || "lz4".equalsIgnoreCase(compressionTypeValue))) {
             throw new ConfigException(
                     COMPRESSION_OPT, compressionTypeValue, "valid values are none, snappy, lz4");
         }
