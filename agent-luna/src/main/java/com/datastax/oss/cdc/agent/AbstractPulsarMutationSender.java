@@ -61,8 +61,8 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
     @ToString
     @EqualsAndHashCode
     public static class SchemaAndWriter {
-        org.apache.avro.Schema schema;
-        SpecificDatumWriter<GenericRecord> writer;
+        public final org.apache.avro.Schema schema;
+        public final SpecificDatumWriter<GenericRecord> writer;
     }
 
     volatile PulsarClient client;
@@ -122,7 +122,7 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
         }
     }
 
-    byte[] serializeAvroGenericRecord(org.apache.avro.generic.GenericRecord genericRecord, SpecificDatumWriter<org.apache.avro.generic.GenericRecord> datumWriter) {
+    public byte[] serializeAvroGenericRecord(org.apache.avro.generic.GenericRecord genericRecord, SpecificDatumWriter<org.apache.avro.generic.GenericRecord> datumWriter) {
         try {
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
             BinaryEncoder binaryEncoder = new EncoderFactory().binaryEncoder(byteArrayOutputStream, null);
@@ -227,7 +227,7 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
      * @param mutation
      * @return The primary key as an AVRO GenericRecord
      */
-    org.apache.avro.generic.GenericRecord buildAvroKey(org.apache.avro.Schema keySchema, AbstractMutation<T> mutation) {
+    public org.apache.avro.generic.GenericRecord buildAvroKey(org.apache.avro.Schema keySchema, AbstractMutation<T> mutation) {
         org.apache.avro.generic.GenericRecord genericRecord = new org.apache.avro.generic.GenericData.Record(keySchema);
         int i = 0;
         for (ColumnInfo columnInfo : mutation.primaryKeyColumns()) {
