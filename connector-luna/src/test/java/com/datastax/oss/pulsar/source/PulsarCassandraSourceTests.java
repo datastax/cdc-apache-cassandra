@@ -47,6 +47,7 @@ import java.math.BigInteger;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -77,7 +78,7 @@ public class PulsarCassandraSourceTests {
     private static final Map<String, Object[]> values = new HashMap<>();
 
     @BeforeAll
-    public static final void initBeforeClass() throws Exception {
+    public static void initBeforeClass() throws Exception {
         testNetwork = Network.newNetwork();
 
         String connectorBuildDir = System.getProperty("connectorBuildDir");
@@ -114,7 +115,7 @@ public class PulsarCassandraSourceTests {
 
         final ZoneId zone = ZoneId.systemDefault();
         final LocalDate localDate = LocalDate.of(2020, 12, 25);
-        final LocalDateTime localDateTime = localDate.atTime(10, 10, 00);
+        final LocalDateTime localDateTime = localDate.atTime(10, 10, 0);
 
         // sample values to check CQL to Pulsar native types, left=CQL value, right=Pulsar value
         values.put("text", new Object[]{"a", "a"});
@@ -823,7 +824,7 @@ public class PulsarCassandraSourceTests {
         try {
             String logFile = "/pulsar/logs/functions/public/default/" + name + "/" + name + "-0.log";
             String logs = pulsarContainer.<String>copyFileFromContainer(logFile, (inputStream) -> {
-                return IOUtils.toString(inputStream, "utf-8");
+                return IOUtils.toString(inputStream, StandardCharsets.UTF_8);
             });
             log.info("Function {} logs {}", name, logs);
         } catch (Throwable err) {
