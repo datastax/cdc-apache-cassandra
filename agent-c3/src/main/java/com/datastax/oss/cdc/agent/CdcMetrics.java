@@ -34,51 +34,21 @@ public class CdcMetrics {
 
     public static final Counter executedTasks = Metrics.counter(factory.createMetricName("ExecutedTasks"));
 
-    public static final Gauge<Integer> submittedTasksGauge = Metrics.register(factory.createMetricName("SubmittedTasks"), new Gauge<Integer>()
-    {
-        public Integer getValue()
-        {
-            return CommitLogReaderService.submittedTasks.size();
-        }
-    });
+    public static final Gauge<Integer> submittedTasksGauge = Metrics.register(factory.createMetricName("SubmittedTasks"),
+            CommitLogReaderService.submittedTasks::size);
 
-    public static final Gauge<Integer> maxSubmittedTasks = Metrics.register(factory.createMetricName("MaxSubmittedTasks"), new Gauge<Integer>()
-    {
-        public Integer getValue()
-        {
-            return CommitLogReaderService.maxSubmittedTasks.get();
-        }
-    });
+    public static final Gauge<Integer> maxSubmittedTasks = Metrics.register(factory.createMetricName("MaxSubmittedTasks"),
+            CommitLogReaderService.maxSubmittedTasks::get);
 
-    public static final Gauge<Integer> pendingTasksGauge = Metrics.register(factory.createMetricName("PendingTasks"), new Gauge<Integer>()
-    {
-        public Integer getValue()
-        {
-            return CommitLogReaderService.pendingTasks.size();
-        }
-    });
+    public static final Gauge<Integer> pendingTasksGauge = Metrics.register(factory.createMetricName("PendingTasks"),
+            CommitLogReaderService.pendingTasks::size);
 
-    public static final Gauge<Integer> maxPendingTasks = Metrics.register(factory.createMetricName("MaxPendingTasks"), new Gauge<Integer>()
-    {
-        public Integer getValue()
-        {
-            return CommitLogReaderService.maxPendingTasks.get();
-        }
-    });
+    public static final Gauge<Integer> maxPendingTasks = Metrics.register(factory.createMetricName("MaxPendingTasks"),
+            CommitLogReaderService.maxPendingTasks::get);
 
-    public static final Gauge<Integer> uncleanedTasksGauge = Metrics.register(factory.createMetricName("UncleanedTasks"), new Gauge<Integer>()
-    {
-        public Integer getValue()
-        {
-            return CommitLogReaderService.pendingTasks.size();
-        }
-    });
+    public static final Gauge<Integer> uncleanedTasksGauge = Metrics.register(factory.createMetricName("UncleanedTasks"),
+            CommitLogReaderService.pendingTasks::size);
 
-    public static final Gauge<Integer> maxUncleanedTasks = Metrics.register(factory.createMetricName("MaxUncleanedTasks"), new Gauge<Integer>()
-    {
-        public Integer getValue()
-        {
-            return CommitLogReaderService.maxUncleanedTasks.get();
-        }
-    });
+    public static final Gauge<Integer> maxUncleanedTasks = Metrics.register(factory.createMetricName("MaxUncleanedTasks"),
+            CommitLogReaderService.maxUncleanedTasks::get);
 }

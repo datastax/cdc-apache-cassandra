@@ -93,7 +93,7 @@ public class NativeAvroConverter implements Converter<byte[], GenericRecord, Row
                        String fieldName,
                        DataType dataType,
                        boolean optional) {
-        Schema.Field fieldSchema = null;
+        Schema.Field fieldSchema;
         switch(dataType.getProtocolCode()) {
             case ProtocolConstants.DataType.INET:
             case ProtocolConstants.DataType.ASCII:

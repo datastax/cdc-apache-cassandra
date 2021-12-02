@@ -71,7 +71,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     }
 
     /**
-     *  A PartitionType represents the type of a PartitionUpdate.
+     *  A PartitionType represents the type of PartitionUpdate.
      */
     enum PartitionType {
         /**

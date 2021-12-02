@@ -121,7 +121,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
     MutationCache<String> mutationCache;
 
-    Schema<KeyValue<GenericRecord, MutationValue>> eventsSchema = Schema.KeyValue(
+    final Schema<KeyValue<GenericRecord, MutationValue>> eventsSchema = Schema.KeyValue(
             Schema.AUTO_CONSUME(),
             Schema.AVRO(MutationValue.class),
             KeyValueEncodingType.SEPARATED);
@@ -145,12 +145,12 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     /**
      *  Per batch total CQL latency
      */
-    AtomicLong batchTotalLatency = new AtomicLong(0);
+    final AtomicLong batchTotalLatency = new AtomicLong(0);
 
     /**
      *  Per batch total CQL queries
      */
-    AtomicLong batchTotalQuery = new AtomicLong(0);
+    final AtomicLong batchTotalQuery = new AtomicLong(0);
 
     /**
      * Circular array of the last batch avg latencies use to compute the mobile average query latency.
@@ -220,7 +220,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                 queryExecutors.remove(queryExecutors.size() - 1).shutdown();
             log.warn("CQL read issue={}, decreasing the query executor to {} threads", throwable, queryExecutors.size());
         } else {
-            log.warn("CQL read issue={} with only 1 executor threads, please consider limiting the source connector throughput to avoid overloading the Cassandra cluster");
+            log.warn("CQL read issue={} with only 1 executor threads, please consider limiting the source connector throughput to avoid overloading the Cassandra cluster", throwable);
         }
     }
 
@@ -475,7 +475,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                             sourceContext.recordMetric(QUERY_LATENCY, 0);
                             sourceContext.recordMetric(QUERY_EXECUTORS, queryExecutors.size());
                             if (msg.hasProperty(Constants.WRITETIME))
-                                sourceContext.recordMetric(REPLICATION_LATENCY, System.currentTimeMillis() - (Long.parseLong(msg.getProperty(Constants.WRITETIME)) / 1000));
+                                sourceContext.recordMetric(REPLICATION_LATENCY, System.currentTimeMillis() - (Long.parseLong(msg.getProperty(Constants.WRITETIME)) / 1000L));
                             return null;
                         }
 
@@ -498,7 +498,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                         batchTotalLatency.addAndGet(end - start);
                         batchTotalQuery.incrementAndGet();
                         if (msg.hasProperty(Constants.WRITETIME))
-                            sourceContext.recordMetric(REPLICATION_LATENCY, end - (Long.parseLong(msg.getProperty(Constants.WRITETIME)) / 1000));
+                            sourceContext.recordMetric(REPLICATION_LATENCY, end - (Long.parseLong(msg.getProperty(Constants.WRITETIME)) / 1000L));
                         Object value = tuple._1 == null ? null : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
                         if (ConsistencyLevel.LOCAL_QUORUM.equals(tuple._2()) &&
                                 (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._3 != null && tuple._3.equals(mutationValue.getNodeId())))) {
@@ -533,7 +533,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                 }
             }
             long duration = System.currentTimeMillis() - start;
-            long throughput = duration > 0 ? (1000 * newRecords.size()) / duration : 0;
+            long throughput = duration > 0 ? (1000L * newRecords.size()) / duration : 0;
             log.debug("Query time for {} msg in {} ms throughput={} msg/s cacheHits={}", newRecords.size(), duration, throughput, cacheHits);
             if (batchTotalQuery.get() > 0) {
                 adjustExecutors();
