@@ -374,7 +374,6 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         }
     }
 
-    @SuppressWarnings({"unchecked","rawtypes"})
     private void populateClusteringColumns(Object[] after, Row row, PartitionUpdate pu) {
         int i = pu.metadata().partitionKeyColumns().size();
         for (ColumnMetadata cd : pu.metadata().clusteringColumns().stream().limit(row.clustering().size()).collect(Collectors.toList())) {
