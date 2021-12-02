@@ -474,7 +474,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                             sourceContext.recordMetric(CACHE_SIZE, mutationCache.estimatedSize());
                             sourceContext.recordMetric(QUERY_LATENCY, 0);
                             sourceContext.recordMetric(QUERY_EXECUTORS, queryExecutors.size());
-                            if (msg.getProperty(Constants.WRITETIME) != null)
+                            if (msg.hasProperty(Constants.WRITETIME))
                                 sourceContext.recordMetric(REPLICATION_LATENCY, System.currentTimeMillis() - (Long.parseLong(msg.getProperty(Constants.WRITETIME)) / 1000));
                             return null;
                         }
@@ -497,7 +497,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                         sourceContext.recordMetric(QUERY_EXECUTORS, queryExecutors.size());
                         batchTotalLatency.addAndGet(end - start);
                         batchTotalQuery.incrementAndGet();
-                        if (msg.getProperty(Constants.WRITETIME) != null)
+                        if (msg.hasProperty(Constants.WRITETIME))
                             sourceContext.recordMetric(REPLICATION_LATENCY, end - (Long.parseLong(msg.getProperty(Constants.WRITETIME)) / 1000));
                         Object value = tuple._1 == null ? null : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
                         if (ConsistencyLevel.LOCAL_QUORUM.equals(tuple._2()) &&
@@ -731,7 +731,9 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
         @Override
         public Map<String, String> getProperties() {
-            return ImmutableMap.of(Constants.WRITETIME, msg.getProperty(Constants.WRITETIME));
+            return msg.hasProperty(Constants.WRITETIME)
+                    ? ImmutableMap.of(Constants.WRITETIME, msg.getProperty(Constants.WRITETIME))
+                    : ImmutableMap.of();
         }
     }
 }
