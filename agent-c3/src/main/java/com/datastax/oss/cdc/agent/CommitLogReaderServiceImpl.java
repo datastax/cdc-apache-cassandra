@@ -25,7 +25,6 @@ import org.apache.cassandra.db.commitlog.CommitLogReader;
 import java.io.File;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.function.IntBinaryOperator;
 
 /**
  * Consume a queue of commitlog files to read mutations.

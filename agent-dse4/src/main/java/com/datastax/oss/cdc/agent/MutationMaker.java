@@ -16,7 +16,6 @@
 package com.datastax.oss.cdc.agent;
 
 import com.datastax.oss.cdc.agent.exceptions.CassandraConnectorTaskException;
-import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.cassandra.schema.TableMetadata;
 

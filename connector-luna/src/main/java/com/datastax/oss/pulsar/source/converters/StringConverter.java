@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
 
 public class StringConverter implements Converter<String, String, Row, List<Object>> {
 
-    List<String> pkColumns;
+    final List<String> pkColumns;
 
     public StringConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
         this.pkColumns = tm.getPrimaryKey().stream()

@@ -27,7 +27,6 @@ import org.apache.cassandra.schema.TableMetadata;
 import java.io.File;
 import java.util.Optional;
 import java.util.concurrent.*;
-import java.util.function.IntBinaryOperator;
 
 /**
  * Consume a queue of commitlog files to read mutations.

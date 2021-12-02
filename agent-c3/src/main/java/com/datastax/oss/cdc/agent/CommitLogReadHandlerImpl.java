@@ -71,7 +71,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     }
 
     /**
-     *  A PartitionType represents the type of a PartitionUpdate.
+     *  A PartitionType represents the type of PartitionUpdate.
      */
     enum PartitionType {
         /**
@@ -381,7 +381,6 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         }
     }
 
-    @SuppressWarnings({"unchecked","rawtypes"})
     private void populateClusteringColumns(Object[] after, Row row, PartitionUpdate pu) {
         int  i = pu.metadata().partitionKeyColumns().size();
         for (ColumnDefinition cd : pu.metadata().clusteringColumns().stream().limit(row.clustering().size()).collect(Collectors.toList())) {
