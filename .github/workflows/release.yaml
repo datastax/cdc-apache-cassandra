@@ -32,7 +32,10 @@ jobs:
             ${{ runner.os }}-buildx-
 
       - name: Build with Gradle
-        run: ./gradlew assemble -PpulsarRepoUrl=https://repo.datastax.com/artifactory/datastax-public-releases-local -x :agent-dse4:assemble -x :agent-dse4-luna:assemble -x :agent-dse4-pulsar:assemble
+        env:
+          DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
+          DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
+        run: ./gradlew assemble -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD
 
       - name: Create Release
         id: create_release
@@ -128,6 +131,16 @@ jobs:
           asset_path: agent-c4-luna/build/libs/agent-c4-luna-${{ env.CURRENT_VERSION }}-all.jar
           asset_name: agent-c4-luna-${{ env.CURRENT_VERSION }}-all.jar
           asset_content_type: application/java-archive
+      - name: Upload Release agent-dse4-luna
+        id: agent-dse4-luna-jar
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
+          asset_path: agent-dse4-luna/build/libs/agent-dse4-luna-${{ env.CURRENT_VERSION }}-all.jar
+          asset_name: agent-dse4-luna-${{ env.CURRENT_VERSION }}-all.jar
+          asset_content_type: application/java-archive
 
       - name: Upload Release agent-c3-pulsar
         id: agent-c3-pulsar-jar
@@ -148,4 +161,14 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
           asset_path: agent-c4-pulsar/build/libs/agent-c4-pulsar-${{ env.CURRENT_VERSION }}-all.jar
           asset_name: agent-c4-pulsar-${{ env.CURRENT_VERSION }}-all.jar
+          asset_content_type: application/java-archive
+      - name: Upload Release agent-dse4-pulsar
+        id: agent-dse4-pulsar-jar
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
+          asset_path: agent-dse4-pulsar/build/libs/agent-dse4-pulsar-${{ env.CURRENT_VERSION }}-all.jar
+          asset_name: agent-dse4-pulsar-${{ env.CURRENT_VERSION }}-all.jar
           asset_content_type: application/java-archive
