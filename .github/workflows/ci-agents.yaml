@@ -36,9 +36,12 @@ jobs:
             ${{ runner.os }}-buildx-
 
       - name: Test with Gradle
+        env:
+          DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
+          DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
         run: |
           docker pull gaiaadm/pumba:latest
           docker pull datastax/dse-server:6.8.16
           docker pull apachepulsar/pulsar:2.8.1
           docker pull datastax/lunastreaming:2.7.2_1.1.8
-          ./gradlew test -x :connector-luna:test -x :connector-pulsar:test
+          ./gradlew test -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD -x :connector-luna:test -x :connector-pulsar:test
