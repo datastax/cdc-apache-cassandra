@@ -41,4 +41,4 @@ jobs:
           docker pull datastax/dse-server:6.8.16
           docker pull apachepulsar/pulsar:2.8.1
           docker pull datastax/lunastreaming:2.7.2_1.1.8
-          ./gradlew -PpulsarRepoUrl=https://repo.datastax.com/artifactory/datastax-public-releases-local connector-luna:test connector-pulsar:test
+          ./gradlew connector-luna:test connector-pulsar:test
