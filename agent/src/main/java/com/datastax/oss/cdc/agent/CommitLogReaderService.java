@@ -119,12 +119,7 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
                 if (seg > lastSegment.get()) {
                     garbageCollect(seg);
                 }
-                lastSegment.getAndAccumulate(seg, new LongBinaryOperator() {
-                    @Override
-                    public long applyAsLong(long left, long right) {
-                        return Math.max(left, right);
-                    }
-                });
+                lastSegment.getAndAccumulate(seg, Math::max);
                 List<String> lines = Files.readAllLines(file.toPath(), Charset.forName("UTF-8"));
                 if (lines.size() > 0) {
                     int pos = Integer.parseInt(lines.get(0));
@@ -189,12 +184,7 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
 
     public void addPendingTask(Task task) {
         pendingTasks.put(task.segment, task);
-        maxPendingTasks.getAndAccumulate(pendingTasks.size(), new IntBinaryOperator() {
-            @Override
-            public int applyAsInt(int left, int right) {
-                return Math.max(left, right);
-            }
-        });
+        maxPendingTasks.getAndAccumulate(pendingTasks.size(), Math::max);
         log.trace("maxPendingTasks={}", maxPendingTasks);
         maybeRunPendingTask(task.segment);
     }
@@ -212,18 +202,12 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
                 if (pendingTask != null) {
                     pendingTasks.remove(segment);
                     tasksExecutor.submit(pendingTask);
-
                 }
                 return pendingTask;
             }
             return v1;
         });
-        maxSubmittedTasks.getAndAccumulate(submittedTasks.size(), new IntBinaryOperator() {
-            @Override
-            public int applyAsInt(int left, int right) {
-                return Math.max(left, right);
-            }
-        });
+        maxSubmittedTasks.getAndAccumulate(submittedTasks.size(), Math::max);
         return task;
     }
 
@@ -310,12 +294,7 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
                     // task will be cleaned up when processing the next segment
                     this.status = taskStatus;
                     uncleanedTasks.put(segment, this);
-                    maxUncleanedTasks.getAndAccumulate(uncleanedTasks.size(), new IntBinaryOperator() {
-                        @Override
-                        public int applyAsInt(int left, int right) {
-                            return Math.max(left, right);
-                        }
-                    });
+                    maxUncleanedTasks.getAndAccumulate(uncleanedTasks.size(), Math::max);
                 }
             }
         }

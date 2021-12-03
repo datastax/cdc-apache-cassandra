@@ -21,7 +21,6 @@ import lombok.*;
 import java.util.List;
 import java.util.UUID;
 
-
 /**
  * An immutable data structure representing a change event.
  */
