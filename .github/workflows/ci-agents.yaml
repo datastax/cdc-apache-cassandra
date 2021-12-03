@@ -45,3 +45,11 @@ jobs:
           docker pull apachepulsar/pulsar:2.8.1
           docker pull datastax/lunastreaming:2.7.2_1.1.8
           ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD agent-dse4-luna:test
+      - name: show job status and logs
+        if: always()
+        env:
+          status: ${{job.status}}
+        run: |
+          echo $status
+          docker logs cassandra-1
+          docker logs cassandra-2
