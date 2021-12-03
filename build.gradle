@@ -121,6 +121,10 @@ subprojects {
         useJUnitPlatform {
             includeEngines 'junit-jupiter'
         }
+        testLogging {
+            showStandardStreams = true
+            events = ["failed"]
+        }
         finalizedBy jacocoTestReport // report is always generated after tests run
     }
 
