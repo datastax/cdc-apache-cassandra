@@ -22,5 +22,5 @@ public interface MutationSender<T> {
     default void initialize(AgentConfig config) throws Exception {
     }
 
-    CompletableFuture<?> sendMutationAsync(final AbstractMutation<T> mutation) throws Exception;
+    CompletableFuture<?> sendMutationAsync(final AbstractMutation<T> mutation);
 }

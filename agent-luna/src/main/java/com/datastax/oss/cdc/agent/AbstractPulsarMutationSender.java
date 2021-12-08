@@ -240,7 +240,7 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
 
     @Override
     @SuppressWarnings({"rawtypes", "unchecked"})
-    public CompletableFuture<MessageId> sendMutationAsync(final AbstractMutation<T> mutation) throws PulsarClientException {
+    public CompletableFuture<MessageId> sendMutationAsync(final AbstractMutation<T> mutation) {
         if (!isSupported(mutation)) {
             incSkippedMutations();
             return CompletableFuture.completedFuture(null);
