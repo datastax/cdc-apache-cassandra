@@ -17,6 +17,9 @@ package com.datastax.testcontainers.cassandra;
 
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
+import com.datastax.oss.driver.api.core.config.DefaultDriverOption;
+import com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
+import com.datastax.oss.driver.internal.core.config.typesafe.DefaultProgrammaticDriverConfigLoaderBuilder;
 import com.datastax.testcontainers.cassandra.delegate.CassandraDatabaseDelegate;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -223,8 +226,15 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
     }
 
     public static CqlSession getCqlSession(ContainerState containerState, Object meterRegistry) {
+        ProgrammaticDriverConfigLoaderBuilder configLoaderBuilder = new DefaultProgrammaticDriverConfigLoaderBuilder()
+                .withDuration(DefaultDriverOption.REQUEST_TIMEOUT, Duration.ofSeconds(15))
+                .withDuration(DefaultDriverOption.CONTROL_CONNECTION_AGREEMENT_TIMEOUT, Duration.ofSeconds(90))
+                .withDuration(DefaultDriverOption.CONNECTION_CONNECT_TIMEOUT, Duration.ofSeconds(90))
+                .withDuration(DefaultDriverOption.CONTROL_CONNECTION_TIMEOUT, Duration.ofSeconds(90));
+
         InetSocketAddress endpoint = new InetSocketAddress(containerState.getHost(), containerState.getMappedPort(CQL_PORT));
         final CqlSessionBuilder builder = CqlSession.builder()
+                .withConfigLoader(configLoaderBuilder.build())
                 .addContactPoint(endpoint)
                 .withLocalDatacenter(LOCAL_DC);
 
