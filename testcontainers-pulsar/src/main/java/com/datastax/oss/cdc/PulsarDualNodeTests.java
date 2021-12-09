@@ -211,8 +211,8 @@ public abstract class PulsarDualNodeTests {
 
     @Test
     public void testUnorderedMutations() throws InterruptedException, IOException {
-        if (version.equals(AgentTestUtil.Version.C3)) {
-            log.info("Skipping this test for agent c3");
+        if (!version.equals(AgentTestUtil.Version.C4)) {
+            log.info("Skipping this test not for agent c4");
             return;
         }
 
