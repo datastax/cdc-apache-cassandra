@@ -47,7 +47,13 @@ import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.*;
 @Slf4j
 public class CassandraSourceConnectorConfig {
 
-    public static final String SCHEMA_REGISTRY_URL_CONFIG = "schema.registry.url";
+    public static final String KEYSPACE_NAME_CONFIG = "keyspace";
+    public static final String TABLE_NAME_CONFIG = "table";
+    public static final String COLUMNS_REGEXP_CONFIG = "columns";
+
+    public static final String EVENTS_TOPIC_NAME_CONFIG = "events.topic";
+    public static final String EVENTS_SUBSCRIPTION_NAME_CONFIG = "events.subscription.name";
+    public static final String EVENTS_SUBSCRIPTION_TYPE_CONFIG = "events.subscription.type";
 
     public static final String BATCH_SIZE_CONFIG = "batch.size";
     public static final String QUERY_EXECUTORS_CONFIG = "query.executors";
@@ -55,16 +61,6 @@ public class CassandraSourceConnectorConfig {
     public static final String QUERY_MIN_MOBILE_AVG_LATENCY_CONFIG = "query.minMobileAvgLatency";
     public static final String QUERY_BACKOFF_IN_MS_CONFIG = "query.backoffInMs";
     public static final String QUERY_MAX_BACKOFF_IN_SEC_CONFIG = "query.maxBackoffInSec";
-
-
-    public static final String EVENTS_TOPIC_NAME_CONFIG = "events.topic";
-    public static final String EVENTS_SUBSCRIPTION_NAME_CONFIG = "events.subscription.name";
-    public static final String EVENTS_SUBSCRIPTION_TYPE_CONFIG = "events.subscription.type";
-    public static final String DATA_TOPIC_NAME_CONFIG = "data.topic";
-
-    public static final String KEYSPACE_NAME_CONFIG = "keyspace";
-    public static final String TABLE_NAME_CONFIG = "table";
-    public static final String COLUMNS_REGEXP_CONFIG = "columns";
 
     public static final String CACHE_ONLY_IF_COORDINATOR_MATCH = "cache.only_if_coordinator_match";
     public static final String CACHE_MAX_DIGESTS_CONFIG = "cache.max.digest";
@@ -106,8 +102,6 @@ public class CassandraSourceConnectorConfig {
     static final String COMPRESSION_DRIVER_SETTING =
             withDriverPrefix(DefaultDriverOption.PROTOCOL_COMPRESSION);
     public static final String COMPRESSION_DEFAULT = "none";
-
-    static final String MAX_NUMBER_OF_RECORDS_IN_BATCH = "maxNumberOfRecordsInBatch";
 
     static final String METRICS_HIGHEST_LATENCY_OPT = "metricsHighestLatency";
     static final String METRICS_HIGHEST_LATENCY_DRIVER_SETTINGS =
@@ -161,11 +155,6 @@ public class CassandraSourceConnectorConfig {
                             "The pulsar events topic subscription type, with a default set to Key_Shared (case sensitive) for a non-partitioned events topic." +
                             " If your events topic is partitioned, you should set subscription type to Failover",
                             "Pulsar only", 2, ConfigDef.Width.NONE, "SubscriptionType")
-                    .define(DATA_TOPIC_NAME_CONFIG,
-                            ConfigDef.Type.STRING,
-                            "data-topic",
-                            ConfigDef.Importance.HIGH,
-                            "The topic name to publish cassandra data to")
                     .define(BATCH_SIZE_CONFIG,
                             ConfigDef.Type.INT,
                             200,
@@ -294,13 +283,6 @@ public class CassandraSourceConnectorConfig {
                             ConfigDef.Importance.HIGH,
                             "This is used to scale internal data structures for gathering metrics. "
                                     + "It should be higher than queryExecutionTimeout. This parameter should be expressed in seconds.")
-                    .define(
-                            MAX_NUMBER_OF_RECORDS_IN_BATCH,
-                            ConfigDef.Type.INT,
-                            32,
-                            ConfigDef.Range.atLeast(1),
-                            ConfigDef.Importance.HIGH,
-                            "Maximum number of records that could be send in one batch request")
                     .define(
                             CONNECTION_POOL_LOCAL_SIZE,
                             ConfigDef.Type.INT,
@@ -739,26 +721,52 @@ public class CassandraSourceConnectorConfig {
         return sslConfig;
     }
 
-    public int getMaxNumberOfRecordsInBatch() {
-        return globalConfig.getInt(MAX_NUMBER_OF_RECORDS_IN_BATCH);
-    }
-
     @Override
     public String toString() {
         return String.format(
                 "Global configuration:%n"
+                        + "        " + KEYSPACE_NAME_CONFIG + ": %s%n"
+                        + "        " + TABLE_NAME_CONFIG + ": %s%n"
+                        + "        " + COLUMNS_REGEXP_CONFIG + ": %s%n"
+                        + "        " + EVENTS_TOPIC_NAME_CONFIG + ": %s%n"
+                        + "        " + EVENTS_SUBSCRIPTION_NAME_CONFIG + ": %s%n"
+                        + "        " + EVENTS_SUBSCRIPTION_TYPE_CONFIG + ": %s%n"
+                        + "        " + BATCH_SIZE_CONFIG + ": %d%n"
+                        + "        " + QUERY_EXECUTORS_CONFIG + ": %d%n"
+                        + "        " + QUERY_MIN_MOBILE_AVG_LATENCY_CONFIG + ": %d%n"
+                        + "        " + QUERY_MAX_MOBILE_AVG_LATENCY_CONFIG + ": %d%n"
+                        + "        " + QUERY_BACKOFF_IN_MS_CONFIG + ": %d%n"
+                        + "        " + QUERY_MAX_BACKOFF_IN_SEC_CONFIG + ": %d%n"
+                        + "        " + CACHE_MAX_DIGESTS_CONFIG + ": %d%n"
+                        + "        " + CACHE_MAX_CAPACITY_CONFIG + ": %d%n"
+                        + "        " + CACHE_EXPIRE_AFTER_MS_CONFIG + ": %d%n"
+                        + "        " + CACHE_ONLY_IF_COORDINATOR_MATCH + ": %s%n"
                         + "        contactPoints: %s%n"
                         + "        port: %s%n"
                         + "        maxConcurrentRequests: %d%n"
-                        + "        maxNumberOfRecordsInBatch: %d%n"
                         + "        jmx: %b%n"
                         + "SSL configuration:%n%s%n"
                         + "Authentication configuration:%n%s%n"
                         + "datastax-java-driver configuration: %n%s",
+                getKeyspaceName(),
+                getTableName(),
+                getColumnsRegexp(),
+                getEventsTopic(),
+                getEventsSubscriptionName(),
+                getEventsSubscriptionType(),
+                getBatchSize(),
+                getQueryExecutors(),
+                getQueryMinMobileAvgLatency(),
+                getQueryMaxMobileAvgLatency(),
+                getQueryBackoffInMs(),
+                getQueryMaxBackoffInSec(),
+                getCacheMaxDigests(),
+                getCacheMaxCapacity(),
+                getCacheExpireAfterMs(),
+                getCacheOnlyIfCoordinatorMatch(),
                 getContactPoints(),
                 getPortToString(),
                 getMaxConcurrentRequests(),
-                getMaxNumberOfRecordsInBatch(),
                 getJmx(),
                 getSslConfigToString(),
                 Splitter.on("\n")
