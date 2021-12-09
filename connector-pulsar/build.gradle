@@ -67,9 +67,6 @@ test {
     dependsOn project(':agent-c4-pulsar').shadowJar
     dependsOn nar
 
-    // Rearrange test classpath, add compiled JAR instead of main classes
-    //classpath = project.sourceSets.test.output + configurations.testRuntimeClasspath + files(shadowJar.archiveFile)
-
     useJUnitPlatform()
 
     environment 'PULSAR_IMAGE', 'apachepulsar/pulsar:' + pulsarVersion

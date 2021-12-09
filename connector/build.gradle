@@ -12,7 +12,6 @@ compileJava {
     dependsOn versionTxt
 }
 
-
 compileTestJava {
     options.compilerArgs += '-parameters'
 }

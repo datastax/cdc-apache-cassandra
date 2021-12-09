@@ -62,9 +62,6 @@ test {
     dependsOn project(':agent-c4-luna').shadowJar
     dependsOn nar
 
-    // Rearrange test classpath, add compiled JAR instead of main classes
-    //classpath = project.sourceSets.test.output + configurations.testRuntimeClasspath + files(shadowJar.archiveFile)
-
     useJUnitPlatform()
 
     environment 'PULSAR_IMAGE', 'datastax/lunastreaming:' + lunaTag
