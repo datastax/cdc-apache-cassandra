@@ -4,6 +4,13 @@ plugins {
     id 'io.franzbecker.gradle-lombok' version '3.1.0'
 }
 
+sourceSets {
+    main.java.srcDir project(':testcontainers-luna').sourceSets.main.java
+    main.resources.srcDir project(':testcontainers-luna').sourceSets.main.resources
+    test.java.srcDir project(':testcontainers-luna').sourceSets.test.java
+    test.resources.srcDir project(':testcontainers-luna').sourceSets.test.resources
+}
+
 tasks.withType(JavaCompile) {
     options.compilerArgs += '-Xlint:none'
 }
