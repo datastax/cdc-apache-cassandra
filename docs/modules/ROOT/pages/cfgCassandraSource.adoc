@@ -83,12 +83,6 @@
 | [1,...]
 | 500
 
-| *maxNumberOfRecordsInBatch*
-| Maximum number of records that could be send in one batch request
-| int
-| [1,...]
-| 32
-
 | *metricsHighestLatency*
 | This is used to scale internal data structures for gathering metrics. It should be higher than queryExecutionTimeout. This parameter should be expressed in seconds.
 | int

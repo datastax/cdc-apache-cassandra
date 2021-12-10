@@ -108,8 +108,6 @@ public class CassandraSourceConnectorConfig {
             withDriverPrefix(DefaultDriverOption.PROTOCOL_COMPRESSION);
     public static final String COMPRESSION_DEFAULT = "none";
 
-    static final String MAX_NUMBER_OF_RECORDS_IN_BATCH = "maxNumberOfRecordsInBatch";
-
     static final String METRICS_HIGHEST_LATENCY_OPT = "metricsHighestLatency";
     static final String METRICS_HIGHEST_LATENCY_DRIVER_SETTINGS =
             withDriverPrefix(DefaultDriverOption.METRICS_NODE_CQL_MESSAGES_HIGHEST);
@@ -295,13 +293,6 @@ public class CassandraSourceConnectorConfig {
                             ConfigDef.Importance.HIGH,
                             "This is used to scale internal data structures for gathering metrics. "
                                     + "It should be higher than queryExecutionTimeout. This parameter should be expressed in seconds.")
-                    .define(
-                            MAX_NUMBER_OF_RECORDS_IN_BATCH,
-                            ConfigDef.Type.INT,
-                            32,
-                            ConfigDef.Range.atLeast(1),
-                            ConfigDef.Importance.HIGH,
-                            "Maximum number of records that could be send in one batch request")
                     .define(
                             CONNECTION_POOL_LOCAL_SIZE,
                             ConfigDef.Type.INT,
@@ -752,10 +743,6 @@ public class CassandraSourceConnectorConfig {
         return sslConfig;
     }
 
-    public int getMaxNumberOfRecordsInBatch() {
-        return globalConfig.getInt(MAX_NUMBER_OF_RECORDS_IN_BATCH);
-    }
-
     @Override
     public String toString() {
         return String.format(
@@ -763,7 +750,6 @@ public class CassandraSourceConnectorConfig {
                         + "        contactPoints: %s%n"
                         + "        port: %s%n"
                         + "        maxConcurrentRequests: %d%n"
-                        + "        maxNumberOfRecordsInBatch: %d%n"
                         + "        jmx: %b%n"
                         + "SSL configuration:%n%s%n"
                         + "Authentication configuration:%n%s%n"
@@ -771,7 +757,6 @@ public class CassandraSourceConnectorConfig {
                 getContactPoints(),
                 getPortToString(),
                 getMaxConcurrentRequests(),
-                getMaxNumberOfRecordsInBatch(),
                 getJmx(),
                 getSslConfigToString(),
                 Splitter.on("\n")
