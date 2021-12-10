@@ -14,6 +14,11 @@ Start containers for Cassandra 3.11 (c3), Cassandra 4.0 (c4), or DSE 6.8.16+ (ds
     ./gradlew agent-c4-luna:composeUp
     ./gradlew agent-c3-luna:composeUp
 
+Create the keyspace and table:
+
+    docker exec -it cassandra cqlsh -e "CREATE KEYSPACE ks1 WITH replication = {'class': 'SimpleStrategy', 'replication_factor': '1'};"
+    docker exec -it cassandra cqlsh -e "CREATE TABLE ks1.table1 (a text, b text, PRIMARY KEY (a)) WITH cdc=true;"
+
 Deploy a Cassandra Source Connector in the pulsar container:
 
     docker exec -it pulsar bin/pulsar-admin source create \
