@@ -38,12 +38,6 @@ public final class CommitLogUtil {
      */
     public static void moveCommitLog(File file, Path toDir) {
         try {
-            /* TODO: fails on .idx files
-            Matcher filenameMatcher = FILENAME_REGEX_PATTERN.matcher(file.getName());
-            if (!filenameMatcher.matches()) {
-                throw new IllegalArgumentException("Cannot move file because " + file.getName() + " does not appear to be a CommitLog");
-            }
-            */
             Files.move(file.toPath(), toDir.resolve(file.getName()), REPLACE_EXISTING);
         }
         catch (Exception e) {
