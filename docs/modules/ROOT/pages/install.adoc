@@ -51,7 +51,7 @@ Here is an example for Luna Streaming/Apache Pulsar on Cassandra version 4.0 nod
 export JVM_EXTRA_OPTS="-javaagent:/path/to/agent-c4-luna-<version>-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
 ----
 
-For the full set of configuration options, see xref:agentParams.adoc[Change Agent Parameters]
+For the full set of configuration options, see <<agentParams,Change Agent Parameters>>
 
 In addition to configuring the change agent, enable CDC on the Cassandra node by setting `cdc_enabled` to `true` in the `cassandra.yaml` file.
 
@@ -74,6 +74,7 @@ commitlog_sync_period_in_ms: 2000
 cdc_total_space_in_mb: 50000
 ----
 
+[#agentParams]
 == Change Agent Parameters
 
 include::agentParams.adoc[]
@@ -176,10 +177,13 @@ ALTER TABLE foo WITH cdc=false;
 
 When CDC is enabled on a table, updates to that table are sent by the change agent to the {csc_pulsar} which further processes the event and then sends it to the data topic when it can be processed by other connectors (for example, Elasticsearch).
 
-For the full set of source configuration options, see xref:cfgCassandraSource.adoc[{csc_pulsar} settings].
-For the full set of Cassandra authentication options, see xref:cfgCassandraAuth.adoc[Cassandra Authentication settings].
-For the full set of Cassandra SSL settings, see xref:cfgCassandraSSL.adoc[Cassandra SSL/TLS settings].
-For advanced configuration of the Cassandra driver in the {csc_pulsar}, see xref:cfgCassandraJavaDriverSettings.adoc[Pass {csc_pulsar} settings directly to the DataStax Java driver].
+include::cfgCassandraSource.adoc[]
+
+include::cfgCassandraAuth.adoc[]
+
+include::cfgCassandraSSL.adoc[]
+
+include::cfgCassandraJavaDriverSettings.adoc[]
 
 == Scaling up your configuration
 
