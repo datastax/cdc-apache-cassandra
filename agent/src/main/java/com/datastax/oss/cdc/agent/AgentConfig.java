@@ -54,18 +54,18 @@ public class AgentConfig {
 
         protected void getAsciiDoc(StringBuilder b) {
             b.append("| *").append(name).append("*").append("\n");
-            b.append("| ");
+            b.append("|");
             for (String docLine : documentation.split("\n")) {
                 if (docLine.length() == 0) {
                     continue;
                 }
-                b.append(docLine).append("\n");
+                b.append(" ").append(docLine).append("\n");
             }
             //b.append("Platform: ").append(getConfigValue("Platform")).append("\n");
             b.append("| ").append(getConfigValue("Type")).append("\n");
-            b.append("| ");
+            b.append("|");
             if (defaultValue != null) {
-                b.append(getConfigValue("Default")).append("\n");
+                b.append(" ").append(getConfigValue("Default")).append("\n");
             }
             b.append("\n");
         }
@@ -92,7 +92,7 @@ public class AgentConfig {
     public String topicPrefix = System.getProperty(CDC_PROPERTY_PREFIX + TOPIC_PREFIX, "events-");
     public static final Setting<String> TOPIC_PREFIX_SETTING =
             new Setting<>(TOPIC_PREFIX, Platform.ALL, (c, s) -> c.topicPrefix = s, c -> c.topicPrefix,
-                    "The event topic name prefix. The <keyspace_name>.<table_name> is appended to that prefix to build the topic name.",
+                    "The event topic name prefix. The `<keyspace_name>.<table_name>` is appended to that prefix to build the topic name.",
                     "events-", "String",
                     "main", 1);
 
@@ -108,7 +108,7 @@ public class AgentConfig {
     public long cdcDirPollIntervalMs = Long.getLong(CDC_PROPERTY_PREFIX + CDC_DIR_POLL_INTERVAL_MS, 60000L);
     public static final Setting<Long> CDC_DIR_POLL_INTERVAL_MS_SETTING =
             new Setting<>(CDC_DIR_POLL_INTERVAL_MS, Platform.ALL, (c, s) -> c.cdcDirPollIntervalMs = Long.parseLong(s), c -> c.cdcDirPollIntervalMs,
-                    "The poll interval in milliseconds for watching new commit log files in the CDC raw directory.",
+                    "The poll interval in milliseconds for watching new commitlog files in the CDC raw directory.",
                     60000L, "Long",
                     "main", 3);
 
@@ -116,7 +116,7 @@ public class AgentConfig {
     public boolean errorCommitLogReprocessEnabled = Boolean.getBoolean(CDC_PROPERTY_PREFIX + ERROR_COMMITLOG_REPROCESS_ENABLED);
     public static final Setting<Boolean> ERROR_COMMITLOG_REPROCESS_ENABLED_SETTING =
             new Setting<>(ERROR_COMMITLOG_REPROCESS_ENABLED, Platform.ALL, (c, s) -> c.errorCommitLogReprocessEnabled = Boolean.parseBoolean(s), c -> c.errorCommitLogReprocessEnabled,
-                    "Enable the re-processing of error commit logs files.",
+                    "Enable the re-processing of error commitlogs files.",
                     false, "Boolean",
                     "main", 4);
 
@@ -124,7 +124,7 @@ public class AgentConfig {
     public int cdcConcurrentProcessors = Integer.getInteger(CDC_PROPERTY_PREFIX + CDC_CONCURRENT_PROCESSORS, -1);
     public static final Setting<Integer> CDC_CONCURRENT_PROCESSOR_SETTING =
             new Setting<>(CDC_CONCURRENT_PROCESSORS, Platform.ALL, (c, s) -> c.cdcConcurrentProcessors = Integer.parseInt(s), c -> c.cdcConcurrentProcessors,
-                    "The number of threads used to process commitlog files. The default value is the memtable_flush_writers.",
+                    "The number of threads used to process commitlog files. The default value is the `memtable_flush_writers`.",
                     -1, "Integer",
                     "main", 5);
 
@@ -204,7 +204,7 @@ public class AgentConfig {
     public boolean sslAllowInsecureConnection = Boolean.getBoolean(CDC_PROPERTY_PREFIX + SSL_ALLOW_INSECURE_CONNECTION);
     public static final Setting<Boolean> SSL_ALLOW_INSECURE_CONNECTION_SETTING =
             new Setting<>(SSL_ALLOW_INSECURE_CONNECTION, Platform.PULSAR, (c, s) -> c.sslAllowInsecureConnection = Boolean.parseBoolean(s), c -> c.sslAllowInsecureConnection,
-                    "Allows insecure connections to servers whose cert has not been signed by an approved CA. You should always disable sslAllowInsecureConnection in production environments.",
+                    "Allows insecure connections to servers whose certificate has not been signed by an approved CA. You should always disable `sslAllowInsecureConnection` in production environments.",
                     false, "Boolean",
                     "ssl", 10);
 
@@ -236,7 +236,7 @@ public class AgentConfig {
     public boolean pulsarKeyBasedBatcher = Boolean.getBoolean(CDC_PROPERTY_PREFIX + PULSAR_KEY_BASED_BATCHER);
     public static final Setting<Boolean> PULSAR_KEY_BASED_BATCHER_SETTING =
             new Setting<>(PULSAR_KEY_BASED_BATCHER, Platform.PULSAR, (c, s) -> c.pulsarKeyBasedBatcher = Boolean.parseBoolean(s), c -> c.pulsarKeyBasedBatcher,
-                    "When true, use the Pulsar KEY_BASED BatchBuilder",
+                    "When true, use the Pulsar KEY_BASED BatchBuilder.",
                     false, "Boolean",
                     "pulsar", 3);
 
@@ -244,7 +244,7 @@ public class AgentConfig {
     public int pulsarMaxPendingMessages = Integer.getInteger(CDC_PROPERTY_PREFIX + PULSAR_MAX_PENDING_MESSAGES, 1000);
     public static final Setting<Integer> PULSAR_MAX_PENDING_MESSAGES_SETTING =
             new Setting<>(PULSAR_MAX_PENDING_MESSAGES, Platform.PULSAR, (c, s) -> c.pulsarMaxPendingMessages = Integer.parseInt(s), c -> c.pulsarMaxPendingMessages,
-                    "The Pulsar maximum size of a queue holding pending messages",
+                    "The Pulsar maximum size of a queue holding pending messages.",
                     1000, "Integer",
                     "pulsar", 4);
 

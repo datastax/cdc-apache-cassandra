@@ -47,12 +47,6 @@
 |
 | ""
 
-| *data.topic*
-| The topic name to publish cassandra data to
-| string
-|
-| data-topic
-
 | *ignoreErrors*
 | Specifies which errors the connector should ignore when processing the record. Valid values are: None (never ignore errors), All (ignore all errors), Driver (ignore driver errors only, i.e. errors when writing to the database).
 | string
@@ -82,12 +76,6 @@
 | int
 | [1,...]
 | 500
-
-| *maxNumberOfRecordsInBatch*
-| Maximum number of records that could be send in one batch request
-| int
-| [1,...]
-| 32
 
 | *metricsHighestLatency*
 | This is used to scale internal data structures for gathering metrics. It should be higher than queryExecutionTimeout. This parameter should be expressed in seconds.

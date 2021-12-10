@@ -51,13 +51,13 @@ public class AsciiDocGenerator {
             b.append(docLine);
         }
         b.append("\n| ").append(getConfigValue(key, "Type"));
-        b.append("\n| ");
+        b.append("\n|");
         if (key.validator != null) {
-           b.append(getConfigValue(key, "Valid Values"));
+           b.append(" ").append(getConfigValue(key, "Valid Values"));
         }
-        b.append("\n| ");
+        b.append("\n|");
         if (key.hasDefault()) {
-            b.append(getConfigValue(key, "Default"));
+            b.append(" ").append(getConfigValue(key, "Default"));
         }
         //b.append("* Importance: ").append(getConfigValue(key, "Importance")).append("\n");
         b.append("\n");
@@ -139,7 +139,7 @@ public class AsciiDocGenerator {
     public void generateCassourceSourceDocs(String outputDir) throws IOException {
         generateConfigDefDoc(Paths.get(outputDir),
                 "cfgCassandraSource.adoc",
-                "DataStax Cassandra Source Connector for Apache Pulsar settings",
+                "{csc_pulsar} settings",
                 CassandraSourceConnectorConfig.GLOBAL_CONFIG_DEF);
 
         generateConfigDefDoc(Paths.get(outputDir),

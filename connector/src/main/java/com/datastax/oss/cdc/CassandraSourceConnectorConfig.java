@@ -305,7 +305,7 @@ public class CassandraSourceConnectorConfig {
                             ConfigDef.Type.STRING,
                             "",
                             ConfigDef.Importance.HIGH,
-                            "The location of the cloud secure bundle used to connect to Datastax Apache Cassandra as a service.");
+                            "The location of the cloud secure bundle used to connect to Datastax Astra DB.");
     private static final Function<String, String> TO_SECONDS_CONVERTER =
             v -> String.format("%s seconds", v);
 

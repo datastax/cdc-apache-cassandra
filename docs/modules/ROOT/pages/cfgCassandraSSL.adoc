@@ -8,37 +8,37 @@
 | *ssl.cipherSuites*
 | The cipher suites to enable
 | list
-| 
+|
 | ""
 
 | *ssl.hostnameValidation*
 | Whether or not to validate node hostnames when using SSL
 | boolean
-| 
+|
 | true
 
 | *ssl.keystore.password*
 | Keystore password
 | password
-| 
+|
 | [hidden]
 
 | *ssl.keystore.path*
 | The path to the keystore file
 | string
-| 
+|
 | ""
 
 | *ssl.openssl.keyCertChain*
 | The path to the certificate chain file
 | string
-| 
+|
 | ""
 
 | *ssl.openssl.privateKey*
 | The path to the private key file
 | string
-| 
+|
 | ""
 
 | *ssl.provider*
@@ -50,13 +50,13 @@
 | *ssl.truststore.password*
 | Truststore password
 | password
-| 
+|
 | [hidden]
 
 | *ssl.truststore.path*
 | The path to the truststore file
 | string
-| 
+|
 | ""
 
 |===

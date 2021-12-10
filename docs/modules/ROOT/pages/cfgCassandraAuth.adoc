@@ -8,25 +8,25 @@
 | *auth.gssapi.keyTab*
 | Kerberos keytab file for GSSAPI provider authentication
 | string
-| 
+|
 | ""
 
 | *auth.gssapi.principal*
 | Kerberos principal for GSSAPI provider authentication
 | string
-| 
+|
 | ""
 
 | *auth.gssapi.service*
 | SASL service name to use for GSSAPI provider authentication
 | string
-| 
+|
 | dse
 
 | *auth.password*
 | Password for PLAIN (username/password) provider authentication
 | password
-| 
+|
 | [hidden]
 
 | *auth.provider*
@@ -38,7 +38,7 @@
 | *auth.username*
 | Username for PLAIN (username/password) provider authentication
 | string
-| 
+|
 | ""
 
 |===
