@@ -87,7 +87,14 @@ By downloading this DataStax product, you agree to the terms of the open-source 
 
 . Download the `cassandra-source-connectors-<version>.tar` file from the https://downloads.datastax.com/#cassandra-source-connector[DataStax downloads page].
 
-The following files are available:
+. Extract the files from the tar with the following command:
+
+[source,language-bash]
+----
+tar xvf cassandra-source-connectors-<version>.tar
+----
+
+The following NAR files are available and please use the version that matches your Pulsar platform.
 
 [cols="1,1"]
 |===
@@ -98,32 +105,30 @@ The following files are available:
 
 |===
 
-Extract the files from the tar with the following command:
-
-[source,language-bash]
-----
-tar xvf cassandra-source-connectors-<version>.tar
-----
-
-Use the version that matches your streaming platform.
 
 == Deploy {csc_pulsar}
 
-To deploy the {csc_pulsar} `NAR` file in your Pulsar cluster, upload it to Luna Streaming or Pulsar using the `pulsar-admin sources create` command.
-You need to deploy a {csc_pulsar} for each CDC-enabled table.
+To deploy the {csc_pulsar} `NAR` file in your Pulsar cluster, 
 
-For each CDC-enabled table, the change agent will send events to the events topic.
+**First**, upload the previously extracted NAR file to each of the Pulsar broker nodes at a specific location that Pulsar can access.
+As the best practice, it is recommended to put all Pulsar I/O connector NAR files in the *connectors* sub-folder of the Pulsar home directory. 
+Create the *connectors* sub-folder if it doesn't exist.
+
+**Second**, for each CDC-enabled C* table, a separate CSC connector needs to be deployed in the Pulsar cluster using the `pulsar-admin sources create` command.
+
+*Note* that for each CDC-enabled table, the C* change agent will send the events to one *events* topic that is automatically created (if Pulsar allows so) with the following naming convention:
 The topic name is determined by the `topicPrefix` setting in the agent (default is `events-`).
 The `<keyspace_name>.<table_name>` is appended to the prefix to build the topic name.
 
-You have to specify the following parameters:
+The following parameters need to be provided in the `pulsar-admin sources create` command.
 
-* Connector name. You have one connector per CDC-enabled Cassandra table, make sure to use a unique name.
-* Previously downloaded {csc_pulsar} `NAR` file.
+* Connector name. Please make sure it is unique per CDC-enabled C* table.
+* The location of the previously deployed {csc_pulsar} `NAR` file.
 * Pulsar `tenant` and `namespace` where the connector will run.
 * Destination `topic` for Cassandra data (`data` topic).
 * Number of instances (parallelism) of the connector. For high-volume tables, you might need to run multiple connector instances to prevent a growing backlog on the events topic.
 * Name of the `events` topic the connector will read from.
+* Name of the `data` topic the connector will write to.
 * Keyspace and table associated with the events topics.
 * Connection information (such as contact points and DC information) for Cassandra.
 
@@ -136,7 +141,7 @@ pulsar-admin source create \
 --archive /path/to/pulsar-cassandra-source-<version>.nar \
 --tenant public \
 --namespace default \
---destination-topic-name public/default/data-ks1.table1 \
+--destination-topic-name persistent://public/default/data-ks1.table1 \
 --parallelism 1 \
 --source-config '{
     "events.topic": "persistent://public/default/events-cdc-ks1.table1",
