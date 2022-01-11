@@ -100,8 +100,8 @@ The following NAR files are available and please use the version that matches yo
 |===
 | Streaming platform |  NAR file 
 
-| Apache Pulsar 2.8 and Luna Streaming 2.8 | pulsar-cassandra-source-<version>.nar
-| Luna Streaming 2.7 | luna-cassandra-source-<version>.nar
+| Apache Pulsar 2.8+ | pulsar-cassandra-source-<version>.nar
+| Luna Streaming 2.7+ | luna-cassandra-source-<version>.nar
 
 |===
 
