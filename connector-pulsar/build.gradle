@@ -36,6 +36,18 @@ dependencies {
     compileOnly("${pulsarGroup}:pulsar-io-common:${pulsarVersion}")
     compileOnly("${pulsarGroup}:pulsar-io-core:${pulsarVersion}")
 
+    constraints {
+        implementation("ch.qos.logback:logback-classic:${logbackVersion}")
+        implementation("com.fasterxml.jackson.core:jackson-databind:${jacksonDatabindVersion}")
+        implementation("com.github.jnr:jnr-posix:${jnrVersion}")
+        implementation("io.netty:netty-handler:${nettyVersion}")
+        implementation("io.netty:netty-transport-native-epoll:${nettyVersion}")
+        implementation("io.netty:netty-transport-native-unix-common:${nettyVersion}")
+        implementation("io.netty:netty-codec-haproxy:${nettyVersion}")
+        implementation("io.netty:netty-tcnative-boringssl-static:${nettyTcNativeVersion}")
+        implementation("org.apache.commons:commons-compress:${commonCompressVersion}")
+    }
+
     testRuntimeOnly("org.slf4j:slf4j-simple:${slf4jVersion}")
     testRuntimeOnly "org.projectlombok:lombok:${lombokVersion}"
     testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
