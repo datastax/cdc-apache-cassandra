@@ -6,21 +6,104 @@ The Cassandra® Source Connector (CDC) for https://pulsar.apache.org/[Apache Pul
 
 The following document represents all possible fields that a change stream response document can have.
 
-== `Insert`
-
-When an `insert` statement is executed, the full row at the time of replication will be visible, with all regular columns. 
-
-== `Update`
-
-When an `update` statement is executed, the last visible state at the time of replication will be visible. 
-
-== `Delete`
-
-A `delete` statement will return a tombstone message in Pulsar, a message with the key matching the C* primary key, and a null payload. A sink connector should delete the corresponding row in Elasticsearch or any other database.
-
-== `Add`
-
+[NOTE]
+====
 If you add a C* column (or a field in a User Defined Type) to your table, the Pulsar schema reflects this schema change, allowing your sink connector to properly write this new column into your target backend. The AVRO schema will be updated with the new column.
+====
+
+== `INSERT`
+
+Inserting data for a row is done using an `INSERT` statement:
+
+----
+insert_statement::= INSERT INTO table_name ( names_values | json_clause )
+	[ IF NOT EXISTS ]
+	[ USING update_parameter ( AND update_parameter )* ]
+names_values::= names VALUES tuple_literal
+json_clause::= JSON string [ DEFAULT ( NULL | UNSET ) ]
+names::= '(' column_name ( ',' column_name )* ')'
+----
+
+When an `INSERT` statement is executed, the full row at the time of replication will be visible, with all regular columns. 
+
+== `UPDATE`
+
+Updating a row is done using an `UPDATE` statement:
+
+----
+update_statement ::=    UPDATE table_name
+                        [ USING update_parameter ( AND update_parameter )* ]
+                        SET assignment( ',' assignment )*
+                        WHERE where_clause
+                        [ IF ( EXISTS | condition ( AND condition)*) ]
+update_parameter ::= ( TIMESTAMP | TTL ) ( integer | bind_marker )
+assignment: simple_selection'=' term
+                `| column_name'=' column_name ( '+' | '-' ) term
+                | column_name'=' list_literal'+' column_name
+simple_selection ::= column_name
+                        | column_name '[' term']'
+                        | column_name'.' field_name
+condition ::= `simple_selection operator term
+----
+
+When an `UPDATE` statement is executed, the last visible state at the time of replication will be visible. 
+
+== `DELETE`
+
+Deleting rows or parts of rows uses the `DELETE` statement:
+
+----
+delete_statement::= DELETE [ simple_selection ( ',' simple_selection ) ]
+	FROM table_name
+	[ USING update_parameter ( AND update_parameter# )* ]
+	WHERE where_clause
+	[ IF ( EXISTS | condition ( AND condition)*) ]
+----
+
+A `DELETE` statement will return a tombstone message in Pulsar, a message with the key matching the C* primary key, and a null payload. A sink connector should delete the corresponding row in Elasticsearch or any other database.
+
+== `SELECT`
+
+Querying data from data is done using a `SELECT` statement:
+
+----
+select_statement::= SELECT [ JSON | DISTINCT ] ( select_clause | '*' )
+	FROM `table_name`
+	[ WHERE `where_clause` ]
+	[ GROUP BY `group_by_clause` ]
+	[ ORDER BY `ordering_clause` ]
+	[ PER PARTITION LIMIT (`integer` | `bind_marker`) ]
+	[ LIMIT (`integer` | `bind_marker`) ]
+	[ ALLOW FILTERING ]
+select_clause::= `selector` [ AS `identifier` ] ( ',' `selector` [ AS `identifier` ] )
+selector::== `column_name`
+	| `term`
+	| CAST '(' `selector` AS `cql_type` ')'
+	| `function_name` '(' [ `selector` ( ',' `selector` )_ ] ')'
+	| COUNT '(' '_' ')'
+where_clause::= `relation` ( AND `relation` )*
+relation::= column_name operator term
+	'(' column_name ( ',' column_name )* ')' operator tuple_literal
+	TOKEN '(' column_name# ( ',' column_name )* ')' operator term
+operator::= '=' | '<' | '>' | '<=' | '>=' | '!=' | IN | CONTAINS | CONTAINS KEY
+group_by_clause::= column_name ( ',' column_name )*
+ordering_clause::= column_name [ ASC | DESC ] ( ',' column_name [ ASC | DESC ] )*
+----
+
+== `BATCH`
+
+Multiple INSERT, UPDATE and DELETE can be executed in a single statement by grouping them through a BATCH statement:
+
+----
+batch_statement ::=     BEGIN [ UNLOGGED | COUNTER ] BATCH
+                        [ USING update_parameter( AND update_parameter)* ]
+                        modification_statement ( ';' modification_statement )*
+                        APPLY BATCH
+modification_statement ::= insert_statement | update_statement | delete_statement
+---- 
+
+
+
 
 
 
