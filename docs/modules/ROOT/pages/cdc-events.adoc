@@ -1,0 +1,33 @@
+= CDC Events for {product_name}
+
+include::partial$note-cdc-private-preview.adoc[]
+
+The Cassandra® Source Connector (CDC) for https://pulsar.apache.org/[Apache Pulsar]® updates the `schema-registry` to dynamically reflect the Cassandra table schema. 
+
+The following document represents all possible fields that a change stream response document can have.
+
+== `Insert`
+
+When an `insert` statement is executed, the full row at the time of replication will be visible, with all regular columns. 
+
+== `Update`
+
+When an `update` statement is executed, the last visible state at the time of replication will be visible. 
+
+== `Delete`
+
+A `delete` statement will return a tombstone message in Pulsar, a message with the key matching the C* primary key, and a null payload. A sink connector should delete the corresponding row in Elasticsearch or any other database.
+
+== `Add`
+
+If you add a C* column (or a field in a User Defined Type) to your table, the Pulsar schema reflects this schema change, allowing your sink connector to properly write this new column into your target backend. The AVRO schema will be updated with the new column.
+
+
+
+
+
+
+
+
+
+
