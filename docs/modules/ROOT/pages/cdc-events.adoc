@@ -92,7 +92,7 @@ ordering_clause::= column_name [ ASC | DESC ] ( ',' column_name [ ASC | DESC ] )
 
 == `BATCH`
 
-Multiple INSERT, UPDATE and DELETE can be executed in a single statement by grouping them through a BATCH statement:
+Multiple INSERT, UPDATE and DELETE can be executed in a single statement by grouping them through a `BATCH` statement:
 
 ----
 batch_statement ::=     BEGIN [ UNLOGGED | COUNTER ] BATCH
@@ -102,13 +102,138 @@ batch_statement ::=     BEGIN [ UNLOGGED | COUNTER ] BATCH
 modification_statement ::= insert_statement | update_statement | delete_statement
 ---- 
 
+Unlogged batches are processed like regular inserts, and logged batches are not currently supported.
 
+== `INSERT` and `DELETE` Example
 
+This example will show you how to:
 
+* Create a Cassandra table with cdc enabled
+* Deploy a Cassandra source and an Elasticsearch sink into Apache Pulsar
+* Execute write and delete statements, alter your keyspace  and values into Cassandra, and see these events replicated to Elasticsearch.
 
+=== Create keyspace
 
+Create a keyspace where your table will be stored...
 
+----
+CREATE KEYSPACE ks1 WITH replication = {'class': 'SimpleStrategy', 'replication_factor': '1'};
+----
 
+... and create the table.
+
+----
+CREATE TABLE ks1.table1 (a text, b text, PRIMARY KEY (a)) WITH cdc=true; 
+----
+
+`cdc_true` enables or disables CDC operations in this table. `a text` and `b text` create C* columns which will store text values (strings).
+
+=== Create source and sink connectors
+
+Our CDC source connector will take change data from your streaming platform into Pulsar. Create your source connector:
+
+----
+bin/pulsar-admin source create --source-type cassandra-source --tenant public --namespace default --name cassandra-source-ks1-table1 \                                     
+    --destination-topic-name data-ks1.table1 --source-config "{                                                                                                                   
+      \"keyspace\": \"ks1\",                                                                                                                                                      
+      \"table\": \"table1\",                                                                                                                                                      
+      \"events.topic\": \"persistent://public/default/events-ks1.table1\",                                                                                                        
+      \"events.subscription.name\": \"sub1\",                                                                                                                                     
+      \"key.converter\": \"com.datastax.oss.pulsar.source.converters.AvroConverter\",                                                                                             
+      \"value.converter\": \"com.datastax.oss.pulsar.source.converters.AvroConverter\",                                                                                           
+      \"contactPoints\": \"cassandra\",                                                                                                                                           
+      \"loadBalancing.localDc\": \"datacenter1\"                                                                                                                                  
+    }"
+----
+
+This will return `Created successfully`. Now, create your Elasticsearch sink connector to take change data from the CDC table to Elasticsearch:
+
+----
+pulsar>bin/pulsar-admin sink create --sink-type elastic_search --tenant public --namespace default --name es-sink-ks1-table1 \                                                    
+    --inputs "persistent://public/default/data-ks1.table1" --subs-position Earliest --sink-config "{                                                                              
+      \"elasticSearchUrl\":\"http://elasticsearch:9200\",                                                                                                                         
+      \"indexName\":\"ks1.table1\",                                                                                                                                               
+      \"keyIgnore\":\"false\",                                                                                                                                                    
+      \"nullValueAction\":\"DELETE\",                                                                                                                                             
+      \"schemaEnable\":\"true\"                                                                                                                                                   
+    }"
+----
+
+This will return `Created successfully`. Your CDC source connector, keyspace, and Elasticsearch sink connector are ready to accept change data. Let's test it!
+
+== Test CDC Connector
+
+Execute an `INSERT` statement in the CQL shell:
+
+----
+INSERT INTO ks1.table1 (a,b) VALUES ('1','one'); 
+----
+
+This inserts two columns called `a` and `b` into `ks1.table1` and initializes them with the values `1` or `one`.
+
+Now, issue a `GET` request to Elasticsearch with `curl "http://localhost:9200/ks1.table1/_search?pretty"`. Elasticsearch returns:
+
+----
+ "_index" : "ks1.table1",                                                                                                                                                  
+        "_type" : "_doc",                                                                                                                                                         
+        "_id" : "1",                                                                                                                                                              
+        "_score" : 1.0,                                                                                                                                                           
+        "_source" : {                                                                                                                                                             
+          "b" : "one"  
+----
+
+This confirms our `INSERT` statement inserted the values to our keyspace, and those changes were offloaded via our sink connector to Elasticsearch. Now, execute a second `INSERT` statement to increment the values in `a` and `b` to `2` or `two`:
+
+----
+INSERT INTO ks1.table1 (a,b) VALUES ('2','two'); 
+----
+
+Issue a `GET` request to Elasticsearch with `curl "http://localhost:9200/ks1.table1/_search?pretty"`. Elasticsearch returns:
+
+----
+ "_index" : "ks1.table1",                                                                                                                                                  
+        "_type" : "_doc",                                                                                                                                                         
+        "_id" : "2",                                                                                                                                                              
+        "_score" : 1.0,                                                                                                                                                           
+        "_source" : {                                                                                                                                                             
+          "b" : "two"    
+----
+
+This confirms our `INSERT` statement incremented the values in our keyspace, and those changes were offloaded via our sink connector to Elasticsearch. 
+
+=== `DELETE` 
+
+Let's see what happens when we execute a `DELETE` statement, `ALTER` our keyspace, and `INSERT` a new value. To delete columns from our keyspace where `a = 1`:
+
+----
+DELETE FROM ks1.table1 where a = '1';
+----
+
+Now, execute an `ALTER` statement to add a column `c` to store an integer value:
+
+----
+ALTER TABLE ks1.table1 ADD c int;
+----
+
+And `INSERT` a new value into the table:
+
+----
+INSERT INTO ks1.table1 (a,b,c) VALUES ('3','three', 3);
+----
+
+----
+ "_index" : "ks1.table1",                                                                                                                                                  
+        "_type" : "_doc",                                                                                                                                                         
+        "_id" : "3",                                                                                                                                                              
+        "_score" : 1.0,                                                                                                                                                           
+        "_source" : {                                                                                                                                                             
+          "b" : "three",                                                                                                                                                          
+          "c" : 3 
+----
+
+Now when we execute `curl "http://localhost:9200/ks1.table1/_search?pretty"`, we see that `b` is storing a text value `three`, while our new variable `c` is storing an integer, `3`. 
+
+We have confirmed that our CDC connector is capturing change data and passing it to our Elasticsearch sink. 
 
 
 
