@@ -1,265 +1,39 @@
 = CDC for Cassandra Events 
 
-All change data events produced by the Datastax CDC for Cassandra connector have a key and a value, although the structure of the key and value depends on the table from which the change events originated.
+The Datastax CDC for Cassandra agent pushes the mutation primary key for the CDC-enabled table into the Apache Pulsar events topic (also called the dirty topic). The messages in the data topic (or clean topic) are a JSON representation of AVRO Generic Record by default, using a logical type for the following types:
+
+* `Date`
+* `Decimal`
+* `Duration`
+* `Timestamp`
+* `Varint`
+* `Uuid`, `timeuuid`
+
+See https://avro.apache.org/docs/current/spec.html[AVRO Generic Record] for more info on AVRO. 
 
 == Change Event’s Key
 
-For a given table, the change event’s key will have a structure that contains a field for each column in the primary key of the table at the time the event was created. Consider an `inventory` database with a `customers` table defined as:
+For a given table, the change event’s key will have a structure that contains a field for each column in the primary key of the table at the time the event was created.
 
-----
-CREATE TABLE customers (
-  id bigint,
-  registration_date timestamp,
-  first_name text,
-  last_name text,
-  email text,
-  PRIMARY KEY (id, registration_date)
-);
-----
-
-Every change event for the `customers` table while it has this definition will feature the same key schema, which in JSON representation looks like this:
-
+[SOURCE]
 ----
 {
-  "type": "record",
-  "name": "cassandra-cluster-1.inventory.customers.Key",
-  "namespace": "io.datastax.connector.cassandra",
-  "fields": [
+  "primaryKey": {
+    "partitionKey": [
+      "key"
+    ]
+  },
+  "columnDefinitions": [
     {
-      "name": "id",
-      "type": "long"
+      "name": "key",
+      "typeDefinition": "text",
+      "static": false
     },
     {
-      "name": "registration_date",
-      "type": "long",
-      "logicalType": "timestamp-millis"
+      "name": "c1",
+      "typeDefinition": "text",
+      "static": false
     }
-  ]
-}
-----
-
-For `id = 1001` and `registration_date = 1562202942545`, the key payload in JSON representation would look like this:
-
-----
-{
-  "id": 1001,
-  "registration_date": 1562202942545
-}
-----
-
-Although the `column.exclude.list` configuration property allows you to remove columns from the event values, all columns in a primary key are always included in the event’s key.
-
-== Change event’s value
-
-The value of the change event message is a bit more complicated. Every change event value produced by the Cassandra connector has an envelope structure with the following fields:
-
-* `op` is a mandatory field that contains a string value describing the type of operation. Values for the Cassandra connector are `i` for insert, `u` for update, and `d` for delete.
-
-* `after` is an optional field that if present contains the state of the row after the event occurred. The structure will be described by the `cassandra-cluster-1.inventory.customers.Value` Kafka Connect schema, which represent the cluster, keyspace, and table the event is referring to.
-
-* `source` is a mandatory field that contains a structure describing the source metadata for the event, which in the case of Cassandra contains several fields: the Datastax version, the connector name, the Cassandra cluster name, the name of the commit log file where the event was recorded, the position in that commit log file where the event appeared, whether this event was part of a snapshot, name of the affected keyspace and table, and the maximum timestamp of the partition update in microseconds.
-
-* `ts_ms` is optional and if present contains the time (using the system clock in the JVM running the Cassandra connector) at which the connector processed the event.
-
-[NOTE]
-----
-Note that there is no `before` field. This is because Cassandra does not perform a read-before-write, therefore the commit log does not contain row values before the change is applied.
-----
-
-== `CREATE` Event
-
-The following is a JSON representation of a value schema for a `CREATE` event for our `customers` table:
-
-----
-{
-  "type": "record",
-  "name": "cassandra-cluster-1.inventory.customers.Envelope",
-  "namespace": "io.datastax.connector.cassandra",
-  "fields": [
-      {
-        "name": "op",
-        "type": "string"
-      },
-      {
-        "name": "ts_ms",
-        "type": "long",
-        "logicalType": "timestamp-millis"
-      },
-      {
-        "name": "after",
-        "type": "record",
-        "fields": [
-          {
-            "name": "id",
-            "type": [
-              "null",
-              {
-            "name": "id",
-            "type": "record",
-            "fields": [
-              {
-                "name":"value",
-                "type": "string"
-              },
-              {
-                "name":"deletion_ts",
-                "type": ["null", "long"],
-                "default" : "null"
-              },
-              {
-                "name":"set",
-                "type": "boolean"
-              }
-            ]
-            }
-          ]
-          },
-          {
-            "name": "registration_date",
-            "type": [
-              "null",
-              {
-            "name": "registration_date",
-            "type": "record",
-            "fields": [
-              {
-                "name":"value",
-                "type": "long",
-                "logical_type": "timestamp-millis"
-              },
-              {
-                "name":"deletion_ts",
-                "type": ["null", "long"],
-                "default" : "null"
-              },
-              {
-                "name":"set",
-                "type": "boolean"
-              }
-            ]
-            }
-          ]
-          },
-          {
-            "name": "first_name",
-            "type": [
-              "null",
-              {
-            "name": "first_name",
-            "type": "record",
-            "fields": [
-              {
-                "name":"value",
-                "type": "string"
-              },
-              {
-                "name":"deletion_ts",
-                "type": ["null", "long"],
-                "default" : "null"
-              },
-              {
-                "name":"set",
-                "type": "boolean"
-              }
-            ]
-            }
-          ]
-          },
-          {
-            "name": "last_name",
-            "type": [
-              "null",
-              {
-            "name": "last_name",
-            "type": "record",
-            "fields": [
-              {
-                "name":"value",
-                "type": "string"
-              },
-              {
-                "name":"deletion_ts",
-                "type": ["null", "long"],
-                "default" : "null"
-              },
-              {
-                "name":"set",
-                "type": "boolean"
-              }
-            ]
-            }
-          ]
-          },
-          {
-            "name": "last_name",
-            "type": [
-              "null",
-              {
-            "name": "email",
-            "type": "record",
-            "fields": [
-              {
-                "name":"value",
-                "type": "string"
-              },
-              {
-                "name":"deletion_ts",
-                "type": ["null", "long"],
-                "default" : "null"
-              },
-              {
-                "name":"set",
-                "type": "boolean"
-              }
-            ]
-            }
-          ]
-          }
-        ]
-      },
-      {
-        "name": "source",
-        "type": "record",
-        "fields": [
-          {
-            "name": "version",
-            "type": "string"
-          },
-          {
-            "name": "connector",
-            "type": "string"
-          },
-          {
-            "name": "cluster",
-            "type": "string"
-          },
-          {
-            "name": "snapshot",
-            "type": "boolean"
-          },
-          {
-            "name": "keyspace",
-            "type": "string"
-          },
-          {
-            "name": "table",
-            "type": "string"
-          },
-          {
-            "name": "file",
-            "type": "string"
-          },
-          {
-            "name": "position",
-            "type": "int"
-          },
-          {
-            "name": "ts_ms",
-            "type": "long",
-            "logicalType": "timestamp-micros"
-          }
-        ]
-      }
   ]
 }
 ----
@@ -268,185 +42,207 @@ The following is a JSON representation of a value schema for a `CREATE` event fo
 
 When an `INSERT` statement is executed, the full row at the time of replication will be visible, with all regular columns.
 
-Given the following `INSERT` DML:
-
+[SOURCE]
 ----
-INSERT INTO customers (
-  id,
-  registration_date,
-  first_name,
-  last_name,
-  email)
-VALUES (
-  1001,
-  now(),
-  "Anne",
-  "Kretchmar",
-  "annek@noanswer.org"
-);
+INSERT INTO ks1.tbl1 (key, c1) VALUES (`32a`, `1234a`)
+INSERT INTO ks1.tbl1 (key, c1) VALUES (`3`, `bob3`)
 ----
 
-The value payload in JSON representation would look like this:
+Enter `select * from ks1.tbl1;` to see the inserted values:
 
+[SOURCE]
+----
+key | c1
+-----+-------
+ 32a | 1234a
+   3 |  bob3
+----
+
+A JSON representation of the AVRO Generic Record schema would look like this:
+
+[SOURCE]
 ----
 {
-  "op": "c",
-  "ts_ms": 1562202942832,
-  "after": {
-    "id": {
-    "value": 1001,
-    "deletion_ts": null,
-    "set": true
+  "primaryKey": {
+    "partitionKey": [
+      "key"
+    ]
   },
-    "registration_date": {
-    "value": 1562202942545,
-    "deletion_ts": null,
-    "set": true
-  },
-  "first_name": {
-    "value": "Anne",
-    "deletion_ts": null,
-    "set": true
-  },
-  "last_name": {
-    "value": "Kretchmar",
-    "deletion_ts": null,
-    "set": true
-  },
-  "email": {
-    "value": "annek@noanswer.org",
-    "deletion_ts": null,
-    "set": true
-  }
-  },
-  "source": {
-    "version": "1.8.0.Final",
-    "connector": "cassandra",
-    "cluster": "cassandra-cluster-1",
-    "snapshot": false,
-    "keyspace": "inventory",
-    "table": "customers",
-    "file": "commitlog-6-123456.log",
-    "pos": 54,
-    "ts_ms": 1562202942666382
-  }
+  "columnDefinitions": [
+    {
+      "name": "key",
+      "typeDefinition": "text",
+      "static": false
+    },
+    {
+      "name": "c1",
+      "typeDefinition": "text",
+      "static": false
+    }
+  ]
 }
+----
+
+Enter `DESC SCHEMA` to describe all non-system objects in the cluster. Our output looks like this:
+
+[SOURCE]
+----
+CREATE KEYSPACE ks1 WITH replication = {'class': 'NetworkTopologyStrategy', 'us-east1': '3'}  AND durable_writes = true;
+
+CREATE TABLE ks1.tbl1 (
+    key text PRIMARY KEY,
+    c1 text
+) WITH additional_write_policy = '99PERCENTILE'
+    AND bloom_filter_fp_chance = 0.01
+    AND caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}
+    AND comment = ''
+    AND compaction = {'class': 'org.apache.cassandra.db.compaction.UnifiedCompactionStrategy'}
+    AND compression = {'chunk_length_in_kb': '64', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}
+    AND crc_check_chance = 1.0
+    AND default_time_to_live = 0
+    AND gc_grace_seconds = 864000
+    AND max_index_interval = 2048
+    AND memtable_flush_period_in_ms = 0
+    AND min_index_interval = 128
+    AND read_repair = 'BLOCKING'
+    AND speculative_retry = '99PERCENTILE';
 ----
 
 == `UPDATE` Event
 
-When an `UPDATE` statement is executed, the last visible state at the time of replication will be visible.
+When an `UPDATE` event is executed, the last visible state at the time of the replication will be displayed (not a before/after picture).
 
-Given the following update DML:
-
-----
-UPDATE customers
-SET email = "annek_new@noanswer.org"
-WHERE id = 1001 AND registration_date = 1562202942545
-----
-
-The value payload in JSON representation would look like this:
-
+[SOURCE]
 ----
 {
-  "op": "u",
-  "ts_ms": 1562202942912,
-  "after": {
-    "id": {
-    "value": 1001,
-    "deletion_ts": null,
-    "set": true
-  },
-    "registration_date": {
-    "value": 1562202942545,
-    "deletion_ts": null,
-    "set": true
-  },
-  "first_name": null,
-  "last_name": null,
-  "email": {
-    "value": "annek_new@noanswer.org",
-    "deletion_ts": null,
-    "set": true
-  }
-  },
-  "source": {
-    "version": "1.8.0.Final",
-    "connector": "cassandra",
-    "cluster": "cassandra-cluster-1",
-    "snapshot": false,
-    "keyspace": "inventory",
-    "table": "customers",
-    "file": "commitlog-6-123456.log",
-    "pos": 102,
-    "ts_ms": 1562202942666490
-  }
+   _id: { < Resume Token > },
+   operationType: 'update',
+   clusterTime: <Timestamp>,
+   ns: {
+      db: 'engineering',
+      coll: 'users'
+   },
+   documentKey: {
+      _id: ObjectId("58a4eb4a30c75625e00d2820")
+   },
+   updateDescription: {
+      updatedFields: {
+         email: 'alice@10gen.com'
+      },
+      removedFields: ['phoneNumber'],
+      truncatedArrays: [ {
+         "field" : "vacation_time",
+         "newSize" : 36
+      } ]
+   }
 }
 ----
-
-When we compare this to the value in the `INSERT` event, we see a couple differences:
-
-The `op` field value is now `u`, signifying that this row changed because of an update.
-
-The `after` field now has the updated state of the row, and here we can see that the email value is now `annek_new@noanswer.org`. Notice that `first_name` and `last_name` are null, this is because these fields did not change during this update. However, `id` and `registration_date` are still included, because these are the primary keys of this table.
-
-The `source` field structure has the same fields as before, but the values are different since this event is from a different position in the commit log.
-
-The `ts_ms` shows the timestamp milliseconds which the connector processed this event.
 
 == `DELETE` Event
 
-A `DELETE` statement will return a tombstone message in Pulsar, a message with the key matching the C* primary key, and a null payload. 
+When a `DELETE` event is executed, Pulsar will return a tombstone message with the key matching the C* primary key and a null payload. The null payload will be deleted by Elasticsearch or any other sink connector. 
 
-Given the following delete DML:
-
-----
-DELETE FROM customers
-WHERE id = 1001 AND registration_date = 1562202942545;
-----
-
-The value payload in JSON representation would look like this:
-
+[SOURCE]
 ----
 {
-  "op": "d",
-  "ts_ms": 1562202942912,
-  "after": {
-    "id": {
-    "value": 1001,
-    "deletion_ts": 1562202972545,
-    "set": true
-  },
-    "registration_date": {
-    "value": 1562202942545,
-    "deletion_ts": 1562202972545,
-    "set": true
-  },
-  "first_name": null,
-  "last_name": null,
-  "email": null
-  },
-  "source": {
-    "version": "1.8.0.Final",
-    "connector": "cassandra",
-    "cluster": "cassandra-cluster-1",
-    "snapshot": false,
-    "keyspace": "inventory",
-    "table": "customers",
-    "file": "commitlog-6-123456.log",
-    "pos": 102,
-    "ts_ms": 1562202942666490
+   _id: { < Resume Token > },
+   operationType: 'delete',
+   clusterTime: <Timestamp>,
+   ns: {
+      db: 'engineering',
+      coll: 'users'
+   },
+   documentKey: {
+      _id: ObjectId("599af247bb69cd89961c986d")
+   }
+}
+----
+
+=== Check the Source Connector logs
+If you're having issues with CDC events, check the source connector logs and data topic schema.
+
+On the pulsar broker, for `keyspace=ks1` and `table=table4`:
+
+[SOURCE]
+----
+cat /pulsar/logs/functions/public/default/cassandra-source-ks1-table4/cassandra-source-ks1-table4-0.log
+----
+
+=== Check the data topic schema
+
+Ensure the data topic schema matches your current CQL schema with `bin/pulsar-admin schemas get "persistent://public/default/data-ks1.table4"`.
+
+[SOURCE]
+----
+{
+  "version": 0,
+  "schemaInfo": {
+    "name": "data-ks1.table4",
+    "schema": {
+      "key": {
+        "name": "table4",
+        "schema": {
+          "type": "record",
+          "name": "table4",
+          "namespace": "ks1",
+          "doc": "Table ks1.table4",
+          "fields": [
+            {
+              "name": "a",
+              "type": "string"
+            },
+            {
+              "name": "b",
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          ]
+        },
+        "type": "AVRO",
+        "properties": {}
+      },
+      "value": {
+        "name": "table4",
+        "schema": {
+          "type": "record",
+          "name": "table4",
+          "namespace": "ks1",
+          "doc": "Table ks1.table4",
+          "fields": [
+            {
+              "name": "c",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            {
+              "name": "d",
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          ]
+        },
+        "type": "AVRO",
+        "properties": {}
+      }
+    },
+    "type": "KEY_VALUE",
+    "properties": {
+      "key.schema.name": "table4",
+      "key.schema.properties": "{}",
+      "key.schema.type": "AVRO",
+      "kv.encoding.type": "SEPARATED",
+      "value.schema.name": "table4",
+      "value.schema.properties": "{}",
+      "value.schema.type": "AVRO"
+    }
   }
 }
 ----
 
-When we compare this to the value in the `insert` and `update` event, we see a couple differences:
-
-The `op` field value is now `d`, signifying that this row changed because of a deletion.
-
-The `after` field only contains values for `id` and `registration_date` because this is a deletion by primary keys.
-
-The `source` field structure has the same fields as before, but the values are different since this event is from a different position in the commit log.
-
-The `ts_ms` shows the timestamp milliseconds which the connector processed this event.
 
