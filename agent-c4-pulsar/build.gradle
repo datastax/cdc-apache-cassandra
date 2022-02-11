@@ -99,9 +99,9 @@ dockerCompose {
     environment.put 'STREAM_PLATFORM', 'pulsar'
     environment.put 'PROJECT_VERSION', project.version
     environment.put 'CASSANDRA_IMAGE', "${dockerRepo}cassandra:${cassandra4Version}-cdc-pulsar"
-    environment.put 'PULSAR_IMAGE', "${dockerRepo}lunastreaming:${lunaTag}-csc"
+    environment.put 'PULSAR_IMAGE', "${dockerRepo}pulsar:${pulsarVersion}-csc"
     waitForTcpPorts = false
-    startedServices = ['cassandra','pulsar']
+    startedServices = ['cassandra']
 
     stress {
         projectName = "test1"
