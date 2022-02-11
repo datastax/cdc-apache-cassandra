@@ -1,6 +1,12 @@
 = CDC for Cassandra Events 
 
-The Datastax CDC for Cassandra agent pushes the mutation primary key for the CDC-enabled table into the Apache Pulsar events topic (also called the dirty topic). The messages in the data topic (or clean topic) are a JSON representation of AVRO Generic Record by default, using a logical type for the following types:
+The Datastax CDC for Cassandra agent pushes the mutation primary key for the CDC-enabled table into the Apache Pulsar events topic (also called the dirty topic). The messages in the data topic (or clean topic) are keyed messages where both the key and the payload are https://avro.apache.org/docs/current/spec.html#schema_record[AVRO records]:
+* The message key is an AVRO record including all the primary key columns of your Cassandra table.
+* The message payload is an AVRO record including regular columns from your Cassandra table.
+
+In order to support https://pulsar.apache.org/docs/en/concepts-topic-compaction/[Pulsar Topic Compaction], the message key is encoded separately from the message payload, in the message metadata.
+
+Finally, the following CQL data types are encoded as AVRO logical types:
 
 * `Date`
 * `Decimal`
@@ -9,81 +15,15 @@ The Datastax CDC for Cassandra agent pushes the mutation primary key for the CDC
 * `Varint`
 * `Uuid`, `timeuuid`
 
-See https://avro.apache.org/docs/current/spec.html[AVRO Generic Record] for more info on AVRO. 
+See https://avro.apache.org/docs/current/spec.html#Logical+Types[AVRO Logical Types] for more info on AVRO.
 
 == Change Event’s Key
 
-For a given table, the change event’s key will have a structure that contains a field for each column in the primary key of the table at the time the event was created.
-
-[SOURCE]
-----
-{
-  "primaryKey": {
-    "partitionKey": [
-      "key"
-    ]
-  },
-  "columnDefinitions": [
-    {
-      "name": "key",
-      "typeDefinition": "text",
-      "static": false
-    },
-    {
-      "name": "c1",
-      "typeDefinition": "text",
-      "static": false
-    }
-  ]
-}
-----
+For a given table, the change event’s key is an AVRO record that contains a field for each column in the primary key of the table at the time the event was created. Both the events and the data topics (also called the dirty and the clean topics) have the same message key, an AVRO record including the primary key columns.
 
 == `INSERT` Event
 
-When an `INSERT` statement is executed, the full row at the time of replication will be visible, with all regular columns.
-
-[SOURCE]
-----
-INSERT INTO ks1.tbl1 (key, c1) VALUES (`32a`, `1234a`)
-INSERT INTO ks1.tbl1 (key, c1) VALUES (`3`, `bob3`)
-----
-
-Enter `select * from ks1.tbl1;` to see the inserted values:
-
-[SOURCE]
-----
-key | c1
------+-------
- 32a | 1234a
-   3 |  bob3
-----
-
-A JSON representation of the AVRO Generic Record schema would look like this:
-
-[SOURCE]
-----
-{
-  "primaryKey": {
-    "partitionKey": [
-      "key"
-    ]
-  },
-  "columnDefinitions": [
-    {
-      "name": "key",
-      "typeDefinition": "text",
-      "static": false
-    },
-    {
-      "name": "c1",
-      "typeDefinition": "text",
-      "static": false
-    }
-  ]
-}
-----
-
-Enter `DESC SCHEMA` to describe all non-system objects in the cluster. Our output looks like this:
+Let's create a Cassandra table to illustrate what's happen:
 
 [SOURCE]
 ----
@@ -108,95 +48,98 @@ CREATE TABLE ks1.tbl1 (
     AND speculative_retry = '99PERCENTILE';
 ----
 
-== `UPDATE` Event
+Then insert a row:
 
-When an `UPDATE` event is executed, the last visible state at the time of the replication will be displayed (not a before/after picture).
+[SOURCE]
+----
+INSERT INTO ks1.tbl1 (key, c1) VALUES (`3`, `bob3`)
+----
+
+When an `INSERT` statement is executed, the CDC agent catch the mutation from the commitlog files and sent a message into the dirty topic. Then the deployed source connector then read the full row from the Cassandra datacenter and publish a message into the clean topic with all regular columns encoded as an AVRO record in the message payload.
+
+Here is a JSON representation of the AVRO Record for the message key:
 
 [SOURCE]
 ----
 {
-   _id: { < Resume Token > },
-   operationType: 'update',
-   clusterTime: <Timestamp>,
-   ns: {
-      db: 'engineering',
-      coll: 'users'
-   },
-   documentKey: {
-      _id: ObjectId("58a4eb4a30c75625e00d2820")
-   },
-   updateDescription: {
-      updatedFields: {
-         email: 'alice@10gen.com'
-      },
-      removedFields: ['phoneNumber'],
-      truncatedArrays: [ {
-         "field" : "vacation_time",
-         "newSize" : 36
-      } ]
-   }
+  "key": "3"
+}
+----
+
+And a JSON representation of the AVRO Record for the message payload:
+
+[SOURCE]
+----
+{
+  "c1": "bob3"
 }
 ----
 
 == `DELETE` Event
 
-When a `DELETE` event is executed, Pulsar will return a tombstone message with the key matching the C* primary key and a null payload. The null payload will be deleted by Elasticsearch or any other sink connector. 
+When deleting a row, the Cassandra source connector will publish a tombstone message into the clean topic with a message key matching the C* primary key and a null payload. The null payload acts as a message tombstone, and the downstream pulsar connectors like the  Elasticsearch sink should delete the corresponding row (or document in the case of Elasticsearch).
+
+=== Check Source Connector status
+
+You can check the connector status with the following command. The connector must be running.
 
 [SOURCE]
-----
+---
+bin/pulsar-admin source status --name cassandra-source-ks1-table1
 {
-   _id: { < Resume Token > },
-   operationType: 'delete',
-   clusterTime: <Timestamp>,
-   ns: {
-      db: 'engineering',
-      coll: 'users'
-   },
-   documentKey: {
-      _id: ObjectId("599af247bb69cd89961c986d")
-   }
+    "numInstances" : 1,
+    "numRunning" : 1,
+    "instances" : [ {
+        "instanceId" : 0,
+        "status" : {
+        "running" : true,
+        "error" : "",
+        "numRestarts" : 0,
+        "numReceivedFromSource" : 0,
+        "numSystemExceptions" : 0,
+        "latestSystemExceptions" : [ ],
+        "numSourceExceptions" : 0,
+        "latestSourceExceptions" : [ ],
+        "numWritten" : 0,
+        "lastReceivedTime" : 0,
+        "workerId" : "c-standalone-fw-localhost-8080"
+        }
+    } ]
 }
-----
+---
 
 === Check the Source Connector logs
-If you're having issues with CDC events, check the source connector logs and data topic schema.
 
-On the pulsar broker, for `keyspace=ks1` and `table=table4`:
+If you're having issues with CDC events, check the source connector logs on your pulsar function workers. The name of the logs depends on the connectors' name.
 
 [SOURCE]
 ----
-cat /pulsar/logs/functions/public/default/cassandra-source-ks1-table4/cassandra-source-ks1-table4-0.log
+cat logs/functions/public/default/cassandra-source-ks1-table1/cassandra-source-ks1-table1-0.log
 ----
 
 === Check the data topic schema
 
-Ensure the data topic schema matches your current CQL schema with `bin/pulsar-admin schemas get "persistent://public/default/data-ks1.table4"`.
+You can check the https://pulsar.apache.org/docs/en/schema-manage/[Pulsar schema] for the clean topic matches your CQL table:
 
 [SOURCE]
 ----
+bin/pulsar-admin schemas get "persistent://public/default/data-ks1.table1"
 {
   "version": 0,
   "schemaInfo": {
-    "name": "data-ks1.table4",
+    "name": "data-ks1.table1",
     "schema": {
       "key": {
-        "name": "table4",
+        "name": "root",
         "schema": {
           "type": "record",
-          "name": "table4",
+          "name": "root",
           "namespace": "ks1",
-          "doc": "Table ks1.table4",
+          "doc": "",
           "fields": [
             {
-              "name": "a",
+              "name": "key",
               "type": "string"
-            },
-            {
-              "name": "b",
-              "type": [
-                "null",
-                "string"
-              ]
             }
           ]
         },
@@ -204,22 +147,15 @@ Ensure the data topic schema matches your current CQL schema with `bin/pulsar-ad
         "properties": {}
       },
       "value": {
-        "name": "table4",
+        "name": "root",
         "schema": {
           "type": "record",
-          "name": "table4",
+          "name": "root",
           "namespace": "ks1",
-          "doc": "Table ks1.table4",
+          "doc": "",
           "fields": [
             {
-              "name": "c",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            {
-              "name": "d",
+              "name": "c1",
               "type": [
                 "null",
                 "string"
@@ -233,11 +169,11 @@ Ensure the data topic schema matches your current CQL schema with `bin/pulsar-ad
     },
     "type": "KEY_VALUE",
     "properties": {
-      "key.schema.name": "table4",
+      "key.schema.name": "root",
       "key.schema.properties": "{}",
       "key.schema.type": "AVRO",
       "kv.encoding.type": "SEPARATED",
-      "value.schema.name": "table4",
+      "value.schema.name": "root",
       "value.schema.properties": "{}",
       "value.schema.type": "AVRO"
     }
