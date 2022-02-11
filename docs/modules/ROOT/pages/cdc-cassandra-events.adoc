@@ -23,7 +23,7 @@ For a given table, the change event’s key is an AVRO record that contains a fi
 
 == `INSERT` Event
 
-Let's create a Cassandra table to illustrate what's happen:
+Let's create a Cassandra table to illustrate what happens:
 
 [SOURCE]
 ----
@@ -55,7 +55,7 @@ Then insert a row:
 INSERT INTO ks1.tbl1 (key, c1) VALUES (`3`, `bob3`)
 ----
 
-When an `INSERT` statement is executed, the CDC agent catch the mutation from the commitlog files and sent a message into the dirty topic. Then the deployed source connector then read the full row from the Cassandra datacenter and publish a message into the clean topic with all regular columns encoded as an AVRO record in the message payload.
+When an `INSERT` statement is executed, the CDC agent catches the mutation from the commitlog files and sends a message into the dirty topic. The deployed source connector then reads the full row from the Cassandra datacenter, and publishes a message into the clean topic with all regular columns encoded as an AVRO record in the message payload.
 
 Here is a JSON representation of the AVRO Record for the message key:
 
@@ -77,7 +77,7 @@ And a JSON representation of the AVRO Record for the message payload:
 
 == `DELETE` Event
 
-When deleting a row, the Cassandra source connector will publish a tombstone message into the clean topic with a message key matching the C* primary key and a null payload. The null payload acts as a message tombstone, and the downstream pulsar connectors like the  Elasticsearch sink should delete the corresponding row (or document in the case of Elasticsearch).
+When deleting a row, the Cassandra source connector will publish a tombstone message into the clean topic with a message key matching the C* primary key and a null payload. The null payload acts as a message tombstone, and the downstream Pulsar connectors like the Elasticsearch sink should delete the corresponding row (or document in the case of Elasticsearch).
 
 === Check Source Connector status
 
@@ -108,9 +108,13 @@ bin/pulsar-admin source status --name cassandra-source-ks1-table1
 }
 ---
 
-=== Check the Source Connector logs
+== Troubleshooting
 
-If you're having issues with CDC events, check the source connector logs on your pulsar function workers. The name of the logs depends on the connectors' name.
+If you're having issues consuming CDC events, check the source connector logs on your Pulsar function workers and the data topic schema.
+
+=== Check the source connector logs
+
+Check the source connector logs on your Pulsar function workers. The name of the logs depends on the connectors' name.
 
 [SOURCE]
 ----
@@ -119,7 +123,7 @@ cat logs/functions/public/default/cassandra-source-ks1-table1/cassandra-source-k
 
 === Check the data topic schema
 
-You can check the https://pulsar.apache.org/docs/en/schema-manage/[Pulsar schema] for the clean topic matches your CQL table:
+Check the https://pulsar.apache.org/docs/en/schema-manage/[Pulsar schema] to ensure the clean topic matches your CQL table:
 
 [SOURCE]
 ----
