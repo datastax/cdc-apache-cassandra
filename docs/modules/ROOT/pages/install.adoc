@@ -143,11 +143,11 @@ pulsar-admin source create \
     "keyspace": "ks1",
     "table": "table1",
     "contactPoints": "localhost",
-    "port": 9042
+    "port": 9042,
     "loadBalancing.localDc": "DC1",
     "auth.provider": "PLAIN",
     "auth.username": "<username>",
-    "auth.password": "<password>",
+    "auth.password": "<password>"
 }'
 ----
 
