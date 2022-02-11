@@ -48,8 +48,6 @@ public class PulsarContainer<SELF extends PulsarContainer<SELF>> extends Generic
     public PulsarContainer(final DockerImageName dockerImageName) {
         super(dockerImageName);
 
-        //dockerImageName.assertCompatibleWith(DEFAULT_IMAGE_NAME);
-
         withExposedPorts(BROKER_PORT, BROKER_HTTP_PORT);
         withCommand("/pulsar/bin/pulsar", "standalone", "--no-functions-worker", "-nss");
         withLogConsumer(o -> {
