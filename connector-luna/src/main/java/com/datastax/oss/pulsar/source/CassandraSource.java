@@ -42,6 +42,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Conversions;
 import org.apache.avro.specific.SpecificData;
 import org.apache.pulsar.client.api.*;
+import org.apache.pulsar.client.api.schema.GenericObject;
 import org.apache.pulsar.client.api.schema.GenericRecord;
 import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.common.schema.KeyValueEncodingType;
@@ -456,7 +457,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                 // ensure the schema is the one used when building the struct.
                 final ConverterAndQuery converterAndQueryFinal = this.valueConverterAndQuery;
 
-                CompletableFuture<KeyValue<Object, Object>> queryResult = new CompletableFuture<>();
+                CompletableFuture<KeyValue<GenericObject, GenericObject>> queryResult = new CompletableFuture<>();
                 // we have to process sequentially the records from the same key
                 // otherwise our mutation cache will not be enough efficient
                 // in deduplicating mutations coming from different nodes
@@ -499,7 +500,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                         batchTotalQuery.incrementAndGet();
                         if (msg.hasProperty(Constants.WRITETIME))
                             sourceContext.recordMetric(REPLICATION_LATENCY, end - (Long.parseLong(msg.getProperty(Constants.WRITETIME)) / 1000L));
-                        Object value = tuple._1 == null ? null : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
+                        GenericObject value = tuple._1 == null ? null : (GenericObject) converterAndQueryFinal.getConverter().toConnectData(tuple._1);
                         if (ConsistencyLevel.LOCAL_QUORUM.equals(tuple._2()) &&
                                 (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._3 != null && tuple._3.equals(mutationValue.getNodeId())))) {
                             log.debug("Caching mutation key={} md5={} pk={}", msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues);
@@ -509,7 +510,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                             log.debug("Not caching mutation key={} md5={} pk={} CL={} coordinator={}",
                                     msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues, tuple._2(), tuple._3());
                         }
-                        queryResult.complete(new KeyValue(msg.getKeyBytes(), value));
+                        queryResult.complete(new KeyValue(msg.getValue().getKey(), value));
                     } catch (Throwable err) {
                         queryResult.completeExceptionally(err);
                     }
@@ -691,10 +692,10 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
     private class MyKVRecord implements KVRecord {
         private final ConverterAndQuery converterAndQueryFinal;
-        private final CompletableFuture<KeyValue<Object, Object>> keyValue;
+        private final CompletableFuture<KeyValue<GenericObject, GenericObject>> keyValue;
         private final Message<KeyValue<GenericRecord, MutationValue>> msg;
 
-        public MyKVRecord(ConverterAndQuery converterAndQueryFinal, CompletableFuture<KeyValue<Object, Object>> keyValue, Message<KeyValue<GenericRecord, MutationValue>> msg) {
+        public MyKVRecord(ConverterAndQuery converterAndQueryFinal, CompletableFuture<KeyValue<GenericObject, GenericObject>> keyValue, Message<KeyValue<GenericRecord, MutationValue>> msg) {
             this.converterAndQueryFinal = converterAndQueryFinal;
             this.keyValue = keyValue;
             this.msg = msg;
@@ -702,6 +703,12 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
         public Message<KeyValue<GenericRecord, MutationValue>> getMsg() {
             return msg;
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public Schema getSchema() {
+            return Schema.KeyValue(getKeySchema(), getValueSchema(), getKeyValueEncodingType());
         }
 
         @Override

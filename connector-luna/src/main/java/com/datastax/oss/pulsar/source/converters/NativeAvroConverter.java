@@ -35,18 +35,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Conversion;
 import org.apache.avro.LogicalType;
 import org.apache.avro.Schema;
-import org.apache.avro.Schema.*;
+import org.apache.avro.Schema.Field;
+import org.apache.avro.Schema.Type;
 import org.apache.avro.SchemaBuilder;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.IndexedRecord;
-import org.apache.avro.io.BinaryEncoder;
-import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.specific.SpecificData;
-import org.apache.avro.specific.SpecificDatumWriter;
+import org.apache.pulsar.common.schema.SchemaType;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -60,9 +57,9 @@ import java.util.stream.Collectors;
  * AVRO Converter providing support for logical types.
  */
 @Slf4j
-public class NativeAvroConverter implements Converter<byte[], GenericRecord, Row, List<Object>> {
+public class NativeAvroConverter implements Converter<org.apache.pulsar.client.api.schema.GenericObject, GenericRecord, Row, List<Object>> {
 
-    public final org.apache.pulsar.client.api.Schema<byte[]> pulsarSchema;
+    public final org.apache.pulsar.client.api.Schema<org.apache.pulsar.client.api.schema.GenericObject> pulsarSchema;
     public final Schema avroSchema;
     public final TableMetadata tableMetadata;
     public final Map<String, Schema> udtSchemas = new HashMap<>();
@@ -172,12 +169,12 @@ public class NativeAvroConverter implements Converter<byte[], GenericRecord, Row
     }
 
     @Override
-    public org.apache.pulsar.client.api.Schema<byte[]> getSchema() {
+    public org.apache.pulsar.client.api.Schema<org.apache.pulsar.client.api.schema.GenericObject> getSchema() {
         return this.pulsarSchema;
     }
 
     @Override
-    public byte[] toConnectData(Row row) {
+    public org.apache.pulsar.client.api.schema.GenericObject toConnectData(Row row) {
         GenericRecord genericRecordBuilder = new GenericData.Record(avroSchema);
         for(ColumnDefinition cm : row.getColumnDefinitions()) {
             if (!row.isNull(cm.getName())) {
@@ -243,20 +240,17 @@ public class NativeAvroConverter implements Converter<byte[], GenericRecord, Row
                 }
             }
         }
-        return serializeAvroGenericRecord(genericRecordBuilder, avroSchema);
-    }
+        return new org.apache.pulsar.client.api.schema.GenericObject() {
+            @Override
+            public SchemaType getSchemaType() {
+                return SchemaType.AVRO;
+            }
 
-    public static byte[] serializeAvroGenericRecord(org.apache.avro.generic.GenericRecord genericRecord, org.apache.avro.Schema schema) {
-        try {
-            SpecificDatumWriter<GenericRecord> datumWriter = new SpecificDatumWriter<>(schema);
-            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-            BinaryEncoder binaryEncoder = new EncoderFactory().binaryEncoder(byteArrayOutputStream, null);
-            datumWriter.write(genericRecord, binaryEncoder);
-            binaryEncoder.flush();
-            return byteArrayOutputStream.toByteArray();
-        } catch(IOException e) {
-            throw new RuntimeException(e);
-        }
+            @Override
+            public Object getNativeObject() {
+                return genericRecordBuilder;
+            }
+        };
     }
 
     GenericRecord buildUDTValue(UdtValue udtValue) {

@@ -16,18 +16,25 @@
 package com.datastax.oss.cdc;
 
 import org.apache.avro.Schema;
+import org.apache.avro.io.BinaryEncoder;
+import org.apache.avro.io.EncoderFactory;
+import org.apache.avro.specific.SpecificDatumWriter;
+import org.apache.pulsar.client.api.schema.GenericObject;
 import org.apache.pulsar.client.api.schema.SchemaInfoProvider;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Optional;
 
-public class AvroSchemaWrapper implements org.apache.pulsar.client.api.Schema<byte[]> {
+public class AvroSchemaWrapper implements org.apache.pulsar.client.api.Schema<GenericObject> {
 
     private final SchemaInfo schemaInfo;
     private final Schema nativeAvroSchema;
+    private final SpecificDatumWriter<org.apache.avro.generic.GenericRecord> datumWriter;
 
     public AvroSchemaWrapper(Schema nativeAvroSchema) {
         this.nativeAvroSchema = nativeAvroSchema;
@@ -37,11 +44,20 @@ public class AvroSchemaWrapper implements org.apache.pulsar.client.api.Schema<by
                 .type(SchemaType.AVRO)
                 .name(nativeAvroSchema.getName())
                 .build();
+        this.datumWriter = new SpecificDatumWriter<>(nativeAvroSchema);
     }
 
     @Override
-    public byte[] encode(byte[] bytes) {
-        return bytes;
+    public byte[] encode(GenericObject genericObject) {
+        try {
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+            BinaryEncoder binaryEncoder = new EncoderFactory().binaryEncoder(byteArrayOutputStream, null);
+            datumWriter.write((org.apache.avro.generic.GenericRecord) genericObject.getNativeObject(), binaryEncoder);
+            binaryEncoder.flush();
+            return byteArrayOutputStream.toByteArray();
+        } catch(IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -70,12 +86,12 @@ public class AvroSchemaWrapper implements org.apache.pulsar.client.api.Schema<by
     }
 
     @Override
-    public byte[] decode(byte[] bytes) {
+    public GenericObject decode(byte[] bytes) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public byte[] decode(byte[] bytes, byte[] schemaVersion) {
+    public GenericObject decode(byte[] bytes, byte[] schemaVersion) {
         throw new UnsupportedOperationException();
     }
 
