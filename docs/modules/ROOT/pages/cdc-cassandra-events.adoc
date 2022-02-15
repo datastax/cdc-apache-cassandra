@@ -84,7 +84,7 @@ When deleting a row, the Cassandra source connector will publish a tombstone mes
 You can check the connector status with the following command. The connector must be running.
 
 [SOURCE]
----
+----
 bin/pulsar-admin source status --name cassandra-source-ks1-table1
 {
     "numInstances" : 1,
@@ -106,7 +106,7 @@ bin/pulsar-admin source status --name cassandra-source-ks1-table1
         }
     } ]
 }
----
+----
 
 == Troubleshooting
 
