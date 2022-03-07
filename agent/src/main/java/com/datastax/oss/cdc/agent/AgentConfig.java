@@ -48,9 +48,16 @@ public class AgentConfig {
 
         // for doc only
         public final T defaultValue;
+        public final String envVarName;
+        public final BiFunction<String, T, T> defaultValueSupplier;
+
         public final String type;
         public final String group;
         public final int orderInGroup;
+
+        public T initDefault() {
+            return defaultValueSupplier.apply(envVarName, defaultValue);
+        }
 
         protected void getAsciiDoc(StringBuilder b) {
             b.append("| *").append(name).append("*").append("\n");
@@ -67,6 +74,10 @@ public class AgentConfig {
             if (defaultValue != null) {
                 b.append(" ").append(getConfigValue("Default")).append("\n");
             }
+            b.append("|");
+            if (envVarName != null) {
+                b.append(" ").append(getConfigValue("EnvVar")).append("\n");
+            }
             b.append("\n");
         }
 
@@ -82,195 +93,217 @@ public class AgentConfig {
                     return type.toLowerCase(Locale.ROOT);
                 case "Default":
                     return (defaultValue != null) ? defaultValue.toString() : "";
+                case "EnvVar":
+                    return (envVarName != null) ? envVarName : "";
                 default:
                     throw new RuntimeException("Can't find value for header '" + headerName + "' in " + name);
             }
         }
+
+        public static String getEnvAsString(String varName, String defaultValue) {
+            String v = System.getenv(varName);
+            return v == null || v.isEmpty() ? defaultValue : v;
+        }
+
+        public static boolean getEnvAsBoolean(String varName, boolean defaultValue) {
+            String v = System.getenv(varName);
+            return v == null || v.isEmpty() ? defaultValue : Boolean.parseBoolean(v);
+        }
+
+        public static int getEnvAsInteger(String varName, int defaultValue) {
+            String v = System.getenv(varName);
+            return v == null || v.isEmpty() ? defaultValue : Integer.parseInt(v);
+        }
+
+        public static long getEnvAsLong(String varName, long defaultValue) {
+            String v = System.getenv(varName);
+            return v == null || v.isEmpty() ? defaultValue : Long.parseLong(v);
+        }
     }
 
     public static final String TOPIC_PREFIX = "topicPrefix";
-    public String topicPrefix = System.getProperty(CDC_PROPERTY_PREFIX + TOPIC_PREFIX, "events-");
+    public String topicPrefix;
     public static final Setting<String> TOPIC_PREFIX_SETTING =
-            new Setting<>(TOPIC_PREFIX, Platform.ALL, (c, s) -> c.topicPrefix = s, c -> c.topicPrefix,
+            new Setting<String>(TOPIC_PREFIX, Platform.ALL, (c, s) -> c.topicPrefix = s, c -> c.topicPrefix,
                     "The event topic name prefix. The `<keyspace_name>.<table_name>` is appended to that prefix to build the topic name.",
-                    "events-", "String",
-                    "main", 1);
+                    "events-", "CDC_TOPIC_PREFIX", Setting::getEnvAsString,
+                    "String", "main", 1);
 
     public static final String CDC_WORKING_DIR = "cdcWorkingDir";
-    public String cdcWorkingDir = System.getProperty(CDC_PROPERTY_PREFIX + CDC_WORKING_DIR, storageDir + File.separator + "cdc");
+    public String cdcWorkingDir;
     public static final Setting<String> CDC_RELOCATION_DIR_SETTING =
             new Setting<>(CDC_WORKING_DIR, Platform.ALL, (c, s) -> c.cdcWorkingDir = s, c -> c.cdcWorkingDir,
                     "The CDC working directory where the last sent offset is saved, and where the archived and errored commitlogs files are copied.",
-                    "cdc", "String",
-                    "main", 2);
+                    null, "CDC_WORKING_DIR", (n, v) -> Setting.getEnvAsString(n , System.getProperty("cassandra.storagedir") + File.separator + "cdc"),
+                    "String", "main", 2);
 
     public static final String CDC_DIR_POLL_INTERVAL_MS = "cdcPollIntervalMs";
-    public long cdcDirPollIntervalMs = Long.getLong(CDC_PROPERTY_PREFIX + CDC_DIR_POLL_INTERVAL_MS, 60000L);
+    public long cdcDirPollIntervalMs;
     public static final Setting<Long> CDC_DIR_POLL_INTERVAL_MS_SETTING =
             new Setting<>(CDC_DIR_POLL_INTERVAL_MS, Platform.ALL, (c, s) -> c.cdcDirPollIntervalMs = Long.parseLong(s), c -> c.cdcDirPollIntervalMs,
                     "The poll interval in milliseconds for watching new commitlog files in the CDC raw directory.",
-                    60000L, "Long",
-                    "main", 3);
+                    60000L, "CDC_DIR_POLL_INTERVAL_MS", Setting::getEnvAsLong,
+                    "Long", "main", 3);
 
     public static final String ERROR_COMMITLOG_REPROCESS_ENABLED = "errorCommitLogReprocessEnabled";
-    public boolean errorCommitLogReprocessEnabled = Boolean.getBoolean(CDC_PROPERTY_PREFIX + ERROR_COMMITLOG_REPROCESS_ENABLED);
+    public boolean errorCommitLogReprocessEnabled;
     public static final Setting<Boolean> ERROR_COMMITLOG_REPROCESS_ENABLED_SETTING =
-            new Setting<>(ERROR_COMMITLOG_REPROCESS_ENABLED, Platform.ALL, (c, s) -> c.errorCommitLogReprocessEnabled = Boolean.parseBoolean(s), c -> c.errorCommitLogReprocessEnabled,
+            new Setting<Boolean>(ERROR_COMMITLOG_REPROCESS_ENABLED, Platform.ALL, (c, s) -> c.errorCommitLogReprocessEnabled = Boolean.parseBoolean(s), c -> c.errorCommitLogReprocessEnabled,
                     "Enable the re-processing of error commitlogs files.",
-                    false, "Boolean",
-                    "main", 4);
+                    Boolean.FALSE, "CDC_ERROR_COMMITLOG_REPROCESS_ENABLED", Setting::getEnvAsBoolean,
+                    "Boolean", "main", 4);
 
     public static final String CDC_CONCURRENT_PROCESSORS = "cdcConcurrentProcessors";
-    public int cdcConcurrentProcessors = Integer.getInteger(CDC_PROPERTY_PREFIX + CDC_CONCURRENT_PROCESSORS, -1);
-    public static final Setting<Integer> CDC_CONCURRENT_PROCESSOR_SETTING =
+    public int cdcConcurrentProcessors;
+    public static final Setting<Integer> CDC_CONCURRENT_PROCESSORS_SETTING =
             new Setting<>(CDC_CONCURRENT_PROCESSORS, Platform.ALL, (c, s) -> c.cdcConcurrentProcessors = Integer.parseInt(s), c -> c.cdcConcurrentProcessors,
                     "The number of threads used to process commitlog files. The default value is the `memtable_flush_writers`.",
-                    -1, "Integer",
-                    "main", 5);
+                    -1, "CDC_CONCURRENT_PROCESSORS", Setting::getEnvAsInteger,
+                    "Integer", "main", 5);
 
     public static final String MAX_INFLIGHT_MESSAGES_PER_TASK = "maxInflightMessagesPerTask";
-    public int maxInflightMessagesPerTask = Integer.getInteger(CDC_PROPERTY_PREFIX + MAX_INFLIGHT_MESSAGES_PER_TASK, 16384);
+    public int maxInflightMessagesPerTask;
     public static final Setting<Integer> MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING =
             new Setting<>(MAX_INFLIGHT_MESSAGES_PER_TASK, Platform.PULSAR, (c, s) -> c.maxInflightMessagesPerTask = Integer.parseInt(s), c -> c.maxInflightMessagesPerTask,
                     "The maximum number of in-flight messages per commitlog processing task.",
-                    16384, "Integer",
-                    "main", 6);
+                    16384, "CDC_MAX_INFLIGHT_MESSAGES_PER_TASK", Setting::getEnvAsInteger,
+                    "Integer", "main", 6);
 
     public static final String SSL_PROVIDER = "sslProvider";
     public String sslProvider = System.getProperty(CDC_PROPERTY_PREFIX + SSL_PROVIDER);
     public static final Setting<String> SSL_PROVIDER_SETTING =
             new Setting<>(SSL_PROVIDER, Platform.ALL, (c, s) -> c.sslProvider = s, c -> c.sslProvider,
                     "The SSL/TLS provider to use.",
-                    null, "String",
-                    "ssl", 1);
+                    null, "CDC_SSL_PROVIDER", Setting::getEnvAsString,
+                    "String", "ssl", 1);
 
     public static final String SSL_TRUSTSTORE_PATH = "sslTruststorePath";
-    public String sslTruststorePath = System.getProperty(CDC_PROPERTY_PREFIX + SSL_TRUSTSTORE_PATH);
+    public String sslTruststorePath;
     public static final Setting<String> SSL_TRUSTSTORE_PATH_SETTING =
             new Setting<>(SSL_TRUSTSTORE_PATH, Platform.ALL, (c, s) -> c.sslTruststorePath = s, c -> c.sslTruststorePath,
                     "The path to the SSL/TLS truststore file.",
-                    null, "String",
-                    "ssl", 2);
+                    null, "CDC_SSL_TRUSTSTORE_PATH", Setting::getEnvAsString,
+                    "String", "ssl", 2);
 
     public static final String SSL_TRUSTSTORE_PASSWORD = "sslTruststorePassword";
-    public String sslTruststorePassword = System.getProperty(CDC_PROPERTY_PREFIX + SSL_TRUSTSTORE_PASSWORD);
+    public String sslTruststorePassword;
     public static final Setting<String> SSL_TRUSTSTORE_PASSWORD_SETTING =
             new Setting<>(SSL_TRUSTSTORE_PASSWORD, Platform.ALL, (c, s) -> c.sslTruststorePassword = s, c -> c.sslTruststorePassword,
                     "The password for the SSL/TLS truststore.",
-                    null, "String",
-                    "ssl", 3);
+                    null, "CDC_SSL_TRUSTSTORE_PASSWORD", Setting::getEnvAsString,
+                    "String", "ssl", 3);
 
     public static final String SSL_TRUSTSTORE_TYPE = "sslTruststoreType";
-    public String sslTruststoreType = System.getProperty(CDC_PROPERTY_PREFIX + SSL_TRUSTSTORE_TYPE, "JKS");
+    public String sslTruststoreType;
     public static final Setting<String> SSL_TRUSTSTORE_TYPE_SETTING =
             new Setting<>(SSL_TRUSTSTORE_TYPE, Platform.ALL, (c, s) -> c.sslTruststoreType = s, c -> c.sslTruststoreType,
                     "The type of the SSL/TLS truststore.",
-                    "JKS", "String",
-                    "ssl", 4);
+                    "JKS", "CDC_SSL_TRUSTSTORE_TYPE", Setting::getEnvAsString,
+                    "String", "ssl", 4);
 
     public static final String SSL_KEYSTORE_PATH = "sslKeystorePath";
-    public String sslKeystorePath = System.getProperty(CDC_PROPERTY_PREFIX + SSL_KEYSTORE_PATH);
+    public String sslKeystorePath;
     public static final Setting<String> SSL_KEYSTORE_PATH_SETTING =
             new Setting<>(SSL_KEYSTORE_PATH, Platform.ALL, (c, s) -> c.sslKeystorePath = s, c -> c.sslKeystorePath,
                     "The path to the SSL/TLS keystore file.",
-                    null, "String",
-                    "ssl", 5);
+                    null, "CDC_SSL_KEYSTORE_PATH", Setting::getEnvAsString,
+                    "String", "ssl", 5);
 
     public static final String SSL_KEYSTORE_PASSWORD = "sslKeystorePassword";
-    public String sslKeystorePassword = System.getProperty(CDC_PROPERTY_PREFIX + SSL_KEYSTORE_PASSWORD);
+    public String sslKeystorePassword;
     public static final Setting<String> SSL_KEYSTORE_PASSWORD_SETTING =
             new Setting<>(SSL_KEYSTORE_PASSWORD, Platform.ALL, (c, s) -> c.sslKeystorePassword = s, c -> c.sslKeystorePassword,
                     "The password for the SSL/TLS keystore.",
-                    null, "String",
-                    "ssl", 6);
+                    null, "CDC_SSL_KEYSTORE_PASSWORD", Setting::getEnvAsString,
+                    "String", "ssl", 6);
 
     public static final String SSL_CIPHER_SUITES = "sslCipherSuites";
-    public String sslCipherSuites = System.getProperty(CDC_PROPERTY_PREFIX + SSL_CIPHER_SUITES);
+    public String sslCipherSuites;
     public static final Setting<String> SSL_CIPHER_SUITES_SETTING =
             new Setting<>(SSL_CIPHER_SUITES, Platform.ALL, (c, s) -> c.sslCipherSuites = s, c -> c.sslCipherSuites,
                     "Defines one or more cipher suites to use for negotiating the SSL/TLS connection.",
-                    null, "String",
-                    "ssl", 7);
+                    null, "CDC_SSL_CIPHER_SUITES", Setting::getEnvAsString,
+                    "String", "ssl", 7);
 
     public static final String SSL_ENABLED_PROTOCOLS = "sslEnabledProtocols";
-    public String sslEnabledProtocols = System.getProperty(CDC_PROPERTY_PREFIX + SSL_ENABLED_PROTOCOLS, "TLSv1.2,TLSv1.1,TLSv1");
+    public String sslEnabledProtocols;
     public static final Setting<String> SSL_ENABLED_PROTOCOLS_SETTING =
             new Setting<>(SSL_ENABLED_PROTOCOLS, Platform.ALL, (c, s) -> c.sslEnabledProtocols = s, c -> c.sslEnabledProtocols,
                     "Enabled SSL/TLS protocols",
-                    "TLSv1.2,TLSv1.1,TLSv1", "String",
-                    "ssl", 8);
+                    "TLSv1.2,TLSv1.1,TLSv1", "CDC_SSL_ENABLED_PROTOCOLS", Setting::getEnvAsString,
+                    "String", "ssl", 8);
 
     public static final String SSL_ALLOW_INSECURE_CONNECTION = "sslAllowInsecureConnection";
-    public boolean sslAllowInsecureConnection = Boolean.getBoolean(CDC_PROPERTY_PREFIX + SSL_ALLOW_INSECURE_CONNECTION);
+    public boolean sslAllowInsecureConnection;
     public static final Setting<Boolean> SSL_ALLOW_INSECURE_CONNECTION_SETTING =
             new Setting<>(SSL_ALLOW_INSECURE_CONNECTION, Platform.PULSAR, (c, s) -> c.sslAllowInsecureConnection = Boolean.parseBoolean(s), c -> c.sslAllowInsecureConnection,
                     "Allows insecure connections to servers whose certificate has not been signed by an approved CA. You should always disable `sslAllowInsecureConnection` in production environments.",
-                    false, "Boolean",
-                    "ssl", 10);
+                    false, "CDC_SSL_ALLOW_INSECURE_CONNECTION", Setting::getEnvAsBoolean,
+                    "Boolean", "ssl", 10);
 
     public static final String SSL_HOSTNAME_VERIFICATION_ENABLE = "sslHostnameVerificationEnable";
     public boolean sslHostnameVerificationEnable = Boolean.getBoolean(CDC_PROPERTY_PREFIX + SSL_HOSTNAME_VERIFICATION_ENABLE);
     public static final Setting<Boolean> SSL_HOSTNAME_VERIFICATION_ENABLE_SETTING =
             new Setting<>(SSL_HOSTNAME_VERIFICATION_ENABLE, Platform.PULSAR, (c, s) -> c.sslHostnameVerificationEnable = Boolean.parseBoolean(s), c -> c.sslHostnameVerificationEnable,
                     "Enable the server hostname verification.",
-                    false, "Boolean",
-                    "ssl", 11);
+                    false, "CDC_SSL_HOSTNAME_VERIFICATION_ENABLE", Setting::getEnvAsBoolean,
+                    "Boolean", "ssl", 11);
 
     public static final String PULSAR_SERVICE_URL = "pulsarServiceUrl";
-    public String pulsarServiceUrl = System.getProperty(CDC_PROPERTY_PREFIX + PULSAR_SERVICE_URL, "pulsar://localhost:6650");
+    public String pulsarServiceUrl;
     public static final Setting<String> PULSAR_SERVICE_URL_SETTING =
             new Setting<>(PULSAR_SERVICE_URL, Platform.PULSAR, (c, s) -> c.pulsarServiceUrl = s, c -> c.pulsarServiceUrl,
                     "The Pulsar broker service URL.",
-                    "pulsar://localhost:6650", "String",
-                    "pulsar", 1);
+                    "pulsar://localhost:6650", "CDC_PULSAR_SERVICE_URL", Setting::getEnvAsString,
+                    "String", "pulsar", 1);
 
     public static final String PULSAR_BATCH_DELAY_IN_MS = "pulsarBatchDelayInMs";
-    public long pulsarBatchDelayInMs = Long.getLong(CDC_PROPERTY_PREFIX + PULSAR_BATCH_DELAY_IN_MS, -1L);
+    public long pulsarBatchDelayInMs;
     public static final Setting<Long> PULSAR_BATCH_BATCH_DELAY_IN_MS_SETTING =
             new Setting<>(PULSAR_BATCH_DELAY_IN_MS, Platform.PULSAR, (c, s) -> c.pulsarBatchDelayInMs = Long.parseLong(s), c -> c.pulsarBatchDelayInMs,
                     "Pulsar batching delay in milliseconds. Pulsar batching is enabled when this value is greater than zero.",
-                    -1L, "Long",
-                    "pulsar", 2);
+                    -1L, "CDC_PULSAR_BATCH_DELAY_IN_MS", Setting::getEnvAsLong,
+                    "Long", "pulsar", 2);
 
     public static final String PULSAR_KEY_BASED_BATCHER = "pulsarKeyBasedBatcher";
-    public boolean pulsarKeyBasedBatcher = Boolean.getBoolean(CDC_PROPERTY_PREFIX + PULSAR_KEY_BASED_BATCHER);
+    public boolean pulsarKeyBasedBatcher;
     public static final Setting<Boolean> PULSAR_KEY_BASED_BATCHER_SETTING =
             new Setting<>(PULSAR_KEY_BASED_BATCHER, Platform.PULSAR, (c, s) -> c.pulsarKeyBasedBatcher = Boolean.parseBoolean(s), c -> c.pulsarKeyBasedBatcher,
                     "When true, use the Pulsar KEY_BASED BatchBuilder.",
-                    false, "Boolean",
-                    "pulsar", 3);
+                    false, "CDC_PULSAR_KEY_BASED_BATCHER", Setting::getEnvAsBoolean,
+                    "Boolean", "pulsar", 3);
 
     public static final String PULSAR_MAX_PENDING_MESSAGES = "pulsarMaxPendingMessages";
-    public int pulsarMaxPendingMessages = Integer.getInteger(CDC_PROPERTY_PREFIX + PULSAR_MAX_PENDING_MESSAGES, 1000);
+    public int pulsarMaxPendingMessages;
     public static final Setting<Integer> PULSAR_MAX_PENDING_MESSAGES_SETTING =
             new Setting<>(PULSAR_MAX_PENDING_MESSAGES, Platform.PULSAR, (c, s) -> c.pulsarMaxPendingMessages = Integer.parseInt(s), c -> c.pulsarMaxPendingMessages,
                     "The Pulsar maximum size of a queue holding pending messages.",
-                    1000, "Integer",
-                    "pulsar", 4);
+                    1000, "CDC_PULSAR_MAX_PENDING_MESSAGES", Setting::getEnvAsInteger,
+                    "Integer", "pulsar", 4);
 
     public static final String PULSAR_MAX_PENDING_MESSAGES_ACROSS_PARTITIONS= "pulsarMaxPendingMessagesAcrossPartitions";
-    public int pulsarMaxPendingMessagesAcrossPartitions = Integer.getInteger(CDC_PROPERTY_PREFIX + PULSAR_MAX_PENDING_MESSAGES_ACROSS_PARTITIONS, 50000);
+    public int pulsarMaxPendingMessagesAcrossPartitions;
     public static final Setting<Integer> PULSAR_MAX_PENDING_MESSAGES_ACROSS_PARTITIONS_SETTING =
             new Setting<>(PULSAR_MAX_PENDING_MESSAGES_ACROSS_PARTITIONS, Platform.PULSAR, (c, s) -> c.pulsarMaxPendingMessagesAcrossPartitions = Integer.parseInt(s), c -> c.pulsarMaxPendingMessagesAcrossPartitions,
                     "The Pulsar maximum number of pending messages across partitions.",
-                    50000, "Integer",
-                    "pulsar", 5);
+                    50000, "CDC_PULSAR_MAX_PENDING_MESSAGES_ACROSS_PARTITIONS", Setting::getEnvAsInteger,
+                    "Integer", "pulsar", 5);
 
     public static final String PULSAR_AUTH_PLUGIN_CLASS_NAME = "pulsarAuthPluginClassName";
-    public String pulsarAuthPluginClassName = System.getProperty(CDC_PROPERTY_PREFIX + PULSAR_AUTH_PLUGIN_CLASS_NAME);
+    public String pulsarAuthPluginClassName;
     public static final Setting<String> PULSAR_AUTH_PLUGIN_CLASS_NAME_SETTING =
             new Setting<>(PULSAR_AUTH_PLUGIN_CLASS_NAME, Platform.PULSAR, (c, s) -> c.pulsarAuthPluginClassName = s, c -> c.pulsarAuthPluginClassName,
                     "The Pulsar authentication plugin class name.",
-                    null, "String",
-                    "pulsar", 6);
+                    null, "CDC_PULSAR_AUTH_PLUGIN_CLASS_NAME", Setting::getEnvAsString,
+                    "String", "pulsar", 6);
 
     public static final String PULSAR_AUTH_PARAMS = "pulsarAuthParams";
-    public String pulsarAuthParams = System.getProperty(CDC_PROPERTY_PREFIX + PULSAR_AUTH_PARAMS);
+    public String pulsarAuthParams;
     public static final Setting<String> PULSAR_AUTH_PARAMS_SETTING =
             new Setting<>(PULSAR_AUTH_PARAMS, Platform.PULSAR, (c, s) -> c.pulsarAuthParams = s, c -> c.pulsarAuthParams,
                     "The Pulsar authentication parameters.",
-                    null, "String",
-                    "pulsar", 7);
+                    null, "CDC_PULSAR_AUTH_PARAMS", Setting::getEnvAsString,
+                    "String", "pulsar", 7);
 
     public static final Set<Setting<?>> settings;
     public static final Map<String, Setting<?>> settingMap;
@@ -280,7 +313,7 @@ public class AgentConfig {
         Set<Setting<?>> set = new HashSet<>();
         set.add(CDC_RELOCATION_DIR_SETTING);
         set.add(CDC_DIR_POLL_INTERVAL_MS_SETTING);
-        set.add(CDC_CONCURRENT_PROCESSOR_SETTING);
+        set.add(CDC_CONCURRENT_PROCESSORS_SETTING);
         set.add(ERROR_COMMITLOG_REPROCESS_ENABLED_SETTING);
         set.add(TOPIC_PREFIX_SETTING);
         set.add(MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING);
@@ -306,6 +339,32 @@ public class AgentConfig {
         Map<String, Setting<?>> map = new HashMap<>();
         settings.forEach(s -> map.put(s.name, s));
         settingMap = Collections.unmodifiableMap(map);
+    }
+
+    public AgentConfig() {
+        this.cdcWorkingDir = CDC_RELOCATION_DIR_SETTING.initDefault();
+        this.cdcDirPollIntervalMs = CDC_DIR_POLL_INTERVAL_MS_SETTING.initDefault();
+        this.cdcConcurrentProcessors = CDC_CONCURRENT_PROCESSORS_SETTING.initDefault();
+        this.errorCommitLogReprocessEnabled = ERROR_COMMITLOG_REPROCESS_ENABLED_SETTING.initDefault();
+        this.topicPrefix = TOPIC_PREFIX_SETTING.initDefault();
+        this.maxInflightMessagesPerTask = MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING.initDefault();
+        this.sslProvider = SSL_PROVIDER_SETTING.initDefault();
+        this.sslTruststorePath = SSL_TRUSTSTORE_PATH_SETTING.initDefault();
+        this.sslTruststorePassword = SSL_TRUSTSTORE_PASSWORD_SETTING.initDefault();
+        this.sslTruststoreType = SSL_TRUSTSTORE_TYPE_SETTING.initDefault();
+        this.sslKeystorePath = SSL_KEYSTORE_PATH_SETTING.initDefault();
+        this.sslKeystorePassword = SSL_KEYSTORE_PASSWORD_SETTING.initDefault();
+        this.sslCipherSuites = SSL_CIPHER_SUITES_SETTING.initDefault();
+        this.sslEnabledProtocols = SSL_ENABLED_PROTOCOLS_SETTING.initDefault();
+        this.sslAllowInsecureConnection = SSL_ALLOW_INSECURE_CONNECTION_SETTING.initDefault();
+        this.sslHostnameVerificationEnable = SSL_HOSTNAME_VERIFICATION_ENABLE_SETTING.initDefault();
+        this.pulsarServiceUrl = PULSAR_SERVICE_URL_SETTING.initDefault();
+        this.pulsarBatchDelayInMs = PULSAR_BATCH_BATCH_DELAY_IN_MS_SETTING.initDefault();
+        this.pulsarKeyBasedBatcher = PULSAR_KEY_BASED_BATCHER_SETTING.initDefault();
+        this.pulsarMaxPendingMessages = PULSAR_MAX_PENDING_MESSAGES_SETTING.initDefault();
+        this.pulsarMaxPendingMessagesAcrossPartitions = PULSAR_MAX_PENDING_MESSAGES_ACROSS_PARTITIONS_SETTING.initDefault();
+        this.pulsarAuthPluginClassName = PULSAR_AUTH_PLUGIN_CLASS_NAME_SETTING.initDefault();
+        this.pulsarAuthParams = PULSAR_AUTH_PARAMS_SETTING.initDefault();
     }
 
     public static void main(String[] args) {
@@ -340,9 +399,9 @@ public class AgentConfig {
             PrintWriter pw = new PrintWriter(fileWriter);
             pw.append("// DO NOT EDIT, Auto-Generated by the com.datastax.oss.cdc.agent.AgentConfig\n");
             pw.append(".Table ").append(title).append("\n")
-                    .append("[cols=\"2,3,1,1\"]\n")
+                    .append("[cols=\"2,3,1,1,2\"]\n")
                     .append("|===\n")
-                    .append("|Name | Description | Type | Default\n");
+                    .append("|Name | Description | Type | Default | EnvVar\n");
 
             StringBuilder b = new StringBuilder();
             for (Setting<?> setting: orderedSettings) {

@@ -16,6 +16,8 @@
 package com.datastax.oss.cdc.agent;
 
 import org.junit.jupiter.api.Test;
+import org.junitpioneer.jupiter.SetEnvironmentVariable;
+import org.junitpioneer.jupiter.SetSystemProperty;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -107,5 +109,75 @@ public class AgentParametersTest {
         // Pulsar Auth
         assertEquals("MyAuthPlugin", config.pulsarAuthPluginClassName);
         assertEquals("sdds", config.pulsarAuthParams);
+    }
+
+    @Test
+    @SetEnvironmentVariable(key = "CDC_PULSAR_SERVICE_URL", value = "pulsar+ssl://mypulsar:6650,localhost:6651,localhost:6652")
+    @SetEnvironmentVariable(key = "CDC_PULSAR_AUTH_PLUGIN_CLASS_NAME", value = "MyAuthPlugin")
+    @SetEnvironmentVariable(key = "CDC_PULSAR_AUTH_PARAMS", value = "sdds")
+    @SetEnvironmentVariable(key = "CDC_SSL_ALLOW_INSECURE_CONNECTION", value = "true")
+    @SetEnvironmentVariable(key = "CDC_SSL_HOSTNAME_VERIFICATION_ENABLE", value = "true")
+    @SetEnvironmentVariable(key = "CDC_PULSAR_BATCH_DELAY_IN_MS", value = "555")
+    @SetEnvironmentVariable(key = "CDC_PULSAR_KEY_BASED_BATCHER", value = "true")
+    @SetEnvironmentVariable(key = "CDC_PULSAR_MAX_PENDING_MESSAGES", value = "555")
+    public void testConfigurePulsarFromEnvVar() {
+        AgentConfig config = AgentConfig.create(Platform.PULSAR, "");
+        assertEquals("pulsar+ssl://mypulsar:6650,localhost:6651,localhost:6652", config.pulsarServiceUrl);
+
+        assertEquals(true, config.sslAllowInsecureConnection);
+        assertEquals(true, config.sslHostnameVerificationEnable);
+
+        assertEquals(555L, config.pulsarBatchDelayInMs);
+        assertEquals(true, config.pulsarKeyBasedBatcher);
+        assertEquals(555, config.pulsarMaxPendingMessages);
+
+        // Pulsar Auth
+        assertEquals("MyAuthPlugin", config.pulsarAuthPluginClassName);
+        assertEquals("sdds", config.pulsarAuthParams);
+    }
+
+    @Test
+    @SetEnvironmentVariable(key = "CDC_SSL_TRUSTSTORE_PATH", value = "/truststore.jks")
+    @SetEnvironmentVariable(key = "CDC_SSL_TRUSTSTORE_PASSWORD", value = "password1")
+    @SetEnvironmentVariable(key = "CDC_SSL_TRUSTSTORE_TYPE", value = "PKCS12")
+    @SetEnvironmentVariable(key = "CDC_SSL_KEYSTORE_PATH", value = "/keystore.jks")
+    @SetEnvironmentVariable(key = "CDC_SSL_KEYSTORE_PASSWORD", value = "password2")
+    @SetEnvironmentVariable(key = "CDC_SSL_ENABLED_PROTOCOLS", value = "TLSv1.2")
+    @SetEnvironmentVariable(key = "CDC_SSL_CIPHER_SUITES", value = "AES256")
+    @SetEnvironmentVariable(key = "CDC_SSL_PROVIDER", value = "MyProvider")
+    public void testConfigureSslFromEnvVar() {
+        AgentConfig config = AgentConfig.create(Platform.PULSAR, "");
+        assertEquals("/truststore.jks", config.sslTruststorePath);
+        assertEquals("password1", config.sslTruststorePassword);
+        assertEquals("PKCS12", config.sslTruststoreType);
+        assertEquals("/keystore.jks", config.sslKeystorePath);
+        assertEquals("password2", config.sslKeystorePassword);
+        assertEquals("TLSv1.2", config.sslEnabledProtocols);
+        assertEquals("AES256", config.sslCipherSuites);
+        assertEquals("MyProvider", config.sslProvider);
+    }
+
+    @Test
+    @SetSystemProperty(key = "cassandra.storagedir", value = "toto")
+    @SetEnvironmentVariable(key = "CDC_WORKING_DIR", value = "toto/cdc2")
+    @SetEnvironmentVariable(key = "CDC_DIR_POLL_INTERVAL_MS", value = "555")
+    @SetEnvironmentVariable(key = "CDC_CONCURRENT_PROCESSORS", value = "16")
+    @SetEnvironmentVariable(key = "CDC_ERROR_COMMITLOG_REPROCESS_ENABLED", value = "true")
+    @SetEnvironmentVariable(key = "CDC_TOPIC_PREFIX", value = "myevents-")
+    @SetEnvironmentVariable(key = "CDC_MAX_INFLIGHT_MESSAGES_PER_TASK", value = "55")
+    public void testConfigureCdcFromEnvVar() {
+        AgentConfig config = AgentConfig.create(Platform.PULSAR, "");
+        assertEquals("toto/cdc2", config.cdcWorkingDir);
+        assertEquals(555, config.cdcDirPollIntervalMs);
+        assertEquals(16, config.cdcConcurrentProcessors);
+        assertEquals(true, config.errorCommitLogReprocessEnabled);
+        assertEquals(55, config.maxInflightMessagesPerTask);
+    }
+
+    @Test
+    @SetSystemProperty(key = "cassandra.storagedir", value = "toto")
+    public void testConfigureCdcWorkingDir() {
+        AgentConfig config = AgentConfig.create(Platform.PULSAR, "");
+        assertEquals("toto/cdc", config.cdcWorkingDir);
     }
 }
