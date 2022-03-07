@@ -19,9 +19,12 @@ jobs:
           distribution: 'adopt'
       - name: Generate agent settings documentation
         run:  ./gradlew agent:run --args="../docs/modules/ROOT/pages"
-      - name: Generate connector settings documentation
-        run: ./gradlew docs:run --args="modules/ROOT/pages"
 
+      - name: Generate connector settings documentation
+        run: ./gradlew docs:antoraConfig
+
+      - name: Generate Antora configuration in antora.yml
+        run: ./gradlew docs:run --args="modules/ROOT/pages"
       - name: Run Antora
         uses: kameshsampath/antora-site-action@v0.2.4
         with:

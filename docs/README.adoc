@@ -20,6 +20,15 @@ Install Antora:
 npm i -g @antora/cli@2.3 @antora/site-generator-default@2.3
 ----
 
+== Create the antora config file
+
+Generate the antory.yaml file using the project version:
+
+[source,bash]
+----
+./gradlew docs:antoraConfig
+----
+
 == Generating and viewing the HTML output locally
 
 The docs can be generated locally during development, to check work.
