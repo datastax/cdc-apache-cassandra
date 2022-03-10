@@ -74,6 +74,10 @@ Cassandra supported CQL3 data types (with the associated AVRO type or logical-ty
 * timestamp (timestamp-millis), time (time-micros), date (date)
 * uuid, timeuuid (uuid)
 * User Defined Types (record)
+* Collection types:
+** list (array)
+** set (array)
+** map (map)
 
 ## Build from the sources
 
