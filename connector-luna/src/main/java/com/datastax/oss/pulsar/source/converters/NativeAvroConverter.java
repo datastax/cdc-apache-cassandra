@@ -25,8 +25,9 @@ import com.datastax.oss.driver.api.core.data.UdtValue;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
-import com.datastax.oss.driver.api.core.type.DataType;
-import com.datastax.oss.driver.api.core.type.UserDefinedType;
+import com.datastax.oss.driver.api.core.type.*;
+import com.datastax.oss.driver.api.core.type.codec.registry.CodecRegistry;
+import com.datastax.oss.driver.internal.core.type.PrimitiveType;
 import com.datastax.oss.protocol.internal.ProtocolConstants;
 import com.datastax.oss.pulsar.source.Converter;
 import com.google.common.base.Preconditions;
@@ -37,6 +38,7 @@ import org.apache.avro.LogicalType;
 import org.apache.avro.Schema;
 import org.apache.avro.Schema.*;
 import org.apache.avro.SchemaBuilder;
+import org.apache.avro.generic.GenericArray;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.IndexedRecord;
@@ -49,6 +51,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -66,6 +69,7 @@ public class NativeAvroConverter implements Converter<byte[], GenericRecord, Row
     public final Schema avroSchema;
     public final TableMetadata tableMetadata;
     public final Map<String, Schema> udtSchemas = new HashMap<>();
+    public final Map<String, Schema> collectionSchemas = new HashMap<>();
 
     public NativeAvroConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
         this.tableMetadata = tm;
@@ -75,8 +79,17 @@ public class NativeAvroConverter implements Converter<byte[], GenericRecord, Row
             boolean isPartitionKey = tm.getPartitionKey().contains(cm);
             if (isSupportedCqlType(cm.getType())) {
                 Schema.Field field = fieldSchema(ksm, cm.getName().toString(), cm.getType(), !isPartitionKey);
-                if (field != null)
+                if (field != null) {
                     fields.add(field);
+                    switch(cm.getType().getProtocolCode()) {
+                        case ProtocolConstants.DataType.LIST:
+                        case ProtocolConstants.DataType.SET:
+                        case ProtocolConstants.DataType.MAP:
+                            Schema collectionSchema = dataTypeSchema(ksm, cm.getType());
+                            collectionSchemas.put(field.name(), collectionSchema);
+                            log.info("Add collection schema {}={}", field.name(), collectionSchema);
+                    }
+                }
             }
         }
         this.avroSchema = Schema.createRecord(keyspaceAndTable, "Table " + keyspaceAndTable, ksm.getName().asInternal(), false, fields);
@@ -90,70 +103,72 @@ public class NativeAvroConverter implements Converter<byte[], GenericRecord, Row
     }
 
     Schema.Field fieldSchema(KeyspaceMetadata ksm,
-                       String fieldName,
-                       DataType dataType,
-                       boolean optional) {
-        Schema.Field fieldSchema;
-        switch(dataType.getProtocolCode()) {
-            case ProtocolConstants.DataType.INET:
-            case ProtocolConstants.DataType.ASCII:
-            case ProtocolConstants.DataType.VARCHAR:
-                fieldSchema = new Schema.Field(fieldName, org.apache.avro.Schema.create(Type.STRING));
-                break;
-            case ProtocolConstants.DataType.BLOB:
-                fieldSchema = new Schema.Field(fieldName, org.apache.avro.Schema.create(Type.BYTES));
-                break;
-            case ProtocolConstants.DataType.TINYINT:
-            case ProtocolConstants.DataType.SMALLINT:
-            case ProtocolConstants.DataType.INT:
-                fieldSchema = new Schema.Field(fieldName, org.apache.avro.Schema.create(Type.INT));
-                break;
-            case ProtocolConstants.DataType.BIGINT:
-                fieldSchema = new Schema.Field(fieldName, org.apache.avro.Schema.create(Type.LONG));
-                break;
-            case ProtocolConstants.DataType.BOOLEAN:
-                fieldSchema = new Schema.Field(fieldName, org.apache.avro.Schema.create(Type.BOOLEAN));
-                break;
-            case ProtocolConstants.DataType.FLOAT:
-                fieldSchema = new Schema.Field(fieldName, org.apache.avro.Schema.create(Type.FLOAT));
-                break;
-            case ProtocolConstants.DataType.DOUBLE:
-                fieldSchema = new Schema.Field(fieldName, org.apache.avro.Schema.create(Type.DOUBLE));
-                break;
-            case ProtocolConstants.DataType.TIMESTAMP:
-                fieldSchema = new Schema.Field(fieldName, CqlLogicalTypes.timestampMillisType);
-                break;
-            case ProtocolConstants.DataType.DATE:
-                fieldSchema = new Schema.Field(fieldName, CqlLogicalTypes.dateType);
-                break;
-            case ProtocolConstants.DataType.TIME:
-                fieldSchema = new Schema.Field(fieldName, CqlLogicalTypes.timeMicrosType);
-                break;
-            case ProtocolConstants.DataType.UDT:
-                fieldSchema = new Schema.Field(fieldName, buildUDTSchema(ksm, dataType.asCql(false, true), optional));
-                break;
-            case ProtocolConstants.DataType.UUID:
-            case ProtocolConstants.DataType.TIMEUUID:
-                fieldSchema = new Schema.Field(fieldName, CqlLogicalTypes.uuidType);
-                break;
-            case ProtocolConstants.DataType.VARINT:
-                fieldSchema = new Schema.Field(fieldName, CqlLogicalTypes.varintType);
-                break;
-            case ProtocolConstants.DataType.DECIMAL:
-                fieldSchema = new Schema.Field(fieldName, CqlLogicalTypes.decimalType);
-                break;
-            case ProtocolConstants.DataType.DURATION:
-                fieldSchema = new Schema.Field(fieldName, CqlLogicalTypes.durationType);
-                break;
-            default:
-                log.debug("Ignoring unsupported type fields name={} type={}", fieldName, dataType.asCql(false, true));
-                return null;
-        }
+                             String fieldName,
+                             DataType dataType,
+                             boolean optional) {
+        return fieldSchema(ksm, fieldName, dataTypeSchema(ksm, dataType), optional);
+    }
 
+    Schema.Field fieldSchema(KeyspaceMetadata ksm,
+                       String fieldName,
+                       Schema schema,
+                       boolean optional) {
+        Schema.Field fieldSchema = new Schema.Field(fieldName, schema);
         if (optional) {
             fieldSchema = new Schema.Field(fieldName, SchemaBuilder.unionOf().nullType().and().type(fieldSchema.schema()).endUnion(), null, Field.NULL_DEFAULT_VALUE);
         }
         return fieldSchema;
+    }
+
+    Schema dataTypeSchema(KeyspaceMetadata ksm, DataType dataType) {
+        switch(dataType.getProtocolCode()) {
+            case ProtocolConstants.DataType.INET:
+            case ProtocolConstants.DataType.ASCII:
+            case ProtocolConstants.DataType.VARCHAR:
+                return org.apache.avro.Schema.create(Type.STRING);
+            case ProtocolConstants.DataType.BLOB:
+                return org.apache.avro.Schema.create(Type.BYTES);
+            case ProtocolConstants.DataType.TINYINT:
+            case ProtocolConstants.DataType.SMALLINT:
+            case ProtocolConstants.DataType.INT:
+                return org.apache.avro.Schema.create(Type.INT);
+            case ProtocolConstants.DataType.BIGINT:
+                return org.apache.avro.Schema.create(Type.LONG);
+            case ProtocolConstants.DataType.BOOLEAN:
+                return org.apache.avro.Schema.create(Type.BOOLEAN);
+            case ProtocolConstants.DataType.FLOAT:
+                return org.apache.avro.Schema.create(Type.FLOAT);
+            case ProtocolConstants.DataType.DOUBLE:
+                return org.apache.avro.Schema.create(Type.DOUBLE);
+            case ProtocolConstants.DataType.TIMESTAMP:
+                return CqlLogicalTypes.timestampMillisType;
+            case ProtocolConstants.DataType.DATE:
+                return CqlLogicalTypes.dateType;
+            case ProtocolConstants.DataType.TIME:
+                return CqlLogicalTypes.timeMicrosType;
+            case ProtocolConstants.DataType.UDT:
+                return buildUDTSchema(ksm, dataType.asCql(false, true), false);
+            case ProtocolConstants.DataType.UUID:
+            case ProtocolConstants.DataType.TIMEUUID:
+                return CqlLogicalTypes.uuidType;
+            case ProtocolConstants.DataType.VARINT:
+                return CqlLogicalTypes.varintType;
+            case ProtocolConstants.DataType.DECIMAL:
+                return CqlLogicalTypes.decimalType;
+            case ProtocolConstants.DataType.DURATION:
+                return CqlLogicalTypes.durationType;
+            case ProtocolConstants.DataType.LIST:
+                ListType listType = (ListType) dataType;
+                return org.apache.avro.Schema.createArray(dataTypeSchema(ksm, listType.getElementType()));
+            case ProtocolConstants.DataType.SET:
+                SetType setType = (SetType) dataType;
+                return org.apache.avro.Schema.createArray(dataTypeSchema(ksm, setType.getElementType()));
+            case ProtocolConstants.DataType.MAP:
+                MapType mapType = (MapType) dataType;
+                return org.apache.avro.Schema.createMap(dataTypeSchema(ksm, mapType.getValueType()));
+            default:
+                throw new UnsupportedOperationException("Ignoring unsupported type=" + dataType.asCql(false, true));
+        }
     }
 
     Schema buildUDTSchema(KeyspaceMetadata ksm, String typeName, boolean optional) {
@@ -162,9 +177,13 @@ public class NativeAvroConverter implements Converter<byte[], GenericRecord, Row
         List<Schema.Field> fieldSchemas = new ArrayList<>();
         int i = 0;
         for(CqlIdentifier field : userDefinedType.getFieldNames()) {
-            Schema.Field fieldSchema = fieldSchema(ksm, field.toString(), userDefinedType.getFieldTypes().get(i++), optional);
-            if (fieldSchema != null)
+            Schema.Field fieldSchema = fieldSchema(ksm, field.toString(), userDefinedType.getFieldTypes().get(i), optional);
+            if (fieldSchema != null) {
                 fieldSchemas.add(fieldSchema);
+                String path = typeName + "." + field.toString();
+                collectionSchemas.put(path, dataTypeSchema(ksm, userDefinedType.getFieldTypes().get(i)));
+            }
+            i++;
         }
         Schema udtSchema = Schema.createRecord(typeName, "CQL type " + typeName, ksm.getName().asInternal(), false, fieldSchemas);
         udtSchemas.put(typeName, udtSchema);
@@ -180,64 +199,92 @@ public class NativeAvroConverter implements Converter<byte[], GenericRecord, Row
     public byte[] toConnectData(Row row) {
         GenericRecord genericRecordBuilder = new GenericData.Record(avroSchema);
         for(ColumnDefinition cm : row.getColumnDefinitions()) {
+            String fieldName = cm.getName().toString();
             if (!row.isNull(cm.getName())) {
                 switch (cm.getType().getProtocolCode()) {
                     case ProtocolConstants.DataType.UUID:
                     case ProtocolConstants.DataType.TIMEUUID:
-                        genericRecordBuilder.put(cm.getName().toString(), row.getUuid(cm.getName()));
+                        genericRecordBuilder.put(fieldName, row.getUuid(cm.getName()));
                         break;
                     case ProtocolConstants.DataType.ASCII:
                     case ProtocolConstants.DataType.VARCHAR:
-                        genericRecordBuilder.put(cm.getName().toString(), row.getString(cm.getName()));
+                        genericRecordBuilder.put(fieldName, row.getString(cm.getName()));
                         break;
                     case ProtocolConstants.DataType.TINYINT:
-                        genericRecordBuilder.put(cm.getName().toString(), (int) row.getByte(cm.getName()));
+                        genericRecordBuilder.put(fieldName, (int) row.getByte(cm.getName()));
                         break;
                     case ProtocolConstants.DataType.SMALLINT:
-                        genericRecordBuilder.put(cm.getName().toString(), (int) row.getShort(cm.getName()));
+                        genericRecordBuilder.put(fieldName, (int) row.getShort(cm.getName()));
                         break;
                     case ProtocolConstants.DataType.INT:
-                        genericRecordBuilder.put(cm.getName().toString(), row.getInt(cm.getName()));
+                        genericRecordBuilder.put(fieldName, row.getInt(cm.getName()));
                         break;
                     case ProtocolConstants.DataType.BIGINT:
-                        genericRecordBuilder.put(cm.getName().toString(), row.getLong(cm.getName()));
+                        genericRecordBuilder.put(fieldName, row.getLong(cm.getName()));
                         break;
                     case ProtocolConstants.DataType.INET:
-                        genericRecordBuilder.put(cm.getName().toString(), row.getInetAddress(cm.getName()).getHostAddress());
+                        genericRecordBuilder.put(fieldName, row.getInetAddress(cm.getName()).getHostAddress());
                         break;
                     case ProtocolConstants.DataType.DOUBLE:
-                        genericRecordBuilder.put(cm.getName().toString(), row.getDouble(cm.getName()));
+                        genericRecordBuilder.put(fieldName, row.getDouble(cm.getName()));
                         break;
                     case ProtocolConstants.DataType.FLOAT:
-                        genericRecordBuilder.put(cm.getName().toString(), row.getFloat(cm.getName()));
+                        genericRecordBuilder.put(fieldName, row.getFloat(cm.getName()));
                         break;
                     case ProtocolConstants.DataType.BOOLEAN:
-                        genericRecordBuilder.put(cm.getName().toString(), row.getBoolean(cm.getName()));
+                        genericRecordBuilder.put(fieldName, row.getBoolean(cm.getName()));
                         break;
                     case ProtocolConstants.DataType.TIMESTAMP:
-                        genericRecordBuilder.put(cm.getName().toString(), row.getInstant(cm.getName()).toEpochMilli());
+                        genericRecordBuilder.put(fieldName, row.getInstant(cm.getName()).toEpochMilli());
                         break;
                     case ProtocolConstants.DataType.DATE: // Avro date is epoch days
-                        genericRecordBuilder.put(cm.getName().toString(), (int) row.getLocalDate(cm.getName()).toEpochDay());
+                        genericRecordBuilder.put(fieldName, (int) row.getLocalDate(cm.getName()).toEpochDay());
                         break;
                     case ProtocolConstants.DataType.TIME: // Avro time is epoch milliseconds
-                        genericRecordBuilder.put(cm.getName().toString(), (row.getLocalTime(cm.getName()).toNanoOfDay() / 1000));
+                        genericRecordBuilder.put(fieldName, (row.getLocalTime(cm.getName()).toNanoOfDay() / 1000));
                         break;
                     case ProtocolConstants.DataType.BLOB:
-                        genericRecordBuilder.put(cm.getName().toString(), row.getByteBuffer(cm.getName()));
+                        genericRecordBuilder.put(fieldName, row.getByteBuffer(cm.getName()));
                         break;
                     case ProtocolConstants.DataType.UDT:
-                        genericRecordBuilder.put(cm.getName().toString(), buildUDTValue(row.getUdtValue(cm.getName())));
+                        genericRecordBuilder.put(fieldName, buildUDTValue(row.getUdtValue(cm.getName())));
                         break;
                     case ProtocolConstants.DataType.DURATION:
-                        genericRecordBuilder.put(cm.getName().toString(), row.getCqlDuration(cm.getName()));
+                        genericRecordBuilder.put(fieldName, row.getCqlDuration(cm.getName()));
                         break;
                     case ProtocolConstants.DataType.DECIMAL:
-                        genericRecordBuilder.put(cm.getName().toString(), row.getBigDecimal(cm.getName()));
+                        genericRecordBuilder.put(fieldName, row.getBigDecimal(cm.getName()));
                         break;
                     case ProtocolConstants.DataType.VARINT:
-                        genericRecordBuilder.put(cm.getName().toString(), row.getBigInteger(cm.getName()));
+                        genericRecordBuilder.put(fieldName, row.getBigInteger(cm.getName()));
                         break;
+                    case ProtocolConstants.DataType.LIST: {
+                        ListType listType = (ListType) cm.getType();
+                        Schema listSchema = collectionSchemas.get(fieldName);
+                        List listValue = row.getList(fieldName, CodecRegistry.DEFAULT.codecFor(listType.getElementType()).getJavaType().getRawType());
+                        log.info("field={} listSchema={} listValue={}", fieldName, listSchema, listValue);
+                        genericRecordBuilder.put(fieldName, buildArrayValue(listSchema, listValue));
+                    }
+                    break;
+                    case ProtocolConstants.DataType.SET: {
+                        SetType setType = (SetType) cm.getType();
+                        Schema setSchema = collectionSchemas.get(fieldName);
+                        Set setValue = row.getSet(fieldName, CodecRegistry.DEFAULT.codecFor(setType.getElementType()).getJavaType().getRawType());
+                        log.info("field={} setSchema={} setValue={}", fieldName, setSchema, setValue);
+                        genericRecordBuilder.put(fieldName, buildArrayValue(setSchema, setValue));
+                    }
+                    break;
+                    case ProtocolConstants.DataType.MAP: {
+                        MapType mapType = (MapType) cm.getType();
+                        Schema mapSchema = collectionSchemas.get(fieldName);
+                        Map<String, Object> mapValue = row.getMap(fieldName,
+                                        CodecRegistry.DEFAULT.codecFor(mapType.getKeyType()).getJavaType().getRawType(),
+                                        CodecRegistry.DEFAULT.codecFor(mapType.getValueType()).getJavaType().getRawType())
+                                .entrySet().stream().collect(Collectors.toMap(e -> stringify(mapType.getKeyType(), e.getKey()), Map.Entry::getValue));
+                        log.info("field={} mapSchema={} mapValue={}", fieldName, mapSchema, mapValue);
+                        genericRecordBuilder.put(fieldName, mapValue);
+                    }
+                    break;
                     default:
                         log.debug("Ignoring unsupported column name={} type={}", cm.getName(), cm.getType().asCql(false, true));
                 }
@@ -327,12 +374,75 @@ public class NativeAvroConverter implements Converter<byte[], GenericRecord, Row
                     case ProtocolConstants.DataType.VARINT:
                         genericRecord.put(field.toString(), udtValue.getBigInteger(field));
                         break;
+                    case ProtocolConstants.DataType.LIST: {
+                            ListType listType = (ListType) udtValue.getType(field);
+                            String path = typeName + "." + field.toString();
+                            Schema elementSchema = collectionSchemas.get(path);
+                            genericRecord.put(field.toString(), buildArrayValue(elementSchema, udtValue.getList(field, listType.getElementType().getClass())));
+                        }
+                        break;
+                    case ProtocolConstants.DataType.SET: {
+                            SetType setType = (SetType) udtValue.getType(field);
+                            String path = typeName + "." + field.toString();
+                            Schema elementSchema = collectionSchemas.get(path);
+                            genericRecord.put(field.toString(), buildArrayValue(elementSchema, udtValue.getList(field, setType.getElementType().getClass())));
+                        }
+                        break;
+                    case ProtocolConstants.DataType.MAP: {
+                            MapType mapType = (MapType) udtValue.getType(field);
+                            String path = typeName + "." + field.toString();
+                            Schema valueSchema = collectionSchemas.get(path);
+                            Map<String, Object> map = udtValue.getMap(field, mapType.getKeyType().getClass(), mapType.getValueType().getClass())
+                                    .entrySet().stream().collect(Collectors.toMap(e -> stringify(mapType.getKeyType(), e.getKey()), Map.Entry::getValue));
+                            genericRecord.put(field.toString(), map);
+                        }
+                        break;
                     default:
                         log.debug("Ignoring unsupported type field name={} type={}", field, dataType.asCql(false, true));
                 }
             }
         }
         return genericRecord;
+    }
+
+    @SuppressWarnings("unchecked")
+    GenericArray buildArrayValue(Schema schema, Collection collection) {
+        GenericArray genericArray = new GenericData.Array<>(collection.size(), schema);
+        for(Object element : collection)
+            genericArray.add(element);
+        return genericArray;
+    }
+
+    String stringify(DataType dataType, Object value) {
+        switch (dataType.getProtocolCode()) {
+            case ProtocolConstants.DataType.ASCII:
+            case ProtocolConstants.DataType.VARCHAR:
+            case ProtocolConstants.DataType.BOOLEAN:
+            case ProtocolConstants.DataType.DATE:
+            case ProtocolConstants.DataType.TIME:
+            case ProtocolConstants.DataType.TIMESTAMP:
+            case ProtocolConstants.DataType.UUID:
+            case ProtocolConstants.DataType.TIMEUUID:
+            case ProtocolConstants.DataType.TINYINT:
+            case ProtocolConstants.DataType.SMALLINT:
+            case ProtocolConstants.DataType.INT:
+            case ProtocolConstants.DataType.BIGINT:
+            case ProtocolConstants.DataType.DOUBLE:
+            case ProtocolConstants.DataType.FLOAT:
+            case ProtocolConstants.DataType.VARINT:
+            case ProtocolConstants.DataType.DECIMAL:
+            case ProtocolConstants.DataType.DURATION:
+            case ProtocolConstants.DataType.LIST:
+            case ProtocolConstants.DataType.SET:
+            case ProtocolConstants.DataType.MAP:
+                return value.toString();
+            case ProtocolConstants.DataType.INET:
+                return ((InetAddress)value).getHostAddress();
+            case ProtocolConstants.DataType.UDT:
+                //TODO: convert UDT to a map
+            default:
+                throw new UnsupportedOperationException("Unsupported type="+dataType.getProtocolCode()+" as key in a map");
+        }
     }
 
     public boolean isSupportedCqlType(DataType dataType) {
@@ -357,6 +467,9 @@ public class NativeAvroConverter implements Converter<byte[], GenericRecord, Row
             case ProtocolConstants.DataType.VARINT:
             case ProtocolConstants.DataType.DECIMAL:
             case ProtocolConstants.DataType.DURATION:
+            case ProtocolConstants.DataType.LIST:
+            case ProtocolConstants.DataType.SET:
+            case ProtocolConstants.DataType.MAP:
                 return true;
         }
         return false;
@@ -415,6 +528,7 @@ public class NativeAvroConverter implements Converter<byte[], GenericRecord, Row
                         Conversion<BigInteger> conversion = SpecificData.get().getConversionByClass(BigInteger.class);
                         value = conversion.fromBytes((ByteBuffer) value, CqlLogicalTypes.varintType, CqlLogicalTypes.CQL_VARINT_LOGICAL_TYPE);
                     }
+                    // CQL collection types are not supported in the PK
                     break;
                 }
             }

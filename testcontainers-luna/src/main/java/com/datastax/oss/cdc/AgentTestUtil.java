@@ -61,7 +61,7 @@ public class AgentTestUtil {
         return map;
     }
 
-    public static void assertGenericRecords(String field, GenericRecord gr, Map<String, Object[]> values) {
+    public static void assertGenericRecords(String field, GenericRecord gr, Map<String, DataSpec> dataSpecMap) {
         switch (field) {
             case "decimal": {
                 ByteBuffer bb = (ByteBuffer) gr.getField(CqlLogicalTypes.CQL_DECIMAL_BIGINT);
@@ -69,11 +69,11 @@ public class AgentTestUtil {
                 bb.duplicate().get(bytes);
                 BigInteger bigInteger = new BigInteger(bytes);
                 BigDecimal bigDecimal = new BigDecimal(bigInteger, (int) gr.getField(CqlLogicalTypes.CQL_DECIMAL_SCALE));
-                Assert.assertEquals("Wrong value for field " + field, values.get(field)[1], bigDecimal);
+                Assert.assertEquals("Wrong value for field " + field, dataSpecMap.get(field).avroValue, bigDecimal);
             }
             break;
             case "duration": {
-                Assert.assertEquals("Wrong value for field " + field, values.get(field)[1],
+                Assert.assertEquals("Wrong value for field " + field, dataSpecMap.get(field).avroValue,
                         CqlDuration.newInstance(
                                 (int) gr.getField(CqlLogicalTypes.CQL_DURATION_MONTHS),
                                 (int) gr.getField(CqlLogicalTypes.CQL_DURATION_DAYS),

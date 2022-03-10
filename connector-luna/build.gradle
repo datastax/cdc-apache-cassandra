@@ -50,6 +50,7 @@ dependencies {
 
     testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
     testImplementation project(':testcontainers')
+    testImplementation project(':testcontainers-luna')
 
     nar "com.datastax.oss:pulsar-io:${lunaVersion}"
 }
