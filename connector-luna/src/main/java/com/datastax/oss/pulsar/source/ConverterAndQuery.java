@@ -21,6 +21,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
+import org.apache.pulsar.client.api.Schema;
 
 import java.util.concurrent.ConcurrentMap;
 
@@ -59,7 +60,16 @@ public class ConverterAndQuery {
      */
     final CqlIdentifier[] primaryKeyClause;
 
+
+    /**
+     * Cache of prepared statements where key is the number of primary keys.
+     */
     final ConcurrentMap<Integer, PreparedStatement> preparedStatements;
+
+    /**
+     * KeyValue schema.
+     */
+    final Schema schema;
 
     /**
      * When requesting a partition, the projection clause contains only static columns.

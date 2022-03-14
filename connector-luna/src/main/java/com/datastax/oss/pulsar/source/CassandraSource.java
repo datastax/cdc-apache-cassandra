@@ -323,14 +323,16 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                     .collect(Collectors.toList());
             log.info("Schema update for table {}.{} replicated columns={}", ksm.getName(), tableMetadata.getName(),
                     columns.stream().map(c -> c.getName().asInternal()).collect(Collectors.toList()));
+            Converter valueConverter = createConverter(getValueConverterClass(), ksm, tableMetadata, columns);
             this.valueConverterAndQuery = new ConverterAndQuery(
                     tableMetadata.getKeyspace().asInternal(),
                     tableMetadata.getName().asInternal(),
-                    createConverter(getValueConverterClass(), ksm, tableMetadata, columns),
+                    valueConverter,
                     cassandraClient.buildProjectionClause(columns),
                     cassandraClient.buildProjectionClause(staticColumns),
                     cassandraClient.buildPrimaryKeyClause(tableMetadata),
-                    new ConcurrentHashMap<>());
+                    new ConcurrentHashMap<>(),
+                    Schema.KeyValue(keyConverter.getSchema(), valueConverter.getSchema(), KeyValueEncodingType.SEPARATED));
             log.debug("valueConverterAndQuery={}", this.valueConverterAndQuery);
         } catch (Exception e) {
             log.error("Unexpected error", e);
@@ -708,7 +710,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         @Override
         @SuppressWarnings("unchecked")
         public Schema getSchema() {
-            return Schema.KeyValue(getKeySchema(), getValueSchema(), getKeyValueEncodingType());
+            return converterAndQueryFinal.getSchema();
         }
 
         @Override
