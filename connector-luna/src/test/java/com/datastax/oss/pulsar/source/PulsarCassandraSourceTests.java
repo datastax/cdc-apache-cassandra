@@ -122,12 +122,12 @@ public class PulsarCassandraSourceTests {
         pulsarContainer.close();
     }
 
-    //@Test
+    @Test
     public void testSinglePkWithNativeAvroConverter() throws InterruptedException, IOException {
         testSinglePk("ks1", NativeAvroConverter.class, NativeAvroConverter.class);
     }
 
-    //@Test
+    @Test
     public void testCompoundPkWithNativeAvroConverter() throws InterruptedException, IOException {
         testCompoundPk("ks1", null, null);
     }
@@ -137,12 +137,12 @@ public class PulsarCassandraSourceTests {
         testSchema("ks1", NativeAvroConverter.class, NativeAvroConverter.class);
     }
 
-    //@Test
+    @Test
     public void testStaticColumnWithNativeAvroConverter() throws InterruptedException, IOException {
         testStaticColumn("ks1", NativeAvroConverter.class, NativeAvroConverter.class);
     }
 
-    //@Test
+    @Test
     public void testBatchInsertWithNativeAvroConverter() throws InterruptedException, IOException {
         testBatchInsert("batchinsert", NativeAvroConverter.class, NativeAvroConverter.class);
     }
@@ -537,7 +537,7 @@ public class PulsarCassandraSourceTests {
     void assertGenericMap(String field, Map<org.apache.avro.util.Utf8, Object> gm) {
         switch (field) {
             case "map":
-                log.info("field={} gm={}", field, gm);
+                log.debug("field={} gm={}", field, gm);
                 Map<String, Object> expectedMap = (Map<String, Object>) dataSpecMap.get("map").avroValue;
                 Assert.assertEquals(expectedMap.size(), gm.size());
                 // convert AVRO Utf8 keys to String.
@@ -709,7 +709,7 @@ public class PulsarCassandraSourceTests {
         }
     }
 
-    //@Test
+    @Test
     public void testReadTimeout() throws InterruptedException, IOException {
         final String ksName = "ksx";
         try(ChaosNetworkContainer<?> chaosContainer = new ChaosNetworkContainer<>(cassandraContainer2.getContainerName(), "100s")) {
@@ -749,7 +749,7 @@ public class PulsarCassandraSourceTests {
         }
     }
 
-    //@Test
+    @Test
     public void testConnectionFailure() throws InterruptedException, IOException {
         final String ksName = "ksx2";
         try(ChaosNetworkContainer<?> chaosContainer = new ChaosNetworkContainer<>(cassandraContainer1.getContainerName(), "100s")) {
