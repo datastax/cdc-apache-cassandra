@@ -27,7 +27,6 @@ import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import com.datastax.oss.driver.api.core.type.*;
 import com.datastax.oss.driver.api.core.type.codec.registry.CodecRegistry;
-import com.datastax.oss.driver.internal.core.type.PrimitiveType;
 import com.datastax.oss.protocol.internal.ProtocolConstants;
 import com.datastax.oss.pulsar.source.Converter;
 import com.google.common.base.Preconditions;
@@ -68,8 +67,7 @@ public class NativeAvroConverter implements Converter<byte[], GenericRecord, Row
     public final org.apache.pulsar.client.api.Schema<byte[]> pulsarSchema;
     public final Schema avroSchema;
     public final TableMetadata tableMetadata;
-    public final Map<String, Schema> udtSchemas = new HashMap<>();
-    public final Map<String, Schema> collectionSchemas = new HashMap<>();
+    public final Map<String, Schema> subSchemas = new HashMap<>();
 
     public NativeAvroConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
         this.tableMetadata = tm;
@@ -86,7 +84,7 @@ public class NativeAvroConverter implements Converter<byte[], GenericRecord, Row
                         case ProtocolConstants.DataType.SET:
                         case ProtocolConstants.DataType.MAP:
                             Schema collectionSchema = dataTypeSchema(ksm, cm.getType());
-                            collectionSchemas.put(field.name(), collectionSchema);
+                            subSchemas.put(field.name(), collectionSchema);
                             log.info("Add collection schema {}={}", field.name(), collectionSchema);
                     }
                 }
@@ -96,7 +94,7 @@ public class NativeAvroConverter implements Converter<byte[], GenericRecord, Row
         this.pulsarSchema = new AvroSchemaWrapper(avroSchema);
         if (log.isInfoEnabled()) {
             log.info("schema={}", this.avroSchema);
-            for(Map.Entry<String, Schema> entry : udtSchemas.entrySet()) {
+            for(Map.Entry<String, Schema> entry : subSchemas.entrySet()) {
                 log.info("type={} schema={}", entry.getKey(), entry.getValue());
             }
         }
@@ -181,12 +179,12 @@ public class NativeAvroConverter implements Converter<byte[], GenericRecord, Row
             if (fieldSchema != null) {
                 fieldSchemas.add(fieldSchema);
                 String path = typeName + "." + field.toString();
-                collectionSchemas.put(path, dataTypeSchema(ksm, userDefinedType.getFieldTypes().get(i)));
+                subSchemas.put(path, dataTypeSchema(ksm, userDefinedType.getFieldTypes().get(i)));
             }
             i++;
         }
         Schema udtSchema = Schema.createRecord(typeName, "CQL type " + typeName, ksm.getName().asInternal(), false, fieldSchemas);
-        udtSchemas.put(typeName, udtSchema);
+        subSchemas.put(typeName, udtSchema);
         return udtSchema;
     }
 
@@ -260,28 +258,28 @@ public class NativeAvroConverter implements Converter<byte[], GenericRecord, Row
                         break;
                     case ProtocolConstants.DataType.LIST: {
                         ListType listType = (ListType) cm.getType();
-                        Schema listSchema = collectionSchemas.get(fieldName);
+                        Schema listSchema = subSchemas.get(fieldName);
                         List listValue = row.getList(fieldName, CodecRegistry.DEFAULT.codecFor(listType.getElementType()).getJavaType().getRawType());
-                        log.info("field={} listSchema={} listValue={}", fieldName, listSchema, listValue);
+                        log.debug("field={} listSchema={} listValue={}", fieldName, listSchema, listValue);
                         genericRecordBuilder.put(fieldName, buildArrayValue(listSchema, listValue));
                     }
                     break;
                     case ProtocolConstants.DataType.SET: {
                         SetType setType = (SetType) cm.getType();
-                        Schema setSchema = collectionSchemas.get(fieldName);
+                        Schema setSchema = subSchemas.get(fieldName);
                         Set setValue = row.getSet(fieldName, CodecRegistry.DEFAULT.codecFor(setType.getElementType()).getJavaType().getRawType());
-                        log.info("field={} setSchema={} setValue={}", fieldName, setSchema, setValue);
+                        log.debug("field={} setSchema={} setValue={}", fieldName, setSchema, setValue);
                         genericRecordBuilder.put(fieldName, buildArrayValue(setSchema, setValue));
                     }
                     break;
                     case ProtocolConstants.DataType.MAP: {
                         MapType mapType = (MapType) cm.getType();
-                        Schema mapSchema = collectionSchemas.get(fieldName);
+                        Schema mapSchema = subSchemas.get(fieldName);
                         Map<String, Object> mapValue = row.getMap(fieldName,
                                         CodecRegistry.DEFAULT.codecFor(mapType.getKeyType()).getJavaType().getRawType(),
                                         CodecRegistry.DEFAULT.codecFor(mapType.getValueType()).getJavaType().getRawType())
                                 .entrySet().stream().collect(Collectors.toMap(e -> stringify(mapType.getKeyType(), e.getKey()), Map.Entry::getValue));
-                        log.info("field={} mapSchema={} mapValue={}", fieldName, mapSchema, mapValue);
+                        log.debug("field={} mapSchema={} mapValue={}", fieldName, mapSchema, mapValue);
                         genericRecordBuilder.put(fieldName, mapValue);
                     }
                     break;
@@ -308,10 +306,14 @@ public class NativeAvroConverter implements Converter<byte[], GenericRecord, Row
 
     GenericRecord buildUDTValue(UdtValue udtValue) {
         String typeName = udtValue.getType().getKeyspace() + "." + udtValue.getType().getName();
-        Schema udtSchema = udtSchemas.get(typeName);
+        Schema udtSchema = subSchemas.get(typeName);
         Preconditions.checkNotNull(udtSchema, "Schema not found for UDT=" + typeName);
         Preconditions.checkState(udtSchema.getFields().size() > 0, "Schema UDT=" + typeName + " has no fields");
+        return buildUDTValue(udtSchema, udtValue);
+    }
 
+    GenericRecord buildUDTValue(Schema udtSchema, UdtValue udtValue) {
+        String typeName = udtValue.getType().getKeyspace() + "." + udtValue.getType().getName();
         List<String> fields = udtSchema.getFields().stream().map(Field::name).collect(Collectors.toList());
         GenericRecord genericRecord = new GenericData.Record(udtSchema);
         for(CqlIdentifier field : udtValue.getType().getFieldNames()) {
@@ -376,25 +378,32 @@ public class NativeAvroConverter implements Converter<byte[], GenericRecord, Row
                         break;
                     case ProtocolConstants.DataType.LIST: {
                             ListType listType = (ListType) udtValue.getType(field);
+                            List listValue = udtValue.getList(field, CodecRegistry.DEFAULT.codecFor(listType.getElementType()).getJavaType().getRawType());
                             String path = typeName + "." + field.toString();
-                            Schema elementSchema = collectionSchemas.get(path);
-                            genericRecord.put(field.toString(), buildArrayValue(elementSchema, udtValue.getList(field, listType.getElementType().getClass())));
+                            Schema elementSchema = subSchemas.get(path);
+                            log.debug("path={} elementSchema={} listType={} listValue={}", path, elementSchema, listType, listValue);
+                            genericRecord.put(field.toString(), buildArrayValue(elementSchema, listValue));
                         }
                         break;
                     case ProtocolConstants.DataType.SET: {
                             SetType setType = (SetType) udtValue.getType(field);
+                            Set setValue = udtValue.getSet(field, CodecRegistry.DEFAULT.codecFor(setType.getElementType()).getJavaType().getRawType());
                             String path = typeName + "." + field.toString();
-                            Schema elementSchema = collectionSchemas.get(path);
-                            genericRecord.put(field.toString(), buildArrayValue(elementSchema, udtValue.getList(field, setType.getElementType().getClass())));
+                            Schema elementSchema = subSchemas.get(path);
+                            log.debug("path={} elementSchema={} setType={} setValue={}", path, elementSchema, setType, setValue);
+                            genericRecord.put(field.toString(), buildArrayValue(elementSchema, setValue));
                         }
                         break;
                     case ProtocolConstants.DataType.MAP: {
                             MapType mapType = (MapType) udtValue.getType(field);
-                            String path = typeName + "." + field.toString();
-                            Schema valueSchema = collectionSchemas.get(path);
-                            Map<String, Object> map = udtValue.getMap(field, mapType.getKeyType().getClass(), mapType.getValueType().getClass())
+                            Map<String, Object> mapValue = udtValue.getMap(field,
+                                            CodecRegistry.DEFAULT.codecFor(mapType.getKeyType()).getJavaType().getRawType(),
+                                            CodecRegistry.DEFAULT.codecFor(mapType.getValueType()).getJavaType().getRawType())
                                     .entrySet().stream().collect(Collectors.toMap(e -> stringify(mapType.getKeyType(), e.getKey()), Map.Entry::getValue));
-                            genericRecord.put(field.toString(), map);
+                            String path = typeName + "." + field.toString();
+                            Schema valueSchema = subSchemas.get(path);
+                            log.debug("path={} valueSchema={} mapType={} mapValue={}", path, valueSchema, mapType, mapValue);
+                            genericRecord.put(field.toString(), mapValue);
                         }
                         break;
                     default:
@@ -408,8 +417,18 @@ public class NativeAvroConverter implements Converter<byte[], GenericRecord, Row
     @SuppressWarnings("unchecked")
     GenericArray buildArrayValue(Schema schema, Collection collection) {
         GenericArray genericArray = new GenericData.Array<>(collection.size(), schema);
-        for(Object element : collection)
-            genericArray.add(element);
+        for(Object element : collection) {
+            if (element instanceof UdtValue) {
+                UdtValue udtValue = (UdtValue) element;
+                genericArray.add(buildUDTValue(udtValue));
+            } else if (element instanceof Set) {
+                genericArray.add(buildArrayValue(schema.getElementType(), (Collection)element));
+            } else if (element instanceof List) {
+                genericArray.add(buildArrayValue(schema.getElementType(), (Collection)element));
+            } else {
+                genericArray.add(element);
+            }
+        }
         return genericArray;
     }
 

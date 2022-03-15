@@ -22,17 +22,19 @@ sourceSets {
 
 dependencies {
     implementation project(':commons')
-    implementation project(':commons-pulsar')
+    implementation (project(':commons-pulsar')) {
+        exclude group: 'com.datastax.oss', module: 'pulsar-client'
+    }
     implementation project(':connector')
 
     implementation("com.github.ben-manes.caffeine:caffeine:${caffeineVersion}")
     implementation("io.vavr:vavr:${vavrVersion}")
-    implementation "com.datastax.oss:java-driver-core:${ossDriverVersion}"
+    implementation "com.datastax.oss:java-driver-core-shaded:${ossDriverVersion}"
     implementation "com.datastax.oss:java-driver-query-builder:${ossDriverVersion}"
 
     implementation("org.apache.avro:avro:${avroVersion}")
 
-    compileOnly("${pulsarGroup}:pulsar-client:${pulsarVersion}")
+    compileOnly("${pulsarGroup}:pulsar-client-original:${pulsarVersion}")
     compileOnly("${pulsarGroup}:pulsar-io-common:${pulsarVersion}")
     compileOnly("${pulsarGroup}:pulsar-io-core:${pulsarVersion}")
 

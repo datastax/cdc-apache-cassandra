@@ -17,17 +17,19 @@ sourceSets {
 
 dependencies {
     implementation project(':commons')
-    implementation project(':commons-luna')
+    implementation (project(':commons-luna')) {
+        exclude group: 'com.datastax.oss', module: 'pulsar-client'
+    }
     implementation project(':connector')
 
     implementation("com.github.ben-manes.caffeine:caffeine:${caffeineVersion}")
     implementation("io.vavr:vavr:${vavrVersion}")
-    implementation "com.datastax.oss:java-driver-core:${ossDriverVersion}"
+    implementation "com.datastax.oss:java-driver-core-shaded:${ossDriverVersion}"
     implementation "com.datastax.oss:java-driver-query-builder:${ossDriverVersion}"
 
     implementation("org.apache.avro:avro:${avroVersion}")
 
-    compileOnly("com.datastax.oss:pulsar-client:${lunaVersion}")
+    compileOnly("com.datastax.oss:pulsar-client-original:${lunaVersion}")
     compileOnly("com.datastax.oss:pulsar-io-common:${lunaVersion}")
     compileOnly("com.datastax.oss:pulsar-io-core:${lunaVersion}")
 

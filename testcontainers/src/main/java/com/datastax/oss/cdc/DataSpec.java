@@ -82,9 +82,7 @@ public class DataSpec
         // list of maps
         Map<String, Double> map1 = ImmutableMap.of("a",1.0,"b", 2.0, "c", 3.0);
         List<Map<String, Double>> listOfMaps = ImmutableList.of(map1, map1, map1);
-        dataSpecs.add(new DataSpec( "listOfMaps", listOfMaps, listOfMaps, false, false));
-
-        // list of UDT
+        dataSpecs.add(new DataSpec( "listofmap", listOfMaps, listOfMaps, false, false));
 
         dataSpecMap = dataSpecs.stream().collect(Collectors.toMap(dt -> dt.name, Function.identity()));
         pkColumns = dataSpecs.stream().filter(dt -> dt.primaryKey).collect(Collectors.toList());
