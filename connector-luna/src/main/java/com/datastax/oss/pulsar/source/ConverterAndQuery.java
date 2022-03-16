@@ -22,6 +22,8 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.ToString;
 import org.apache.pulsar.client.api.Schema;
+import org.apache.pulsar.client.api.schema.GenericRecord;
+import org.apache.pulsar.common.schema.KeyValue;
 
 import java.util.concurrent.ConcurrentMap;
 
@@ -69,7 +71,7 @@ public class ConverterAndQuery {
     /**
      * KeyValue schema.
      */
-    final Schema schema;
+    final Schema<KeyValue<GenericRecord, GenericRecord>> keyValueSchema;
 
     /**
      * When requesting a partition, the projection clause contains only static columns.

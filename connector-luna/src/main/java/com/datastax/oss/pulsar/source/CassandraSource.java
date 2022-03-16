@@ -310,6 +310,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         setValueConverterAndQuery(tuple._1, tuple._2);
     }
 
+    @SuppressWarnings("unchecked")
     synchronized void setValueConverterAndQuery(KeyspaceMetadata ksm, TableMetadata tableMetadata) {
         try {
             List<ColumnMetadata> columns = tableMetadata.getColumns().values().stream()
@@ -710,7 +711,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         @Override
         @SuppressWarnings("unchecked")
         public Schema getSchema() {
-            return converterAndQueryFinal.getSchema();
+            return converterAndQueryFinal.getKeyValueSchema();
         }
 
         @Override
