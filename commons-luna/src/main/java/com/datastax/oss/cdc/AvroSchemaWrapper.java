@@ -19,7 +19,7 @@ import org.apache.avro.Schema;
 import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.specific.SpecificDatumWriter;
-import org.apache.pulsar.client.api.schema.GenericObject;
+import org.apache.pulsar.client.api.schema.GenericRecord;
 import org.apache.pulsar.client.api.schema.SchemaInfoProvider;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
@@ -30,7 +30,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Optional;
 
-public class AvroSchemaWrapper implements org.apache.pulsar.client.api.Schema<GenericObject> {
+public class AvroSchemaWrapper implements org.apache.pulsar.client.api.Schema<GenericRecord> {
 
     private final SchemaInfo schemaInfo;
     private final Schema nativeAvroSchema;
@@ -48,11 +48,11 @@ public class AvroSchemaWrapper implements org.apache.pulsar.client.api.Schema<Ge
     }
 
     @Override
-    public byte[] encode(GenericObject genericObject) {
+    public byte[] encode(GenericRecord genericRecord) {
         try {
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
             BinaryEncoder binaryEncoder = new EncoderFactory().binaryEncoder(byteArrayOutputStream, null);
-            datumWriter.write((org.apache.avro.generic.GenericRecord) genericObject.getNativeObject(), binaryEncoder);
+            datumWriter.write((org.apache.avro.generic.GenericRecord) genericRecord.getNativeObject(), binaryEncoder);
             binaryEncoder.flush();
             return byteArrayOutputStream.toByteArray();
         } catch(IOException e) {
@@ -86,12 +86,12 @@ public class AvroSchemaWrapper implements org.apache.pulsar.client.api.Schema<Ge
     }
 
     @Override
-    public GenericObject decode(byte[] bytes) {
+    public GenericRecord decode(byte[] bytes) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public GenericObject decode(byte[] bytes, byte[] schemaVersion) {
+    public GenericRecord decode(byte[] bytes, byte[] schemaVersion) {
         throw new UnsupportedOperationException();
     }
 

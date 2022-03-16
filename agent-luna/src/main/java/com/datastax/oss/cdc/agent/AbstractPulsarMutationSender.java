@@ -15,31 +15,23 @@
  */
 package com.datastax.oss.cdc.agent;
 
-import com.datastax.oss.cdc.CqlLogicalTypes;
-import com.datastax.oss.cdc.MutationValue;
+import com.datastax.oss.cdc.*;
 import com.datastax.oss.cdc.agent.exceptions.CassandraConnectorSchemaException;
-import com.datastax.oss.cdc.AvroSchemaWrapper;
-import com.datastax.oss.cdc.Murmur3MessageRouter;
-import com.datastax.oss.cdc.Constants;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Conversions;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.io.BinaryEncoder;
-import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.specific.SpecificData;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.pulsar.client.api.*;
+import org.apache.pulsar.client.api.schema.Field;
 import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.common.schema.KeyValueEncodingType;
 
-import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
-import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -66,7 +58,7 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
     }
 
     volatile PulsarClient client;
-    final Map<String, Producer<KeyValue<org.apache.pulsar.client.api.schema.GenericObject, MutationValue>>> producers = new ConcurrentHashMap<>();
+    final Map<String, Producer<KeyValue<org.apache.pulsar.client.api.schema.GenericRecord, MutationValue>>> producers = new ConcurrentHashMap<>();
     final Map<String, SchemaAndWriter> pkSchemas = new ConcurrentHashMap<>();
 
     final AgentConfig config;
@@ -122,18 +114,6 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
         }
     }
 
-    public byte[] serializeAvroGenericRecord(org.apache.avro.generic.GenericRecord genericRecord, SpecificDatumWriter<org.apache.avro.generic.GenericRecord> datumWriter) {
-        try {
-            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-            BinaryEncoder binaryEncoder = new EncoderFactory().binaryEncoder(byteArrayOutputStream, null);
-            datumWriter.write(genericRecord, binaryEncoder);
-            binaryEncoder.flush();
-            return byteArrayOutputStream.toByteArray();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     /**
      * Build the AVRO schema for the primary key.
      * @param tableInfo
@@ -174,7 +154,7 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
      * @return the pulsar producer
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
-    public Producer<KeyValue<org.apache.pulsar.client.api.schema.GenericObject, MutationValue>> getProducer(final TableInfo tm) throws PulsarClientException {
+    public Producer<KeyValue<org.apache.pulsar.client.api.schema.GenericRecord, MutationValue>> getProducer(final TableInfo tm) throws PulsarClientException {
         if (this.client == null) {
             synchronized (this) {
                 if (this.client == null)
@@ -184,11 +164,11 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
         final TopicAndProducerName topicAndProducerName = topicAndProducerName(tm);
         return producers.computeIfAbsent(topicAndProducerName.topicName, k -> {
             try {
-                org.apache.pulsar.client.api.Schema<KeyValue<org.apache.pulsar.client.api.schema.GenericObject, MutationValue>> keyValueSchema = org.apache.pulsar.client.api.Schema.KeyValue(
+                org.apache.pulsar.client.api.Schema<KeyValue<org.apache.pulsar.client.api.schema.GenericRecord, MutationValue>> keyValueSchema = org.apache.pulsar.client.api.Schema.KeyValue(
                         new AvroSchemaWrapper(getAvroKeySchema(tm).schema),
                         org.apache.pulsar.client.api.Schema.AVRO(MutationValue.class),
                         KeyValueEncodingType.SEPARATED);
-                ProducerBuilder<KeyValue<org.apache.pulsar.client.api.schema.GenericObject, MutationValue>> producerBuilder = client.newProducer(keyValueSchema)
+                ProducerBuilder<KeyValue<org.apache.pulsar.client.api.schema.GenericRecord, MutationValue>> producerBuilder = client.newProducer(keyValueSchema)
                         .producerName(topicAndProducerName.producerName)
                         .topic(k)
                         .sendTimeout(0, TimeUnit.SECONDS)
@@ -227,15 +207,18 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
      * @param mutation
      * @return The primary key as an AVRO GenericRecord
      */
-    public org.apache.avro.generic.GenericRecord buildAvroKey(org.apache.avro.Schema keySchema, AbstractMutation<T> mutation) {
+    public org.apache.pulsar.client.api.schema.GenericRecord buildAvroKey(org.apache.avro.Schema keySchema, AbstractMutation<T> mutation) {
         org.apache.avro.generic.GenericRecord genericRecord = new org.apache.avro.generic.GenericData.Record(keySchema);
         int i = 0;
+        List<Field> fields = new ArrayList<>(mutation.primaryKeyColumns().size());
         for (ColumnInfo columnInfo : mutation.primaryKeyColumns()) {
             if (keySchema.getField(columnInfo.name()) == null)
                 throw new CassandraConnectorSchemaException("Not a valid schema field: " + columnInfo.name());
-            genericRecord.put(columnInfo.name(), cqlToAvro(mutation.getMetadata(), columnInfo.name(), mutation.getPkValues()[i++]));
+            genericRecord.put(columnInfo.name(), cqlToAvro(mutation.getMetadata(), columnInfo.name(), mutation.getPkValues()[i]));
+            fields.add(new Field(columnInfo.name(), i));
+            i++;
         }
-        return genericRecord;
+        return new AvroGenericRecord(fields, genericRecord);
     }
 
     @Override
@@ -246,9 +229,9 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
             return CompletableFuture.completedFuture(null);
         }
         try {
-            Producer<KeyValue<org.apache.pulsar.client.api.schema.GenericObject, MutationValue>> producer = getProducer(mutation);
+            Producer<KeyValue<org.apache.pulsar.client.api.schema.GenericRecord, MutationValue>> producer = getProducer(mutation);
             SchemaAndWriter schemaAndWriter = getAvroKeySchema(mutation);
-            TypedMessageBuilder<KeyValue<org.apache.pulsar.client.api.schema.GenericObject, MutationValue>> messageBuilder = producer.newMessage();
+            TypedMessageBuilder<KeyValue<org.apache.pulsar.client.api.schema.GenericRecord, MutationValue>> messageBuilder = producer.newMessage();
             return messageBuilder
                     .value(new KeyValue(buildAvroKey(schemaAndWriter.schema, mutation), mutation.mutationValue()))
                     .property(Constants.WRITETIME, mutation.getTs() + "")

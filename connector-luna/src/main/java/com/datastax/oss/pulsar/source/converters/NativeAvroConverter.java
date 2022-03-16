@@ -15,6 +15,7 @@
  */
 package com.datastax.oss.pulsar.source.converters;
 
+import com.datastax.oss.cdc.AvroGenericRecord;
 import com.datastax.oss.cdc.AvroSchemaWrapper;
 import com.datastax.oss.cdc.CqlLogicalTypes;
 import com.datastax.oss.driver.api.core.CqlIdentifier;
@@ -57,9 +58,9 @@ import java.util.stream.Collectors;
  * AVRO Converter providing support for logical types.
  */
 @Slf4j
-public class NativeAvroConverter implements Converter<org.apache.pulsar.client.api.schema.GenericObject, GenericRecord, Row, List<Object>> {
+public class NativeAvroConverter implements Converter<org.apache.pulsar.client.api.schema.GenericRecord, GenericRecord, Row, List<Object>> {
 
-    public final org.apache.pulsar.client.api.Schema<org.apache.pulsar.client.api.schema.GenericObject> pulsarSchema;
+    public final org.apache.pulsar.client.api.Schema<org.apache.pulsar.client.api.schema.GenericRecord> pulsarSchema;
     public final Schema avroSchema;
     public final TableMetadata tableMetadata;
     public final Map<String, Schema> udtSchemas = new HashMap<>();
@@ -169,88 +170,99 @@ public class NativeAvroConverter implements Converter<org.apache.pulsar.client.a
     }
 
     @Override
-    public org.apache.pulsar.client.api.Schema<org.apache.pulsar.client.api.schema.GenericObject> getSchema() {
+    public org.apache.pulsar.client.api.Schema<org.apache.pulsar.client.api.schema.GenericRecord> getSchema() {
         return this.pulsarSchema;
     }
 
     @Override
-    public org.apache.pulsar.client.api.schema.GenericObject toConnectData(Row row) {
+    public org.apache.pulsar.client.api.schema.GenericRecord toConnectData(Row row) {
         GenericRecord genericRecordBuilder = new GenericData.Record(avroSchema);
+        List<org.apache.pulsar.client.api.schema.Field> fields = new ArrayList<>(avroSchema.getFields().size());
+        int i = 0;
         for(ColumnDefinition cm : row.getColumnDefinitions()) {
             if (!row.isNull(cm.getName())) {
+                String fieldName = cm.getName().toString();
                 switch (cm.getType().getProtocolCode()) {
                     case ProtocolConstants.DataType.UUID:
                     case ProtocolConstants.DataType.TIMEUUID:
-                        genericRecordBuilder.put(cm.getName().toString(), row.getUuid(cm.getName()));
+                        genericRecordBuilder.put(fieldName, row.getUuid(cm.getName()));
+                        fields.add(new org.apache.pulsar.client.api.schema.Field(fieldName, i++));
                         break;
                     case ProtocolConstants.DataType.ASCII:
                     case ProtocolConstants.DataType.VARCHAR:
-                        genericRecordBuilder.put(cm.getName().toString(), row.getString(cm.getName()));
+                        genericRecordBuilder.put(fieldName, row.getString(cm.getName()));
+                        fields.add(new org.apache.pulsar.client.api.schema.Field(fieldName, i++));
                         break;
                     case ProtocolConstants.DataType.TINYINT:
-                        genericRecordBuilder.put(cm.getName().toString(), (int) row.getByte(cm.getName()));
+                        genericRecordBuilder.put(fieldName, (int) row.getByte(cm.getName()));
+                        fields.add(new org.apache.pulsar.client.api.schema.Field(fieldName, i++));
                         break;
                     case ProtocolConstants.DataType.SMALLINT:
-                        genericRecordBuilder.put(cm.getName().toString(), (int) row.getShort(cm.getName()));
+                        genericRecordBuilder.put(fieldName, (int) row.getShort(cm.getName()));
+                        fields.add(new org.apache.pulsar.client.api.schema.Field(fieldName, i++));
                         break;
                     case ProtocolConstants.DataType.INT:
-                        genericRecordBuilder.put(cm.getName().toString(), row.getInt(cm.getName()));
+                        genericRecordBuilder.put(fieldName, row.getInt(cm.getName()));
+                        fields.add(new org.apache.pulsar.client.api.schema.Field(fieldName, i++));
                         break;
                     case ProtocolConstants.DataType.BIGINT:
-                        genericRecordBuilder.put(cm.getName().toString(), row.getLong(cm.getName()));
+                        genericRecordBuilder.put(fieldName, row.getLong(cm.getName()));
+                        fields.add(new org.apache.pulsar.client.api.schema.Field(fieldName, i++));
                         break;
                     case ProtocolConstants.DataType.INET:
-                        genericRecordBuilder.put(cm.getName().toString(), row.getInetAddress(cm.getName()).getHostAddress());
+                        genericRecordBuilder.put(fieldName, row.getInetAddress(cm.getName()).getHostAddress());
+                        fields.add(new org.apache.pulsar.client.api.schema.Field(fieldName, i++));
                         break;
                     case ProtocolConstants.DataType.DOUBLE:
-                        genericRecordBuilder.put(cm.getName().toString(), row.getDouble(cm.getName()));
+                        genericRecordBuilder.put(fieldName, row.getDouble(cm.getName()));
+                        fields.add(new org.apache.pulsar.client.api.schema.Field(fieldName, i++));
                         break;
                     case ProtocolConstants.DataType.FLOAT:
-                        genericRecordBuilder.put(cm.getName().toString(), row.getFloat(cm.getName()));
+                        genericRecordBuilder.put(fieldName, row.getFloat(cm.getName()));
+                        fields.add(new org.apache.pulsar.client.api.schema.Field(fieldName, i++));
                         break;
                     case ProtocolConstants.DataType.BOOLEAN:
-                        genericRecordBuilder.put(cm.getName().toString(), row.getBoolean(cm.getName()));
+                        genericRecordBuilder.put(fieldName, row.getBoolean(cm.getName()));
+                        fields.add(new org.apache.pulsar.client.api.schema.Field(fieldName, i++));
                         break;
                     case ProtocolConstants.DataType.TIMESTAMP:
-                        genericRecordBuilder.put(cm.getName().toString(), row.getInstant(cm.getName()).toEpochMilli());
+                        genericRecordBuilder.put(fieldName, row.getInstant(cm.getName()).toEpochMilli());
+                        fields.add(new org.apache.pulsar.client.api.schema.Field(fieldName, i++));
                         break;
                     case ProtocolConstants.DataType.DATE: // Avro date is epoch days
-                        genericRecordBuilder.put(cm.getName().toString(), (int) row.getLocalDate(cm.getName()).toEpochDay());
+                        genericRecordBuilder.put(fieldName, (int) row.getLocalDate(cm.getName()).toEpochDay());
+                        fields.add(new org.apache.pulsar.client.api.schema.Field(fieldName, i++));
                         break;
                     case ProtocolConstants.DataType.TIME: // Avro time is epoch milliseconds
-                        genericRecordBuilder.put(cm.getName().toString(), (row.getLocalTime(cm.getName()).toNanoOfDay() / 1000));
+                        genericRecordBuilder.put(fieldName, (row.getLocalTime(cm.getName()).toNanoOfDay() / 1000));
+                        fields.add(new org.apache.pulsar.client.api.schema.Field(fieldName, i++));
                         break;
                     case ProtocolConstants.DataType.BLOB:
-                        genericRecordBuilder.put(cm.getName().toString(), row.getByteBuffer(cm.getName()));
+                        genericRecordBuilder.put(fieldName, row.getByteBuffer(cm.getName()));
+                        fields.add(new org.apache.pulsar.client.api.schema.Field(fieldName, i++));
                         break;
                     case ProtocolConstants.DataType.UDT:
-                        genericRecordBuilder.put(cm.getName().toString(), buildUDTValue(row.getUdtValue(cm.getName())));
+                        genericRecordBuilder.put(fieldName, buildUDTValue(row.getUdtValue(cm.getName())));
+                        fields.add(new org.apache.pulsar.client.api.schema.Field(fieldName, i++));
                         break;
                     case ProtocolConstants.DataType.DURATION:
-                        genericRecordBuilder.put(cm.getName().toString(), row.getCqlDuration(cm.getName()));
+                        genericRecordBuilder.put(fieldName, row.getCqlDuration(cm.getName()));
+                        fields.add(new org.apache.pulsar.client.api.schema.Field(fieldName, i++));
                         break;
                     case ProtocolConstants.DataType.DECIMAL:
-                        genericRecordBuilder.put(cm.getName().toString(), row.getBigDecimal(cm.getName()));
+                        genericRecordBuilder.put(fieldName, row.getBigDecimal(cm.getName()));
+                        fields.add(new org.apache.pulsar.client.api.schema.Field(fieldName, i++));
                         break;
                     case ProtocolConstants.DataType.VARINT:
-                        genericRecordBuilder.put(cm.getName().toString(), row.getBigInteger(cm.getName()));
+                        genericRecordBuilder.put(fieldName, row.getBigInteger(cm.getName()));
+                        fields.add(new org.apache.pulsar.client.api.schema.Field(fieldName, i++));
                         break;
                     default:
                         log.debug("Ignoring unsupported column name={} type={}", cm.getName(), cm.getType().asCql(false, true));
                 }
             }
         }
-        return new org.apache.pulsar.client.api.schema.GenericObject() {
-            @Override
-            public SchemaType getSchemaType() {
-                return SchemaType.AVRO;
-            }
-
-            @Override
-            public Object getNativeObject() {
-                return genericRecordBuilder;
-            }
-        };
+        return new AvroGenericRecord(fields, genericRecordBuilder);
     }
 
     GenericRecord buildUDTValue(UdtValue udtValue) {
