@@ -74,6 +74,8 @@ nar {
 assemble.dependsOn(nar)
 
 test {
+    exclude '**/*'
+
     // Add dependency on jar task, since it will be main target for testing
     dependsOn project(':agent-c4-luna').shadowJar
     dependsOn nar

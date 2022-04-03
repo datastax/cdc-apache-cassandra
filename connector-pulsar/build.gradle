@@ -83,7 +83,7 @@ test {
 
     useJUnitPlatform()
 
-    environment 'PULSAR_IMAGE', 'apachepulsar/pulsar:' + pulsarVersion
+    environment 'PULSAR_IMAGE', 'apachepulsar/pulsar:' + pulsarTag
     environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra4Version
 
     systemProperty "connectorBuildDir", buildDir
@@ -96,6 +96,6 @@ dockerPrepare.dependsOn(nar)
 docker {
     name "${dockerRepo}pulsar:${pulsarVersion}-csc"
     files "$buildDir/libs/", "src/docker/"
-    buildArgs([BUILD_VERSION: project.version, PULSAR_VERSION: pulsarVersion])
+    buildArgs([BUILD_VERSION: project.version, PULSAR_VERSION: pulsarTag])
 }
 build.dependsOn(project.tasks['docker'])
