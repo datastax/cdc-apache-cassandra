@@ -92,6 +92,10 @@ test {
     systemProperty "projectVersion", project.version
 }
 
+dependencies {
+    testImplementation("${pulsarGroup}:pulsar-client:${pulsarVersion}")
+}
+
 dockerPrepare.dependsOn(nar)
 docker {
     name "${dockerRepo}pulsar:${pulsarVersion}-csc"
