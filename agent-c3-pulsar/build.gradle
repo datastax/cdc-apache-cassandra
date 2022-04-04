@@ -42,7 +42,7 @@ dependencies {
     implementation project(':agent-pulsar')
     implementation project(':agent-c3')
     implementation("org.apache.avro:avro:${avroVersion}")
-    implementation("${pulsarGroup}:pulsar-client:${pulsarVersion}")
+    implementation("${pulsarGroup}:pulsar-client-original:${pulsarVersion}")
 
     compileOnly("org.apache.cassandra:cassandra-all:${cassandra3Version}")
     testCompileOnly("org.apache.cassandra:cassandra-all:${cassandra3Version}")

@@ -45,7 +45,7 @@ dependencies {
 
     implementation("org.apache.avro:avro:${avroVersion}")
 
-    implementation("${pulsarGroup}:pulsar-client:${pulsarVersion}")
+    implementation("${pulsarGroup}:pulsar-client-original:${pulsarVersion}")
 
     compileOnly("org.apache.cassandra:cassandra-all:${cassandra4Version}")
     testCompileOnly("org.apache.cassandra:cassandra-all:${cassandra4Version}")
