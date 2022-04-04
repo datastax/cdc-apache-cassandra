@@ -46,7 +46,7 @@ dependencies {
     implementation project(':agent-dse4')
 
     implementation("org.apache.avro:avro:${avroVersion}")
-    implementation("${pulsarGroup}:pulsar-client-original:${pulsarVersion}")
+    implementation("${pulsarGroup}:pulsar-client:${pulsarVersion}")
 
     compileOnly("com.datastax.dse:dse-db:${dse4Version}")
     testCompileOnly("com.datastax.dse:dse-db:${dse4Version}")
