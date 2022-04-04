@@ -40,4 +40,4 @@ jobs:
           docker pull gaiaadm/pumba:latest
           docker pull apachepulsar/pulsar:2.8.1
           docker pull datastax/lunastreaming:2.7.2_1.1.8
-          ./gradlew connector-pulsar:test
+          ./gradlew connector-luna:test connector-pulsar:test

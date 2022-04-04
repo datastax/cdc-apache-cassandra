@@ -44,4 +44,4 @@ jobs:
           docker pull datastax/dse-server:6.8.16
           docker pull apachepulsar/pulsar:2.8.1
           docker pull datastax/lunastreaming:2.7.2_1.1.8
-          ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD test -x agent-luna:test -x agent-c3-luna:test -x agent-c4-luna:test -x agent-dse4-luna:test -x connector-luna:test -x connector-pulsar:test
+          ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD test -x connector-luna:test -x connector-pulsar:test
