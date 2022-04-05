@@ -14,3 +14,8 @@ dependencies {
     implementation("com.datastax.oss:pulsar-client:${lunaVersion}")
     compileOnly("org.slf4j:slf4j-api:${slf4jVersion}")
 }
+
+
+test {
+  exclude '**/*'
+}

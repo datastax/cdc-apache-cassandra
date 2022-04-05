@@ -113,6 +113,10 @@ The following Cassandra CQL3 data types (with the associated AVRO type or logica
 * uuid (uuid)
 * timeuuid (uuid)
 * User Defined Types (record)
+* Collection types:
+** list (array)
+** set (array)
+** map (map)
 
 Cassandra static columns are supported:
 

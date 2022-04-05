@@ -22,17 +22,19 @@ sourceSets {
 
 dependencies {
     implementation project(':commons')
-    implementation project(':commons-pulsar')
+    implementation (project(':commons-pulsar')) {
+        exclude group: 'com.datastax.oss', module: 'pulsar-client'
+    }
     implementation project(':connector')
 
     implementation("com.github.ben-manes.caffeine:caffeine:${caffeineVersion}")
     implementation("io.vavr:vavr:${vavrVersion}")
-    implementation "com.datastax.oss:java-driver-core:${ossDriverVersion}"
+    implementation "com.datastax.oss:java-driver-core-shaded:${ossDriverVersion}"
     implementation "com.datastax.oss:java-driver-query-builder:${ossDriverVersion}"
 
     implementation("org.apache.avro:avro:${avroVersion}")
 
-    compileOnly("${pulsarGroup}:pulsar-client:${pulsarVersion}")
+    compileOnly("${pulsarGroup}:pulsar-client-original:${pulsarVersion}")
     compileOnly("${pulsarGroup}:pulsar-io-common:${pulsarVersion}")
     compileOnly("${pulsarGroup}:pulsar-io-core:${pulsarVersion}")
 
@@ -81,7 +83,7 @@ test {
 
     useJUnitPlatform()
 
-    environment 'PULSAR_IMAGE', 'apachepulsar/pulsar:' + pulsarVersion
+    environment 'PULSAR_IMAGE', 'apachepulsar/pulsar:' + pulsarTag
     environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra4Version
 
     systemProperty "connectorBuildDir", buildDir
@@ -90,10 +92,14 @@ test {
     systemProperty "projectVersion", project.version
 }
 
+dependencies {
+    testImplementation("${pulsarGroup}:pulsar-client:${pulsarVersion}")
+}
+
 dockerPrepare.dependsOn(nar)
 docker {
     name "${dockerRepo}pulsar:${pulsarVersion}-csc"
     files "$buildDir/libs/", "src/docker/"
-    buildArgs([BUILD_VERSION: project.version, PULSAR_VERSION: pulsarVersion])
+    buildArgs([BUILD_VERSION: project.version, PULSAR_VERSION: pulsarTag])
 }
 build.dependsOn(project.tasks['docker'])

@@ -58,7 +58,9 @@ dependencies {
 
     testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
     testImplementation project(':testcontainers')
-    testImplementation project(':testcontainers-pulsar')
+    testImplementation (project(':testcontainers-pulsar')) {
+        exclude group: 'com.datastax.oss', module: 'pulsar-client-original'
+    }
 
     testRuntimeOnly "org.slf4j:slf4j-api:${slf4jVersion}"
     testRuntimeOnly "org.slf4j:slf4j-simple:${slf4jVersion}"
@@ -73,7 +75,7 @@ test {
 
     useJUnitPlatform()
 
-    environment 'PULSAR_IMAGE', 'apachepulsar/pulsar:' + pulsarVersion
+    environment 'PULSAR_IMAGE', 'apachepulsar/pulsar:' + pulsarTag
     environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra4Version
 
     systemProperty "buildDir", buildDir
@@ -99,7 +101,7 @@ dockerCompose {
     environment.put 'STREAM_PLATFORM', 'pulsar'
     environment.put 'PROJECT_VERSION', project.version
     environment.put 'CASSANDRA_IMAGE', "${dockerRepo}cassandra:${cassandra4Version}-cdc-pulsar"
-    environment.put 'PULSAR_IMAGE', "${dockerRepo}pulsar:${pulsarVersion}-csc"
+    environment.put 'PULSAR_IMAGE', "${dockerRepo}pulsar:${pulsarTag}-csc"
     waitForTcpPorts = false
     startedServices = ['cassandra']
 

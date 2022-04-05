@@ -15,17 +15,27 @@
  */
 package com.datastax.oss.pulsar.source;
 
-import com.datastax.oss.cdc.CqlLogicalTypes;
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
+import com.datastax.oss.cdc.CqlLogicalTypes;
 import com.datastax.oss.driver.api.core.CqlSession;
-import com.datastax.oss.driver.api.core.cql.*;
+import com.datastax.oss.driver.api.core.cql.BatchStatement;
+import com.datastax.oss.driver.api.core.cql.BatchStatementBuilder;
+import com.datastax.oss.driver.api.core.cql.BatchType;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.data.CqlDuration;
+import com.datastax.oss.driver.api.core.data.UdtValue;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
+import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableSet;
 import com.datastax.oss.pulsar.source.converters.NativeAvroConverter;
 import com.datastax.testcontainers.ChaosNetworkContainer;
-import com.datastax.testcontainers.cassandra.CassandraContainer;
 import com.datastax.testcontainers.PulsarContainer;
+import com.datastax.testcontainers.cassandra.CassandraContainer;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.pulsar.shade.org.apache.avro.SchemaBuilder;
+import org.apache.pulsar.shade.org.apache.avro.Conversion;
+import org.apache.pulsar.shade.org.apache.avro.LogicalType;
+import org.apache.pulsar.shade.org.apache.avro.generic.IndexedRecord;
+import org.apache.pulsar.shade.org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.commons.io.IOUtils;
 import org.apache.pulsar.client.api.*;
 import org.apache.pulsar.client.api.schema.Field;
@@ -33,6 +43,10 @@ import org.apache.pulsar.client.api.schema.GenericObject;
 import org.apache.pulsar.client.api.schema.GenericRecord;
 import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.common.schema.SchemaType;
+import org.apache.pulsar.shade.org.apache.avro.generic.GenericArray;
+import org.apache.pulsar.shade.org.apache.avro.generic.GenericData;
+import org.apache.pulsar.shade.org.apache.avro.util.Utf8;
+import org.apache.pulsar.shade.org.apache.avro.Schema;
 import org.junit.Assert;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -44,23 +58,25 @@ import org.testcontainers.utility.DockerImageName;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.net.Inet4Address;
-import java.net.Inet6Address;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static com.datastax.oss.cdc.DataSpec.dataSpecMap;
 
 @Slf4j
 public class PulsarCassandraSourceTests {
+
+    private static final String CQL_VARINT = "cql_varint";
+    private static final String CQL_DECIMAL = "cql_decimal";
+    private static final String CQL_DURATION = "cql_duration";
+
     public static final DockerImageName CASSANDRA_IMAGE = DockerImageName.parse(
             Optional.ofNullable(System.getenv("CASSANDRA_IMAGE"))
                     .orElse("cassandra:" + System.getProperty("cassandraVersion"))
@@ -75,7 +91,6 @@ public class PulsarCassandraSourceTests {
     private static PulsarContainer<?> pulsarContainer;
     private static CassandraContainer<?> cassandraContainer1;
     private static CassandraContainer<?> cassandraContainer2;
-    private static final Map<String, Object[]> values = new HashMap<>();
 
     @BeforeAll
     public static void initBeforeClass() throws Exception {
@@ -112,32 +127,6 @@ public class PulsarCassandraSourceTests {
                 "pulsarServiceUrl=" + pulsarServiceUrl, "c4");
         cassandraContainer1.start();
         cassandraContainer2.start();
-
-        final ZoneId zone = ZoneId.systemDefault();
-        final LocalDate localDate = LocalDate.of(2020, 12, 25);
-        final LocalDateTime localDateTime = localDate.atTime(10, 10, 0);
-
-        // sample values to check CQL to Pulsar native types, left=CQL value, right=Pulsar value
-        values.put("text", new Object[]{"a", "a"});
-        values.put("ascii", new Object[] {"aa", "aa"});
-        values.put("boolean", new Object[] {true, true});
-        values.put("blob", new Object[] {ByteBuffer.wrap(new byte[]{0x00, 0x01}), ByteBuffer.wrap(new byte[]{0x00, 0x01})});
-        values.put("timestamp", new Object[] {localDateTime.atZone(zone).toInstant(), localDateTime.atZone(zone).toInstant().toEpochMilli()}); // long milliseconds since epochday
-        values.put("time", new Object[] {localDateTime.toLocalTime(), (localDateTime.toLocalTime().toNanoOfDay() / 1000)}); // long microseconds since midnight
-        values.put("date", new Object[] {localDateTime.toLocalDate(), (int) localDateTime.toLocalDate().toEpochDay()}); // int seconds since epochday
-        values.put("uuid", new Object[] {UUID.fromString("01234567-0123-0123-0123-0123456789ab"), "01234567-0123-0123-0123-0123456789ab"});
-        values.put("timeuuid", new Object[] {UUID.fromString("d2177dd0-eaa2-11de-a572-001b779c76e3"), "d2177dd0-eaa2-11de-a572-001b779c76e3"});
-        values.put("tinyint", new Object[] {(byte) 0x01, (int) 0x01}); // Avro only support integer
-        values.put("smallint", new Object[] {(short) 1, (int) 1});     // Avro only support integer
-        values.put("int", new Object[] {1, 1});
-        values.put("bigint", new Object[] {1L, 1L});
-        values.put("double", new Object[] {1.0D, 1.0D});
-        values.put("float", new Object[] {1.0f, 1.0f});
-        values.put("inet4", new Object[] {Inet4Address.getLoopbackAddress(), Inet4Address.getLoopbackAddress().getHostAddress()});
-        values.put("inet6", new Object[] {Inet6Address.getLoopbackAddress(), Inet6Address.getLoopbackAddress().getHostAddress()});
-        values.put("varint", new Object[] {new BigInteger("314"), new CqlLogicalTypes.CqlVarintConversion().toBytes(new BigInteger("314"), CqlLogicalTypes.varintType, CqlLogicalTypes.CQL_VARINT_LOGICAL_TYPE)});
-        values.put("decimal", new Object[] {new BigDecimal(314.16), new BigDecimal(314.16)});
-        values.put("duration", new Object[] { CqlDuration.newInstance(1,2,3), CqlDuration.newInstance(1,2,3)});
     }
 
     @AfterAll
@@ -423,86 +412,98 @@ public class PulsarCassandraSourceTests {
                         " WITH replication = {'class':'SimpleStrategy','replication_factor':'1'};");
 
                 cqlSession.execute("CREATE TYPE IF NOT EXISTS " + ksName + ".zudt (" +
-                        "ztext text, zascii ascii, zboolean boolean, zblob blob, ztimestamp timestamp, ztime time, zdate date, zuuid uuid, ztimeuuid timeuuid, ztinyint tinyint, zsmallint smallint, zint int, zbigint bigint, zvarint varint, zdecimal decimal, zduration duration, zdouble double, zfloat float, zinet4 inet, zinet6 inet" +
+                        "ztext text, zascii ascii, zboolean boolean, zblob blob, ztimestamp timestamp, ztime time, zdate date, zuuid uuid, ztimeuuid timeuuid, " +
+                        "ztinyint tinyint, zsmallint smallint, zint int, zbigint bigint, zvarint varint, zdecimal decimal, zduration duration, zdouble double, " +
+                        "zfloat float, zinet4 inet, zinet6 inet, zlist frozen<list<text>>, zset frozen<set<int>>, zmap frozen<map<text, double>>" +
                         ");");
                 UserDefinedType zudt =
                         cqlSession.getMetadata()
                                 .getKeyspace(ksName)
                                 .flatMap(ks -> ks.getUserDefinedType("zudt"))
                                 .orElseThrow(() -> new IllegalArgumentException("Missing UDT zudt definition"));
+                UdtValue zudtValue = zudt.newValue(
+                        dataSpecMap.get("text").cqlValue,
+                        dataSpecMap.get("ascii").cqlValue,
+                        dataSpecMap.get("boolean").cqlValue,
+                        dataSpecMap.get("blob").cqlValue,
+                        dataSpecMap.get("timestamp").cqlValue,
+                        dataSpecMap.get("time").cqlValue,
+                        dataSpecMap.get("date").cqlValue,
+                        dataSpecMap.get("uuid").cqlValue,
+                        dataSpecMap.get("timeuuid").cqlValue,
+                        dataSpecMap.get("tinyint").cqlValue,
+                        dataSpecMap.get("smallint").cqlValue,
+                        dataSpecMap.get("int").cqlValue,
+                        dataSpecMap.get("bigint").cqlValue,
+                        dataSpecMap.get("varint").cqlValue,
+                        dataSpecMap.get("decimal").cqlValue,
+                        dataSpecMap.get("duration").cqlValue,
+                        dataSpecMap.get("double").cqlValue,
+                        dataSpecMap.get("float").cqlValue,
+                        dataSpecMap.get("inet4").cqlValue,
+                        dataSpecMap.get("inet6").cqlValue,
+                        dataSpecMap.get("list").cqlValue,
+                        dataSpecMap.get("set").cqlValue,
+                        dataSpecMap.get("map").cqlValue
+                );
 
                 cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table3 (" +
                         "xtext text, xascii ascii, xboolean boolean, xblob blob, xtimestamp timestamp, xtime time, xdate date, xuuid uuid, xtimeuuid timeuuid, xtinyint tinyint, xsmallint smallint, xint int, xbigint bigint, xvarint varint, xdecimal decimal, xdouble double, xfloat float, xinet4 inet, xinet6 inet, " +
-                        "ytext text, yascii ascii, yboolean boolean, yblob blob, ytimestamp timestamp, ytime time, ydate date, yuuid uuid, ytimeuuid timeuuid, ytinyint tinyint, ysmallint smallint, yint int, ybigint bigint, yvarint varint, ydecimal decimal, ydouble double, yfloat float, yinet4 inet, yinet6 inet, yduration duration, yudt zudt, " +
+                        "ytext text, yascii ascii, yboolean boolean, yblob blob, ytimestamp timestamp, ytime time, ydate date, yuuid uuid, ytimeuuid timeuuid, ytinyint tinyint, ysmallint smallint, yint int, ybigint bigint, yvarint varint, ydecimal decimal, ydouble double, yfloat float, yinet4 inet, yinet6 inet, yduration duration, yudt zudt, ylist list<text>, yset set<int>, ymap map<text, double>, ylistofmap list<frozen<map<text,double>>>, ysetofudt set<frozen<zudt>>," +
                         "primary key (xtext, xascii, xboolean, xblob, xtimestamp, xtime, xdate, xuuid, xtimeuuid, xtinyint, xsmallint, xint, xbigint, xvarint, xdecimal, xdouble, xfloat, xinet4, xinet6)) " +
                         "WITH CLUSTERING ORDER BY (xascii ASC, xboolean DESC, xblob ASC, xtimestamp DESC, xtime DESC, xdate ASC, xuuid DESC, xtimeuuid ASC, xtinyint DESC, xsmallint ASC, xint DESC, xbigint ASC, xvarint DESC, xdecimal ASC, xdouble DESC, xfloat ASC, xinet4 ASC, xinet6 DESC) AND cdc=true");
                 cqlSession.execute("INSERT INTO " + ksName + ".table3 (" +
                                 "xtext, xascii, xboolean, xblob, xtimestamp, xtime, xdate, xuuid, xtimeuuid, xtinyint, xsmallint, xint, xbigint, xvarint, xdecimal, xdouble, xfloat, xinet4, xinet6, " +
-                                "ytext, yascii, yboolean, yblob, ytimestamp, ytime, ydate, yuuid, ytimeuuid, ytinyint, ysmallint, yint, ybigint, yvarint, ydecimal, ydouble, yfloat, yinet4, yinet6, yduration, yudt" +
-                                ") VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?)",
-                        values.get("text")[0],
-                        values.get("ascii")[0],
-                        values.get("boolean")[0],
-                        values.get("blob")[0],
-                        values.get("timestamp")[0],
-                        values.get("time")[0],
-                        values.get("date")[0],
-                        values.get("uuid")[0],
-                        values.get("timeuuid")[0],
-                        values.get("tinyint")[0],
-                        values.get("smallint")[0],
-                        values.get("int")[0],
-                        values.get("bigint")[0],
-                        values.get("varint")[0],
-                        values.get("decimal")[0],
-                        values.get("double")[0],
-                        values.get("float")[0],
-                        values.get("inet4")[0],
-                        values.get("inet6")[0],
+                                "ytext, yascii, yboolean, yblob, ytimestamp, ytime, ydate, yuuid, ytimeuuid, ytinyint, ysmallint, yint, ybigint, yvarint, ydecimal, ydouble, yfloat, yinet4, yinet6, yduration, yudt, ylist, yset, ymap, ylistofmap, ysetofudt" +
+                                ") VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?, ?,?,?,?,?)",
+                        dataSpecMap.get("text").cqlValue,
+                        dataSpecMap.get("ascii").cqlValue,
+                        dataSpecMap.get("boolean").cqlValue,
+                        dataSpecMap.get("blob").cqlValue,
+                        dataSpecMap.get("timestamp").cqlValue,
+                        dataSpecMap.get("time").cqlValue,
+                        dataSpecMap.get("date").cqlValue,
+                        dataSpecMap.get("uuid").cqlValue,
+                        dataSpecMap.get("timeuuid").cqlValue,
+                        dataSpecMap.get("tinyint").cqlValue,
+                        dataSpecMap.get("smallint").cqlValue,
+                        dataSpecMap.get("int").cqlValue,
+                        dataSpecMap.get("bigint").cqlValue,
+                        dataSpecMap.get("varint").cqlValue,
+                        dataSpecMap.get("decimal").cqlValue,
+                        dataSpecMap.get("double").cqlValue,
+                        dataSpecMap.get("float").cqlValue,
+                        dataSpecMap.get("inet4").cqlValue,
+                        dataSpecMap.get("inet6").cqlValue,
 
-                        values.get("text")[0],
-                        values.get("ascii")[0],
-                        values.get("boolean")[0],
-                        values.get("blob")[0],
-                        values.get("timestamp")[0],
-                        values.get("time")[0],
-                        values.get("date")[0],
-                        values.get("uuid")[0],
-                        values.get("timeuuid")[0],
-                        values.get("tinyint")[0],
-                        values.get("smallint")[0],
-                        values.get("int")[0],
-                        values.get("bigint")[0],
-                        values.get("varint")[0],
-                        values.get("decimal")[0],
-                        values.get("double")[0],
-                        values.get("float")[0],
-                        values.get("inet4")[0],
-                        values.get("inet6")[0],
+                        dataSpecMap.get("text").cqlValue,
+                        dataSpecMap.get("ascii").cqlValue,
+                        dataSpecMap.get("boolean").cqlValue,
+                        dataSpecMap.get("blob").cqlValue,
+                        dataSpecMap.get("timestamp").cqlValue,
+                        dataSpecMap.get("time").cqlValue,
+                        dataSpecMap.get("date").cqlValue,
+                        dataSpecMap.get("uuid").cqlValue,
+                        dataSpecMap.get("timeuuid").cqlValue,
+                        dataSpecMap.get("tinyint").cqlValue,
+                        dataSpecMap.get("smallint").cqlValue,
+                        dataSpecMap.get("int").cqlValue,
+                        dataSpecMap.get("bigint").cqlValue,
+                        dataSpecMap.get("varint").cqlValue,
+                        dataSpecMap.get("decimal").cqlValue,
+                        dataSpecMap.get("double").cqlValue,
+                        dataSpecMap.get("float").cqlValue,
+                        dataSpecMap.get("inet4").cqlValue,
+                        dataSpecMap.get("inet6").cqlValue,
 
-                        values.get("duration")[0],
-                        zudt.newValue(
-                                values.get("text")[0],
-                                values.get("ascii")[0],
-                                values.get("boolean")[0],
-                                values.get("blob")[0],
-                                values.get("timestamp")[0],
-                                values.get("time")[0],
-                                values.get("date")[0],
-                                values.get("uuid")[0],
-                                values.get("timeuuid")[0],
-                                values.get("tinyint")[0],
-                                values.get("smallint")[0],
-                                values.get("int")[0],
-                                values.get("bigint")[0],
-                                values.get("varint")[0],
-                                values.get("decimal")[0],
-                                values.get("duration")[0],
-                                values.get("double")[0],
-                                values.get("float")[0],
-                                values.get("inet4")[0],
-                                values.get("inet6")[0]
-                        )
+                        dataSpecMap.get("duration").cqlValue,
+                        zudtValue,
+
+                        dataSpecMap.get("list").cqlValue,
+                        dataSpecMap.get("set").cqlValue,
+                        dataSpecMap.get("map").cqlValue,
+                        dataSpecMap.get("listofmap").cqlValue,
+                        ImmutableSet.of(zudtValue, zudtValue)
                 );
             }
             deployConnector(ksName, "table3", keyConverter, valueConverter);
@@ -523,44 +524,19 @@ public class PulsarCassandraSourceTests {
                         KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
                         GenericRecord key = kv.getKey();
                         GenericRecord value = kv.getValue();
-                        Map<String, Object> keyMap = genericRecordToMap(key);
-                        Map<String, Object> valueMap = genericRecordToMap(value);
+
                         // check primary key fields
+                        Map<String, Object> keyMap = genericRecordToMap(key);
                         for (Field field : key.getFields()) {
-                            String vKey = field.getName().substring(1);
-                            Assert.assertTrue("Unknown field " + vKey, values.containsKey(vKey));
-                            if (keyMap.get(field.getName()) instanceof GenericRecord) {
-                                assertGenericRecords(vKey, (GenericRecord) keyMap.get(field.getName()));
-                            } else {
-                                Assert.assertEquals("Wrong value for PK field " + field.getName(), values.get(vKey)[1], keyMap.get(field.getName()));
-                            }
+                            assertField(field.getName(), keyMap.get(field.getName()));
                         }
 
                         // check regular columns.
+                        Map<String, Object> valueMap = genericRecordToMap(value);
                         for (Field field : value.getFields()) {
-                            if (field.getName().equals("yudt"))
-                                continue;
-                            String vKey = field.getName().substring(1);
-                            Assert.assertTrue("Unknown field " + vKey, values.containsKey(vKey));
-                            if (valueMap.get(field.getName()) instanceof GenericRecord) {
-                                assertGenericRecords(vKey, (GenericRecord) valueMap.get(field.getName()));
-                            } else {
-                                Assert.assertEquals("Wrong value for regular field " + field.getName(), values.get(vKey)[1], valueMap.get(field.getName()));
-                            }
+                            assertField(field.getName(), valueMap.get(field.getName()));
                         }
-                        assertGenericRecords("duration", (GenericRecord) valueMap.get("yduration"));
 
-                        // check UDT
-                        GenericRecord yudt = (GenericRecord) value.getField("yudt");
-                        for (Field field : yudt.getFields()) {
-                            String vKey = field.getName().substring(1);
-                            Assert.assertTrue("Unknown field " + vKey, values.containsKey(vKey));
-                            if (yudt.getField(field.getName()) instanceof GenericRecord) {
-                                assertGenericRecords(vKey, (GenericRecord) yudt.getField(field.getName()));
-                            } else {
-                                Assert.assertEquals("Wrong value for udt field " + field.getName(), values.get(vKey)[1], yudt.getField(field.getName()));
-                            }
-                        }
                         consumer.acknowledge(msg);
                     }
                     assertEquals(1, mutationTable3Count);
@@ -572,6 +548,96 @@ public class PulsarCassandraSourceTests {
         }
     }
 
+    void assertGenericMap(String field, Map<Utf8, Object> gm) {
+        switch (field) {
+            case "map":
+                log.debug("field={} gm={}", field, gm);
+                Map<String, Object> expectedMap = (Map<String, Object>) dataSpecMap.get("map").avroValue;
+                Assert.assertEquals(expectedMap.size(), gm.size());
+                // convert AVRO Utf8 keys to String.
+                Map<String, Object> actualMap = gm.entrySet().stream().collect(Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue()));
+                for(Map.Entry<String, Object> entry : expectedMap.entrySet())
+                    Assert.assertEquals(expectedMap.get(entry.getKey()), actualMap.get(entry.getKey()));
+                return;
+        }
+        Assert.assertTrue("Unexpected field="+field, false);
+    }
+
+    void assertGenericArray(String field, GenericArray ga) {
+        switch (field) {
+            case "set": {
+                Set set = (Set) dataSpecMap.get("set").avroValue;
+                for (Object x : ga)
+                    Assert.assertTrue(set.contains(x));
+                return;
+            }
+            case "list": {
+                List list = (List) dataSpecMap.get("list").avroValue;
+                for (int i = 0; i < ga.size(); i++)
+                    // AVRO deserialized as Utf8
+                    Assert.assertEquals(list.get(i), ga.get(i).toString());
+                return;
+            }
+            case "listofmap": {
+                List list = (List) dataSpecMap.get("listofmap").avroValue;
+                for (int i = 0; i < ga.size(); i++) {
+                    Map<String, Object> expectedMap = (Map<String, Object>) list.get(i);
+                    Map<Utf8, Object> gm = (Map<Utf8, Object>) ga.get(i);
+                    Assert.assertEquals(expectedMap.size(), gm.size());
+                    // convert AVRO Utf8 keys to String.
+                    Map<String, Object> actualMap = gm.entrySet().stream().collect(Collectors.toMap(
+                            e -> e.getKey().toString(),
+                            e -> e.getValue()));
+                    for(Map.Entry<String, Object> entry : expectedMap.entrySet())
+                        Assert.assertEquals(expectedMap.get(entry.getKey()), actualMap.get(entry.getKey()));
+                }
+                return;
+            }
+            case "setofudt": {
+                for (int i = 0; i < ga.size(); i++) {
+                    GenericData.Record gr = (GenericData.Record) ga.get(i);
+                    for(Schema.Field f : gr.getSchema().getFields()) {
+                        assertField(f.name(), gr.get(f.name()));
+                    }
+                }
+                return;
+            }
+        }
+        Assert.assertTrue("Unexpected field="+field, false);
+    }
+
+    void assertField(String fieldName, Object value) {
+        String vKey = fieldName.substring(1);
+        if (!vKey.equals("udt") && ! vKey.equals("setofudt")) {
+            Assert.assertTrue("Unknown field " + vKey, dataSpecMap.containsKey(vKey));
+        }
+        if (value instanceof GenericRecord) {
+            assertGenericRecords(vKey, (GenericRecord) value);
+        } else if (value instanceof Collection) {
+            assertGenericArray(vKey, (GenericData.Array) value);
+        } else if (value instanceof Map) {
+            assertGenericMap(vKey, (Map) value);
+        } else if (value instanceof Utf8) {
+            // convert Utf8 to String
+            Assert.assertEquals("Wrong value for regular field " + fieldName, dataSpecMap.get(vKey).avroValue, value.toString());
+        } else if (value instanceof GenericData.Record) {
+            GenericData.Record gr = (GenericData.Record) value;
+            if (CqlLogicalTypes.CQL_DECIMAL.equals(gr.getSchema().getName())) {
+                CqlLogicalTypes.CqlDecimalConversion cqlDecimalConversion = new CqlLogicalTypes.CqlDecimalConversion();
+                value = cqlDecimalConversion.fromRecord(gr, gr.getSchema(), CqlLogicalTypes.CQL_DECIMAL_LOGICAL_TYPE);
+            } else if (CqlLogicalTypes.CQL_VARINT.equals(gr.getSchema().getName())) {
+                CqlLogicalTypes.CqlVarintConversion cqlVarintConversion = new CqlLogicalTypes.CqlVarintConversion();
+                value = cqlVarintConversion.fromRecord(gr, gr.getSchema(), CqlLogicalTypes.CQL_VARINT_LOGICAL_TYPE);
+            } else if (CqlLogicalTypes.CQL_DURATION.equals(gr.getSchema().getName())) {
+                CqlLogicalTypes.CqlDurationConversion  cqlDurationConversion = new CqlLogicalTypes.CqlDurationConversion();
+                value = cqlDurationConversion.fromRecord(gr, gr.getSchema(), CqlLogicalTypes.CQL_DURATION_LOGICAL_TYPE);
+            }
+            Assert.assertEquals("Wrong value for regular field " + fieldName, dataSpecMap.get(vKey).avroValue, value);
+        } else {
+            Assert.assertEquals("Wrong value for regular field " + fieldName, dataSpecMap.get(vKey).avroValue, value);
+        }
+    }
+
     void assertGenericRecords(String field, GenericRecord gr) {
         switch (field) {
             case "decimal": {
@@ -580,17 +646,25 @@ public class PulsarCassandraSourceTests {
                 bb.duplicate().get(bytes);
                 BigInteger bigInteger = new BigInteger(bytes);
                 BigDecimal bigDecimal = new BigDecimal(bigInteger, (int) gr.getField(CqlLogicalTypes.CQL_DECIMAL_SCALE));
-                Assert.assertEquals("Wrong value for field " + field, values.get(field)[1], bigDecimal);
+                Assert.assertEquals("Wrong value for field " + field, dataSpecMap.get(field).avroValue, bigDecimal);
             }
-            break;
+            return;
             case "duration": {
-                Assert.assertEquals("Wrong value for field " + field, values.get(field)[1],
+                Assert.assertEquals("Wrong value for field " + field, dataSpecMap.get(field).avroValue,
                         CqlDuration.newInstance(
                                 (int) gr.getField(CqlLogicalTypes.CQL_DURATION_MONTHS),
                                 (int) gr.getField(CqlLogicalTypes.CQL_DURATION_DAYS),
                                 (long) gr.getField(CqlLogicalTypes.CQL_DURATION_NANOSECONDS)));
             }
+            return;
+            case "udt": {
+                for (Field f : gr.getFields()) {
+                    assertField(f.getName(), gr.getField(f.getName()));
+                }
+            }
+            return;
         }
+        Assert.assertTrue("Unexpected field="+field, false);
     }
 
     public void testBatchInsert(String ksName,
@@ -829,6 +903,163 @@ public class PulsarCassandraSourceTests {
             log.info("Function {} logs {}", name, logs);
         } catch (Throwable err) {
             log.info("Cannot download {} logs", name, err);
+        }
+    }
+
+    private static class CqlLogicalTypes {
+
+        public static final String CQL_VARINT = "cql_varint";
+        public static final CqlVarintLogicalType CQL_VARINT_LOGICAL_TYPE = new CqlVarintLogicalType();
+        public static final Schema varintType  = CQL_VARINT_LOGICAL_TYPE.addToSchema(Schema.create(Schema.Type.BYTES));
+
+        public static final String CQL_DECIMAL = "cql_decimal";
+        public static final String CQL_DECIMAL_BIGINT = "bigint";
+        public static final String CQL_DECIMAL_SCALE = "scale";
+        public static final CqlDecimalLogicalType CQL_DECIMAL_LOGICAL_TYPE = new CqlLogicalTypes.CqlDecimalLogicalType();
+        public static final Schema decimalType  = CQL_DECIMAL_LOGICAL_TYPE.addToSchema(
+                SchemaBuilder.record(CQL_DECIMAL)
+                        .fields()
+                        .name(CQL_DECIMAL_BIGINT).type().bytesType().noDefault()
+                        .name(CQL_DECIMAL_SCALE).type().intType().noDefault()
+                        .endRecord()
+        );
+
+        public static final String CQL_DURATION = "cql_duration";
+        public static final String CQL_DURATION_MONTHS = "months";
+        public static final String CQL_DURATION_DAYS = "days";
+        public static final String CQL_DURATION_NANOSECONDS = "nanoseconds";
+        public static final CqlDurationLogicalType CQL_DURATION_LOGICAL_TYPE = new CqlDurationLogicalType();
+        public static final Schema durationType  = CQL_DURATION_LOGICAL_TYPE.addToSchema(
+                SchemaBuilder.record(CQL_DURATION)
+                        .fields()
+                        .name(CQL_DURATION_MONTHS).type().intType().noDefault()
+                        .name(CQL_DURATION_DAYS).type().intType().noDefault()
+                        .name(CQL_DURATION_NANOSECONDS).type().longType().noDefault()
+                        .endRecord()
+        );
+
+        private static class CqlDurationLogicalType extends LogicalType {
+            public CqlDurationLogicalType() {
+                super(CQL_DURATION);
+            }
+
+            @Override
+            public void validate(Schema schema) {
+                super.validate(schema);
+                // validate the type
+                if (schema.getType() != Schema.Type.RECORD) {
+                    throw new IllegalArgumentException("Logical type cql_duration must be backed by a record");
+                }
+            }
+        }
+
+        public static class CqlVarintLogicalType extends LogicalType {
+            public CqlVarintLogicalType() {
+                super(CQL_VARINT);
+            }
+
+            @Override
+            public void validate(Schema schema) {
+                super.validate(schema);
+                // validate the type
+                if (schema.getType() != Schema.Type.BYTES) {
+                    throw new IllegalArgumentException("Logical type cql_varint must be backed by bytes");
+                }
+            }
+        }
+
+        public static class CqlDecimalLogicalType extends LogicalType {
+            public CqlDecimalLogicalType() {
+                super(CQL_DECIMAL);
+            }
+
+            @Override
+            public void validate(Schema schema) {
+                super.validate(schema);
+                // validate the type
+                if (schema.getType() != Schema.Type.RECORD) {
+                    throw new IllegalArgumentException("Logical type cql_decimal must be backed by a record");
+                }
+            }
+        }
+
+        private static class CqlVarintConversion extends Conversion<BigInteger> {
+            @Override
+            public Class<BigInteger> getConvertedType() {
+                return BigInteger.class;
+            }
+
+            @Override
+            public String getLogicalTypeName() {
+                return CQL_VARINT;
+            }
+
+            @Override
+            public BigInteger fromBytes(ByteBuffer value, Schema schema, LogicalType type) {
+                byte[] arr = new byte[value.remaining()];
+                value.duplicate().get(arr);
+                return new BigInteger(arr);
+            }
+
+            @Override
+            public ByteBuffer toBytes(BigInteger value, Schema schema, LogicalType type) {
+                return ByteBuffer.wrap(value.toByteArray());
+            }
+        }
+
+        private static class CqlDecimalConversion extends Conversion<BigDecimal> {
+            @Override
+            public Class<BigDecimal> getConvertedType() {
+                return BigDecimal.class;
+            }
+
+            @Override
+            public String getLogicalTypeName() {
+                return CQL_DECIMAL;
+            }
+
+            @Override
+            public BigDecimal fromRecord(IndexedRecord value, Schema schema, LogicalType type) {
+                ByteBuffer bb = (ByteBuffer) value.get(0);
+                byte[] bytes = new byte[bb.remaining()];
+                bb.duplicate().get(bytes);
+                int scale = (int) value.get(1);
+                return new BigDecimal(new BigInteger(bytes), scale);
+            }
+
+            @Override
+            public IndexedRecord toRecord(BigDecimal value, Schema schema, LogicalType type) {
+                return new GenericRecordBuilder(decimalType)
+                        .set(CQL_DECIMAL_BIGINT, ByteBuffer.wrap(value.unscaledValue().toByteArray()))
+                        .set(CQL_DECIMAL_SCALE, value.scale())
+                        .build();
+            }
+        }
+
+        public static class CqlDurationConversion extends Conversion<CqlDuration> {
+            @Override
+            public Class<CqlDuration> getConvertedType() {
+                return CqlDuration.class;
+            }
+
+            @Override
+            public String getLogicalTypeName() {
+                return CQL_DURATION;
+            }
+
+            @Override
+            public CqlDuration fromRecord(IndexedRecord value, Schema schema, LogicalType type) {
+                return CqlDuration.newInstance((int)value.get(0), (int)value.get(1), (long)value.get(2));
+            }
+
+            @Override
+            public IndexedRecord toRecord(CqlDuration value, Schema schema, LogicalType type) {
+                org.apache.pulsar.shade.org.apache.avro.generic.GenericRecord record = new GenericData.Record(durationType);
+                record.put(CQL_DURATION_MONTHS, value.getMonths());
+                record.put(CQL_DURATION_DAYS, value.getDays());
+                record.put(CQL_DURATION_NANOSECONDS, value.getNanoseconds());
+                return record;
+            }
         }
     }
 }

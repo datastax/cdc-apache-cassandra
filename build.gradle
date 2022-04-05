@@ -123,7 +123,7 @@ subprojects {
         }
         testLogging {
             showStandardStreams = true
-            events = ["failed"]
+            // events = ["failed"]
         }
         finalizedBy jacocoTestReport // report is always generated after tests run
     }
