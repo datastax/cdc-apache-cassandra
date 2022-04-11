@@ -832,6 +832,7 @@ public class PulsarCassandraSourceTests {
                         .subscriptionMode(SubscriptionMode.Durable)
                         .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                         .subscribe()) {
+
                     Message<GenericRecord> msg = consumer.receive(120, TimeUnit.SECONDS);
                     Assert.assertNotNull("Expecting one message, check the agent log", msg);
                     GenericRecord gr = msg.getValue();
