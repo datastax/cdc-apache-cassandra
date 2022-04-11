@@ -1,6 +1,12 @@
 # Release notes for CDC for Apache Cassandra&trade;
 The CDC for Apache Cassandra&trade; is compatible for Apache Cassandra&trade; 3.11, 4.0, and DSE 6.8.
 
+# Release notes for 1.0.5
+11 April 2022
+
+## Changes
+* Cassandra agent: allow configuring TLS options (`tlsTrustCertsFilePath` and `useKeyStoreTls`).
+
 # Release notes for 1.0.4
 05 April 2022
 
