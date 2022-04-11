@@ -185,7 +185,7 @@ public class PulsarCassandraSourceTests {
                 valueConverter == null ? "" : ",\"" + CassandraSourceConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG + "\":\"" + valueConverter.getName() + "\"");
         Container.ExecResult result = pulsarContainer.execInContainer(
                 "/pulsar/bin/pulsar-admin",
-                "com/datastax/oss/pulsar/source", "create",
+                "source", "create",
                 "--source-type", "cassandra-source",
                 "--tenant", "public",
                 "--namespace", "default",
@@ -197,7 +197,7 @@ public class PulsarCassandraSourceTests {
 
     void undeployConnector(String ksName, String tableName) throws IOException, InterruptedException {
         Container.ExecResult result = pulsarContainer.execInContainer(
-                "/pulsar/bin/pulsar-admin", "com/datastax/oss/pulsar/source", "delete",
+                "/pulsar/bin/pulsar-admin", "source", "delete",
                 "--tenant", "public",
                 "--namespace", "default",
                 "--name", "cassandra-source-" + ksName + "-" + tableName);
@@ -213,7 +213,7 @@ public class PulsarCassandraSourceTests {
      */
     int connectorStatus(String ksName, String tableName) throws IOException, InterruptedException {
         Container.ExecResult result = pulsarContainer.execInContainer(
-                "/pulsar/bin/pulsar-admin", "com/datastax/oss/pulsar/source", "status",
+                "/pulsar/bin/pulsar-admin", "source", "status",
                 "--name", "cassandra-source-" + ksName + "-" + tableName);
         assertEquals(0, result.getExitCode(), "connectorStatus failed:" + result.getStdout());
         String[] resultLines = result.getStdout().split("\\n");

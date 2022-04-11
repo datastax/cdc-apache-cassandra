@@ -99,7 +99,7 @@ test {
 
     useJUnitPlatform()
 
-    environment 'PULSAR_IMAGE', 'apachepulsar/pulsar:' + pulsarTag
+    environment 'PULSAR_IMAGE', 'datastax/lunastreaming:' + lunaStreamingTag
     environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra4Version
 
     systemProperty "connectorBuildDir", buildDir

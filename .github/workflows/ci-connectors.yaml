@@ -38,6 +38,6 @@ jobs:
       - name: Test with Gradle
         run: |
           docker pull gaiaadm/pumba:latest
-          docker pull apachepulsar/pulsar:2.8.1
-          docker pull datastax/lunastreaming:2.7.2_1.1.8
+          docker pull datastax/lunastreaming:2.8.0_1.1.36
+          docker pull cassandra:4.0.1
           ./gradlew connector:test

@@ -43,6 +43,7 @@ public class PulsarSingleNodeDse4Tests extends PulsarSingleNodeTests {
                         testNetwork,
                         nodeIndex,
                         System.getProperty("buildDir"),
+                        "agent-dse4",
                         String.format("pulsarServiceUrl=%s,cdcWorkingDir=/var/lib/cassandra/cdc", pulsarServiceUrl),
                         "dse4")
                 .withEnv("DC", CassandraContainer.LOCAL_DC)
