@@ -98,6 +98,8 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
                 clientBuilder.tlsTrustStorePath(config.sslKeystorePath)
                         .tlsTrustStorePassword(config.sslTruststorePassword)
                         .tlsTrustStoreType(config.sslTruststoreType)
+                        .tlsTrustCertsFilePath(config.tlsTrustCertsFilePath)
+                        .useKeyStoreTls(config.useKeyStoreTls)
                         .allowTlsInsecureConnection(config.sslAllowInsecureConnection)
                         .enableTlsHostnameVerification(config.sslHostnameVerificationEnable);
                 if (config.sslProvider != null) {
