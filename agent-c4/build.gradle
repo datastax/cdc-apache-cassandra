@@ -67,8 +67,6 @@ dependencies {
 }
 
 test {
-    exclude '**/*'
-
     // Add dependency on jar task, since it will be main target for testing
     dependsOn shadowJar
 
