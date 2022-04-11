@@ -28,7 +28,7 @@ import static com.datastax.oss.cdc.agent.AgentConfig.*;
 
 public class AgentParametersTest {
 
-    String commonConfig =
+    final static String COMMON_CONFIG =
             CDC_WORKING_DIR + "=cdc_working," +
                     ERROR_COMMITLOG_REPROCESS_ENABLED + "=true," +
                     CDC_DIR_POLL_INTERVAL_MS + "=1234," +
@@ -36,6 +36,8 @@ public class AgentParametersTest {
                     MAX_INFLIGHT_MESSAGES_PER_TASK + "=50," +
                     TOPIC_PREFIX + "=events-mutations," +
                     SSL_TRUSTSTORE_PATH + "=/truststore.jks," +
+                    TLS_TRUST_CERTS_FILE_PATH + "=/truststore.p12," +
+                    USE_KEYSTORE_TLS + "=true," +
                     SSL_TRUSTSTORE_PASSWORD + "=password," +
                     SSL_TRUSTSTORE_TYPE + "=PKCS12," +
                     SSL_KEYSTORE_PATH + "=/keystore.jks," +
@@ -57,6 +59,8 @@ public class AgentParametersTest {
         assertEquals("password", config.sslTruststorePassword);
         assertEquals("PKCS12", config.sslTruststoreType);
         assertEquals("/keystore.jks", config.sslKeystorePath);
+        assertEquals("/truststore.p12", config.tlsTrustCertsFilePath);
+        assertEquals(true, config.useKeyStoreTls);
         assertEquals("password", config.sslKeystorePassword);
         assertEquals("TLSv1.2", config.sslEnabledProtocols);
         assertEquals("AES256", config.sslCipherSuites);
@@ -65,7 +69,7 @@ public class AgentParametersTest {
 
     @Test
     public void testConfigurePulsar() {
-        String agentArgs = commonConfig +
+        String agentArgs = COMMON_CONFIG +
                 PULSAR_SERVICE_URL + "=pulsar+ssl://mypulsar:6650\\,localhost:6651\\,localhost:6652," +
                 PULSAR_BATCH_DELAY_IN_MS + "=20," +
                 PULSAR_KEY_BASED_BATCHER + "=true," +
@@ -102,6 +106,7 @@ public class AgentParametersTest {
         tenantInfo.put(PULSAR_AUTH_PARAMS, "sdds");
         tenantInfo.put(SSL_ALLOW_INSECURE_CONNECTION, "true");
         tenantInfo.put(SSL_HOSTNAME_VERIFICATION_ENABLE, "true");
+        tenantInfo.put(TLS_TRUST_CERTS_FILE_PATH, "/test.p12");
 
         AgentConfig config = AgentConfig.create(Platform.PULSAR, tenantInfo);
         assertEquals("pulsar+ssl://mypulsar:6650,localhost:6651,localhost:6652", config.pulsarServiceUrl);
@@ -109,6 +114,10 @@ public class AgentParametersTest {
         // Pulsar Auth
         assertEquals("MyAuthPlugin", config.pulsarAuthPluginClassName);
         assertEquals("sdds", config.pulsarAuthParams);
+
+        // TLS
+        assertEquals("/test.p12", config.tlsTrustCertsFilePath);
+        assertEquals(false, config.useKeyStoreTls);
     }
 
     @Test
@@ -141,6 +150,8 @@ public class AgentParametersTest {
     @SetEnvironmentVariable(key = "CDC_SSL_TRUSTSTORE_PASSWORD", value = "password1")
     @SetEnvironmentVariable(key = "CDC_SSL_TRUSTSTORE_TYPE", value = "PKCS12")
     @SetEnvironmentVariable(key = "CDC_SSL_KEYSTORE_PATH", value = "/keystore.jks")
+    @SetEnvironmentVariable(key = "CDC_TLS_TRUST_CERTS_FILE_PATH", value = "/truststore.p12")
+    @SetEnvironmentVariable(key = "CDC_USE_KEYSTORE_TLS", value = "true")
     @SetEnvironmentVariable(key = "CDC_SSL_KEYSTORE_PASSWORD", value = "password2")
     @SetEnvironmentVariable(key = "CDC_SSL_ENABLED_PROTOCOLS", value = "TLSv1.2")
     @SetEnvironmentVariable(key = "CDC_SSL_CIPHER_SUITES", value = "AES256")
@@ -155,6 +166,8 @@ public class AgentParametersTest {
         assertEquals("TLSv1.2", config.sslEnabledProtocols);
         assertEquals("AES256", config.sslCipherSuites);
         assertEquals("MyProvider", config.sslProvider);
+        assertEquals("/truststore.p12", config.tlsTrustCertsFilePath);
+        assertEquals(true, config.useKeyStoreTls);
     }
 
     @Test
