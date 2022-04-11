@@ -249,6 +249,22 @@ public class AgentConfig {
                     false, "CDC_SSL_HOSTNAME_VERIFICATION_ENABLE", Setting::getEnvAsBoolean,
                     "Boolean", "ssl", 11);
 
+    public static final String TLS_TRUST_CERTS_FILE_PATH = "tlsTrustCertsFilePath";
+    public String tlsTrustCertsFilePath;
+    public static final Setting<String> TLS_TRUST_CERTS_FILE_PATH_SETTING =
+            new Setting<>(TLS_TRUST_CERTS_FILE_PATH, Platform.ALL, (c, s) -> c.tlsTrustCertsFilePath = s, c -> c.tlsTrustCertsFilePath,
+                    "The path path to the trusted TLS certificate file.",
+                    null, "CDC_TLS_TRUST_CERTS_FILE_PATH", Setting::getEnvAsString,
+                    "String", "ssl", 12);
+
+    public static final String USE_KEYSTORE_TLS = "useKeyStoreTls";
+    public boolean useKeyStoreTls;
+    public static final Setting<Boolean> USE_KEYSTORE_TLS_SETTING =
+            new Setting<>(USE_KEYSTORE_TLS, Platform.ALL, (c, s) -> c.useKeyStoreTls = Boolean.parseBoolean(s), c -> c.useKeyStoreTls,
+                    "The path path to the trusted TLS certificate file.",
+                    false, "CDC_USE_KEYSTORE_TLS", Setting::getEnvAsBoolean,
+                    "Boolean", "ssl", 13);
+
     public static final String PULSAR_SERVICE_URL = "pulsarServiceUrl";
     public String pulsarServiceUrl;
     public static final Setting<String> PULSAR_SERVICE_URL_SETTING =
@@ -319,6 +335,8 @@ public class AgentConfig {
         set.add(MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING);
         set.add(SSL_PROVIDER_SETTING);
         set.add(SSL_TRUSTSTORE_PATH_SETTING);
+        set.add(TLS_TRUST_CERTS_FILE_PATH_SETTING);
+        set.add(USE_KEYSTORE_TLS_SETTING);
         set.add(SSL_TRUSTSTORE_PASSWORD_SETTING);
         set.add(SSL_TRUSTSTORE_TYPE_SETTING);
         set.add(SSL_KEYSTORE_PATH_SETTING);
@@ -350,6 +368,8 @@ public class AgentConfig {
         this.maxInflightMessagesPerTask = MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING.initDefault();
         this.sslProvider = SSL_PROVIDER_SETTING.initDefault();
         this.sslTruststorePath = SSL_TRUSTSTORE_PATH_SETTING.initDefault();
+        this.tlsTrustCertsFilePath = TLS_TRUST_CERTS_FILE_PATH_SETTING.initDefault();
+        this.useKeyStoreTls = USE_KEYSTORE_TLS_SETTING.initDefault();
         this.sslTruststorePassword = SSL_TRUSTSTORE_PASSWORD_SETTING.initDefault();
         this.sslTruststoreType = SSL_TRUSTSTORE_TYPE_SETTING.initDefault();
         this.sslKeystorePath = SSL_KEYSTORE_PATH_SETTING.initDefault();
