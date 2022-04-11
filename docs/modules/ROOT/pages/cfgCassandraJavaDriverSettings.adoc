@@ -1,4 +1,4 @@
-== Pass {csc_pulsar} settings directly to the DataStax Java driver
+== Pass {cdc_pulsar} settings directly to the DataStax Java driver
 
 In your {csc_pulsar_first} configuration file, you can directly pass settings to the DataStax Java driver by using the `datastax-java-driver` prefix.
 For example:
@@ -8,12 +8,12 @@ For example:
 datastax-java-driver.basic.request.consistency=ALL
 ----
 
-== Mapping {csc_pulsar} settings to Java driver properties
+== Mapping {cdc_pulsar} settings to Java driver properties
 
-The following table identifies functionally equivalent {csc_pulsar} and DataStax Java driver settings.
+The following table identifies functionally equivalent {cdc_pulsar} and DataStax Java driver settings.
 
-NOTE: If you define both in your configuration, the {csc_pulsar} setting take precedence over the `datastax-java-driver.property-name`.
-If you do not provide either in your configuration, {csc_pulsar} defaults are in effect.
+NOTE: If you define both in your configuration, the {cdc_pulsar} setting take precedence over the `datastax-java-driver.property-name`.
+If you do not provide either in your configuration, {cdc_pulsar} defaults are in effect.
 
 For information about the Java properties, refer to the link:https://docs.datastax.com/en/developer/java-driver-dse/2.3/manual/core/configuration/[DataStax Java driver documentation.]
 
@@ -42,7 +42,7 @@ For information about the Java properties, refer to the link:https://docs.datast
 | `datastax-java-driver.advanced.metrics.session.cql-requests.highest-latency`
 |===
 
-There is a difference between the {csc_pulsar}'s `contactPoints` setting and the Java driver's `datastax-java-driver.basic.contact-points`.
+There is a difference between the {cdc_pulsar}'s `contactPoints` setting and the Java driver's `datastax-java-driver.basic.contact-points`.
 For `contactPoints`, the value of the `port` is appended to every host provided by this setting.
 For `datastax-java-driver.basic.contact-points`, you must provide the fully qualified contact points (`host:port`).
 

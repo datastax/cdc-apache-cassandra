@@ -11,7 +11,7 @@ The {cdc_cass} is a an open-source product from DataStax.
 With {cdc_cass}, updates to data in Apache Cassandra are put into a Pulsar topic, which in turn can write the data to external targets such as Elasticsearch, Snowflake, and other platforms.
 The {csc_pulsar_first} component is simple, with a 1:1 correspondence between the Cassandra table and a single Pulsar topic.
 
-=== What are the system requirements for {csc_pulsar}?
+=== What are the system requirements for {cdc_pulsar}?
 
 Minimum system requirement are:
 
@@ -45,7 +45,7 @@ WARN  [CoreThread-5] 2021-10-29 09:12:52,790  NoSpamLogger.java:98 - Rejecting M
 To avoid or recover from this situation, increase the `cdc_total_space_in_mb` and restart the node.
 To prevent hitting this new limit, increase the write throughput to Luna Streaming or Apache Pulsar or decrease the write throughput to your node.
 
-Increasing the Luna Streaming or Apache Pulsar write throughput may involve tuning the change agent configuration (the number of allocated threads, the batching delay, the number of inflight messages), the Luna Streaming or Apache Pulsar configuration (the number of partitions of your topics), or the {csc_pulsar} configuration (query executors, batching and cache settings, connector parallelism).
+Increasing the Luna Streaming or Apache Pulsar write throughput may involve tuning the change agent configuration (the number of allocated threads, the batching delay, the number of inflight messages), the Luna Streaming or Apache Pulsar configuration (the number of partitions of your topics), or the {cdc_pulsar} configuration (query executors, batching and cache settings, connector parallelism).
 
 As a last resort, if losing data is acceptable in your CDC pipeline, remove `commitlog` files from the `cdc_raw` directory.
 Restarting the node is not needed in this case.
@@ -74,7 +74,7 @@ From there, the data can be published to external platforms like Elasticsearch, 
 === Does {cdc_cass} support Kubernetes?
 
 Yes.
-You can run the {csc_pulsar} on Luna Streaming or Apache Pulsar running on any Kubernetes platform, including Minikube, K8d, Kind, Google Kubernetes Engine (GKE), Microsoft Azure Kubernetes Service, Amazon Kubernetes Service (AKS), and other commonly used platforms.
+You can run the {cdc_pulsar} on Luna Streaming or Apache Pulsar running on any Kubernetes platform, including Minikube, K8d, Kind, Google Kubernetes Engine (GKE), Microsoft Azure Kubernetes Service, Amazon Kubernetes Service (AKS), and other commonly used platforms.
 You can deploy the change agent with Cassandra on Kubernetes with the https://github.com/datastax/cass-operator[cass-operator].
 
 === Where is the {cdc_cass} public GitHub repository?
