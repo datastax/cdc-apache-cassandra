@@ -256,10 +256,9 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
                                                                           Network network,
                                                                           int nodeIndex,
                                                                           String cassandraVersion,
-                                                                          String streamPlatform,
                                                                           String pulsarServiceUrl) {
         return createCassandraContainerWithAgent(image, network, nodeIndex, System.getProperty("buildDir"),
-                String.format("agent-%s-%s", cassandraVersion, streamPlatform),
+                String.format("agent-%s", cassandraVersion),
                 String.format("pulsarServiceUrl=%s", pulsarServiceUrl),
                 cassandraVersion);
     }

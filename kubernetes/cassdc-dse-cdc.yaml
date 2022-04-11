@@ -51,7 +51,7 @@ spec:
       additional-jvm-opts:
         - "-Ddse.system_distributed_replication_dc_names=dc1"
         - "-Ddse.system_distributed_replication_per_dc=3"
-        - "-javaagent:/agent-dse4-luna-{{PROJECT_VERSION}}-all.jar=pulsarServiceUrl=pulsar://pulsar-perf-aws-useast2-broker.pulsar.svc.cluster.local:6650,topicPrefix=persistent://public/default/events-,cdcWorkingDir=/var/lib/cassandra/cdc,pulsarBatchDelayInMs=100,pulsarAuthPluginClassName=org.apache.pulsar.client.impl.auth.AuthenticationToken,pulsarAuthParams=token:{{PULSAR_TOKEN}}"
+        - "-javaagent:/agent-dse4-{{PROJECT_VERSION}}-all.jar=pulsarServiceUrl=pulsar://pulsar-perf-aws-useast2-broker.pulsar.svc.cluster.local:6650,topicPrefix=persistent://public/default/events-,cdcWorkingDir=/var/lib/cassandra/cdc,pulsarBatchDelayInMs=100,pulsarAuthPluginClassName=org.apache.pulsar.client.impl.auth.AuthenticationToken,pulsarAuthParams=token:{{PULSAR_TOKEN}}"
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor

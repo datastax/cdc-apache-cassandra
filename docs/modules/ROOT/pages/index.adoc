@@ -62,12 +62,12 @@ For each update to the table, an MD5 digest is calculated to de-duplicate the up
 
 === Change Agent deployment matrix
 
-[cols="1,1,1"]
+[cols="1,1"]
 |===
-| Cassandra version | Apache Pulsar | Luna Streaming
-| Cassandra v3.x | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-c3-pulsar[agent-c3-pulsar] | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-c3-luna[agent-c3-luna]
-| Cassandra v4.x | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-c4-pulsar[agent-c4-pulsar] | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-c4-luna[agent-c4-luna]
-| DSE 6.8.16+ | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-dse4-pulsar[agent-dse4-pulsar] | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-dse4-luna[agent-dse4-luna]
+| Cassandra version | Apache Pulsar/Luna Streaming
+| Cassandra v3.x | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-c3[agent-c3]
+| Cassandra v4.x | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-c4[agent-c4]
+| DSE 6.8.16+ | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-dse4[agent-dse4]
 |===
 
 == Supported streaming platforms
@@ -77,10 +77,10 @@ For each update to the table, an MD5 digest is calculated to de-duplicate the up
 
 === Connector deployment matrix
 
-[cols="1,1"]
+[cols="1"]
 |===
-| Apache Pulsar | Luna Streaming
-| https://github.com/datastax/cdc-apache-cassandra/tree/master/connector-pulsar[connector-pulsar] | https://github.com/datastax/cdc-apache-cassandra/tree/master/connector-luna[connector-luna]
+| Apache Pulsar/Luna Streaming
+| https://github.com/datastax/cdc-apache-cassandra/tree/master/connector[connector]
 |===
 
 [#supported-databases]

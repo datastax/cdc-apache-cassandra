@@ -89,78 +89,37 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: connector-pulsar/build/libs/pulsar-cassandra-source-${{ env.CURRENT_VERSION }}.nar
+          asset_path: connector/build/libs/pulsar-cassandra-source-${{ env.CURRENT_VERSION }}.nar
           asset_name: pulsar-cassandra-source-${{ env.CURRENT_VERSION }}.nar
           asset_content_type: application/java-archive
-      - name: Upload Release Luna NAR
-        id: upload-release-luna-nar
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: connector-luna/build/libs/luna-cassandra-source-${{ env.CURRENT_VERSION }}.nar
-          asset_name: luna-cassandra-source-${{ env.CURRENT_VERSION }}.nar
-          asset_content_type: application/java-archive
 
-      - name: Upload Release agent-c3-luna
-        id: agent-c3-luna-jar
+      - name: Upload Release agent-c3
+        id: agent-c3-jar
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: agent-c3-luna/build/libs/agent-c3-luna-${{ env.CURRENT_VERSION }}-all.jar
-          asset_name: agent-c3-luna-${{ env.CURRENT_VERSION }}-all.jar
+          asset_path: agent-c3/build/libs/agent-c3-${{ env.CURRENT_VERSION }}-all.jar
+          asset_name: agent-c3-${{ env.CURRENT_VERSION }}-all.jar
           asset_content_type: application/java-archive
-      - name: Upload Release agent-c4-luna
-        id: agent-c4-luna-jar
+      - name: Upload Release agent-c4
+        id: agent-c4-jar
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: agent-c4-luna/build/libs/agent-c4-luna-${{ env.CURRENT_VERSION }}-all.jar
-          asset_name: agent-c4-luna-${{ env.CURRENT_VERSION }}-all.jar
+          asset_path: agent-c4/build/libs/agent-c4-${{ env.CURRENT_VERSION }}-all.jar
+          asset_name: agent-c4-${{ env.CURRENT_VERSION }}-all.jar
           asset_content_type: application/java-archive
-      - name: Upload Release agent-dse4-luna
-        id: agent-dse4-luna-jar
+      - name: Upload Release agent-dse4
+        id: agent-dse4-jar
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: agent-dse4-luna/build/libs/agent-dse4-luna-${{ env.CURRENT_VERSION }}-all.jar
-          asset_name: agent-dse4-luna-${{ env.CURRENT_VERSION }}-all.jar
-          asset_content_type: application/java-archive
-
-      - name: Upload Release agent-c3-pulsar
-        id: agent-c3-pulsar-jar
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: agent-c3-pulsar/build/libs/agent-c3-pulsar-${{ env.CURRENT_VERSION }}-all.jar
-          asset_name: agent-c3-pulsar-${{ env.CURRENT_VERSION }}-all.jar
-          asset_content_type: application/java-archive
-      - name: Upload Release agent-c4-pulsar
-        id: agent-c4-pulsar-jar
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: agent-c4-pulsar/build/libs/agent-c4-pulsar-${{ env.CURRENT_VERSION }}-all.jar
-          asset_name: agent-c4-pulsar-${{ env.CURRENT_VERSION }}-all.jar
-          asset_content_type: application/java-archive
-      - name: Upload Release agent-dse4-pulsar
-        id: agent-dse4-pulsar-jar
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: agent-dse4-pulsar/build/libs/agent-dse4-pulsar-${{ env.CURRENT_VERSION }}-all.jar
-          asset_name: agent-dse4-pulsar-${{ env.CURRENT_VERSION }}-all.jar
+          asset_path: agent-dse4/build/libs/agent-dse4-${{ env.CURRENT_VERSION }}-all.jar
+          asset_name: agent-dse4-${{ env.CURRENT_VERSION }}-all.jar
           asset_content_type: application/java-archive
