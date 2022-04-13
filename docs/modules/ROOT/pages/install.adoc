@@ -39,16 +39,31 @@ tar xvf cassandra-source-agents-<version>.tar
 All data nodes of your Cassandra or DSE datacenter must run the change agent as a JVM agent to send mutations into the events topic of your streaming software.
 Start your Cassandra or DSE nodes with the appropriate producer binary matching your Cassandra (3.11 or 4.0) or DSE (6.8.16) version and your streaming platform (Luna Streaming or Apache Pulsar).
 
-As a Java agent, the change agent parameters take place after the `jar` file name in the form of a comma-separated list of `paramName=paramValue`.
-Here is an example for Luna Streaming/Apache Pulsar on Cassandra version 4.0 nodes:
+In CDC agent versions *before 1.0.3*, the CDC agent Pulsar connection parameters were provided as extra JVM options after the `jar` file name in the form of a comma-separated list of `paramName=paramValue`, as below:
 
-[source,language-bash]
+[source,bash]
 ----
 export JVM_EXTRA_OPTS="-javaagent:/path/to/agent-c4-luna-<version>-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
 ----
 
-For the full set of configuration options, see <<agentParams,Change Agent Parameters>>
+In CDC agent versions *after 1.0.3*, the CDC agent Pulsar connection parameters are provided as system environment parameters in `cassandra-env.sh`. The same JVM option above is now appended to `cassandra-env.sh` as below:
 
+[source,bash]
+----
+export CDC_PULSAR_SERVICE_URL="pulsar://<pulsar_server_ip>:6650"
+----
+
+And to enable CDC for your C* deployment:
+
+[source,bash]
+----
+JVM_OPTS="$JVM_OPTS -javaagent:/home/automaton/cdc104/agent-dse4-pulsar-1.0.5-all.jar"
+----
+
+The CDC parameter mappings between JVM and C* are provided in xref:stringMappings.adoc[CDC Environment Parameter Strings]. +
+For the full set of JVM configuration options, see <<agentParams,Change Agent Parameters>>.
+
+== `Cassandra.yaml`
 In addition to configuring the change agent, enable CDC on the Cassandra node by setting `cdc_enabled` to `true` in the `cassandra.yaml` file.
 
 For Cassandra 4.X and DSE 6.8.16+, you can configure the commit log sync period.

@@ -1,13 +1,27 @@
-= Change Agent Parameter Mappings
+= CDC Change Agent Parameter Mappings
 
-{cdc_pulsar} 
+In CDC versions *before 1.0.3*, the CDC agent Pulsar connection parameters were provided as extra JVM options after the `.jar` file name in the form of a comma-separated list of `paramName=paramValue`, as below:
 
-== Table Change Agent Parameters
+[source,bash]
+----
+export JVM_EXTRA_OPTS="-javaagent:/path/to/agent-c4-luna-<version>-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
+----
+
+In CDC versions *after 1.0.3*, the CDC agent Pulsar connection parameters are provided as system environment parameters in `cassandra-env.sh`. The JVM option above is now appended to `cassandra-env.sh` as below:
+
+[source,bash]
+----
+export CDC_PULSAR_SERVICE_URL="pulsar://<pulsar_server_ip>:6650"
+----
+
+This document lists the CDC Change Agent parameter mappings between the JVM option strings and C* strings. 
+
+== Change Agent Parameter Mappings
 
 [cols="2,3,1"]
 [%autowidth]
 |===
-|Name | Description | String Mapping
+|JVM Option | Description | System Mapping
 | *topicPrefix*
 | The event topic name prefix. The `<keyspace_name>.<table_name>` is appended to that prefix to build the topic name.
 | TOPIC_PREFIX
