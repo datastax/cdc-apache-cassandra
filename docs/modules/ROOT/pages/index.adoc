@@ -17,7 +17,7 @@ for tables having Change Data Capture (CDC) enabled to https://www.datastax.com/
 {cdc_cass} has two components:
 
 * DataStax Change Agent for Apache Cassandra, which is an event producer deployed as a JVM agent on each Cassandra data node
-* {csc_pulsar_first}, which is a source connector deployed in your streaming platform
+* {cdc_pulsar}, which is a source connector deployed in your streaming platform
 
 The following diagram describes the general architecture.
 
@@ -130,7 +130,7 @@ If a row update contains both supported and unsupported data types, the event wi
 
 {cdc_cass} has the following limitations:
 
-* Does not manage table truncates.
+* Does not manage table truncates. The `TRUNCATE [TABLE]` command should not be used. 
 * Does not sync data available before starting the CDC agent.
 * Does not replay logged batches.
 * Does not manage time-to-live.

@@ -1,6 +1,6 @@
 == Pass {cdc_pulsar} settings directly to the DataStax Java driver
 
-In your {csc_pulsar_first} configuration file, you can directly pass settings to the DataStax Java driver by using the `datastax-java-driver` prefix.
+In your {cdc_pulsar} configuration file, you can directly pass settings to the DataStax Java driver by using the `datastax-java-driver` prefix.
 For example:
 
 [source,no-highlight]
