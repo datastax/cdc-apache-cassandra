@@ -59,7 +59,7 @@ dependencies {
     testImplementation project(':testcontainers')
 
     testRuntimeOnly "org.slf4j:slf4j-api:${slf4jVersion}"
-    testRuntimeOnly "org.slf4j:slf4j-simple:${slf4jVersion}"
+    testRuntimeOnly "ch.qos.logback:logback-classic:${logbackVersion}"
 }
 
 test {
