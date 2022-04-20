@@ -164,8 +164,8 @@ appender reference in the root level section below.
         <appender-ref ref="DroppedAuditEventAppender"/>
     </logger>
 
-    <logger name="org.apache.cassandra" level="DEBUG"/>
-    <logger name="com.datastax.bdp.db" level="DEBUG"/>
+    <logger name="org.apache.cassandra" level="INFO"/>
+    <logger name="com.datastax.bdp.db" level="INFO"/>
     <logger name="com.datastax.driver.core.NettyUtil" level="ERROR"/>
 
     <!--Enable for debugging of Lease problems (output will appear in debug.log) -->
@@ -183,7 +183,7 @@ appender reference in the root level section below.
     <!--<logger name="org.apache.solr.search.SolrIndexSearcher" level="WARN"/>-->
 
     <!--For detailed timing information on Lucene flushing and merging-->
-    <logger name="com.datastax.bdp.search.solr.metrics.SolrMetricsEventListener" level="DEBUG"/>
+    <logger name="com.datastax.bdp.search.solr.metrics.SolrMetricsEventListener" level="INFO"/>
     <!--For detailed information on Lucene encryption -->
     <!--<logger name="org.apache.lucene.store.crypto" level="TRACE"/>-->
     <!--For detailed information on Lucene RAM buffer allocations -->
@@ -199,8 +199,8 @@ appender reference in the root level section below.
     <logger name="com.cryptsoft" level="OFF"/>
     <logger name="org.apache.spark.rpc" level="ERROR"/>
 
-    <logger name="com.datastax.bdp.util.process.ServiceRunner" level="DEBUG"/>
-    <logger name="com.datastax.bdp.util.process.InternalServiceRunner" level="DEBUG"/>
+    <logger name="com.datastax.bdp.util.process.ServiceRunner" level="INFO"/>
+    <logger name="com.datastax.bdp.util.process.InternalServiceRunner" level="INFO"/>
 
     <logger name="com.datastax.bdp.analytics.rm" level="TRACE"/>
     <logger name="com.datastax.bdp.rm" level="TRACE"/>
