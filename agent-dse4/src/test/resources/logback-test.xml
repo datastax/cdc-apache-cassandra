@@ -5,11 +5,11 @@
         </encoder>
     </appender>
 
-    <root level="debug">
+    <root level="info">
         <appender-ref ref="STDOUT"/>
     </root>
 
-    <logger name="org.testcontainers" level="DEBUG"/>
+    <logger name="org.testcontainers" level="INFO"/>
     <logger name="com.github.dockerjava" level="WARN"/>
-    <logger name="com.datastax.oss.cdc" level="DEBUG"/>
+    <logger name="com.datastax.oss.cdc" level="INFO"/>
 </configuration>
