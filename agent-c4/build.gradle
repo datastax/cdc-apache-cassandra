@@ -1,5 +1,10 @@
 plugins {
     id 'java-library'
+    id 'java'
+    id 'application'
+    id "com.github.johnrengelman.shadow"
+    id 'com.palantir.docker'
+    id 'docker-compose'
 }
 
 application {
@@ -8,7 +13,6 @@ application {
 
 configurations.implementation.canBeResolved = true
 configurations.compileOnly.canBeResolved = true
-
 jar {
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
     manifest {
@@ -16,7 +20,6 @@ jar {
     }
     zip64=true
 }
-
 tasks.jar.dependsOn project(':commons').jar
 tasks.jar.dependsOn project(':agent').jar
 
@@ -30,8 +33,92 @@ sourceSets {
     test.runtimeClasspath += configurations.compileClasspath
 }
 
+shadowJar {
+    manifest {
+        inheritFrom project.tasks.jar.manifest
+    }
+}
+
+jar.enabled = false
+assemble.dependsOn(shadowJar)
+
 dependencies {
     implementation project(':commons')
     implementation project(':agent')
+
+    implementation("org.apache.avro:avro:${avroVersion}")
+
+    implementation("${pulsarGroup}:pulsar-client:${pulsarVersion}")
+
     compileOnly("org.apache.cassandra:cassandra-all:${cassandra4Version}")
+    testCompileOnly("org.apache.cassandra:cassandra-all:${cassandra4Version}")
+    testImplementation("org.apache.cassandra:cassandra-all:${cassandra4Version}") {
+        exclude group: 'io.netty'
+    }
+
+    testImplementation "com.datastax.oss:java-driver-core:${ossDriverVersion}"
+    testImplementation "com.datastax.oss:java-driver-query-builder:${ossDriverVersion}"
+
+    testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
+    testImplementation project(':testcontainers')
+
+    testRuntimeOnly "org.slf4j:slf4j-api:${slf4jVersion}"
+    testRuntimeOnly "ch.qos.logback:logback-classic:${logbackVersion}"
+}
+
+test {
+    // Add dependency on jar task, since it will be main target for testing
+    dependsOn shadowJar
+
+    // Rearrange test classpath, add compiled JAR instead of main classes
+    classpath = project.sourceSets.test.output + configurations.testRuntimeClasspath + files(shadowJar.archiveFile)
+
+    useJUnitPlatform()
+
+    environment 'PULSAR_IMAGE', 'datastax/lunastreaming:' + lunaStreamingTag
+    environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra4Version
+
+    systemProperty "buildDir", buildDir
+    systemProperty "projectVersion", project.version
+}
+
+dockerPrepare.dependsOn(shadowJar)
+docker {
+    name "${dockerRepo}cassandra:${cassandra4Version}-cdc"
+    files "$buildDir/libs/", "src/docker/"
+    buildArgs([BUILD_VERSION: project.version,
+               CASSANDRA_VERSION: cassandra4Version,
+               COMMITMOG_SYNC_PERIOD_IN_MS: commitlog_sync_period_in_ms,
+               CDC_TOTAL_SPACE_IN_MB: cdc_total_space_in_mb])
+}
+build.dependsOn(project.tasks['docker'])
+
+dockerCompose {
+    projectName = "test1"
+    useComposeFiles = ['../docker-compose.yaml']
+    environment.put 'AGENT_VERSION', 'c4'
+    environment.put 'PROJECT_VERSION', project.version
+    environment.put 'CASSANDRA_IMAGE', "${dockerRepo}cassandra:${cassandra4Version}-cdc"
+    environment.put 'PULSAR_IMAGE', "${dockerRepo}pulsar:${lunaStreamingTag}-csc"
+    waitForTcpPorts = false
+    startedServices = ['cassandra','pulsar']
+
+    stress {
+        projectName = "test1"
+        startedServices = ['cassandra-stress']
+        scale = ['cassandra-stress': 1]
+    }
+    stress2 {
+        projectName = "test1"
+        startedServices = ['cassandra-stress']
+        scale = ['cassandra-stress': 2]
+    }
+    prometheus {
+        projectName = "test1"
+        startedServices = ['prometheus','grafana']
+    }
+    elasticsearch {
+        projectName = "test1"
+        startedServices = ['elasticsearch']
+    }
 }

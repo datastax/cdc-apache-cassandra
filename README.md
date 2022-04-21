@@ -15,7 +15,7 @@ The DataStax CDC for Apache Cassandra requires:
 
 Supported streaming platform:
 * Apache Pulsar 2.8.1+
-* Datastax Luna Streaming 2.7.2.1.1.8+
+* Datastax Luna Streaming 2.8.0.1.1.40+
 
 Supported Cassandra version:
 * Cassandra 3.11+

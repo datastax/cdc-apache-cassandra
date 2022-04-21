@@ -10,9 +10,9 @@ Build docker images with CDC enabled:
 
 Start containers for Cassandra 3.11 (c3), Cassandra 4.0 (c4), or DSE 6.8.16+ (dse4) at your convenience, and Apache Pulsar:
 
-    ./gradlew agent-dse4-luna:composeUp
-    ./gradlew agent-c4-luna:composeUp
-    ./gradlew agent-c3-luna:composeUp
+    ./gradlew agent-dse4:composeUp
+    ./gradlew agent-c4:composeUp
+    ./gradlew agent-c3:composeUp
 
 Create the keyspace and table:
 
@@ -66,7 +66,7 @@ Check the cassandra source connector metrics:
 
 Start the prometheus and grafana containers to monitor the CDC replication:
 
-    ./gradlew agent-dse4-pulsar:prometheusComposeUp
+    ./gradlew agent-dse4:prometheusComposeUp
     
 Open [prometheus](http://localhost:9090) and [grafana](http://localhost:3000) (login=admin, password=admin)
 
@@ -74,7 +74,7 @@ Open [prometheus](http://localhost:9090) and [grafana](http://localhost:3000) (l
 
 Start elasticsearch and kibana containers:
 
-    ./gradlew agent-dse4-luna:elasticsearchComposeUp
+    ./gradlew agent-dse4:elasticsearchComposeUp
 
 Deploy an Elasticsearch sink connector:
 
@@ -99,14 +99,14 @@ Check the sink connector status (should be running):
 
 Check the source connector logs:
 
-    docker exec -it pulsar cat /pulsar/logs/functions/public/default/es-sink-ks1-table1/es-sink-ks1-table1.log
+    docker exec -it pulsar cat /pulsar/logs/functions/public/default/es-sink-ks1-table1/es-sink-ks1-table1-0.log
 
 Check data are replicated in [elasticsearch](http://localhost:9200/_cat/indices)
 
-    curl http://localhost:9200/_cat/indices
+    docker exec -it elasticsearch curl "http://localhost:9200/ks1.table1/_count?pretty"
 
 ## Shutdown containers
 
-    ./gradlew agent-dse4-luna:composeDown
-    ./gradlew agent-c4-luna:composeDown
-    ./gradlew agent-c3-luna:composeDown
+    ./gradlew agent-dse4:composeDown
+    ./gradlew agent-c4:composeDown
+    ./gradlew agent-c3:composeDown

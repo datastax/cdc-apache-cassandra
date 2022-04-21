@@ -14,16 +14,13 @@ Perform the following steps:
 
 The following files are available in the tar file:
 
-[cols="1,1,1"]
+[cols="1,1"]
 |===
-| Cassandra type | Streaming platform |  JAR file
+| Cassandra type | JAR file
 
-| Apache Cassandra 3.x | Apache Pulsar | agent-c3-pulsar-<version>-all.jar
-| Apache Cassandra 3.x | Luna Streaming | agent-c3-luna-<version>-all.jar
-| Apache Cassandra 4.x | Apache Pulsar | agent-c4-pulsar-<version>-all.jar
-| Apache Cassandra 4.x | Luna Streaming | agent-c4-luna-<version>-all.jar
-| DSE 6.8.16+ | Apache Pulsar | agent-dse4-pulsar-<version>-all.jar
-| DSE 6.8.16+ | Luna Streaming | agent-dse4-luna-<version>-all.jar
+| Apache Cassandra 3.x | agent-c3-<version>-all.jar
+| Apache Cassandra 4.x | agent-c4-<version>-all.jar
+| DSE 6.8.16+ | agent-dse4-<version>-all.jar
 
 
 |===
@@ -47,7 +44,7 @@ Here is an example for Luna Streaming/Apache Pulsar on Cassandra version 4.0 nod
 
 [source,language-bash]
 ----
-export JVM_EXTRA_OPTS="-javaagent:/path/to/agent-c4-luna-<version>-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
+export JVM_EXTRA_OPTS="-javaagent:/path/to/agent-c4-<version>-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
 ----
 
 For the full set of configuration options, see <<agentParams,Change Agent Parameters>>
@@ -88,12 +85,11 @@ By downloading this DataStax product, you agree to the terms of the open-source 
 
 The following files are available:
 
-[cols="1,1"]
+[cols="1"]
 |===
 | Streaming platform |  NAR file 
 
 | Apache Pulsar 2.8 and Luna Streaming 2.8 | pulsar-cassandra-source-<version>.nar
-| Luna Streaming 2.7 | luna-cassandra-source-<version>.nar
 
 |===
 

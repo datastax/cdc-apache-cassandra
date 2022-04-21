@@ -16,7 +16,7 @@ The {csc_pulsar_first} component is simple, with a 1:1 correspondence between th
 Minimum system requirement are:
 
 * Cassandra 3.11 or 4.0+, DSE 6.8.16+
-* Luna Streaming 2.7.2+ or Apache Pulsar 2.8.1+
+* Luna Streaming 2.8.0+ or Apache Pulsar 2.8.1+
 * Additional memory and CPU available on all Cassandra nodes
 
 === What are the {cdc_cass} limitations?
