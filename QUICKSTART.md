@@ -99,11 +99,11 @@ Check the sink connector status (should be running):
 
 Check the source connector logs:
 
-    docker exec -it pulsar cat /pulsar/logs/functions/public/default/es-sink-ks1-table1/es-sink-ks1-table1.log
+    docker exec -it pulsar cat /pulsar/logs/functions/public/default/es-sink-ks1-table1/es-sink-ks1-table1-0.log
 
 Check data are replicated in [elasticsearch](http://localhost:9200/_cat/indices)
 
-    curl http://localhost:9200/_cat/indices
+    docker exec -it elasticsearch curl "http://localhost:9200/ks1.table1/_count?pretty"
 
 ## Shutdown containers
 

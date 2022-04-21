@@ -108,7 +108,7 @@ test {
 
 dockerPrepare.dependsOn(nar)
 docker {
-    name "${dockerRepo}pulsar:${pulsarVersion}-csc"
+    name "${dockerRepo}pulsar:${lunaStreamingTag}-csc"
     files "$buildDir/libs/", "src/docker/"
     buildArgs([BUILD_VERSION: project.version, LUNASTREAMING_VERSION: lunaStreamingTag])
 }
