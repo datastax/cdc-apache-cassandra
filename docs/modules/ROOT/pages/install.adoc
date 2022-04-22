@@ -37,7 +37,7 @@ Use the file that matches your Cassandra type and streaming platform.
 == Start Cassandra with the Change Agent for Cassandra
 
 All data nodes of your Cassandra or DSE datacenter must run the change agent as a JVM agent to send mutations into the events topic of your streaming software.
-Start your Cassandra or DSE nodes with the appropriate producer binary matching your Cassandra (3.11 or 4.0) or DSE (6.8.16) version and your streaming platform (Luna Streaming or Apache Pulsar).
+Start your Cassandra or DSE nodes with the appropriate producer binary matching your Cassandra (3.11 or 4.0) or DSE (6.8.16) version and your streaming platform (Luna Streaming 2.8+ or Apache Pulsar 2.8.1+).
 
 As a Java agent, the change agent parameters take place after the `jar` file name in the form of a comma-separated list of `paramName=paramValue`.
 Here is an example for Luna Streaming/Apache Pulsar on Cassandra version 4.0 nodes:
