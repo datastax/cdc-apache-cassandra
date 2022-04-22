@@ -1,6 +1,6 @@
 = CDC for Cassandra Events 
 
-The Datastax CDC for Cassandra agent pushes the mutation primary key for the CDC-enabled table into the Apache Pulsar events topic (also called the dirty topic). The messages in the data topic (or clean topic) are keyed messages where both the key and the payload are https://avro.apache.org/docs/current/spec.html#schema_record[AVRO records]:
+The DataStax CDC for Cassandra agent pushes the mutation primary key for the CDC-enabled table into the Apache Pulsar events topic (also called the dirty topic). The messages in the data topic (or clean topic) are keyed messages where both the key and the payload are https://avro.apache.org/docs/current/spec.html#schema_record[AVRO records]:
 * The message key is an AVRO record including all the primary key columns of your Cassandra table.
 * The message payload is an AVRO record including regular columns from your Cassandra table.
 
