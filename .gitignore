@@ -15,4 +15,3 @@ out/
 .factorypath
 AsciiDocGenerator.class
 bin/
-docs/antora.yml
