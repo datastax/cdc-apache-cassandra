@@ -6,7 +6,7 @@ for tables having Change Data Capture (CDC) enabled to https://www.datastax.com/
 == Key Features
 
 * Supports Apache Cassandra 3.11+, 4.0+, and Datastax Enterprise Server 6.8.16+
-* Supports Luna Streaming 2.7.2+ and Apache Pulsar 2.8.1+
+* Supports Luna Streaming 2.8+ and Apache Pulsar 2.8.1+
 * De-duplicates updates from multiple replicas
 * Propagates Cassandra schema change to the built-in Pulsar schema registry
 * Supports AVRO message format
@@ -72,7 +72,7 @@ For each update to the table, an MD5 digest is calculated to de-duplicate the up
 
 == Supported streaming platforms
 
-* Luna Streaming 2.7.2 and later
+* Luna Streaming 2.8 and later
 * Apache Pulsar 2.8.1 and later
 
 === Connector deployment matrix
