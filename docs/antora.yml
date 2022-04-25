@@ -1,0 +1,12 @@
+name: cdc-apache-cassandra
+title: DataStax CDC for Apache Cassandra(R) Documentation
+version: "1.0.3"
+display_version: "1.0.3"
+asciidoc:
+  attributes:
+    cdc_cass_first: 'DataStax CDC for Apache Cassandra®'
+    cdc_cass: 'CDC for Cassandra'
+    csc_pulsar_first: 'DataStax Cassandra Source Connector for Apache Pulsar™'
+    csc_pulsar: 'CSC for Pulsar'
+nav:
+- modules/ROOT/nav.adoc
