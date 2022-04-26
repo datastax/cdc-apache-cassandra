@@ -10,7 +10,10 @@
 2. Add [release notes](https://github.com/datastax/cdc-apache-cassandra/blob/master/CDC_Release_Notes.md).
 
 3. ```
+   VERSION=x.y.z
    git add -A 
-   git commit -m "Release <version>"
+   git commit -m "Release $VERSION"
+   git tag "v${VERSION}"
    git push
+   git push --tags
    ```
