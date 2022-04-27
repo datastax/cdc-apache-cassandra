@@ -1,4 +1,4 @@
-= Installing {cdc_cass}
+= Installing {cdc_cass} for VM deployment
 
 == Download the DataStax Change Data Capture (CDC) Agent for Apache Cassandra®
 
@@ -12,19 +12,17 @@ Perform the following steps:
 . Download the change agent tar file from the https://downloads.datastax.com/#cassandra-change-agent[DataStax downloads page].
 
 The following files are available in the tar file:
-[cols="1,1,1"]
-[%autowidth]
++
+[cols="1,1"]
 |===
-| Cassandra type | Streaming platform |  JAR file
+| Cassandra type | JAR file
 
-| Apache Cassandra 3.x | Apache Pulsar | agent-c3-pulsar-<version>-all.jar
-| Apache Cassandra 3.x | Luna Streaming | agent-c3-luna-<version>-all.jar
-| Apache Cassandra 4.x | Apache Pulsar | agent-c4-pulsar-<version>-all.jar
-| Apache Cassandra 4.x | Luna Streaming | agent-c4-luna-<version>-all.jar
-| DSE 6.8.16+ | Apache Pulsar | agent-dse4-pulsar-<version>-all.jar
-| DSE 6.8.16+ | Luna Streaming | agent-dse4-luna-<version>-all.jar
+| Apache Cassandra 3.x | agent-c3-<version>-all.jar
+| Apache Cassandra 4.x | agent-c4-<version>-all.jar
+| DSE 6.8.16+ | agent-dse4-<version>-all.jar
+
 |===
-[start=2]
+
 . Extract the files from the tar with the following command:
 +
 [source,language-bash]
@@ -60,7 +58,7 @@ And to enable CDC for your C* deployment:
 JVM_OPTS="$JVM_OPTS -javaagent:/home/automaton/cdc104/agent-dse4-pulsar-1.0.5-all.jar"
 ----
 
-The CDC parameter mappings between JVM and C* are provided in xref:stringMappings.adoc[CDC Environment Parameter Strings]. +
+The CDC parameter mappings between JVM and C* environmemt variables are provided in xref:stringMappings.adoc[CDC Environment Parameter Strings]. +
 For the full set of JVM configuration options, see <<agentParams,Change Agent Parameters>>.
 
 == `Cassandra.yaml`

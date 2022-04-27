@@ -11,13 +11,23 @@ The {cdc_cass} is a an open-source product from DataStax.
 With {cdc_cass}, updates to data in Apache Cassandra are put into a Pulsar topic, which in turn can write the data to external targets such as Elasticsearch, Snowflake, and other platforms.
 The {csc_pulsar_first} component is simple, with a 1:1 correspondence between the Cassandra table and a single Pulsar topic.
 
-=== What are the system requirements for {cdc_pulsar}?
+=== What are the requirements for {cdc_pulsar}?
 
-Minimum system requirement are:
+Minimum requirements are:
 
-* Cassandra 3.11 or 4.0+, DSE 6.8.16+
-* Luna Streaming 2.7.2+ or Apache Pulsar 2.8.1+
+* Cassandra version 3.11+ or 4.0+, DSE 6.8.16+ for near real-time event streaming CDC
+* Cassandra version 3.0 to 3.10 for batch CDC
+* Luna Streaming 2.8.0+ or Apache Pulsar 2.8.1+
 * Additional memory and CPU available on all Cassandra nodes
+
+[NOTE]
+====
+Cassandra has supported batch CDC since Cassandra 3.0, but for near real-time event streaming, Cassandra 3.11+ or DSE 6.8.16+ are required. 
+====
+
+// insert link to pulsar cluster system doc
+
+Depending on the workloads of the CDC enabled C* tables, we may need to increase the CPU and memory specification of the C* nodes. We should have a dedicated session to discuss about how the CDC with Pulsar solution influences the C* performance.
 
 === What are the {cdc_cass} limitations?
 
@@ -28,7 +38,47 @@ Minimum system requirement are:
 * Does not replay logged batches.
 * Does not manage time-to-live.
 * Does not support range deletes.
-* CQL column names must not match a Pulsar primitive type name (ex: INT32).
+* CQL column names must not match a Pulsar primitive type name (ex: INT32) below
+
+==== Table Pulsar primitive types
+[cols=2*, options=header]
+[autowidth]
+|===
+|*Primitive type*
+|*Description*
+
+|BOOLEAN	
+|A binary value
+
+|INT8	
+|A 8-bit signed integer
+
+|INT16	
+|A 16-bit signed integer
+
+|INT32	
+|A 32-bit signed integer
+
+||INT64	
+A 64-bit signed integer
+
+|FLOAT	
+|A single precision (32-bit) IEEE 754 floating-point number
+
+|DOUBLE	
+|A double-precision (64-bit) IEEE 754 floating-point number
+
+|BYTES	
+|A sequence of 8-bit unsigned bytes
+
+|STRING	
+|A Unicode character sequence
+
+|TIMESTAMP (DATE, TIME)	
+|A logic type represents a specific instant in time with millisecond precision. +
+It stores the number of milliseconds since January 1, 1970, 00:00:00 GMT as an INT64 value
+
+|===
 
 === What happens if Luna Streaming or Apache Pulsar is unavailable?
 
@@ -71,11 +121,11 @@ With those sink connectors, data is taken from a Pulsar topic and put into Cassa
 With {cdc_cass}, updates to a Cassandra table are converted into events and put into a data topic.
 From there, the data can be published to external platforms like Elasticsearch, Snowflake, and other platforms.
 
-=== Does {cdc_cass} support Kubernetes?
+//=== Does {cdc_cass} support Kubernetes?
 
-Yes.
-You can run the {cdc_pulsar} on Luna Streaming or Apache Pulsar running on any Kubernetes platform, including Minikube, K8d, Kind, Google Kubernetes Engine (GKE), Microsoft Azure Kubernetes Service, Amazon Kubernetes Service (AKS), and other commonly used platforms.
-You can deploy the change agent with Cassandra on Kubernetes with the https://github.com/datastax/cass-operator[cass-operator].
+//Yes.
+//You can run the {cdc_pulsar} on Luna Streaming or Apache Pulsar running on Minikube, Google Kubernetes Engine (GKE), Microsoft Azure Kubernetes Service, Amazon Kubernetes Service (AKS), and other commonly used platforms.
+//You can deploy the change agent with Cassandra on Kubernetes with the https://github.com/datastax/cass-operator[cass-operator].
 
 === Where is the {cdc_cass} public GitHub repository?
 
