@@ -29,6 +29,16 @@ Cassandra has supported batch CDC since Cassandra 3.0, but for near real-time ev
 
 Depending on the workloads of the CDC enabled C* tables, you may need to increase the CPU and memory specification of the C* nodes. 
 
+=== What is the impact of the C* CDC solution on the existing C* cluster? 
+
+For each CDC-enabled C* table, C* needs extra processing cycles and storage to process the CDC commit logs. The impact for dealing with a single CDC-enabled table is small, but when there are a large number of C* tables with CDC enabled, the impact within C* increases. The performance impact occurs within C* itself, not the C* CDC solution with Pulsar.
+
+The CDC agent is started as a JVM agent of the C* process and it will share the same hardware resource of the same C* node. However, the only job that the CDC agent does is to scan the CDC commit log directory on a regular basis and send messages to the Pulsar cluster. This is a lightweight process when launched on a single thread, but the CDC agent can be launched with multiple threads. The more threads that are launched, the more resources will be consumed.
+
+For each C* write operation (one detected change-event), the Pulsar CSC connector performs a primary key-based C* read to get the most complete, up-to-date information of that particular C* row. 
+
+In a worst-case scenario, where a CDC-enabled C* has 100% write workload, the CDC solution would double the workload by adding the same amount of read workload to C* table. Since the C* read is primary key-based, it will be efficient.
+
 === What are the {cdc_cass} limitations?
 
 {cdc_cass} has the following limitations:
@@ -82,9 +92,13 @@ It stores the number of milliseconds since January 1, 1970, 00:00:00 GMT as an I
 
 === What happens if Luna Streaming or Apache Pulsar is unavailable?
 
-If Luna Streaming or Apache Pulsar is not available or unreachable, the change agent will keep trying to send messages.
-`commitlog` files accumulate in the `cdc_raw` directory.
-When the disk space of the `cdc_raw` directory reaches your `cdc_total_space_in_mb` cassandra setting (less than 4Gb by default), writes to CDC-enabled tables fail with a `CDCWriteException`.
+If the Pulsar cluster is down, the CDC agent on each C* node will periodically try to send the mutations, and will keep the CDC commitlog segments on disk until the data sending is successful. 
+
+The CDC agent keeps track of the CDC commitlog segment offsets, so the CDC agent knows where to resume sending the mutation messages when the Pulsar cluster is back online.
+
+We recommend active monitoring of the disk space of the C* nodes. If the Pulsar cluster is down, the change agent will continue trying to send messages and the CDC commitlog files will accumulate on the C* node. If the maximum CDC directory disk space is reached, future C* writes to the CDC-enabled table will fail.
+
+When the disk space of the `cdc_raw` directory reaches your `cdc_total_space_in_mb` Cassandra setting (less than 4GB by default), writes to CDC-enabled tables will fail with a `CDCWriteException`.
 The following warning message is included in Cassandra logs:
 
 [source,language-bash]
@@ -93,7 +107,7 @@ WARN  [CoreThread-5] 2021-10-29 09:12:52,790  NoSpamLogger.java:98 - Rejecting M
 ----
 
 To avoid or recover from this situation, increase the `cdc_total_space_in_mb` and restart the node.
-To prevent hitting this new limit, increase the write throughput to Luna Streaming or Apache Pulsar or decrease the write throughput to your node.
+To prevent hitting this new limit, increase the write throughput to Luna Streaming or Apache Pulsar, or decrease the write throughput to your node.
 
 Increasing the Luna Streaming or Apache Pulsar write throughput may involve tuning the change agent configuration (the number of allocated threads, the batching delay, the number of inflight messages), the Luna Streaming or Apache Pulsar configuration (the number of partitions of your topics), or the {cdc_pulsar} configuration (query executors, batching and cache settings, connector parallelism).
 
