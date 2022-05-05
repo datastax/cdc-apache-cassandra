@@ -15,18 +15,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module:
-          - 'agent'
-          - 'agent-c3'
-          - 'agent-c4'
-          - 'agent-dse4'
-          - 'connector'
+        module: ['agent', 'agent-c3', 'agent-c4', 'agent-dse4', 'connector']
+        jdk: ['11', '17']
     steps:
       - uses: actions/checkout@v2
-      - name: Set up JDK 11
+      - name: Set up JDK ${{ matrix.jdk }}
         uses: actions/setup-java@v2
         with:
-          java-version: '11'
+          java-version: ${{ matrix.jdk }}
           distribution: 'adopt'
 
       - name: Get project version
