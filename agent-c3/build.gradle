@@ -69,7 +69,7 @@ test {
 
     useJUnitPlatform()
 
-    environment 'PULSAR_IMAGE', 'datastax/lunastreaming:' + lunaStreamingTag
+    environment 'PULSAR_IMAGE', testPulsarImage + ':' + testPulsarImageTag
     environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra3Version
 
     systemProperty "buildDir", buildDir
@@ -90,7 +90,7 @@ dockerCompose {
     environment.put 'AGENT_VERSION', 'c3'
     environment.put 'PROJECT_VERSION', project.version
     environment.put 'CASSANDRA_IMAGE', "${dockerRepo}cassandra:${cassandra3Version}-cdc"
-    environment.put 'PULSAR_IMAGE', "${dockerRepo}pulsar:${lunaStreamingTag}-csc"
+    environment.put 'PULSAR_IMAGE', "${dockerRepo}pulsar:${testPulsarImageTag}-csc"
     waitForTcpPorts = false
     startedServices = ['cassandra','pulsar']
 

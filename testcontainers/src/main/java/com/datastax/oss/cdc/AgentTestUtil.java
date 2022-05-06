@@ -35,7 +35,7 @@ public class AgentTestUtil {
 
     public static final DockerImageName PULSAR_IMAGE = DockerImageName.parse(
             Optional.ofNullable(System.getenv("PULSAR_IMAGE"))
-                    .orElse("datastax/lunastreaming:" + System.getProperty("lunaStreamingTag"))
+                    .orElse(System.getProperty("testPulsarImage") + ":" + System.getProperty("testPulsarImageTag"))
     ).asCompatibleSubstituteFor("pulsar");
 
     public static String genericRecordToString(GenericRecord genericRecord) {
