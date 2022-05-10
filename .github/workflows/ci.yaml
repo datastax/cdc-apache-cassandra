@@ -17,6 +17,7 @@ jobs:
       matrix:
         module: ['agent', 'agent-c3', 'agent-c4', 'agent-dse4', 'connector']
         jdk: ['11', '17']
+        pulsarImageTag: ['2.8.0_1.1.42', '2.8.3_1.0.9', '2.10_0.1']
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK ${{ matrix.jdk }}
@@ -45,4 +46,6 @@ jobs:
           DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
           DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
         run: |
-          ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD ${{ matrix.module }}:test
+          ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
+          -PpulsarImageTag=${{ matrix.pulsarImageTag }} \
+          ${{ matrix.module }}:test
