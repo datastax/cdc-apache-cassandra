@@ -98,7 +98,7 @@ test {
 
     useJUnitPlatform()
 
-    environment 'PULSAR_IMAGE', 'datastax/lunastreaming:' + lunaStreamingTag
+    environment 'PULSAR_IMAGE', testPulsarImage + ':' + testPulsarImageTag
     environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra4Version
 
     systemProperty "connectorBuildDir", buildDir
@@ -108,9 +108,11 @@ test {
 
 dockerPrepare.dependsOn(nar)
 docker {
-    name "${dockerRepo}pulsar:${lunaStreamingTag}-csc"
+    name "${dockerRepo}pulsar:${testPulsarImageTag}-csc"
     files "$buildDir/libs/", "src/docker/"
-    buildArgs([BUILD_VERSION: project.version, LUNASTREAMING_VERSION: lunaStreamingTag])
+    buildArgs([BUILD_VERSION: project.version,
+               LUNASTREAMING_IMAGE: testPulsarImage,
+               LUNASTREAMING_VERSION: testPulsarImageTag])
 }
 build.dependsOn(project.tasks['docker'])
 
