@@ -72,8 +72,8 @@ For each update to the table, an MD5 digest is calculated to de-duplicate the up
 
 == Supported streaming platforms
 
-* Luna Streaming 2.8 and later
-* Apache Pulsar 2.8.1 and later
+* Luna Streaming 2.8 and later (current Luna Streaming version is {luna_version})
+* Apache Pulsar 2.8.1 and later (current Pulsar version is {pulsar_version})
 
 === Connector deployment matrix
 
