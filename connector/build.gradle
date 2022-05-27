@@ -55,6 +55,7 @@ dependencies {
         implementation("io.netty:netty-codec-haproxy:${nettyVersion}")
         implementation("io.netty:netty-tcnative-boringssl-static:${nettyTcNativeVersion}")
         implementation("org.apache.commons:commons-compress:${commonCompressVersion}")
+        implementation("org.json:json:${jsonVersion}")
     }
 
     testRuntimeOnly "org.projectlombok:lombok:${lombokVersion}"
