@@ -88,10 +88,10 @@ appender reference in the root level section below.
     <appender name="LogbackMetrics" class="com.codahale.metrics.logback.InstrumentedAppender" />
      -->
 
-    <root level="DEBUG">
-        <appender-ref ref="SYSTEMLOG" />
-        <appender-ref ref="STDOUT" />
-        <appender-ref ref="DEBUGLOG" /> <!-- Comment this line to disable debug.log -->
+    <root level="INFO">
+<!--        <appender-ref ref="SYSTEMLOG" />-->
+<!--        <appender-ref ref="STDOUT" />-->
+<!--        <appender-ref ref="DEBUGLOG" /> &lt;!&ndash; Comment this line to disable debug.log &ndash;&gt;-->
         <!--
         <appender-ref ref="LogbackMetrics" />
         -->

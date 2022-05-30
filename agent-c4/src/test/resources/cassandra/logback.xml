@@ -66,12 +66,12 @@ appender reference in the root level section below.
 
     <!-- ASYNCLOG assynchronous appender to debug.log (all levels) -->
 
-<!--    <appender name="ASYNCDEBUGLOG" class="ch.qos.logback.classic.AsyncAppender">-->
-<!--        <queueSize>1024</queueSize>-->
-<!--        <discardingThreshold>0</discardingThreshold>-->
-<!--        <includeCallerData>true</includeCallerData>-->
-<!--        <appender-ref ref="DEBUGLOG" />-->
-<!--    </appender>-->
+    <appender name="ASYNCDEBUGLOG" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>1024</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <includeCallerData>true</includeCallerData>
+        <appender-ref ref="DEBUGLOG" />
+    </appender>
 
     <!-- STDOUT console appender to stdout (INFO level) -->
 
@@ -88,10 +88,10 @@ appender reference in the root level section below.
     <appender name="LogbackMetrics" class="com.codahale.metrics.logback.InstrumentedAppender" />
      -->
 
-    <root level="DEBUG">
-        <appender-ref ref="SYSTEMLOG" />
-        <appender-ref ref="STDOUT" />
-        <appender-ref ref="DEBUGLOG" /> <!-- Comment this line to disable debug.log -->
+    <root level="INFO">
+<!--        <appender-ref ref="SYSTEMLOG" />-->
+<!--        <appender-ref ref="STDOUT" />-->
+<!--        <appender-ref ref="DEBUGLOG" /> &lt;!&ndash; Comment this line to disable debug.log &ndash;&gt;-->
         <!--
         <appender-ref ref="LogbackMetrics" />
         -->
