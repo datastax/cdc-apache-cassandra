@@ -33,7 +33,7 @@ dependencies {
     implementation project(':commons')
     implementation("com.github.ben-manes.caffeine:caffeine:${caffeineVersion}")
     implementation("io.vavr:vavr:${vavrVersion}")
-    implementation "com.datastax.oss:java-driver-core-shaded:${ossDriverVersion}"
+    implementation "com.datastax.oss:java-driver-core:${ossDriverVersion}"
     implementation "com.datastax.oss:java-driver-query-builder:${ossDriverVersion}"
     implementation("org.apache.kafka:connect-api:${kafkaVersion}")
     implementation("com.google.guava:guava:${guavaVersion}")
