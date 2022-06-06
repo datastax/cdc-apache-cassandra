@@ -23,6 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.Message;
 import org.apache.pulsar.client.api.PulsarClient;
+import org.apache.pulsar.client.api.Reader;
 import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.api.SubscriptionInitialPosition;
 import org.apache.pulsar.client.api.SubscriptionMode;
@@ -482,7 +483,22 @@ public abstract class PulsarSingleNodeTests {
             }
 
             // wait the end of the network outage.
-            Thread.sleep(1000);
+            while (true) {
+                try {
+                    try (PulsarClient pulsarClient = PulsarClient.builder()
+                            .serviceUrl(pulsarContainer.getPulsarBrokerUrl())
+                            .build();
+                         final Reader<byte[]> reader = pulsarClient.newReader().topic("events-pulsarfailure.table1").create();) {
+
+                        reader.readNext();
+                        break;
+                    }
+                } catch (Throwable t) {
+                    log.error("got error while checking Pulsar status:{}", t.getMessage(), t);
+                    Thread.sleep(2000);
+                }
+            }
+
 
             int msgCount = 0;
             long maxLatency = 0;
