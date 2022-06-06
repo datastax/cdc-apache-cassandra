@@ -22,6 +22,7 @@ import com.datastax.testcontainers.cassandra.CassandraContainer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.Message;
+import org.apache.pulsar.client.api.MessageId;
 import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.api.Reader;
 import org.apache.pulsar.client.api.Schema;
@@ -488,7 +489,10 @@ public abstract class PulsarSingleNodeTests {
                     try (PulsarClient pulsarClient = PulsarClient.builder()
                             .serviceUrl(pulsarContainer.getPulsarBrokerUrl())
                             .build();
-                         final Reader<byte[]> reader = pulsarClient.newReader().topic("events-pulsarfailure.table1").create();) {
+                         final Reader<byte[]> reader = pulsarClient.newReader()
+                                 .topic("events-pulsarfailure.table1")
+                                 .startMessageId(MessageId.earliest)
+                                 .create();) {
 
                         reader.readNext();
                         break;
