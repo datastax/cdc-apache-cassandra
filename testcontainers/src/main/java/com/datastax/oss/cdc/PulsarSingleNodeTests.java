@@ -471,16 +471,18 @@ public abstract class PulsarSingleNodeTests {
                 }
             }
 
+
+            int outageSeconds = Integer.getInteger("outageSeconds");
             try (CqlSession cqlSession = cassandraContainer1.getCqlSession();
                     ChaosNetworkContainer<?> chaosContainer =
-                            new ChaosNetworkContainer<>(pulsarContainer.getContainerName(), "100s");) {
+                            new ChaosNetworkContainer<>(pulsarContainer.getContainerName(), outageSeconds + "s");) {
 
                 chaosContainer.start();
                 // write 100 mutations during 100s (pulsar request timeout is 60s)
                 for (int i = 0; i < numMutation; i++) {
                     cqlSession.execute("INSERT INTO pulsarfailure.table1 (a,b) VALUES (?, ?);", 2 * i, AgentTestUtil.randomizeBuffer(getSegmentSize() / 4));
-                    Thread.sleep(1000);
                 }
+                Thread.sleep( outageSeconds / 1000);
             }
 
             // wait the end of the network outage.
