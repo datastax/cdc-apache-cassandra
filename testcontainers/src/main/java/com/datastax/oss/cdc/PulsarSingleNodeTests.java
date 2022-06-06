@@ -472,7 +472,7 @@ public abstract class PulsarSingleNodeTests {
             }
 
 
-            int outageSeconds = Integer.getInteger("outageSeconds");
+            int outageSeconds = Integer.getInteger("outageSeconds", 100);
             try (CqlSession cqlSession = cassandraContainer1.getCqlSession();
                     ChaosNetworkContainer<?> chaosContainer =
                             new ChaosNetworkContainer<>(pulsarContainer.getContainerName(), outageSeconds + "s");) {
