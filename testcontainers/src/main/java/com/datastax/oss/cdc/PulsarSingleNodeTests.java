@@ -481,26 +481,27 @@ public abstract class PulsarSingleNodeTests {
 /*             for (int i = 0; i < numMutation; i++) {
                         cqlSession.execute("INSERT INTO pulsarfailure.table1 (a,b) VALUES (?, ?);", 2 * i, AgentTestUtil.randomizeBuffer(getSegmentSize() / 4));
                 }*/
-                Thread.sleep( 25 * 1000);
-            }
+                Thread.sleep(100 * 1000);
 
-            // wait the end of the network outage.
-            while (true) {
-                try {
-                    try (PulsarClient pulsarClient = PulsarClient.builder()
-                            .serviceUrl(pulsarContainer.getPulsarBrokerUrl())
-                            .build();
-                         final Reader<byte[]> reader = pulsarClient.newReader()
-                                 .topic("events-pulsarfailure.table1")
-                                 .startMessageId(MessageId.earliest)
-                                 .create();) {
 
-                        reader.readNext();
-                        break;
+                // wait the end of the network outage.
+                while (true) {
+                    try {
+                        try (PulsarClient pulsarClient = PulsarClient.builder()
+                                .serviceUrl(pulsarContainer.getPulsarBrokerUrl())
+                                .build();
+                             final Reader<byte[]> reader = pulsarClient.newReader()
+                                     .topic("events-pulsarfailure.table1")
+                                     .startMessageId(MessageId.earliest)
+                                     .create();) {
+
+                            reader.readNext();
+                            break;
+                        }
+                    } catch (Throwable t) {
+                        log.error("got error while checking Pulsar status:{}", t.getMessage(), t);
+                        Thread.sleep(2000);
                     }
-                } catch (Throwable t) {
-                    log.error("got error while checking Pulsar status:{}", t.getMessage(), t);
-                    Thread.sleep(2000);
                 }
             }
 
