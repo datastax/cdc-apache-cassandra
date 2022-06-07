@@ -428,7 +428,7 @@ public abstract class PulsarSingleNodeTests {
                          .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                          .subscribe()) {
 
-                Message<GenericRecord> msg = consumer.receive(60, TimeUnit.SECONDS);
+                Message<GenericRecord> msg = consumer.receive(180, TimeUnit.SECONDS);
                 Assert.assertNotNull("Expecting one message, check the agent log", msg);
                 consumer.acknowledge(msg);
 

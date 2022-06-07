@@ -776,7 +776,7 @@ public class PulsarCassandraSourceTests {
     @Test
     public void testConnectionFailure() throws InterruptedException, IOException {
         final String ksName = "ksx2";
-        try(ChaosNetworkContainer<?> chaosContainer = new ChaosNetworkContainer<>(cassandraContainer1.getContainerName(), "100s")) {
+        try (ChaosNetworkContainer<?> chaosContainer = new ChaosNetworkContainer<>(cassandraContainer1.getContainerName(), "100s")) {
             try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
                 cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName +
                         " WITH replication = {'class':'SimpleStrategy','replication_factor':'2'};");
@@ -797,7 +797,7 @@ public class PulsarCassandraSourceTests {
                         .subscribe()) {
                     Message<GenericRecord> msg;
                     int numMessage = 0;
-                    while ((msg = consumer.receive(180, TimeUnit.SECONDS)) != null && numMessage < 3) {
+                    while ((msg = consumer.receive(240, TimeUnit.SECONDS)) != null && numMessage < 3) {
                         numMessage++;
                         consumer.acknowledge(msg);
                     }
