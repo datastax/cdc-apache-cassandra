@@ -34,7 +34,7 @@ public class ChaosNetworkContainer<SELF extends ChaosNetworkContainer<SELF>> ext
         // setCommand("--log-level info netem --tc-image gaiadocker/iproute2 --duration " + pause + " loss --percent 100 " + targetContainer);
         setCommand("--log-level info pause --duration " + pause + " " + targetContainer);
         addFileSystemBind("/var/run/docker.sock", "/var/run/docker.sock", BindMode.READ_WRITE);
-        setWaitStrategy(Wait.forLogMessage(".*loss 100.00.*", 1));
+        setWaitStrategy(Wait.forLogMessage(".*pausing container.*", 1));
         withLogConsumer(o -> log.info("pumba> {}", o.getUtf8String()));
     }
 }
