@@ -458,31 +458,30 @@ public abstract class PulsarSingleNodeTests {
             log.info("Skipping this test for agent c3");
             return;
         }
-        String pulsarServiceUrl = "pulsar://pulsar:" + pulsarContainer.BROKER_PORT;
-        int numMutation = 1;
+        try (ChaosNetworkContainer<?> chaosContainer =
+                     new ChaosNetworkContainer<>(pulsarContainer.getContainerName(), "100s");){
 
-        try (CassandraContainer<?> cassandraContainer1 = createCassandraContainer(1, pulsarServiceUrl, testNetwork)) {
-            cassandraContainer1.start();
-            try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
-                cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS pulsarfailure WITH replication = {'class':'SimpleStrategy','replication_factor':'1'};");
-                cqlSession.execute("CREATE TABLE IF NOT EXISTS pulsarfailure.table1 (a int, b blob, PRIMARY KEY (a)) with cdc=true;");
-                for (int i = 0; i < numMutation; i++) {
-                    cqlSession.execute("INSERT INTO pulsarfailure.table1 (a,b) VALUES (?, ?);", i, AgentTestUtil.randomizeBuffer(getSegmentSize() / 4));
+            String pulsarServiceUrl = "pulsar://pulsar:" + pulsarContainer.BROKER_PORT;
+            int numMutation = 100;
+
+            try (CassandraContainer<?> cassandraContainer1 = createCassandraContainer(1, pulsarServiceUrl, testNetwork)) {
+                cassandraContainer1.start();
+                try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                    cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS pulsarfailure WITH replication = {'class':'SimpleStrategy','replication_factor':'1'};");
+                    cqlSession.execute("CREATE TABLE IF NOT EXISTS pulsarfailure.table1 (a int, b blob, PRIMARY KEY (a)) with cdc=true;");
+                    for (int i = 0; i < numMutation; i++) {
+                        cqlSession.execute("INSERT INTO pulsarfailure.table1 (a,b) VALUES (?, ?);", i, AgentTestUtil.randomizeBuffer(getSegmentSize() / 4));
+                    }
                 }
-            }
-
-
-            try (CqlSession cqlSession = cassandraContainer1.getCqlSession();
-                    ChaosNetworkContainer<?> chaosContainer =
-                            new ChaosNetworkContainer<>(pulsarContainer.getContainerName(), "100s");) {
 
                 chaosContainer.start();
-                // write 100 mutations during 100s (pulsar request timeout is 60s)
-/*             for (int i = 0; i < numMutation; i++) {
+                try (CqlSession cqlSession = cassandraContainer1.getCqlSession();) {
+                    // write 100 mutations during 100s (pulsar request timeout is 60s)
+                    for (int i = 0; i < numMutation; i++) {
                         cqlSession.execute("INSERT INTO pulsarfailure.table1 (a,b) VALUES (?, ?);", 2 * i, AgentTestUtil.randomizeBuffer(getSegmentSize() / 4));
-                }*/
-                Thread.sleep(100 * 1000);
-
+                    }
+                    Thread.sleep( 1000);
+                }
 
                 // wait the end of the network outage.
                 while (true) {
@@ -503,33 +502,33 @@ public abstract class PulsarSingleNodeTests {
                         Thread.sleep(2000);
                     }
                 }
-            }
 
 
-            int msgCount = 0;
-            long maxLatency = 0;
-            try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build();
-                 Consumer<GenericRecord> consumer = pulsarClient.newConsumer(Schema.AUTO_CONSUME())
-                         .topic("events-pulsarfailure.table1")
-                         .subscriptionName("sub1")
-                         .subscriptionType(SubscriptionType.Key_Shared)
-                         .subscriptionMode(SubscriptionMode.Durable)
-                         .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
-                         .subscribe()) {
-                Message<GenericRecord> msg;
-                while ((msg = consumer.receive(240, TimeUnit.SECONDS)) != null && msgCount < numMutation) {
-                    Assert.assertNotNull("Expecting one message, check the agent log", msg);
-                    msgCount++;
-                    consumer.acknowledgeAsync(msg);
+                int msgCount = 0;
+                long maxLatency = 0;
+                try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build();
+                     Consumer<GenericRecord> consumer = pulsarClient.newConsumer(Schema.AUTO_CONSUME())
+                             .topic("events-pulsarfailure.table1")
+                             .subscriptionName("sub1")
+                             .subscriptionType(SubscriptionType.Key_Shared)
+                             .subscriptionMode(SubscriptionMode.Durable)
+                             .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+                             .subscribe()) {
+                    Message<GenericRecord> msg;
+                    while ((msg = consumer.receive(240, TimeUnit.SECONDS)) != null && msgCount < 2 * numMutation) {
+                        Assert.assertNotNull("Expecting one message, check the agent log", msg);
+                        msgCount++;
+                        consumer.acknowledgeAsync(msg);
 
-                    long writetime = Long.parseLong(msg.getProperty(Constants.WRITETIME));
-                    long now = System.currentTimeMillis();
-                    long latency = now * 1000 - writetime;
-                    maxLatency = Math.max(maxLatency, latency);
-                    consumer.acknowledgeAsync(msg);
+                        long writetime = Long.parseLong(msg.getProperty(Constants.WRITETIME));
+                        long now = System.currentTimeMillis();
+                        long latency = now * 1000 - writetime;
+                        maxLatency = Math.max(maxLatency, latency);
+                        consumer.acknowledgeAsync(msg);
+                    }
+                    assertEquals(2 * numMutation, msgCount);
+                    assertTrue(maxLatency > 0);
                 }
-                assertEquals(2 * numMutation, msgCount);
-                assertTrue(maxLatency > 0);
             }
         }
     }
