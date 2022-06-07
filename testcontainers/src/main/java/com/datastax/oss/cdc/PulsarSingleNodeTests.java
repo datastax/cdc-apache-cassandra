@@ -474,7 +474,7 @@ public abstract class PulsarSingleNodeTests {
 
             try (CqlSession cqlSession = cassandraContainer1.getCqlSession();
                     ChaosNetworkContainer<?> chaosContainer =
-                            new ChaosNetworkContainer<>(pulsarContainer.getContainerName(), "25s");) {
+                            new ChaosNetworkContainer<>(pulsarContainer.getContainerName(), "100s");) {
 
                 chaosContainer.start();
                 // write 100 mutations during 100s (pulsar request timeout is 60s)
