@@ -10,6 +10,8 @@ The CDC for Apache Cassandra&trade; is compatible for Apache Cassandra&trade; 3.
 
 ## Changes for Agent
 * Upgrade C* dependencies: Cassandra 4.0.4, DSE 6.18.23
+* Upgrade Pulsar client to 2.8.3
+
 
 # Release notes for 2.0.0
 26 April 2022
