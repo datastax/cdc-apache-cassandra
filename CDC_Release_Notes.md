@@ -1,6 +1,16 @@
 # Release notes for CDC for Apache Cassandra&trade;
 The CDC for Apache Cassandra&trade; is compatible for Apache Cassandra&trade; 3.11, 4.0, and DSE 6.8.
 
+# Release notes for 2.1.0
+7 June 2022
+
+## Changes for Pulsar Connector
+* Upgrade org.json to 20220320
+* Fixed an internal error: NoClassDefFoundError: com/datastax/oss/driver/internal/core/util/ArrayUtils
+
+## Changes for Agent
+* Upgrade C* dependencies: Cassandra 4.0.4, DSE 6.18.23
+
 # Release notes for 2.0.0
 26 April 2022
 
