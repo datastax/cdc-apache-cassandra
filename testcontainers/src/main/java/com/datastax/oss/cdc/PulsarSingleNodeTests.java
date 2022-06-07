@@ -459,7 +459,7 @@ public abstract class PulsarSingleNodeTests {
             return;
         }
         String pulsarServiceUrl = "pulsar://pulsar:" + pulsarContainer.BROKER_PORT;
-        int numMutation = 100;
+        int numMutation = 1;
 
         try (CassandraContainer<?> cassandraContainer1 = createCassandraContainer(1, pulsarServiceUrl, testNetwork)) {
             cassandraContainer1.start();
@@ -478,9 +478,9 @@ public abstract class PulsarSingleNodeTests {
 
                 chaosContainer.start();
                 // write 100 mutations during 100s (pulsar request timeout is 60s)
-                for (int i = 0; i < numMutation; i++) {
-                    cqlSession.execute("INSERT INTO pulsarfailure.table1 (a,b) VALUES (?, ?);", 2 * i, AgentTestUtil.randomizeBuffer(getSegmentSize() / 4));
-                }
+/*             for (int i = 0; i < numMutation; i++) {
+                        cqlSession.execute("INSERT INTO pulsarfailure.table1 (a,b) VALUES (?, ?);", 2 * i, AgentTestUtil.randomizeBuffer(getSegmentSize() / 4));
+                }*/
                 Thread.sleep( 25 * 1000);
             }
 
@@ -516,7 +516,7 @@ public abstract class PulsarSingleNodeTests {
                          .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                          .subscribe()) {
                 Message<GenericRecord> msg;
-                while ((msg = consumer.receive(240, TimeUnit.SECONDS)) != null && msgCount < 2 * numMutation) {
+                while ((msg = consumer.receive(240, TimeUnit.SECONDS)) != null && msgCount < numMutation) {
                     Assert.assertNotNull("Expecting one message, check the agent log", msg);
                     msgCount++;
                     consumer.acknowledgeAsync(msg);
