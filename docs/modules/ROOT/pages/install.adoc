@@ -35,13 +35,13 @@ tar xvf cassandra-source-agents-<version>.tar
 == Start Cassandra with the Change Agent for Cassandra
 
 All data nodes of your Cassandra or DSE datacenter must run the change agent as a JVM agent to send mutations into the events topic of your streaming software.
-Start your Cassandra or DSE nodes with the appropriate producer binary matching your Cassandra (3.11 or 4.0) or DSE (6.8.16) version and your streaming platform (Luna Streaming or Apache Pulsar).
+Start your Cassandra or DSE nodes with the appropriate producer binary matching your Cassandra (3.11 or 4.0) or DSE (6.8.16) version and your streaming platform (Luna Streaming 2.8+ or Apache Pulsar 2.8.1+).
 
 In CDC agent versions *before 1.0.3*, the CDC agent Pulsar connection parameters were provided as extra JVM options after the `jar` file name in the form of a comma-separated list of `paramName=paramValue`, as below:
 
 [source,bash]
 ----
-export JVM_EXTRA_OPTS="-javaagent:/path/to/agent-c4-luna-<version>-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
+export JVM_EXTRA_OPTS="-javaagent:/path/to/agent-c4-<version>-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
 ----
 
 In CDC agent versions *after 1.0.3*, the CDC agent Pulsar connection parameters are provided as system environment parameters in `cassandra-env.sh`. The same JVM option above is now appended to `cassandra-env.sh` as below:
@@ -98,12 +98,11 @@ By downloading this DataStax product, you agree to the terms of the open-source 
 
 The following files are available:
 
-[cols="1,1"]
+[cols="1"]
 |===
 | Streaming platform |  NAR file 
 
 | Apache Pulsar 2.8 and Luna Streaming 2.8 | pulsar-cassandra-source-<version>.nar
-| Luna Streaming 2.7 | luna-cassandra-source-<version>.nar
 
 |===
 

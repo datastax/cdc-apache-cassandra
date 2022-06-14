@@ -2,6 +2,12 @@ plugins {
     id 'java-library'
 }
 
+compileTestJava {
+    options.compilerArgs += '-parameters'
+}
+
 dependencies {
     implementation("org.apache.avro:avro:${avroVersion}")
+    implementation("${pulsarGroup}:pulsar-client:${pulsarVersion}")
+    compileOnly("org.slf4j:slf4j-api:${slf4jVersion}")
 }

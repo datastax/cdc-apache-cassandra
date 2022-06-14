@@ -1,7 +1,6 @@
 # DataStax CDC for Apache Cassandra
 
-![agents](https://github.com/datastax/cdc-apache-cassandra/actions/workflows/ci-agents.yaml/badge.svg)
-![connectors](https://github.com/datastax/cdc-apache-cassandra/actions/workflows/ci-connectors.yaml/badge.svg)
+[![CI](https://github.com/datastax/cdc-apache-cassandra/actions/workflows/ci.yaml/badge.svg)](https://github.com/datastax/cdc-apache-cassandra/actions/workflows/ci.yaml)
 ![documentation](https://github.com/datastax/cdc-apache-cassandra/actions/workflows/publish.yml/badge.svg)
 ![release](https://github.com/datastax/cdc-apache-cassandra/actions/workflows/release.yaml/badge.svg)
 [![GitHub release](https://img.shields.io/github/v/release/datastax/cdc-apache-cassandra.svg)](https://github.com/datastax/cdc-apache-cassandra/releases/latest)
@@ -15,7 +14,7 @@ The DataStax CDC for Apache Cassandra requires:
 
 Supported streaming platform:
 * Apache Pulsar 2.8.1+
-* Datastax Luna Streaming 2.7.2.1.1.8+
+* Datastax Luna Streaming 2.8.0.1.1.40+
 
 Supported Cassandra version:
 * Cassandra 3.11+
