@@ -2,7 +2,7 @@
 
 Update the gradle property **dockerRepo** in the gradle.properties file, then push a DSE image into your registry:
 
-    ./gradlew agent-dse4-luna:dockerPush
+    ./gradlew agent-dse4:dockerPush
 
 Install the Datastax [cass-operator](https://github.com/datastax/cass-operator):
 

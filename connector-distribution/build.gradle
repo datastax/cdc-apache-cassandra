@@ -8,8 +8,7 @@ configurations {
 }
 
 dependencies {
-    release project(path: ':connector-luna', configuration: 'nar')
-    release project(path: ':connector-pulsar', configuration: 'nar')
+    release project(path: ':connector', configuration: 'nar')
 }
 
 import de.fanero.gradle.plugin.nar.Nar;
@@ -21,8 +20,7 @@ distributions {
             from('src/main') {
                 include '**'
             }
-            from(project(":connector-luna").tasks.withType(Nar))
-            from(project(":connector-pulsar").tasks.withType(Nar))
+            from(project(":connector").tasks.withType(Nar))
         }
     }
 }

@@ -7,13 +7,10 @@ configurations {
 }
 
 dependencies {
-    release project(path: ':agent-c3-luna', configuration: 'shadow')
-    release project(path: ':agent-c4-luna', configuration: 'shadow')
-    release project(path: ':agent-c3-pulsar', configuration: 'shadow')
-    release project(path: ':agent-c4-pulsar', configuration: 'shadow')
+    release project(path: ':agent-c3', configuration: 'shadow')
+    release project(path: ':agent-c4', configuration: 'shadow')
     if (project.hasProperty("dse4")) {
-        release project(path: ':agent-dse4-luna', configuration: 'shadow')
-        release project(path: ':agent-dse4-pulsar', configuration: 'shadow')
+        release project(path: ':agent-dse4', configuration: 'shadow')
     }
 }
 
