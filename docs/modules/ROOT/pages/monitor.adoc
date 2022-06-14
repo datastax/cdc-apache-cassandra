@@ -53,9 +53,9 @@ The change agent is a JVM agent running in Apache Cassandra® nodes and provides
 |The maximum number of uncleaned tasks.
 |===
 
-== {csc_pulsar} stats
+== {cdc_cass} stats
 
-The {csc_pulsar} framework reports stats for each connector. You can view the stats for a connector like this:
+The {cdc_cass} framework reports stats for each connector. You can view the stats for a connector like this:
 
 [source,language-bash]
 ----
@@ -81,13 +81,13 @@ pulsar-admin source stats --name cassandra-source-1
 }
 ----
 
-The stats `numReceivedFromSource` and `numWritten` indicate how many events have been processed by the {csc_pulsar}.
+The stats `numReceivedFromSource` and `numWritten` indicate how many events have been processed by the {cdc_cass}.
 If the connector has errors, the counts are shown.
 A description of the last seen error is displayed in the `error` field.
 
-== {csc_pulsar} metrics
+== {cdc_cass} metrics
 
-The {csc_pulsar} also publishes per message metrics:
+{cdc_cass} also publishes per message metrics:
 
 [cols="2,3"]
 |===
@@ -112,11 +112,11 @@ The {csc_pulsar} also publishes per message metrics:
 |The number of threads available to execute the CQL queries.
 
 |replication_latency
-|The replication latency in milliseconds (the {csc_pulsar} processing time minus the cassandra mutation writetime).
+|The replication latency in milliseconds (the {cdc_cass} processing time minus the Cassandra mutation writetime).
 
 |===
 
-Here an example of those user-defined metrics aggregated by pulsar when processing 2000 mutations:
+Here an example of those user-defined metrics aggregated by Apache Pulsar™ when processing 2000 mutations:
 
 [source,bash]
 ----

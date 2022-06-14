@@ -14,29 +14,29 @@ for tables having Change Data Capture (CDC) enabled to https://www.datastax.com/
 
 == Architecture
 
-{cdc_cass} has two components:
+Other than the prerequisite C* and Pulsar clusters, {cdc_cass} has two components:
 
 * DataStax Change Agent for Apache Cassandra, which is an event producer deployed as a JVM agent on each Cassandra data node
-* {csc_pulsar_first}, which is a source connector deployed in your streaming platform
+* {cdc_pulsar}, which is a source connector deployed in your Pulsar cluster
 
 The following diagram describes the general architecture.
 
 image::cdc-for-cassandra-overview.png[]
 
 Since version 3.0, Cassandra has included a change data capture (CDC) feature.
-The CDC feature can be enabled on the table level by setting the table property cdc=true, after which any commit log containing data for a CDC-enabled table will be moved to the CDC directory specified in `cassandra.yaml` on discard/flush (default: `cdc_raw`).
-Since Cassandra 4.0, commit logs can be synced to the `cdc_raw` directory periodically (by default, 10 seconds).
+The CDC feature can be enabled on the table level by setting the table property `cdc=true`, after which any commit log containing data for a CDC-enabled table will be moved to the CDC directory specified in `cassandra.yaml` on discard/flush (default: `cdc_raw`).
+Since Cassandra 4.0 (and back ported in C* 3.11+), the C* CDC feature has been improved such that commit logs can be synced to the `cdc_raw` directory periodically (by default, 10 seconds). This improvement makes the C* CDC feature near real-time.
 
 When CDC is enabled:
 
 . The change agent running on each node reads the Cassandra `commitlog` files in the `cdc_raw` directory and emits a message for each Cassandra mutation on a CDC-enabled table to a per-table events topic.
-. The {csc_pulsar} processes these events and fetches the mutated Cassandra row.
-. The {csc_pulsar} writes the row into the data topic. This ensures the most recent state of the Cassandra table is replicated into the data topic without the need to time re-order Cassandra mutations.
+. The {cdc_pulsar} agent processes these events and fetches the mutated Cassandra row.
+. The Cassandra Source Connector writes the row into the data topic with necessary processing tasks that make sure the most recent state of the Cassandra table is replicated into the data topic correctly (no duplication, right order, etc.)
 . Once the change agent processes all mutations in the commit log, it deletes the file from the `cdc_raw` directory.
 
-{cdc_cass} is tolerant of failures when processing the commit logs in the `cdc_raw` directory.
+{cdc_pulsar} is tolerant of failures when processing the commit logs in the `cdc_raw` directory.
 It maintains a processing offset for each commit log.
-If the change agent restarts, {cdc_cass} picks up where it left off using the recorded offset value.
+If the change agent restarts, {cdc_pulsar} picks up where it left off using the recorded offset value.
 
 The following table describes what is published to the data topic for each update to a CDC-enabled Cassandra table.
 
@@ -57,7 +57,7 @@ For example, with the Pulsar Elasticsearch connector, you need to set `nullValue
 
 The change agent runs on all Cassandra data nodes.
 This means that the agent processes the original write plus its replicas.
-To minimize the number of duplicate events that end up in the data topic, the {csc_pulsar} maintains an in-memory de-duplication cache.
+To minimize the number of duplicate events that end up in the data topic, the {cdc_pulsar} maintains an in-memory de-duplication cache.
 For each update to the table, an MD5 digest is calculated to de-duplicate the updates from the replicas.
 
 === Change Agent deployment matrix
@@ -130,7 +130,7 @@ If a row update contains both supported and unsupported data types, the event wi
 
 {cdc_cass} has the following limitations:
 
-* Does not manage table truncates.
+* Does not manage table truncates. The `TRUNCATE [TABLE]` command should not be used. 
 * Does not sync data available before starting the CDC agent.
 * Does not replay logged batches.
 * Does not manage time-to-live.
@@ -146,7 +146,7 @@ Schema registry updates on a Pulsar topic are controlled by the `is-allow-auto-u
 * `true` allows the broker to register a new schema for a topic and connect the producer if the schema is not registered.
 * `false` rejects the producer's connection to the broker if the schema is not registered.
 
-To ensure the {csc_pulsar} can automatically update the schema on the Pulsar topic, set the option to `true`. For more, see https://pulsar.apache.org/docs/en/schema-manage/[Schema Auto-Update].
+To ensure the {cdc_pulsar} can automatically update the schema on the Pulsar topic, set the option to `true`. For more, see https://pulsar.apache.org/docs/en/schema-manage/[Schema Auto-Update].
 
 === Multiple Cassandra datacenters
 
