@@ -49,7 +49,13 @@ public class PulsarContainer<SELF extends PulsarContainer<SELF>> extends Generic
         super(dockerImageName);
 
         withExposedPorts(BROKER_PORT, BROKER_HTTP_PORT);
-        withCommand("/pulsar/bin/pulsar", "standalone", "--no-functions-worker", "-nss");
+        String standaloneBaseCommand =
+                "/pulsar/bin/apply-config-from-env.py /pulsar/conf/standalone.conf " + "&& bin/pulsar standalone --no-functions-worker -nss";
+        withCommand("/bin/bash", "-c", standaloneBaseCommand);
+
+        // use standard BooKeeper LedgerStorage, not based on RocksDB, in order to see tests running M1
+        withEnv("PULSAR_PREFIX_ledgerStorageClass", "org.apache.bookkeeper.bookie.SortedLedgerStorage")
+
         withLogConsumer(o -> {
             log.info("[{}] {}", getContainerName(), o.getUtf8String().trim());
         });
@@ -66,7 +72,9 @@ public class PulsarContainer<SELF extends PulsarContainer<SELF>> extends Generic
         super.configure();
 
         if (functionsWorkerEnabled) {
-            withCommand("/pulsar/bin/pulsar", "standalone", "-nss");
+            String standaloneBaseCommand =
+                    "/pulsar/bin/apply-config-from-env.py /pulsar/conf/standalone.conf " + "&& bin/pulsar standalone -nss";
+            withCommand("/bin/bash", "-c", standaloneBaseCommand);
         }
     }
 
