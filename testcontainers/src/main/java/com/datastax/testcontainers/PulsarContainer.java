@@ -54,7 +54,7 @@ public class PulsarContainer<SELF extends PulsarContainer<SELF>> extends Generic
         withCommand("/bin/bash", "-c", standaloneBaseCommand);
 
         // use standard BooKeeper LedgerStorage, not based on RocksDB, in order to see tests running M1
-        withEnv("PULSAR_PREFIX_ledgerStorageClass", "org.apache.bookkeeper.bookie.SortedLedgerStorage")
+        withEnv("PULSAR_PREFIX_ledgerStorageClass", "org.apache.bookkeeper.bookie.SortedLedgerStorage");
 
         withLogConsumer(o -> {
             log.info("[{}] {}", getContainerName(), o.getUtf8String().trim());
