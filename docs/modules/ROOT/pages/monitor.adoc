@@ -1,4 +1,4 @@
-= Monitor {cdc_cass}
+= Monitoring {cdc_cass}
 
 == Change Agent Metrics
 

@@ -17,14 +17,14 @@ This installation requires:
 
 == Installing and configuring
 
-. Download the https://pulsar.apache.org/download/[Pulsar tarball] and set up a Pulsar cluster. This example uses Pulsar https://pulsar.apache.org/docs/en/standalone/[standalone mode], but you can also use our helpful https://github.com/datastax/pulsar-ansible[Ansible Scripts^].68
+. Download the https://pulsar.apache.org/download/[Pulsar tarball] and set up a Pulsar cluster. This example uses Pulsar https://pulsar.apache.org/docs/en/standalone/[standalone mode], but you can also use our helpful https://github.com/datastax/pulsar-ansible[Ansible Scripts^].
 +
 [source,bash]
 ----
 cd $PULSAR_HOME
 bin/pulsar standalone
 ----
-
++
 [NOTE]
 ====
 We recommend using the latest CDC agent version (at least version 1.04+) to support C* collection data types.
@@ -124,7 +124,7 @@ pulsar-client consume -s mysub -st auto_consume -n 0 persistent://public/default
 
 == What's next?
 
-For more on monitoring your {cdc_cass} deployment, see xref:monitor.adoc[Monitor {cdc_cass}].
+For more on monitoring your {cdc_cass} deployment, see xref:monitor.adoc[Monitor {cdc_cass}]. +
 For using CDC with Astra DB, see https://docs.datastax.com/en/astra-streaming/docs/astream-cdc.html[CDC for Astra DB].
 
 
