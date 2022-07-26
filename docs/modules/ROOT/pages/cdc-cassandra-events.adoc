@@ -25,7 +25,7 @@ For a given table, the change event’s key is an AVRO record that contains a fi
 
 Let's create a Cassandra table to illustrate what happens:
 
-[SOURCE]
+[source,bash]
 ----
 CREATE KEYSPACE ks1 WITH replication = {'class': 'NetworkTopologyStrategy', 'us-east1': '3'}  AND durable_writes = true;
 
@@ -50,7 +50,7 @@ CREATE TABLE ks1.tbl1 (
 
 Then insert a row:
 
-[SOURCE]
+[source,bash]
 ----
 INSERT INTO ks1.tbl1 (key, c1) VALUES (`3`, `bob3`)
 ----
@@ -59,7 +59,7 @@ When an `INSERT` statement is executed, the CDC agent catches the mutation from 
 
 Here is a JSON representation of the AVRO Record for the message key:
 
-[SOURCE]
+[source,bash]
 ----
 {
   "key": "3"
@@ -68,7 +68,7 @@ Here is a JSON representation of the AVRO Record for the message key:
 
 And a JSON representation of the AVRO Record for the message payload:
 
-[SOURCE]
+[source,bash]
 ----
 {
   "c1": "bob3"
@@ -83,7 +83,7 @@ When deleting a row, the Cassandra source connector will publish a tombstone mes
 
 You can check the connector status with the following command. The connector must be running.
 
-[SOURCE]
+[source,bash]
 ----
 bin/pulsar-admin source status --name cassandra-source-ks1-table1
 {
@@ -116,7 +116,7 @@ If you're having issues consuming CDC events, check the source connector logs on
 
 Check the source connector logs on your Pulsar function workers. The name of the logs depends on the connectors' name.
 
-[SOURCE]
+[source,bash]
 ----
 cat logs/functions/public/default/cassandra-source-ks1-table1/cassandra-source-ks1-table1-0.log
 ----
@@ -125,7 +125,7 @@ cat logs/functions/public/default/cassandra-source-ks1-table1/cassandra-source-k
 
 Check the https://pulsar.apache.org/docs/en/schema-manage/[Pulsar schema] to ensure the clean topic matches your CQL table:
 
-[SOURCE]
+[source,bash]
 ----
 bin/pulsar-admin schemas get "persistent://public/default/data-ks1.table1"
 {
