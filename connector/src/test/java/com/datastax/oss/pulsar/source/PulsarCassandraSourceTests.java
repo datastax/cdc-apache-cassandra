@@ -25,10 +25,16 @@ import com.datastax.oss.driver.api.core.data.CqlDuration;
 import com.datastax.oss.driver.api.core.data.UdtValue;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
 import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableSet;
+import com.datastax.oss.driver.shaded.guava.common.collect.Lists;
 import com.datastax.oss.pulsar.source.converters.NativeAvroConverter;
 import com.datastax.testcontainers.ChaosNetworkContainer;
 import com.datastax.testcontainers.PulsarContainer;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 import org.apache.pulsar.client.api.Consumer;
@@ -65,13 +71,7 @@ import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -81,7 +81,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 @Slf4j
-public class PulsarCassandraSourceTests {
+@RequiredArgsConstructor
+public abstract class PulsarCassandraSourceTests {
 
     private static final String CQL_VARINT = "cql_varint";
     private static final String CQL_DECIMAL = "cql_decimal";
@@ -101,6 +102,12 @@ public class PulsarCassandraSourceTests {
     private static PulsarContainer<?> pulsarContainer;
     private static CassandraContainer<?> cassandraContainer1;
     private static CassandraContainer<?> cassandraContainer2;
+
+    private static final ObjectMapper mapper = new ObjectMapper();
+
+    private final String outputFormat;
+
+    private final SchemaType schemaType;
 
     @BeforeAll
     public static void initBeforeClass() throws Exception {
@@ -147,42 +154,39 @@ public class PulsarCassandraSourceTests {
     }
 
     @Test
-    public void testSinglePkWithNativeAvroConverter() throws InterruptedException, IOException {
-        testSinglePk("ks1", NativeAvroConverter.class, NativeAvroConverter.class);
+    public void testSinglePk() throws InterruptedException, IOException {
+        testSinglePk("ks1");
     }
 
     @Test
-    public void testCompoundPkWithNativeAvroConverter() throws InterruptedException, IOException {
-        testCompoundPk("ks1", null, null);
+    public void testCompoundPk() throws InterruptedException, IOException {
+        testCompoundPk("ks1");
     }
 
     @Test
-    public void testSchemaWithNativeAvroConverter() throws InterruptedException, IOException {
-        testSchema("ks1", NativeAvroConverter.class, NativeAvroConverter.class);
+    public void testSchema() throws InterruptedException, IOException {
+        testSchema("ks1");
     }
 
     @Test
-    public void testStaticColumnWithNativeAvroConverter() throws InterruptedException, IOException {
-        testStaticColumn("ks1", NativeAvroConverter.class, NativeAvroConverter.class);
+    public void testStaticColumn() throws InterruptedException, IOException {
+        testStaticColumn("ks1");
     }
 
     @Test
-    public void testBatchInsertWithNativeAvroConverter() throws InterruptedException, IOException {
-        testBatchInsert("batchinsert", NativeAvroConverter.class, NativeAvroConverter.class);
+    public void testBatchInsert() throws InterruptedException, IOException {
+        testBatchInsert("batchinsert");
     }
 
-    void deployConnector(String ksName, String tableName,
-                         Class<? extends Converter> keyConverter,
-                         Class<? extends Converter> valueConverter) throws IOException, InterruptedException {
-        String config = String.format(Locale.ROOT, "{\"%s\":\"%s\", \"%s\":\"%s\", \"%s\":\"%s\", \"%s\":\"%s\", \"%s\": \"%s\", \"%s\":\"%s\" %s %s }",
+    void deployConnector(String ksName, String tableName) throws IOException, InterruptedException {
+        String config = String.format(Locale.ROOT, "{\"%s\":\"%s\", \"%s\":\"%s\", \"%s\":\"%s\", \"%s\":\"%s\", \"%s\": \"%s\", \"%s\":\"%s\", \"%s\":\"%s\"}",
                 CassandraSourceConnectorConfig.CONTACT_POINTS_OPT, "cassandra-1",
                 CassandraSourceConnectorConfig.DC_OPT, "datacenter1",
                 CassandraSourceConnectorConfig.KEYSPACE_NAME_CONFIG, ksName,
                 CassandraSourceConnectorConfig.TABLE_NAME_CONFIG, tableName,
                 CassandraSourceConnectorConfig.EVENTS_TOPIC_NAME_CONFIG, "persistent://public/default/events-" + ksName + "." + tableName,
                 CassandraSourceConnectorConfig.EVENTS_SUBSCRIPTION_NAME_CONFIG, "sub1",
-                keyConverter == null ? "" : ",\"" + CassandraSourceConnectorConfig.KEY_CONVERTER_CLASS_CONFIG + "\":\"" + keyConverter.getName() + "\"",
-                valueConverter == null ? "" : ",\"" + CassandraSourceConnectorConfig.VALUE_CONVERTER_CLASS_CONFIG + "\":\"" + valueConverter.getName() + "\"");
+                CassandraSourceConnectorConfig.OUTPUT_FORMAT, this.outputFormat);
         Container.ExecResult result = pulsarContainer.execInContainer(
                 "/pulsar/bin/pulsar-admin",
                 "source", "create",
@@ -228,9 +232,7 @@ public class PulsarCassandraSourceTests {
     }
 
     // docker exec -it pulsar cat /pulsar/logs/functions/public/default/cassandra-source-ks1-table1/cassandra-source-ks1-table1-0.log
-    public void testSinglePk(String ksName,
-                             Class<? extends Converter> keyConverter,
-                             Class<? extends Converter> valueConverter) throws InterruptedException, IOException {
+    public void testSinglePk(String ksName) throws InterruptedException, IOException {
         try {
             try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
                 cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName +
@@ -240,7 +242,7 @@ public class PulsarCassandraSourceTests {
                 cqlSession.execute("INSERT INTO " + ksName + ".table1 (id, a) VALUES('2',1)");
                 cqlSession.execute("INSERT INTO " + ksName + ".table1 (id, a) VALUES('3',1)");
             }
-            deployConnector(ksName, "table1", keyConverter, valueConverter);
+            deployConnector(ksName, "table1");
 
             try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
                 Map<String, Integer> mutationTable1 = new HashMap<>();
@@ -254,14 +256,13 @@ public class PulsarCassandraSourceTests {
                     Message<GenericRecord> msg;
                     while ((msg = consumer.receive(90, TimeUnit.SECONDS)) != null &&
                             mutationTable1.values().stream().mapToInt(i -> i).sum() < 4) {
-                        GenericObject genericObject = msg.getValue();
-                        assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
-                        KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
-                        GenericRecord key = kv.getKey();
-                        GenericRecord value = kv.getValue();
-                        assertEquals((Integer) 0, mutationTable1.computeIfAbsent((String) key.getField("id"), k -> 0));
+                        GenericRecord record = msg.getValue();
+                        assertEquals(this.schemaType, record.getSchemaType());
+                        Object key = getKey(msg);
+                        GenericRecord value = getValue(record);
+                        assertEquals((Integer) 0, mutationTable1.computeIfAbsent((String) getKeyField(key, "id"), k -> 0));
                         assertEquals(1, value.getField("a"));
-                        mutationTable1.compute((String) key.getField("id"), (k, v) -> v + 1);
+                        mutationTable1.compute((String) getKeyField(key, "id"), (k, v) -> v + 1);
                         consumer.acknowledge(msg);
                     }
                     assertEquals((Integer) 1, mutationTable1.get("1"));
@@ -275,15 +276,14 @@ public class PulsarCassandraSourceTests {
                     }
                     while ((msg = consumer.receive(90, TimeUnit.SECONDS)) != null &&
                             mutationTable1.values().stream().mapToInt(i -> i).sum() < 5) {
-                        GenericObject genericObject = msg.getValue();
-                        assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
-                        KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
-                        GenericRecord key = kv.getKey();
-                        GenericRecord value = kv.getValue();
-                        assertEquals("1", key.getField("id"));
+                        GenericRecord record = msg.getValue();
+                        assertEquals(this.schemaType, record.getSchemaType());
+                        Object key = getKey(msg);
+                        GenericRecord value = getValue(record);
+                        assertEquals("1", getKeyField(key, "id"));
                         assertEquals(1, value.getField("a"));
                         assertEquals(1.0D, value.getField("b"));
-                        mutationTable1.compute((String) key.getField("id"), (k, v) -> v + 1);
+                        mutationTable1.compute((String) getKeyField(key,"id"), (k, v) -> v + 1);
                         consumer.acknowledge(msg);
                     }
                     assertEquals((Integer) 2, mutationTable1.get("1"));
@@ -296,14 +296,13 @@ public class PulsarCassandraSourceTests {
                     }
                     while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null &&
                             mutationTable1.values().stream().mapToInt(i -> i).sum() < 6) {
-                        GenericObject genericObject = msg.getValue();
-                        assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
-                        KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
-                        GenericRecord key = kv.getKey();
-                        GenericRecord value = kv.getValue();
-                        assertEquals("1", key.getField("id"));
+                        GenericRecord record = msg.getValue();
+                        assertEquals(this.schemaType, record.getSchemaType());
+                        Object key = getKey(msg);
+                        GenericRecord value = getValue(record);
+                        assertEquals("1", getKeyField(key, "id"));
                         assertNull(value);
-                        mutationTable1.compute((String) key.getField("id"), (k, v) -> v + 1);
+                        mutationTable1.compute((String) getKeyField(key, "id"), (k, v) -> v + 1);
                         consumer.acknowledge(msg);
                     }
                     assertEquals((Integer) 3, mutationTable1.get("1"));
@@ -318,9 +317,7 @@ public class PulsarCassandraSourceTests {
     }
 
     // docker exec -it pulsar cat /pulsar/logs/functions/public/default/cassandra-source-ks1-table2/cassandra-source-ks1-table2-0.log
-    public void testCompoundPk(String ksName,
-                               Class<? extends Converter> keyConverter,
-                               Class<? extends Converter> valueConverter) throws InterruptedException, IOException {
+    public void testCompoundPk(String ksName) throws InterruptedException, IOException {
         try {
             try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
                 cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName +
@@ -330,7 +327,7 @@ public class PulsarCassandraSourceTests {
                 cqlSession.execute("INSERT INTO " + ksName + ".table2 (a,b,c) VALUES('2',1,1)");
                 cqlSession.execute("INSERT INTO " + ksName + ".table2 (a,b,c) VALUES('3',1,1)");
             }
-            deployConnector(ksName, "table2", keyConverter, valueConverter);
+            deployConnector(ksName, "table2");
             try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
                 Map<String, Integer> mutationTable2 = new HashMap<>();
                 try (Consumer<GenericRecord> consumer = pulsarClient.newConsumer(org.apache.pulsar.client.api.Schema.AUTO_CONSUME())
@@ -344,7 +341,7 @@ public class PulsarCassandraSourceTests {
                     while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null &&
                             mutationTable2.values().stream().mapToInt(i -> i).sum() < 4) {
                         GenericObject genericObject = msg.getValue();
-                        assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
+                        assertEquals(this.schemaType, genericObject.getSchemaType());
                         KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
                         GenericRecord key = kv.getKey();
                         GenericRecord value = kv.getValue();
@@ -367,7 +364,7 @@ public class PulsarCassandraSourceTests {
                     while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null &&
                             mutationTable2.values().stream().mapToInt(i -> i).sum() < 5) {
                         GenericObject genericObject = msg.getValue();
-                        assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
+                        assertEquals(this.schemaType, genericObject.getSchemaType());
                         KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
                         GenericRecord key = kv.getKey();
                         GenericRecord value = kv.getValue();
@@ -391,7 +388,7 @@ public class PulsarCassandraSourceTests {
                     while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null &&
                             mutationTable2.values().stream().mapToInt(i -> i).sum() < 6) {
                         GenericObject genericObject = msg.getValue();
-                        assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
+                        assertEquals(this.schemaType, genericObject.getSchemaType());
                         KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
                         GenericRecord key = kv.getKey();
                         GenericRecord value = kv.getValue();
@@ -413,9 +410,7 @@ public class PulsarCassandraSourceTests {
     }
 
     // docker exec -it pulsar cat /pulsar/logs/functions/public/default/cassandra-source-ks1-table3/cassandra-source-ks1-table3-0.log
-    public void testSchema(String ksName,
-                           Class<? extends Converter> keyConverter,
-                           Class<? extends Converter> valueConverter) throws InterruptedException, IOException {
+    public void testSchema(String ksName) throws InterruptedException, IOException {
         try {
             try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
                 cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName +
@@ -516,7 +511,7 @@ public class PulsarCassandraSourceTests {
                         ImmutableSet.of(zudtValue, zudtValue)
                 );
             }
-            deployConnector(ksName, "table3", keyConverter, valueConverter);
+            deployConnector(ksName, "table3");
             try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
                 try (Consumer<GenericRecord> consumer = pulsarClient.newConsumer(org.apache.pulsar.client.api.Schema.AUTO_CONSUME())
                         .topic(String.format(Locale.ROOT, "data-%s.table3", ksName))
@@ -528,17 +523,16 @@ public class PulsarCassandraSourceTests {
                     int mutationTable3Count = 0;
                     Message<GenericRecord> msg;
                     while ((msg = consumer.receive(120, TimeUnit.SECONDS)) != null && mutationTable3Count < 1) {
-                        GenericObject genericObject = msg.getValue();
+                        GenericRecord genericRecord = msg.getValue();
                         mutationTable3Count++;
-                        assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
-                        KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
-                        GenericRecord key = kv.getKey();
-                        GenericRecord value = kv.getValue();
+                        assertEquals(this.schemaType, genericRecord.getSchemaType());
+                        Object key = getKey(msg);
+                        GenericRecord value = getValue(genericRecord);
 
                         // check primary key fields
-                        Map<String, Object> keyMap = genericRecordToMap(key);
-                        for (Field field : key.getFields()) {
-                            assertField(field.getName(), keyMap.get(field.getName()));
+                        Map<String, Object> keyMap = keyToMap(key);
+                        for (String fieldName : getKeyFields(key)) {
+                            assertField(fieldName, keyMap.get(fieldName));
                         }
 
                         // check regular columns.
@@ -677,16 +671,14 @@ public class PulsarCassandraSourceTests {
         Assert.assertTrue("Unexpected field="+field, false);
     }
 
-    public void testBatchInsert(String ksName,
-                             Class<? extends Converter> keyConverter,
-                             Class<? extends Converter> valueConverter) throws InterruptedException, IOException {
+    public void testBatchInsert(String ksName) throws InterruptedException, IOException {
         try {
             try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
                 cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName +
                         " WITH replication = {'class':'SimpleStrategy','replication_factor':'2'};");
                 cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table1 (id text, a int, b int, PRIMARY KEY (id, a)) WITH cdc=true");
             }
-            deployConnector(ksName, "table1", keyConverter, valueConverter);
+            deployConnector(ksName, "table1");
 
             // run batch insert in parallel
             Executors.newSingleThreadExecutor().submit(() -> {
@@ -718,7 +710,7 @@ public class PulsarCassandraSourceTests {
                     while ((msg = consumer.receive(90, TimeUnit.SECONDS)) != null && msgCount < 10000) {
                         msgCount++;
                         GenericObject genericObject = msg.getValue();
-                        assertEquals(SchemaType.KEY_VALUE, genericObject.getSchemaType());
+                        assertEquals(this.schemaType, genericObject.getSchemaType());
                         KeyValue<GenericRecord, GenericRecord> kv = (KeyValue<GenericRecord, GenericRecord>) genericObject.getNativeObject();
                         GenericRecord key = kv.getKey();
                         Assert.assertTrue(((String)key.getField("id")).startsWith("a"));
@@ -743,7 +735,7 @@ public class PulsarCassandraSourceTests {
                 cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table1 (id text PRIMARY KEY, a int) WITH cdc=true");
                 cqlSession.execute("INSERT INTO " + ksName + ".table1 (id, a) VALUES('1',1)");
 
-                deployConnector(ksName, "table1", NativeAvroConverter.class, NativeAvroConverter.class);
+                deployConnector(ksName, "table1");
 
                 chaosContainer.start();
                 cqlSession.execute("INSERT INTO " + ksName + ".table1 (id, a) VALUES('2',1)");
@@ -786,7 +778,7 @@ public class PulsarCassandraSourceTests {
                 cqlSession.execute("INSERT INTO " + ksName + ".table1 (id, a) VALUES('3',1)");
             }
             chaosContainer.start();
-            deployConnector(ksName, "table1", NativeAvroConverter.class, NativeAvroConverter.class);
+            deployConnector(ksName, "table1");
             try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
                 try (Consumer<GenericRecord> consumer = pulsarClient.newConsumer(org.apache.pulsar.client.api.Schema.AUTO_CONSUME())
                         .topic(String.format(Locale.ROOT, "data-%s.table1", ksName))
@@ -812,16 +804,14 @@ public class PulsarCassandraSourceTests {
     }
 
     // docker exec -it pulsar cat /pulsar/logs/functions/public/default/cassandra-source-ks4-table3/cassandra-source-ks1-table4-0.log
-    public void testStaticColumn(String ksName,
-                                 Class<? extends Converter> keyConverter,
-                                 Class<? extends Converter> valueConverter) throws InterruptedException, IOException {
+    public void testStaticColumn(String ksName) throws InterruptedException, IOException {
         try {
             try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
                 cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName + " WITH replication = {'class':'SimpleStrategy','replication_factor':'1'};");
                 cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table4 (a text, b text, c text, d text static, PRIMARY KEY ((a), b)) with cdc=true;");
                 cqlSession.execute("INSERT INTO " + ksName + ".table4 (a,b,c,d) VALUES ('a','b','c','d1');");
             }
-            deployConnector(ksName, "table4", keyConverter, valueConverter);
+            deployConnector(ksName, "table4");
 
             try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
                 // test support for static column update in table4
@@ -897,12 +887,63 @@ public class PulsarCassandraSourceTests {
         return sb.append("}").toString();
     }
 
+    static Map<String, Object> keyToMap(Object key) {
+        if (key instanceof GenericRecord) {
+            return genericRecordToMap((GenericRecord) key);
+        } else if (key instanceof JsonNode) {
+            return jsonNodeToMap((JsonNode) key);
+        }
+
+        throw new RuntimeException("unknown key type " + key.getClass().getName());
+    }
+
     static Map<String, Object> genericRecordToMap(GenericRecord genericRecord) {
         Map<String, Object> map = new HashMap<>();
         for (Field field : genericRecord.getFields()) {
             map.put(field.getName(), genericRecord.getField(field));
         }
         return map;
+    }
+
+    static Map<String, Object> jsonNodeToMap(JsonNode jsonNode) {
+        return mapper.convertValue(jsonNode, new TypeReference<Map<String, Object>>(){});
+    }
+
+    private Object getKey(Message<GenericRecord> msg) {
+        Object nativeObject = msg.getValue().getNativeObject();
+        try {
+            return (nativeObject instanceof KeyValue) ?
+                    ((KeyValue<GenericRecord, GenericRecord>)nativeObject).getKey():
+                    mapper.readTree(msg.getKey());
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private Object getKeyField(Object key, String fieldName) {
+        if (key instanceof GenericRecord) {
+            return ((GenericRecord) key).getField(fieldName);
+        } else if (key instanceof JsonNode) {
+            return ((JsonNode) key).get(fieldName).asText();
+        }
+
+        throw new RuntimeException("unknown key type " + key.getClass().getName());
+    }
+
+    private List<String> getKeyFields(Object key) {
+        if (key instanceof GenericRecord) {
+            return ((GenericRecord) key).getFields().stream().map(f->f.getName()).collect(Collectors.toList());
+        } else if (key instanceof JsonNode) {
+            return Lists.newArrayList(((JsonNode) key).fieldNames());
+        }
+
+        throw new RuntimeException("unknown key type " + key.getClass().getName());
+    }
+
+    private GenericRecord getValue(GenericRecord genericRecord) {
+        return (genericRecord.getNativeObject() instanceof KeyValue) ?
+                ((KeyValue<GenericRecord, GenericRecord>)genericRecord.getNativeObject()).getValue() :
+                genericRecord;
     }
 
     protected void dumpFunctionLogs(String name) {

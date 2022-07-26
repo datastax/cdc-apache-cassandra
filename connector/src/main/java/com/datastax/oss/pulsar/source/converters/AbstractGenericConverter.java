@@ -26,32 +26,21 @@ import com.datastax.oss.driver.api.core.type.DataType;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
 import com.datastax.oss.protocol.internal.ProtocolConstants;
 import com.datastax.oss.pulsar.source.Converter;
-import com.google.common.net.InetAddresses;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.avro.util.internal.JacksonUtils;
 import org.apache.pulsar.client.api.Schema;
-import org.apache.pulsar.client.api.schema.Field;
-import org.apache.pulsar.client.api.schema.FieldSchemaBuilder;
-import org.apache.pulsar.client.api.schema.GenericRecord;
-import org.apache.pulsar.client.api.schema.GenericRecordBuilder;
-import org.apache.pulsar.client.api.schema.GenericSchema;
-import org.apache.pulsar.client.api.schema.RecordSchemaBuilder;
-import org.apache.pulsar.client.api.schema.SchemaBuilder;
+import org.apache.pulsar.client.api.schema.*;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
 
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 
 @Slf4j
-public abstract class AbstractGenericConverter implements Converter<GenericRecord, GenericRecord, Row, List<Object>> {
+public abstract class AbstractGenericConverter implements Converter<GenericRecord, GenericRecord, Row, GenericRecord> {
 
     public final GenericSchema<GenericRecord> schema;
     public final SchemaInfo schemaInfo;
@@ -336,44 +325,28 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
     }
 
     /**
-     * Convert GenericRecord to primary key column values.
+     * Convert GenericRecord from the dirty topic to a GenericRecord of the data topic that are sink ready.
      *
-     * @param genericRecord
-     * @return list of primary key column values
+     * @param genericRecord the avro key generic record read from the dirty topic
+     * @return schema type encoded key (e.g. JSON)
      */
     @Override
-    public List<Object> fromConnectData(GenericRecord genericRecord) {
-        List<Object> pk = new ArrayList<>(tableMetadata.getPrimaryKey().size());
-        for(ColumnMetadata cm : tableMetadata.getPrimaryKey()) {
-            Object value = genericRecord.getField(cm.getName().asInternal());
-            if (value != null) {
-                switch (cm.getType().getProtocolCode()) {
-                    case ProtocolConstants.DataType.INET:
-                        value = InetAddresses.forString((String)value);
-                        break;
-                    case ProtocolConstants.DataType.UUID:
-                    case ProtocolConstants.DataType.TIMEUUID:
-                        value = UUID.fromString((String) value);
-                        break;
-                    case ProtocolConstants.DataType.TINYINT:
-                        value = ((Integer) value).byteValue();
-                        break;
-                    case ProtocolConstants.DataType.SMALLINT:
-                        value = ((Integer) value).shortValue();
-                        break;
-                    case ProtocolConstants.DataType.TIMESTAMP:
-                        value = Instant.ofEpochMilli((long) value);
-                        break;
-                    case ProtocolConstants.DataType.DATE:
-                        value = LocalDate.ofEpochDay((int) value);
-                        break;
-                    case ProtocolConstants.DataType.TIME:
-                        value = LocalTime.ofNanoOfDay( ((Integer)value).longValue() * 1000000);
-                        break;
-                }
-            }
-            pk.add(value);
+    public GenericRecord fromConnectData(GenericRecord genericRecord) {
+        if (genericRecord.getSchemaType() == this.schemaType) {
+            return genericRecord;
         }
-        return pk;
+
+        if (genericRecord.getSchemaType() == SchemaType.AVRO) {
+            GenericRecordBuilder builder = this.schema.newRecordBuilder();
+            for (Field field: genericRecord.getFields()) {
+                // handle nested AVRO objects
+                builder.set(field, JacksonUtils.toJsonNode(genericRecord.getField(field)));
+            }
+            return builder.build();
+        }
+
+        throw new UnsupportedOperationException(
+                String.format("Cannot convert from %s to a generic record with schema type %s" ,
+                genericRecord, this.schemaType));
     }
 }

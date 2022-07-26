@@ -80,6 +80,8 @@ public class CassandraSourceConnectorConfig {
     public static final String PORT_OPT = "port";
 
     public static final String DC_OPT = "loadBalancing.localDc";
+
+    public static final String OUTPUT_FORMAT = "outputFormat";
     static final String LOCAL_DC_DRIVER_SETTING =
             withDriverPrefix(DefaultDriverOption.LOAD_BALANCING_LOCAL_DATACENTER);
 
@@ -305,7 +307,17 @@ public class CassandraSourceConnectorConfig {
                             ConfigDef.Type.STRING,
                             "",
                             ConfigDef.Importance.HIGH,
-                            "The location of the cloud secure bundle used to connect to Datastax Astra DB.");
+                            "The location of the cloud secure bundle used to connect to Datastax Astra DB.")
+                    .define(OUTPUT_FORMAT,
+                            ConfigDef.Type.STRING,
+                            "key-value-avro",
+                            ConfigDef.ValidString.in("key-value-avro", "key-value-json", "json"),
+                            ConfigDef.Importance.LOW,
+                            "The format of the messages on the data topic. "
+                                    + "Valid values are: "
+                                    + "key-value-avro (encodes the key and value separately, both in AVRO format), "
+                                    + "key-value-json (encodes the key and value separately, both in JSON format), "
+                                    + "json (key and value are encoded together in single JSON object)" );
     private static final Function<String, String> TO_SECONDS_CONVERTER =
             v -> String.format("%s seconds", v);
 
@@ -714,6 +726,22 @@ public class CassandraSourceConnectorConfig {
 
     public AuthenticatorConfig getAuthenticatorConfig() {
         return authConfig;
+    }
+
+    public String getOutputFormat() {
+        return globalConfig.getString(OUTPUT_FORMAT);
+    }
+
+    public boolean isAvroOutputFormat() {
+        return globalConfig.getString(OUTPUT_FORMAT).contains("avro");
+    }
+
+    public boolean isJsonOutputFormat() {
+        return globalConfig.getString(OUTPUT_FORMAT).contains("json");
+    }
+
+    public boolean isJsonOnlyOutputFormat() {
+        return globalConfig.getString(OUTPUT_FORMAT).equals("json");
     }
 
     @Nullable
