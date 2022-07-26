@@ -9,9 +9,9 @@ By downloading this DataStax product, you agree to the terms of the open-source 
 
 Perform the following steps:
 
-. Download the change agent tar file from the https://downloads.datastax.com/#cassandra-change-agent[DataStax downloads page].
-
+. Download the change agent tar file from the https://downloads.datastax.com/#cassandra-change-agent[DataStax downloads page]. +
 The following files are available in the tar file:
++
 [cols="1,1"]
 |===
 | Cassandra type | JAR file

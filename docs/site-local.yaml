@@ -1,7 +1,7 @@
 site:
   title: DataStax CDC for Apache Cassandra documentation
   url: /docs/cdc-apache-cassandra
-  start_page: cdc-apache-cassandra::index.adoc
+  start_page: docs::index.adoc
 
 content:
   sources:
