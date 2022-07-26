@@ -19,7 +19,6 @@ This document lists the CDC Change Agent parameter mappings between the JVM opti
 == Change Agent Parameter Mappings
 
 [cols="2,3,1"]
-[%autowidth]
 |===
 |JVM Option | Description | System Mapping
 | *topicPrefix*

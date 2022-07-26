@@ -50,7 +50,7 @@ JVM_OPTS="$JVM_OPTS -javaagent:/home/automaton/cdc104/agent-dse4-pulsar-1.0.5-al
 +
 For CDC agent versions *after 1.03*, the CDC agent Pulsar connection parameters are provided as system environment variables (see *DSE CDC* in the example above).
 +
-For CDC agent versions *before 1.03*, the CDC agent Pulsar connection parameters are provided as extra JVM options, as below:
+For CDC agent versions *before 1.03*, the CDC agent Pulsar connection parameters are also provided as extra JVM options, as below:
 +
 [source,bash]
 ----

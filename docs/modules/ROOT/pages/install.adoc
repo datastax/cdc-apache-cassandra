@@ -43,7 +43,7 @@ In CDC agent versions *before 1.0.3*, the CDC agent Pulsar connection parameters
 export JVM_EXTRA_OPTS="-javaagent:/path/to/agent-c4-<version>-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
 ----
 
-In CDC agent versions *after 1.0.3*, the CDC agent Pulsar connection parameters are provided as system environment parameters in `cassandra-env.sh`. The same JVM option above is now appended to `cassandra-env.sh` as below:
+In CDC agent versions *after 1.0.3*, the CDC agent Pulsar connection parameters are also provided as system environment parameters in `cassandra-env.sh`. The same JVM option above is now appended to `cassandra-env.sh` as below:
 
 [source,bash]
 ----
