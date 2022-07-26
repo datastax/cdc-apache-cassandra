@@ -1,0 +1,149 @@
+= CDC Change Agent Parameter Mappings
+
+In CDC versions *before 1.0.3*, the CDC agent Pulsar connection parameters were provided as extra JVM options after the `.jar` file name in the form of a comma-separated list of `paramName=paramValue`, as below:
+
+[source,bash]
+----
+export JVM_EXTRA_OPTS="-javaagent:/path/to/agent-c4-luna-<version>-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
+----
+
+In CDC versions *after 1.0.3*, the CDC agent Pulsar connection parameters are also provided as system environment parameters in `cassandra-env.sh`. The JVM option above is now appended to `cassandra-env.sh` as below:
+
+[source,bash]
+----
+export CDC_PULSAR_SERVICE_URL="pulsar://<pulsar_server_ip>:6650"
+----
+
+This document lists the CDC Change Agent parameter mappings between the JVM option strings and C* strings. 
+
+== Change Agent Parameter Mappings
+
+[cols="2,3,1"]
+[%autowidth]
+|===
+|JVM Option | Description | System Mapping
+| *topicPrefix*
+| The event topic name prefix. The `<keyspace_name>.<table_name>` is appended to that prefix to build the topic name.
+| TOPIC_PREFIX
+
+
+| *cdcWorkingDir*
+| The CDC working directory where the last sent offset is saved, and where the archived and errored commitlogs files are copied.
+| CDC_WORKING_DIR
+
+
+| *cdcPollIntervalMs*
+| The poll interval in milliseconds for watching new commitlog files in the CDC raw directory.
+| CDC_DIR_POLL_INTERNAL_MS
+
+
+| *errorCommitLogReprocessEnabled*
+| Enable the re-processing of error commitlogs files.
+| ERROR_COMMITLOG_REPROCESS_ENABLED
+
+
+| *cdcConcurrentProcessors*
+| The number of threads used to process commitlog files. The default value is the `memtable_flush_writers`.
+| CDC_CONCURRENT_PROCESSORS
+
+
+| *maxInflightMessagesPerTask*
+| The maximum number of in-flight messages per commitlog processing task.
+| MAX_INFLIGHT_MESSAGES_PER_TASK
+
+
+| *pulsarServiceUrl*
+| The Pulsar broker service URL.
+| PULSAR_SERVICE_URL
+
+
+| *pulsarBatchDelayInMs*
+| Pulsar batching delay in milliseconds. Pulsar batching is enabled when this value is greater than zero.
+| PULSAR_BATCH_DELAY_IN_MS
+
+
+| *pulsarKeyBasedBatcher*
+| When true, use the Pulsar KEY_BASED BatchBuilder.
+| PULSAR_KEY_BASED_BATCHER
+
+
+| *pulsarMaxPendingMessages*
+| The Pulsar maximum size of a queue holding pending messages.
+| PULSAR_MAX_PENDING_MESSAGES
+
+
+| *pulsarMaxPendingMessagesAcrossPartitions*
+| The Pulsar maximum number of pending messages across partitions.
+| PULSAR_MAX_PENDING_MESSAGES_ACROSS_PARTITIONS
+
+
+| *pulsarAuthPluginClassName*
+| The Pulsar authentication plugin class name.
+| PULSAR_AUTH_PLUGIN_CLASS_NAME
+
+
+| *pulsarAuthParams*
+| The Pulsar authentication parameters.
+| PULSAR_AUTH_PARAMS
+
+
+| *sslProvider*
+| The SSL/TLS provider to use.
+| SSL_PROVIDER
+
+
+| *sslTruststorePath*
+| The path to the SSL/TLS truststore file.
+| SSL_TRUSTSTORE_PATH
+
+
+| *sslTruststorePassword*
+| The password for the SSL/TLS truststore.
+| SSL_TRUSTSTORE_PASSWORD
+
+
+| *sslTruststoreType*
+| The type of the SSL/TLS truststore.
+| SSL_TRUSTSTORE_TYPE
+
+
+| *sslKeystorePath*
+| The path to the SSL/TLS keystore file.
+| SSL_KEYSTORE_PATH
+
+
+| *sslKeystorePassword*
+| The password for the SSL/TLS keystore.
+| SSL_KEYSTORE_PASSWORD
+
+
+| *sslCipherSuites*
+| Defines one or more cipher suites to use for negotiating the SSL/TLS connection.
+| SSL_CIPHER_SUITES
+
+
+| *sslEnabledProtocols*
+| Enabled SSL/TLS protocols
+| SSL_ENABLED_PROTOCOLS
+
+
+| *sslAllowInsecureConnection*
+| Allows insecure connections to servers whose certificate has not been signed by an approved CA. You should always disable `sslAllowInsecureConnection` in production environments.
+| SSL_ALLOW_INSECURE_CONNECTION
+
+
+| *sslHostnameVerificationEnable*
+| Enable the server hostname verification.
+| SSL_HOSTNAME_VERIFICATION_ENABLE
+
+
+| *tlsTrustCertsFilePath*
+| The path to the trusted TLS certificate file.
+| TLS_TRUST_CERTS_FILE_PATH
+
+
+| *useKeyStoreTls*
+| Enable or disable TLS keystore.
+| USE_KEYSTORE_TLS
+
+|===
