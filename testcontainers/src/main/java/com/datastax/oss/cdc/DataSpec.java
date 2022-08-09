@@ -58,6 +58,18 @@ public class DataSpec
         this.primaryKey = primaryKey;
         this.clusteringKey = clusteringKey;
     }
+    public Object jsonValue() {
+        if (avroValue instanceof ByteBuffer) {
+            // jackson encodes byte[] as Base64 string
+            byte[] bytes = ((ByteBuffer) avroValue).array();
+            return ((ByteBuffer) avroValue).array();
+        } else if (avroValue instanceof Float) {
+            // jackson encodes both doubles and floats exactly the same, it is safe to cast to a higher precision
+            return ((Float) avroValue).doubleValue();
+        }
+
+        return avroValue;
+    }
 
     public static final List<DataSpec> dataSpecs = new Vector<>();
     public static Map<String, DataSpec> dataSpecMap;
@@ -80,7 +92,7 @@ public class DataSpec
         dataSpecs.add(new DataSpec("tinyint", (byte) 0x01, (int) 0x01)); // Avro only support integer
         dataSpecs.add(new DataSpec("smallint", (short) 1, (int) 1)); // Avro only support integer
         dataSpecs.add(new DataSpec("int", 1));
-        dataSpecs.add(new DataSpec("bigint", 1L));
+        dataSpecs.add(new DataSpec("bigint", Long.MAX_VALUE)); // Jackson will decide at runtime to deserialize a number as int or long, using max long value to force it to use long.
         dataSpecs.add(new DataSpec("varint", new BigInteger("314"), new CqlLogicalTypes.CqlVarintConversion().toBytes(new BigInteger("314"), CqlLogicalTypes.varintType, CqlLogicalTypes.CQL_VARINT_LOGICAL_TYPE)));
         dataSpecs.add(new DataSpec("decimal", new BigDecimal(314.16), new BigDecimal(314.16)));
         dataSpecs.add(new DataSpec("double", 1.0D));

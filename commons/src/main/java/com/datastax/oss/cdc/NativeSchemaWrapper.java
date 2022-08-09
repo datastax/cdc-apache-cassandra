@@ -25,18 +25,21 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Optional;
 
-public class AvroSchemaWrapper implements org.apache.pulsar.client.api.Schema<byte[]> {
+public class NativeSchemaWrapper implements org.apache.pulsar.client.api.Schema<byte[]> {
 
-    private final SchemaInfo schemaInfo;
-    private final Schema nativeAvroSchema;
+    private final SchemaInfo pulsarSchemaInfo;
+    private final Schema nativeSchema;
 
-    public AvroSchemaWrapper(Schema nativeAvroSchema) {
-        this.nativeAvroSchema = nativeAvroSchema;
-        this.schemaInfo = SchemaInfoImpl.builder()
-                .schema(nativeAvroSchema.toString(false).getBytes(StandardCharsets.UTF_8))
+    private final SchemaType pulsarSchemaType;
+
+    public NativeSchemaWrapper(Schema nativeSchema, SchemaType pulsarSchemaType) {
+        this.nativeSchema = nativeSchema;
+        this.pulsarSchemaType = pulsarSchemaType;
+        this.pulsarSchemaInfo = SchemaInfoImpl.builder()
+                .schema(nativeSchema.toString(false).getBytes(StandardCharsets.UTF_8))
                 .properties(new HashMap<>())
-                .type(SchemaType.AVRO)
-                .name(nativeAvroSchema.getName())
+                .type(pulsarSchemaType)
+                .name(nativeSchema.getName())
                 .build();
     }
 
@@ -47,12 +50,12 @@ public class AvroSchemaWrapper implements org.apache.pulsar.client.api.Schema<by
 
     @Override
     public SchemaInfo getSchemaInfo() {
-        return schemaInfo;
+        return pulsarSchemaInfo;
     }
 
     @Override
-    public AvroSchemaWrapper clone() {
-        return new AvroSchemaWrapper(nativeAvroSchema);
+    public NativeSchemaWrapper clone() {
+        return new NativeSchemaWrapper(nativeSchema, pulsarSchemaType);
     }
 
     @Override
@@ -92,6 +95,6 @@ public class AvroSchemaWrapper implements org.apache.pulsar.client.api.Schema<by
 
     @Override
     public Optional<Object> getNativeSchema() {
-        return Optional.of(nativeAvroSchema);
+        return Optional.of(nativeSchema);
     }
 }
