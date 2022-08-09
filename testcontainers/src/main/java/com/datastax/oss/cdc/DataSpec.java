@@ -61,7 +61,6 @@ public class DataSpec
     public Object jsonValue() {
         if (avroValue instanceof ByteBuffer) {
             // jackson encodes byte[] as Base64 string
-            byte[] bytes = ((ByteBuffer) avroValue).array();
             return ((ByteBuffer) avroValue).array();
         } else if (avroValue instanceof Float) {
             // jackson encodes both doubles and floats exactly the same, it is safe to cast to a higher precision

@@ -752,9 +752,9 @@ public abstract class PulsarCassandraSourceTests {
             }
             case "setofudt": {
                 for (JsonNode udtNode : node) {
-                    for (Iterator<String> it = udtNode.fieldNames(); it.hasNext(); ) {
-                        String f = it.next();
-                        assertField(f, udtNode.get(f));
+                    for (Iterator<Map.Entry<String, JsonNode>> it = udtNode.fields(); it.hasNext(); ) {
+                        Map.Entry<String, JsonNode> f = it.next();
+                        assertField(f.getKey(), f.getValue());
                     }
                 }
                 return;
@@ -775,9 +775,9 @@ public abstract class PulsarCassandraSourceTests {
             }
             return;
             case "udt": {
-                for (Iterator<String> it = node.fieldNames(); it.hasNext(); ) {
-                    String f = it.next();
-                    assertField(f, node.get(f));
+                for (Iterator<Map.Entry<String, JsonNode>> it = node.fields(); it.hasNext(); ) {
+                    Map.Entry<String, JsonNode> f = it.next();
+                    assertField(f.getKey(), f.getValue());
                 }
             }
             return;
@@ -968,9 +968,10 @@ public abstract class PulsarCassandraSourceTests {
                     Assert.assertNotNull("Expecting one message, check the agent log", msg);
                     GenericRecord record3 = msg.getValue();
                     Object key3 = getKey(msg);
+                    GenericRecord val3 = getValue(record3);
                     Assert.assertEquals("a", getAndAssertKeyFieldAsString(key3, "a"));
                     assertKeyFieldIsNull(key3, "b");
-                    assertNullValue(record3);
+                    assertNullValue(val3);
                     consumer.acknowledgeAsync(msg);
                 }
             }
@@ -1038,19 +1039,6 @@ public abstract class PulsarCassandraSourceTests {
 
     @SneakyThrows
     private JsonNode readTree(String json)  {
-        // Jackson readTree looses precision for BegDecimal (will use a double).
-        //Pattern XDECIMAL = Pattern.compile("\"xdecimal\":(.*?),");
-        //Matcher matcher = XDECIMAL.matcher(json);
-//        JsonNode node;
-//        try {
-//            node = mapper.readTree(json);
-//        } catch (JsonProcessingException e) {
-//            throw new RuntimeException(e);
-//        }
-//        if (matcher.find()) {
-//            ((ObjectNode)node).set("xdecimal", new DecimalNode(new BigDecimal(matcher.group(1))));
-//        }
-
         return mapper.readTree(json);
     }
 
@@ -1083,9 +1071,9 @@ public abstract class PulsarCassandraSourceTests {
             assertNull(((GenericRecord) key).getField(fieldName));
         } else if (key instanceof JsonNode) {
             assertTrue(((JsonNode) key).get(fieldName).isNull());
+        } else {
+            throw new RuntimeException("unknown key type " + key.getClass().getName());
         }
-
-        throw new RuntimeException("unknown key type " + key.getClass().getName());
     }
 
     private List<String> getKeyFields(Object key) {
@@ -1105,7 +1093,7 @@ public abstract class PulsarCassandraSourceTests {
     }
 
     private void assertNullValue(GenericRecord value) {
-        if (this.outputFormat.contains("json")) {
+        if (this.outputFormat.equals("json")) {
             // With JSON only format, the data topic receives an empty JSON for delete mutations
             assertEquals("{}", value.getNativeObject().toString());
         } else {

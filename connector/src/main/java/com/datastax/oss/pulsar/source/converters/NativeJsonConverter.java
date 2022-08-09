@@ -5,11 +5,13 @@ import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.cql.ColumnDefinition;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.data.CqlDuration;
+import com.datastax.oss.driver.api.core.data.GettableById;
 import com.datastax.oss.driver.api.core.data.UdtValue;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import com.datastax.oss.driver.api.core.type.DataType;
+import com.datastax.oss.driver.api.core.type.DataTypes;
 import com.datastax.oss.driver.api.core.type.ListType;
 import com.datastax.oss.driver.api.core.type.MapType;
 import com.datastax.oss.driver.api.core.type.SetType;
@@ -32,7 +34,6 @@ import org.apache.avro.generic.IndexedRecord;
 import org.apache.avro.specific.SpecificData;
 import org.apache.pulsar.common.schema.SchemaType;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -63,90 +64,105 @@ public class NativeJsonConverter extends AbstractNativeConverter<byte[]> {
         ObjectNode node = jsonNodeFactory.objectNode();
         for(ColumnDefinition cm : row.getColumnDefinitions()) {
             String fieldName = cm.getName().toString();
-            node.set(fieldName, toJson(row, cm));
+            node.set(fieldName, toJson(row, cm.getName(), cm.getType()));
         }
         return serializeJsonNode(node);
     }
 
-    JsonNode toJson(Row row, ColumnDefinition cm) {
-        if (row.isNull(cm.getName())) {
+    JsonNode toJson(GettableById record, CqlIdentifier identifier, DataType dataType) {
+        if (record.isNull(identifier)) {
             return jsonNodeFactory.nullNode();
         }
-        switch (cm.getType().getProtocolCode()) {
+        switch (dataType.getProtocolCode()) {
             case ProtocolConstants.DataType.UUID:
             case ProtocolConstants.DataType.TIMEUUID:
-                return jsonNodeFactory.textNode(row.getUuid(cm.getName()).toString());
+                return jsonNodeFactory.textNode(record.getUuid(identifier).toString());
             case ProtocolConstants.DataType.ASCII:
             case ProtocolConstants.DataType.VARCHAR:
-                return jsonNodeFactory.textNode(row.getString(cm.getName()));
+                return jsonNodeFactory.textNode(record.getString(identifier));
             case ProtocolConstants.DataType.TINYINT:
-                return jsonNodeFactory.numberNode((int) row.getByte(cm.getName()));
+                return jsonNodeFactory.numberNode((int) record.getByte(identifier));
             case ProtocolConstants.DataType.SMALLINT:
-                return jsonNodeFactory.numberNode((int) row.getShort(cm.getName()));
+                return jsonNodeFactory.numberNode((int) record.getShort(identifier));
             case ProtocolConstants.DataType.INT:
-                return jsonNodeFactory.numberNode(row.getInt(cm.getName()));
+                return jsonNodeFactory.numberNode(record.getInt(identifier));
             case ProtocolConstants.DataType.BIGINT:
-                return jsonNodeFactory.numberNode(row.getLong(cm.getName()));
+                return jsonNodeFactory.numberNode(record.getLong(identifier));
             case ProtocolConstants.DataType.INET:
-                return jsonNodeFactory.textNode(row.getInetAddress(cm.getName()).getHostAddress());
+                return jsonNodeFactory.textNode(record.getInetAddress(identifier).getHostAddress());
             case ProtocolConstants.DataType.DOUBLE:
-                return jsonNodeFactory.numberNode(row.getDouble(cm.getName()));
+                return jsonNodeFactory.numberNode(record.getDouble(identifier));
             case ProtocolConstants.DataType.FLOAT:
-                return jsonNodeFactory.numberNode(row.getFloat(cm.getName()));
+                return jsonNodeFactory.numberNode(record.getFloat(identifier));
             case ProtocolConstants.DataType.BOOLEAN:
-                return jsonNodeFactory.booleanNode(row.getBoolean(cm.getName()));
+                return jsonNodeFactory.booleanNode(record.getBoolean(identifier));
             case ProtocolConstants.DataType.TIMESTAMP:
-                return jsonNodeFactory.numberNode(row.getInstant(cm.getName()).toEpochMilli());
+                return jsonNodeFactory.numberNode(record.getInstant(identifier).toEpochMilli());
             case ProtocolConstants.DataType.DATE: // Mimic Avro date (epoch days)
-                return jsonNodeFactory.numberNode((int) row.getLocalDate(cm.getName()).toEpochDay());
+                return jsonNodeFactory.numberNode((int) record.getLocalDate(identifier).toEpochDay());
             case ProtocolConstants.DataType.TIME: // Mimic Avro time (microseconds)
-                return jsonNodeFactory.numberNode (row.getLocalTime(cm.getName()).toNanoOfDay() / 1000);
+                return jsonNodeFactory.numberNode (record.getLocalTime(identifier).toNanoOfDay() / 1000);
             case ProtocolConstants.DataType.BLOB:
-                return jsonNodeFactory.binaryNode(row.getByteBuffer(cm.getName()).array());
+                return jsonNodeFactory.binaryNode(getBytes(record.getByteBuffer(identifier)));
             case ProtocolConstants.DataType.UDT:
-                return buildUDTValue(row.getUdtValue(cm.getName()));
+                return buildUDTValue(record.getUdtValue(identifier));
             case ProtocolConstants.DataType.DURATION:
-                return cqlDurationToJsonNode(row.getCqlDuration(cm.getName()));
+                return cqlDurationToJsonNode(record.getCqlDuration(identifier));
             case ProtocolConstants.DataType.DECIMAL:
-                return bigDecimalToJsonNode(row.getBigDecimal(cm.getName()));
+                return bigDecimalToJsonNode(record.getBigDecimal(identifier));
             case ProtocolConstants.DataType.VARINT:
                 Conversion<BigInteger> conversion = SpecificData.get().getConversionByClass(BigInteger.class);
-                ByteBuffer bytes = conversion.toBytes(row.getBigInteger(cm.getName()), CqlLogicalTypes.varintType, CqlLogicalTypes.CQL_VARINT_LOGICAL_TYPE);
-                return jsonNodeFactory.binaryNode(bytes.array());
+                ByteBuffer bf = conversion.toBytes(record.getBigInteger(identifier), CqlLogicalTypes.varintType, CqlLogicalTypes.CQL_VARINT_LOGICAL_TYPE);
+                return jsonNodeFactory.binaryNode(getBytes(bf));
             case ProtocolConstants.DataType.LIST: {
-                ListType listType = (ListType) cm.getType();
-                String fieldName = cm.getName().toString();
-                org.apache.avro.Schema listSchema = subSchemas.get(fieldName);
-                List listValue = row.getList(fieldName, CodecRegistry.DEFAULT.codecFor(listType.getElementType()).getJavaType().getRawType());
-                log.info("field={} listSchema={} listValue={}", fieldName, listSchema, listValue);
+                ListType listType = (ListType) dataType;
+                String path = getSubSchemaPath(record, identifier);
+                org.apache.avro.Schema listSchema = subSchemas.get(path);
+                List listValue = record.getList(identifier, CodecRegistry.DEFAULT.codecFor(listType.getElementType()).getJavaType().getRawType());
+                log.info("field={} listSchema={} listValue={}", identifier, listSchema, listValue);
                 return createArrayNode(listSchema, listValue);
             }
             case ProtocolConstants.DataType.SET: {
-                SetType setType = (SetType) cm.getType();
-                String fieldName = cm.getName().toString();
-                org.apache.avro.Schema setSchema = subSchemas.get(fieldName);
-                Set setValue = row.getSet(fieldName, CodecRegistry.DEFAULT.codecFor(setType.getElementType()).getJavaType().getRawType());
-                log.debug("field={} setSchema={} setValue={}", fieldName, setSchema, setValue);
+                SetType setType = (SetType) dataType;
+                String path = getSubSchemaPath(record, identifier);
+                org.apache.avro.Schema setSchema = subSchemas.get(path);
+                Set setValue = record.getSet(identifier, CodecRegistry.DEFAULT.codecFor(setType.getElementType()).getJavaType().getRawType());
+                log.debug("field={} setSchema={} setValue={}", identifier, setSchema, setValue);
                 return createArrayNode(setSchema, setValue);
             }
             case ProtocolConstants.DataType.MAP: {
-                MapType mapType = (MapType) cm.getType();
-                String fieldName = cm.getName().toString();
-                org.apache.avro.Schema mapSchema = subSchemas.get(fieldName);
-                Map<String, JsonNode> map = row.getMap(fieldName,
+                MapType mapType = (MapType) dataType;
+                String path = getSubSchemaPath(record, identifier);
+                org.apache.avro.Schema mapSchema = subSchemas.get(path);
+                Map<String, JsonNode> map = record.getMap(identifier,
                                 CodecRegistry.DEFAULT.codecFor(mapType.getKeyType()).getJavaType().getRawType(),
                                 CodecRegistry.DEFAULT.codecFor(mapType.getValueType()).getJavaType().getRawType())
                         .entrySet().stream().collect(Collectors.toMap(e -> stringify(mapType.getKeyType(), e.getKey()), e -> toJson(mapSchema.getValueType(), e.getValue())));
-                log.debug("field={} mapSchema={} mapValue={}", fieldName, mapSchema, map);
+                log.debug("field={} mapSchema={} mapValue={}", identifier, mapSchema, map);
                 ObjectNode objectNode = jsonNodeFactory.objectNode();
                 map.forEach((k,v)->objectNode.set(k, v));
                 return objectNode;
             }
             default:
-                log.debug("Ignoring unsupported column name={} type={}", cm.getName(), cm.getType().asCql(false, true));
+                log.debug("Ignoring unsupported column name={} type={}", identifier, dataType.asCql(false, true));
         }
 
         return null;
+    }
+
+    private String getSubSchemaPath(GettableById record, CqlIdentifier identifier) {
+        if (record instanceof UdtValue) {
+            UdtValue udtValue = (UdtValue) record;
+            String typeName = udtValue.getType().getKeyspace() + "." + udtValue.getType().getName();
+            return typeName + "." + identifier.toString();
+        }
+        return identifier.toString();
+    }
+
+    private static byte[] getBytes(ByteBuffer bf) {
+        byte[] bytes = new byte[bf.remaining()];
+        bf.get(bytes);
+        return bytes;
     }
 
     private JsonNode buildUDTValue(UdtValue udtValue) {
@@ -158,104 +174,15 @@ public class NativeJsonConverter extends AbstractNativeConverter<byte[]> {
     }
 
     JsonNode buildUDTValue(org.apache.avro.Schema udtSchema, UdtValue udtValue) {
-        String typeName = udtValue.getType().getKeyspace() + "." + udtValue.getType().getName();
-        List<String> fields = udtSchema.getFields().stream().map(org.apache.avro.Schema.Field::name).collect(Collectors.toList());
         ObjectNode node = jsonNodeFactory.objectNode();
+        List<String> fields = udtSchema.getFields().stream().map(org.apache.avro.Schema.Field::name).collect(Collectors.toList());
         for(CqlIdentifier field : udtValue.getType().getFieldNames()) {
+            DataType dataType = udtValue.getType(field);
             if (fields.contains(field.asInternal()) && !udtValue.isNull(field)) {
-                DataType dataType = udtValue.getType(field);
-                switch (dataType.getProtocolCode()) {
-                    case ProtocolConstants.DataType.UUID:
-                    case ProtocolConstants.DataType.TIMEUUID:
-                        node.put(field.toString(), udtValue.getUuid(field).toString());
-                        break;
-                    case ProtocolConstants.DataType.ASCII:
-                    case ProtocolConstants.DataType.VARCHAR:
-                        node.put(field.toString(), udtValue.getString(field));
-                        break;
-                    case ProtocolConstants.DataType.TINYINT:
-                        node.put(field.toString(), (int) udtValue.getByte(field));
-                        break;
-                    case ProtocolConstants.DataType.SMALLINT:
-                        node.put(field.toString(), (int) udtValue.getShort(field));
-                        break;
-                    case ProtocolConstants.DataType.INT:
-                        node.put(field.toString(), udtValue.getInt(field));
-                        break;
-                    case ProtocolConstants.DataType.INET:
-                        node.put(field.toString(), udtValue.getInetAddress(field).getHostAddress());
-                        break;
-                    case ProtocolConstants.DataType.BIGINT:
-                        node.put(field.toString(), udtValue.getLong(field));
-                        break;
-                    case ProtocolConstants.DataType.DOUBLE:
-                        node.put(field.toString(), udtValue.getDouble(field));
-                        break;
-                    case ProtocolConstants.DataType.FLOAT:
-                        node.put(field.toString(), udtValue.getFloat(field));
-                        break;
-                    case ProtocolConstants.DataType.BOOLEAN:
-                        node.put(field.toString(), udtValue.getBoolean(field));
-                        break;
-                    case ProtocolConstants.DataType.TIMESTAMP:
-                        node.put(field.toString(), udtValue.getInstant(field).toEpochMilli());
-                        break;
-                    case ProtocolConstants.DataType.DATE:
-                        node.put(field.toString(), (int) udtValue.getLocalDate(field).toEpochDay());
-                        break;
-                    case ProtocolConstants.DataType.TIME:
-                        node.put(field.toString(), (udtValue.getLocalTime(field).toNanoOfDay() / 1000));
-                        break;
-                    case ProtocolConstants.DataType.BLOB:
-                        node.put(field.toString(), udtValue.getByteBuffer(field).array());
-                        break;
-                    case ProtocolConstants.DataType.UDT:
-                        node.set(field.toString(), buildUDTValue(udtValue.getUdtValue(field)));
-                        break;
-                    case ProtocolConstants.DataType.DURATION:
-                        node.set(field.toString(), cqlDurationToJsonNode(udtValue.getCqlDuration(field)));
-                        break;
-                    case ProtocolConstants.DataType.DECIMAL:
-                        node.put(field.toString(), udtValue.getBigDecimal(field));
-                        break;
-                    case ProtocolConstants.DataType.VARINT:
-                        node.put(field.toString(), udtValue.getBigInteger(field));
-                        break;
-                    case ProtocolConstants.DataType.LIST: {
-                        ListType listType = (ListType) udtValue.getType(field);
-                        List listValue = udtValue.getList(field, CodecRegistry.DEFAULT.codecFor(listType.getElementType()).getJavaType().getRawType());
-                        String path = typeName + "." + field.toString();
-                        org.apache.avro.Schema elementSchema = subSchemas.get(path);
-                        log.debug("path={} elementSchema={} listType={} listValue={}", path, elementSchema, listType, listValue);
-                        node.set(field.toString(), createArrayNode(elementSchema, listValue));
-                    }
-                    break;
-                    case ProtocolConstants.DataType.SET: {
-                        SetType setType = (SetType) udtValue.getType(field);
-                        Set setValue = udtValue.getSet(field, CodecRegistry.DEFAULT.codecFor(setType.getElementType()).getJavaType().getRawType());
-                        String path = typeName + "." + field.toString();
-                        org.apache.avro.Schema elementSchema = subSchemas.get(path);
-                        log.debug("path={} elementSchema={} setType={} setValue={}", path, elementSchema, setType, setValue);
-                        node.set(field.toString(), createArrayNode(elementSchema, setValue));
-                    }
-                    break;
-                    case ProtocolConstants.DataType.MAP: {
-                        MapType mapType = (MapType) udtValue.getType(field);
-                        Map<String, Object> mapValue = udtValue.getMap(field,
-                                        CodecRegistry.DEFAULT.codecFor(mapType.getKeyType()).getJavaType().getRawType(),
-                                        CodecRegistry.DEFAULT.codecFor(mapType.getValueType()).getJavaType().getRawType())
-                                .entrySet().stream().collect(Collectors.toMap(e -> stringify(mapType.getKeyType(), e.getKey()), Map.Entry::getValue));
-                        String path = typeName + "." + field.toString();
-                        org.apache.avro.Schema valueSchema = subSchemas.get(path);
-                        log.debug("path={} valueSchema={} mapType={} mapValue={}", path, valueSchema, mapType, mapValue);
-                        node.set(field.toString(), mapper.valueToTree(mapValue));
-                    }
-                    break;
-                    default:
-                        log.debug("Ignoring unsupported type field name={} type={}", field, dataType.asCql(false, true));
-                }
+                node.set(field.toString(), toJson(udtValue, field, dataType));
             }
         }
+
         return node;
     }
 
@@ -339,7 +266,7 @@ public class NativeJsonConverter extends AbstractNativeConverter<byte[]> {
             case BOOLEAN:
                 return jsonNodeFactory.booleanNode((Boolean) value);
             case BYTES:
-                return jsonNodeFactory.binaryNode(((ByteBuffer) value).array());
+                return jsonNodeFactory.binaryNode(getBytes((ByteBuffer) value));
             case FIXED:
                 return jsonNodeFactory.binaryNode(((GenericFixed) value).bytes());
             case ENUM: // GenericEnumSymbol
