@@ -675,6 +675,12 @@ public class CassandraSourceConnectorConfig {
         DRIVER
     }
 
+    public enum OutputFormat {
+        KEY_VALUE_AVRO,
+        KEY_VALUE_JSON,
+        JSON // Both key and value are encoded in the message value. The message key is also populated with a JSON string.
+    }
+
     public IgnoreErrorsPolicy getIgnoreErrors() {
         String ignoreErrors = globalConfig.getString(IGNORE_ERRORS);
         if ("none".equalsIgnoreCase(ignoreErrors)) {
@@ -728,20 +734,30 @@ public class CassandraSourceConnectorConfig {
         return authConfig;
     }
 
-    public String getOutputFormat() {
-        return globalConfig.getString(OUTPUT_FORMAT);
+    public OutputFormat getOutputFormat() {
+        switch (globalConfig.getString(OUTPUT_FORMAT)) {
+            case "key-value-avro":
+                return OutputFormat.KEY_VALUE_AVRO;
+            case "key-value-json":
+                return OutputFormat.KEY_VALUE_JSON;
+            case "json":
+                return OutputFormat.JSON;
+            default:
+                throw new IllegalArgumentException("Illegal output format: " + globalConfig.getString(OUTPUT_FORMAT));
+        }
     }
 
     public boolean isAvroOutputFormat() {
-        return globalConfig.getString(OUTPUT_FORMAT).contains("avro");
+        return getOutputFormat() == OutputFormat.KEY_VALUE_AVRO;
     }
 
     public boolean isJsonOutputFormat() {
-        return globalConfig.getString(OUTPUT_FORMAT).contains("json");
+        OutputFormat format = getOutputFormat();
+        return format == OutputFormat.KEY_VALUE_JSON || format == OutputFormat.JSON;
     }
 
     public boolean isJsonOnlyOutputFormat() {
-        return globalConfig.getString(OUTPUT_FORMAT).equals("json");
+        return getOutputFormat() == OutputFormat.JSON;
     }
 
     @Nullable

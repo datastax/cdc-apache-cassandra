@@ -119,7 +119,7 @@ public class NativeJsonConverter extends AbstractNativeConverter<byte[]> {
                 String path = getSubSchemaPath(record, identifier);
                 org.apache.avro.Schema listSchema = subSchemas.get(path);
                 List listValue = record.getList(identifier, CodecRegistry.DEFAULT.codecFor(listType.getElementType()).getJavaType().getRawType());
-                log.info("field={} listSchema={} listValue={}", identifier, listSchema, listValue);
+                log.debug("field={} listSchema={} listValue={}", identifier, listSchema, listValue);
                 return createArrayNode(listSchema, listValue);
             }
             case ProtocolConstants.DataType.SET: {
@@ -244,7 +244,7 @@ public class NativeJsonConverter extends AbstractNativeConverter<byte[]> {
     }
     public static JsonNode toJson(org.apache.avro.Schema schema, Object value) {
         // schema.getLogicalType() always returns null although the name would be populated with the logical type
-        // TODO: Use logical type instead of name
+        // TODO: Use logical type instead of name https://github.com/datastax/cdc-apache-cassandra/issues/85
         if (schema.getName() != null && logicalTypeConverters.containsKey(schema.getName())) {
             return logicalTypeConverters.get(schema.getName()).toJson(value);
         }

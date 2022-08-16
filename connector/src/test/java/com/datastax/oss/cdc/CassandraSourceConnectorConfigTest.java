@@ -614,20 +614,20 @@ class CassandraSourceConnectorConfigTest {
                 .hasMessageContaining("String must be one of: key-value-avro, key-value-json, json");    }
 
     @ParameterizedTest
-    @ValueSource( strings = {"key-value-avro", "key-value-json", "json"})
-    void should_accept_valid_output_format(String format) {
+    @MethodSource( "outputFormatProvider")
+    void should_accept_valid_output_format(String inputFormat, OutputFormat expectedFormat) {
         // given
         Map<String, String> props =
                 ImmutableMap.<String, String>builder()
                         .putAll(requiredSettings())
-                        .put(OUTPUT_FORMAT, format)
+                        .put(OUTPUT_FORMAT, inputFormat)
                         .build();
 
         // when
         CassandraSourceConnectorConfig config = new CassandraSourceConnectorConfig(props);
 
         // then
-        assertThat(config.getOutputFormat()).isEqualTo(format);
+        assertThat(config.getOutputFormat()).isEqualTo(expectedFormat);
     }
 
     private static Stream<? extends Arguments> sourceProvider() {
@@ -734,6 +734,13 @@ class CassandraSourceConnectorConfigTest {
                         ImmutableMap.of(SECURE_CONNECT_BUNDLE_DRIVER_SETTING, "path"),
                         SECURE_CONNECT_BUNDLE_DRIVER_SETTING,
                         "path"));
+    }
+
+    private static Stream<? extends Arguments> outputFormatProvider() {
+        return Stream.of(
+                Arguments.of("key-value-avro", OutputFormat.KEY_VALUE_AVRO),
+                Arguments.of("key-value-json", OutputFormat.KEY_VALUE_JSON),
+                Arguments.of("json", OutputFormat.JSON));
     }
 
     @ParameterizedTest

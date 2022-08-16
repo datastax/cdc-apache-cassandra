@@ -350,7 +350,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         try {
             List<ColumnMetadata> columns = tableMetadata.getColumns().values().stream()
                     // include primary keys in the json only output format options
-                    // TODO: PERF: Infuse the key values returned from the mutation keys instead of reading from DB
+                    // TODO: PERF: Infuse the key values instead of reading from DB https://github.com/datastax/cdc-apache-cassandra/issues/84
                     .filter(c -> config.isJsonOnlyOutputFormat() ? true : !tableMetadata.getPrimaryKey().contains(c))
                     .filter(c -> !columnPattern.isPresent() || columnPattern.get().matcher(c.getName().asInternal()).matches())
                     .collect(Collectors.toList());

@@ -58,6 +58,7 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
                             Schema collectionSchema = dataTypeSchema(ksm, cm.getType());
                             subSchemas.put(field.name(), collectionSchema);
                             log.info("Add collection schema {}={}", field.name(), collectionSchema);
+                            break;
                     }
                 }
             }
