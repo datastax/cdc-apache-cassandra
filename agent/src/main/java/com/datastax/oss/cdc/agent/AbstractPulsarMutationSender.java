@@ -18,12 +18,11 @@ package com.datastax.oss.cdc.agent;
 import com.datastax.oss.cdc.CqlLogicalTypes;
 import com.datastax.oss.cdc.MutationValue;
 import com.datastax.oss.cdc.agent.exceptions.CassandraConnectorSchemaException;
-import com.datastax.oss.cdc.AvroSchemaWrapper;
+import com.datastax.oss.cdc.NativeSchemaWrapper;
 import com.datastax.oss.cdc.Murmur3MessageRouter;
 import com.datastax.oss.cdc.Constants;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Conversions;
@@ -36,6 +35,7 @@ import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.pulsar.client.api.*;
 import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.common.schema.KeyValueEncodingType;
+import org.apache.pulsar.common.schema.SchemaType;
 
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
@@ -187,7 +187,7 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
         return producers.computeIfAbsent(topicAndProducerName.topicName, k -> {
             try {
                 org.apache.pulsar.client.api.Schema<KeyValue<byte[], MutationValue>> keyValueSchema = org.apache.pulsar.client.api.Schema.KeyValue(
-                        new AvroSchemaWrapper(getAvroKeySchema(tm).schema),
+                        new NativeSchemaWrapper(getAvroKeySchema(tm).schema, SchemaType.AVRO),
                         org.apache.pulsar.client.api.Schema.AVRO(MutationValue.class),
                         KeyValueEncodingType.SEPARATED);
                 ProducerBuilder<KeyValue<byte[], MutationValue>> producerBuilder = client.newProducer(keyValueSchema)

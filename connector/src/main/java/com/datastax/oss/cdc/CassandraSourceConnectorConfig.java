@@ -80,6 +80,8 @@ public class CassandraSourceConnectorConfig {
     public static final String PORT_OPT = "port";
 
     public static final String DC_OPT = "loadBalancing.localDc";
+
+    public static final String OUTPUT_FORMAT = "outputFormat";
     static final String LOCAL_DC_DRIVER_SETTING =
             withDriverPrefix(DefaultDriverOption.LOAD_BALANCING_LOCAL_DATACENTER);
 
@@ -305,7 +307,17 @@ public class CassandraSourceConnectorConfig {
                             ConfigDef.Type.STRING,
                             "",
                             ConfigDef.Importance.HIGH,
-                            "The location of the cloud secure bundle used to connect to Datastax Astra DB.");
+                            "The location of the cloud secure bundle used to connect to Datastax Astra DB.")
+                    .define(OUTPUT_FORMAT,
+                            ConfigDef.Type.STRING,
+                            "key-value-avro",
+                            ConfigDef.ValidString.in("key-value-avro", "key-value-json", "json"),
+                            ConfigDef.Importance.LOW,
+                            "The format of the messages on the data topic. "
+                                    + "Valid values are: "
+                                    + "key-value-avro (encodes the key and value separately, both in AVRO format), "
+                                    + "key-value-json (encodes the key and value separately, both in JSON format), "
+                                    + "json (key and value are encoded together in single JSON object)" );
     private static final Function<String, String> TO_SECONDS_CONVERTER =
             v -> String.format("%s seconds", v);
 
@@ -663,6 +675,12 @@ public class CassandraSourceConnectorConfig {
         DRIVER
     }
 
+    public enum OutputFormat {
+        KEY_VALUE_AVRO,
+        KEY_VALUE_JSON,
+        JSON // Both key and value are encoded in the message value. The message key is also populated with a JSON string.
+    }
+
     public IgnoreErrorsPolicy getIgnoreErrors() {
         String ignoreErrors = globalConfig.getString(IGNORE_ERRORS);
         if ("none".equalsIgnoreCase(ignoreErrors)) {
@@ -714,6 +732,32 @@ public class CassandraSourceConnectorConfig {
 
     public AuthenticatorConfig getAuthenticatorConfig() {
         return authConfig;
+    }
+
+    public OutputFormat getOutputFormat() {
+        switch (globalConfig.getString(OUTPUT_FORMAT)) {
+            case "key-value-avro":
+                return OutputFormat.KEY_VALUE_AVRO;
+            case "key-value-json":
+                return OutputFormat.KEY_VALUE_JSON;
+            case "json":
+                return OutputFormat.JSON;
+            default:
+                throw new IllegalArgumentException("Illegal output format: " + globalConfig.getString(OUTPUT_FORMAT));
+        }
+    }
+
+    public boolean isAvroOutputFormat() {
+        return getOutputFormat() == OutputFormat.KEY_VALUE_AVRO;
+    }
+
+    public boolean isJsonOutputFormat() {
+        OutputFormat format = getOutputFormat();
+        return format == OutputFormat.KEY_VALUE_JSON || format == OutputFormat.JSON;
+    }
+
+    public boolean isJsonOnlyOutputFormat() {
+        return getOutputFormat() == OutputFormat.JSON;
     }
 
     @Nullable

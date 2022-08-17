@@ -23,11 +23,13 @@ import com.datastax.oss.driver.shaded.guava.common.collect.Maps;
 import com.datastax.oss.dsbulk.tests.assertions.TestAssertions;
 import com.datastax.oss.dsbulk.tests.logging.LogInterceptingExtension;
 import com.datastax.oss.dsbulk.tests.logging.LogInterceptor;
+import org.apache.kafka.common.protocol.types.Field;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -599,6 +601,35 @@ class CassandraSourceConnectorConfigTest {
         }
     }
 
+    @Test
+    void should_reject_invalid_output_format() {
+        Map<String, String> props =
+                ImmutableMap.<String, String>builder()
+                        .putAll(requiredSettings())
+                        .put(OUTPUT_FORMAT, "invalid")
+                        .build();
+
+        assertThatThrownBy(() -> new CassandraSourceConnectorConfig(props))
+                .isInstanceOf(ConfigException.class)
+                .hasMessageContaining("String must be one of: key-value-avro, key-value-json, json");    }
+
+    @ParameterizedTest
+    @MethodSource( "outputFormatProvider")
+    void should_accept_valid_output_format(String inputFormat, OutputFormat expectedFormat) {
+        // given
+        Map<String, String> props =
+                ImmutableMap.<String, String>builder()
+                        .putAll(requiredSettings())
+                        .put(OUTPUT_FORMAT, inputFormat)
+                        .build();
+
+        // when
+        CassandraSourceConnectorConfig config = new CassandraSourceConnectorConfig(props);
+
+        // then
+        assertThat(config.getOutputFormat()).isEqualTo(expectedFormat);
+    }
+
     private static Stream<? extends Arguments> sourceProvider() {
         return Stream.of(
                 Arguments.of("keyspace1", "table1", "events-keyspace1.table1", "data-keyspace1.table1")
@@ -703,6 +734,13 @@ class CassandraSourceConnectorConfigTest {
                         ImmutableMap.of(SECURE_CONNECT_BUNDLE_DRIVER_SETTING, "path"),
                         SECURE_CONNECT_BUNDLE_DRIVER_SETTING,
                         "path"));
+    }
+
+    private static Stream<? extends Arguments> outputFormatProvider() {
+        return Stream.of(
+                Arguments.of("key-value-avro", OutputFormat.KEY_VALUE_AVRO),
+                Arguments.of("key-value-json", OutputFormat.KEY_VALUE_JSON),
+                Arguments.of("json", OutputFormat.JSON));
     }
 
     @ParameterizedTest

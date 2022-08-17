@@ -35,6 +35,7 @@ import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.ViewMetadata;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
 import com.datastax.oss.pulsar.source.converters.NativeAvroConverter;
+import com.datastax.oss.pulsar.source.converters.NativeJsonConverter;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -43,6 +44,7 @@ import com.google.common.collect.Lists;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import io.vavr.Tuple2;
 import io.vavr.Tuple3;
+import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Conversions;
@@ -66,6 +68,7 @@ import org.apache.pulsar.io.core.annotations.Connector;
 import org.apache.pulsar.io.core.annotations.IOType;
 
 import java.lang.reflect.InvocationTargetException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -146,7 +149,6 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     String dirtyTopicName;
     Converter mutationKeyConverter;
     Converter keyConverter;
-    List<String> pkColumns;
 
     Optional<Pattern> columnPattern = Optional.empty();
 
@@ -162,24 +164,28 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
      */
     volatile ConverterAndQuery valueConverterAndQuery;
 
+    /**
+     * Holds an empty value for use with delete mutations. The empty value life cycle is coupled with the
+     * valueConverterAndQuery life cycle and is meant to avoid re-creating empty values for delete mutations.
+     */
+    private Object emptyValue;
 
     /**
      * Single threaded executors to fetch CQL rows.
      * Protect from a race condition issue when processing the same PK in parallel.
-     *
+     * <p>
      * The number of threads is adaptive to avoid overloading the source C* cluster,
      * it depends ont the average query latency and timeouts.
-     *
      */
     List<ExecutorService> queryExecutors;
 
     /**
-     *  Per batch total CQL latency
+     * Per batch total CQL latency
      */
     final AtomicLong batchTotalLatency = new AtomicLong(0);
 
     /**
-     *  Per batch total CQL queries
+     * Per batch total CQL queries
      */
     final AtomicLong batchTotalQuery = new AtomicLong(0);
 
@@ -187,15 +193,15 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
      * Circular array of the last batch avg latencies use to compute the mobile average query latency.
      */
     long[] batchAvgLatencyList = new long[10];
-    int    batchAvgLatencyHead = 0;
-    int    batchAvgLatencyListSize = 0;
+    int batchAvgLatencyHead = 0;
+    int batchAvgLatencyListSize = 0;
 
     /**
      * Number of consecutive unavailableException used to compute the exponential backoff.
      */
     long consecutiveUnavailableException = 0;
 
-    private ArrayBlockingQueue<MyKVRecord> buffer;
+    private ArrayBlockingQueue<CassandraRecord> buffer;
 
     public CassandraSource() {
         // register AVRO logical types conversion
@@ -204,7 +210,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         SpecificData.get().addLogicalTypeConversion(new NativeAvroConverter.CqlDurationConversion());
         SpecificData.get().addLogicalTypeConversion(new Conversions.UUIDConversion());
     }
-    
+
     private <T> Future<T> executeOrdered(Object key, Callable<T> task) {
         Preconditions.checkArgument(key != null, "message key should not be null");
         Preconditions.checkState(queryExecutors != null, "queryExecutors should not be null");
@@ -223,14 +229,14 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         this.batchAvgLatencyListSize = Math.min(batchAvgLatencyListSize + 1, this.batchAvgLatencyList.length);
 
         long latencyTotal = 0;
-        for(int i = 0; i < this.batchAvgLatencyListSize; i++) {
+        for (int i = 0; i < this.batchAvgLatencyListSize; i++) {
             log.debug("batchAvgLatencyList={}, batchAvgLatencyHead={}, batchAvgLatencyListSize={}, i={}",
-                    Arrays.toString(batchAvgLatencyList),  batchAvgLatencyHead, batchAvgLatencyListSize, i);
+                    Arrays.toString(batchAvgLatencyList), batchAvgLatencyHead, batchAvgLatencyListSize, i);
             latencyTotal += this.batchAvgLatencyList[i];
         }
         long mobileAvgLatency = latencyTotal / batchAvgLatencyListSize;
         log.debug("mobileAvgLatency={}, batchAvgLatencyList={}", mobileAvgLatency, Arrays.toString(batchAvgLatencyList));
-        if (mobileAvgLatency < config.getQueryMinMobileAvgLatency() && queryExecutors.size() < config.getQueryExecutors() ) {
+        if (mobileAvgLatency < config.getQueryMinMobileAvgLatency() && queryExecutors.size() < config.getQueryExecutors()) {
             queryExecutors.add(Executors.newSingleThreadExecutor());
             log.info("mobileAvgLatency={}, increasing the query executor to {} threads", mobileAvgLatency, queryExecutors.size());
         }
@@ -242,12 +248,13 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
     /**
      * Decrease the number of thread by 10 percent because of the provided Exception.
+     *
      * @param throwable
      */
     private void decreaseExecutors(Throwable throwable) {
         if (queryExecutors.size() > 1) {
             int numberOfThreadToRemove = Math.max(1, queryExecutors.size() / 10);
-            for(int i = 0; i < numberOfThreadToRemove; i++)
+            for (int i = 0; i < numberOfThreadToRemove; i++)
                 queryExecutors.remove(queryExecutors.size() - 1).shutdown();
             log.warn("CQL read issue={}, decreasing the query executor to {} threads", throwable, queryExecutors.size());
         } else {
@@ -278,7 +285,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     private void initQueryExecutors() {
         log.info("initQueryExecutors with {} treads", this.config.getQueryExecutors());
         this.queryExecutors = new ArrayList<>(this.config.getQueryExecutors());
-        for(int i = 0; i < this.config.getQueryExecutors(); i++)
+        for (int i = 0; i < this.config.getQueryExecutors(); i++)
             this.queryExecutors.add(Executors.newSingleThreadExecutor());
     }
 
@@ -334,7 +341,6 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         Tuple2<KeyspaceMetadata, TableMetadata> tuple = cassandraClient.getTableMetadata(this.config.getKeyspaceName(), this.config.getTableName());
         Preconditions.checkArgument(tuple._1 != null, String.format(Locale.ROOT, "Keyspace %s does not exist", this.config.getKeyspaceName()));
         Preconditions.checkArgument(tuple._2 != null, String.format(Locale.ROOT, "Table %s.%s does not exist", this.config.getKeyspaceName(), this.config.getTableName()));
-        this.pkColumns = tuple._2.getPrimaryKey().stream().map(c -> c.getName().asInternal()).collect(Collectors.toList());
         this.keyConverter = createConverter(getKeyConverterClass(), tuple._1, tuple._2, tuple._2.getPrimaryKey());
         this.mutationKeyConverter = new NativeAvroConverter(tuple._1, tuple._2, tuple._2.getPrimaryKey());
         setValueConverterAndQuery(tuple._1, tuple._2);
@@ -343,7 +349,9 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     synchronized void setValueConverterAndQuery(KeyspaceMetadata ksm, TableMetadata tableMetadata) {
         try {
             List<ColumnMetadata> columns = tableMetadata.getColumns().values().stream()
-                    .filter(c -> !tableMetadata.getPrimaryKey().contains(c))
+                    // include primary keys in the json only output format options
+                    // TODO: PERF: Infuse the key values instead of reading from DB https://github.com/datastax/cdc-apache-cassandra/issues/84
+                    .filter(c -> config.isJsonOnlyOutputFormat() ? true : !tableMetadata.getPrimaryKey().contains(c))
                     .filter(c -> !columnPattern.isPresent() || columnPattern.get().matcher(c.getName().asInternal()).matches())
                     .collect(Collectors.toList());
             List<ColumnMetadata> staticColumns = tableMetadata.getColumns().values().stream()
@@ -361,6 +369,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                     cassandraClient.buildProjectionClause(staticColumns),
                     cassandraClient.buildPrimaryKeyClause(tableMetadata),
                     new ConcurrentHashMap<>());
+            this.emptyValue = config.isJsonOnlyOutputFormat() ? "{}".getBytes(StandardCharsets.UTF_8) : null;
             log.debug("valueConverterAndQuery={}", this.valueConverterAndQuery);
         } catch (Exception e) {
             log.error("Unexpected error", e);
@@ -371,8 +380,9 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     /**
      * Build the CQL prepared statement for the specified where clause length.
      * NOTE: The prepared statement cannot be build from the schema listener thread to avoid a possible deadlock.
+     *
      * @param valueConverterAndQuery
-     * @param whereClauseLength the number of columns in the where clause
+     * @param whereClauseLength      the number of columns in the where clause
      * @return preparedStatement
      */
     synchronized PreparedStatement getSelectStatement(ConverterAndQuery valueConverterAndQuery, int whereClauseLength) {
@@ -387,13 +397,13 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
     Class<?> getKeyConverterClass() {
         return this.config.getKeyConverterClass() == null
-                ? NativeAvroConverter.class
+                ? this.config.isJsonOutputFormat() ? NativeJsonConverter.class : NativeAvroConverter.class
                 : this.config.getKeyConverterClass();
     }
 
     Class<?> getValueConverterClass() {
         return this.config.getValueConverterClass() == null
-                ? NativeAvroConverter.class
+                ? this.config.isJsonOutputFormat() ? NativeJsonConverter.class : NativeAvroConverter.class
                 : this.config.getValueConverterClass();
     }
 
@@ -402,6 +412,12 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         return (Converter) converterClass
                 .getDeclaredConstructor(KeyspaceMetadata.class, TableMetadata.class, List.class)
                 .newInstance(ksm, tableMetadata, columns);
+    }
+
+    CassandraRecord createRecord(ConverterAndQuery converterAndQueryFinal, CompletableFuture<KeyValue<Object, Object>> keyValue, Message<KeyValue<GenericRecord, MutationValue>> msg) {
+        final MyKVRecord kvRecord = new MyKVRecord(converterAndQueryFinal, keyValue, msg);
+
+        return config.isJsonOnlyOutputFormat() ? new JsonValueRecord(kvRecord) : kvRecord;
     }
 
     @Override
@@ -428,24 +444,23 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
      */
     @Override
     @SuppressWarnings("unchecked")
-    public Record<GenericRecord> read() throws Exception
-    {
+    public Record<GenericRecord> read() throws Exception {
         Preconditions.checkState(this.sourceContext != null, "sourceContext should not be null");
-        MyKVRecord myKVRecord = buffer.poll();
-        if (myKVRecord != null) {
-            consumer.acknowledge(myKVRecord.msg);
-            return (Record) myKVRecord;
+        CassandraRecord record = buffer.poll();
+        if (record != null) {
+            consumer.acknowledge(record.getMutationMessage());
+            return (Record) record;
         }
         // this methods returns only if the buffer holds at least one record
         maybeBatchRead();
-        myKVRecord = buffer.poll();
-        consumer.acknowledge(myKVRecord.msg);
-        return myKVRecord;
+        record = buffer.poll();
+        consumer.acknowledge(record.getMutationMessage());
+        return record;
     }
 
     private void maybeBatchRead() throws Exception {
         Preconditions.checkState(buffer.isEmpty(), "Buffer is not empty");
-        List<MyKVRecord> newRecords = batchRead();
+        List<CassandraRecord> newRecords = batchRead();
         while (newRecords.isEmpty()) {
             newRecords = batchRead();
         }
@@ -453,10 +468,10 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     }
 
     @SuppressWarnings("unchecked")
-    private List<MyKVRecord> batchRead() throws Exception {
+    private List<CassandraRecord> batchRead() throws Exception {
         batchTotalLatency.set(0);
         batchTotalQuery.set(0);
-        List<MyKVRecord> newRecords = new ArrayList<>();
+        List<CassandraRecord> newRecords = new ArrayList<>();
         if (this.queryExecutors == null)
             initQueryExecutors();
         try {
@@ -530,7 +545,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                         batchTotalQuery.incrementAndGet();
                         if (msg.hasProperty(Constants.WRITETIME))
                             sourceContext.recordMetric(REPLICATION_LATENCY, end - (Long.parseLong(msg.getProperty(Constants.WRITETIME)) / 1000L));
-                        Object value = tuple._1 == null ? null : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
+                        Object value = tuple._1 == null ? this.emptyValue : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
                         if (ConsistencyLevel.LOCAL_QUORUM.equals(tuple._2()) &&
                                 (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._3 != null && tuple._3.equals(mutationValue.getNodeId())))) {
                             log.debug("Caching mutation key={} md5={} pk={}", msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues);
@@ -538,24 +553,25 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                             mutationCache.addMutationMd5(msg.getKey(), mutationValue.getMd5Digest());
                         } else {
                             log.debug("Not caching mutation key={} md5={} pk={} CL={} coordinator={}",
-                                    msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues, tuple._2(), tuple._3());
+                            msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues, tuple._2(), tuple._3());
                         }
-                        queryResult.complete(new KeyValue(msg.getKeyBytes(), value));
+                        Object key = config.isAvroOutputFormat() ? msg.getKeyBytes() : keyConverter.fromConnectData(mutationKey.getNativeObject());
+                        queryResult.complete(new KeyValue(key, value));
                     } catch (Throwable err) {
                         queryResult.completeExceptionally(err);
                     }
                     return null;
                 });
-                final MyKVRecord record = new MyKVRecord(converterAndQueryFinal, queryResult, msg);
+                final CassandraRecord record = createRecord(converterAndQueryFinal, queryResult, msg);
                 newRecords.add(record);
             }
             Preconditions.checkState(!newRecords.isEmpty(), "Buffer cannot be empty here");
-            List<MyKVRecord> usefulRecords = new ArrayList<>(newRecords.size());
+            List<CassandraRecord> usefulRecords = new ArrayList<>(newRecords.size());
             int cacheHits = 0;
             long start = System.currentTimeMillis();
             // wait for all queries to complete
-            for (MyKVRecord record : newRecords) {
-                KeyValue res = record.keyValue.join();
+            for (CassandraRecord record : newRecords) {
+                KeyValue res = record.getQueryResult().join();
                 if (res != null) {
                     // if the result is "null" the mutation has been discarded
                     usefulRecords.add(record);
@@ -588,22 +604,22 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                 throw e;
             }
 
-            for (MyKVRecord record : newRecords) {
-                negativeAcknowledge(consumer, record.getMsg()); // fail every message in the buffer
+            for (CassandraRecord record : newRecords) {
+                negativeAcknowledge(consumer, record.getMutationMessage()); // fail every message in the buffer
             }
             backoffRetry(e2);
             return Collections.emptyList();
-        } catch(com.datastax.oss.driver.api.core.AllNodesFailedException e) {
+        } catch (com.datastax.oss.driver.api.core.AllNodesFailedException e) {
             log.info("AllNodesFailedException:", e);
-            for (MyKVRecord record : newRecords) {
-                negativeAcknowledge(consumer, record.getMsg()); // fail every message in the buffer
+            for (CassandraRecord record : newRecords) {
+                negativeAcknowledge(consumer, record.getMutationMessage()); // fail every message in the buffer
             }
             backoffRetry(e);
             return Collections.emptyList();
-        } catch(Throwable e) {
+        } catch (Throwable e) {
             log.error("Unrecoverable error:", e);
-            for (MyKVRecord record : newRecords) {
-                negativeAcknowledge(consumer, record.getMsg());
+            for (CassandraRecord record : newRecords) {
+                negativeAcknowledge(consumer, record.getMutationMessage());
             }
             throw e;
         }
@@ -720,7 +736,20 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
     }
 
-    private class MyKVRecord implements KVRecord {
+    private interface CassandraRecord extends KVRecord {
+        /**
+         * @return a Message container the mutation as received from the events topic.
+         */
+        Message<KeyValue<GenericRecord, MutationValue>> getMutationMessage();
+
+        /**
+         * @return a future tracking the result of the Cassandra query triggered by the mutations recorded in the
+         * events topic.
+         */
+        CompletableFuture<KeyValue<Object, Object>> getQueryResult();
+    }
+
+    private class MyKVRecord implements CassandraRecord {
         private final ConverterAndQuery converterAndQueryFinal;
         private final CompletableFuture<KeyValue<Object, Object>> keyValue;
         private final Message<KeyValue<GenericRecord, MutationValue>> msg;
@@ -731,8 +760,14 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             this.msg = msg;
         }
 
-        public Message<KeyValue<GenericRecord, MutationValue>> getMsg() {
+        @Override
+        public Message<KeyValue<GenericRecord, MutationValue>> getMutationMessage() {
             return msg;
+        }
+
+        @Override
+        public CompletableFuture<KeyValue<Object, Object>> getQueryResult() {
+            return this.keyValue;
         }
 
         @Override
@@ -765,6 +800,61 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             return msg.hasProperty(Constants.WRITETIME)
                     ? ImmutableMap.of(Constants.WRITETIME, msg.getProperty(Constants.WRITETIME))
                     : ImmutableMap.of();
+        }
+    }
+
+    @RequiredArgsConstructor
+    private class JsonValueRecord implements CassandraRecord {
+        private final MyKVRecord kvRecord;
+
+        @Override
+        public byte[] getValue() {
+            try {
+                return (byte[]) kvRecord.getValue().getValue();
+            } catch (Exception err) {
+                throw new RuntimeException(err);
+            }
+        }
+
+        @Override
+        public Schema getSchema() {
+            return kvRecord.getValueSchema();
+        }
+
+        @Override
+        public Optional<String> getKey() {
+            Object key = kvRecord.getValue().getKey();
+            if (!(key instanceof byte[])) {
+                throw new IllegalStateException("Invalid key type " + key.getClass().getName());
+            }
+
+            // returns a json string in plain text. E.g.: key:[{"a":"38878"}]
+            return Optional.of(new String((byte[])key, StandardCharsets.UTF_8));
+        }
+
+        @Override
+        public Message<KeyValue<GenericRecord, MutationValue>> getMutationMessage() {
+            return kvRecord.getMutationMessage();
+        }
+
+        @Override
+        public CompletableFuture<KeyValue<Object, Object>> getQueryResult() {
+            return kvRecord.keyValue;
+        }
+
+        @Override
+        public Schema getKeySchema() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Schema getValueSchema() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public KeyValueEncodingType getKeyValueEncodingType() {
+            throw new UnsupportedOperationException();
         }
     }
 }
