@@ -1,6 +1,12 @@
 # Release notes for CDC for Apache Cassandra&trade;
 The CDC for Apache Cassandra&trade; is compatible for Apache Cassandra&trade; 3.11, 4.0, and DSE 6.8.
 
+# Release notes for 2.2.0
+17 August 2022
+
+## Changes for Pulsar Connector
+* Add a new source option to generate data events in JSON format
+
 # Release notes for 2.1.0
 7 June 2022
 
