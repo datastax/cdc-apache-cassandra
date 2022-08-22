@@ -22,12 +22,12 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Build project
-          env:
-            DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
-            DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
-          run: |
-            ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
-            build -x test
+        env:
+          DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
+          DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
+        run: |
+          ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
+          build -x test
 
   test:
     needs: build
