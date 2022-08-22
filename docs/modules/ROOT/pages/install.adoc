@@ -2,7 +2,7 @@
 
 == Download the DataStax Change Data Capture (CDC) Agent for Apache Cassandra®
 
-IMPORTANT
+[IMPORTANT]
 ====
 By downloading this DataStax product, you agree to the terms of the open-source https://www.apache.org/licenses/LICENSE-2.0[Apache-2.0 license agreement].
 ====
