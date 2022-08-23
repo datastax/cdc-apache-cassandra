@@ -1,0 +1,7 @@
+name: docs
+title: DataStax CDC for Apache Cassandra
+version: ~
+start_page: cdcForCassandraTOC.adoc
+
+nav:
+- modules/ROOT/nav.adoc

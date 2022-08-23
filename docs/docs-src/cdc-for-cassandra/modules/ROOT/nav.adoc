@@ -4,6 +4,3 @@
 * xref:faqs.adoc[]
 * xref:cdc-cassandra-events.adoc[]
 * xref:cdcExample.adoc[]
-
-
-

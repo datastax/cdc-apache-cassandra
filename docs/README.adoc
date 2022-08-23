@@ -22,7 +22,7 @@ npm i -g @antora/cli@2.3 @antora/site-generator-default@2.3
 
 == Create the antora config file
 
-Generate the antory.yaml file using the project version:
+Generate the antora.yaml file using the project version:
 
 [source,bash]
 ----

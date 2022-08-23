@@ -1,0 +1,27 @@
+site:
+  title: DataStax CDC for Apache Cassandra documentation
+  url: https://docs.datastax.com/en/cdc-for-cassandra/docs/
+
+output:
+  dir: ./..build/cdc-for-cassandra
+
+content:
+  edit_url: false
+  sources:
+  - url: ./..
+    branches: HEAD
+    start_path: docs-src/cdc-for-cassandra
+
+ui:
+  bundle:
+    url: https://github.com/riptano/antora-ui-docs/raw/main/releases/download/v0.8/ui-bundle.zip
+    snapshot: true
+  supplemental_files: ./supplemental-ui
+  output_dir: assets
+
+asciidoc:
+  attributes:
+    source-highlighter: highlightjs
+
+extensions:
+  - ./lib/tabs-block.js

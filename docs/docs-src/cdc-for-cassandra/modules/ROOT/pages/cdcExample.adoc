@@ -79,34 +79,93 @@ INFO  [main] 2022-04-11 18:47:06,433  Agent.java:92 - CDC agent started
 == Deploy Pulsar Connector
 
 . Deploy the Pulsar Cassandra Source Connector (CSC) for each CDC-enabled C* table. In the below example, we're configuring the source connector with parameters passed in `--source-config`. 
+
+The `outputFormat` source configuration controls the format of messages on the data topic. 
+
+* `key-value-avro` - Default behavior. Key and value are encoded separately in AVRO format. 
+* `key-value-json` - Key and value are encoded *separately* in JSON format.
+* `json` - Key and value are encoded *together* in a single JSON object. Key field is populated with a JSON string representing key fields. 
 +
+[tabs]
+====
+Key-value-avro::
++
+--
 [source,bash]
 ----
-$ pulsar-admin source create \
+$ bin/pulsar-admin sources create \
   --name <csc_connector_name> \
   --archive /pathto/to/pulsar-cassandra-source-1.0.5.nar \
   --tenant public \
   --namespace default \
-  --destination-topic-name persistent://public/default/data-<keyspace>.<table> \
+  --destination-topic-name <keyspace>.<table> \
   --parallelism 1 \
-  --source-config '{
+  --source-config {
   	"events.topic": "persistent://public/default/events-<keyspace>.<table>",
   	"keyspace": "<C*_keyspace>",
   	"table": "<C*_table>",
   	"contactPoints": "<C*_contact_point_list>",
   	"port": "9042",
   	"loadBalancing.localDc": "<C*_DC_name>"
-  }'
+    "outputFormat": "key-value-avro"
+  }
 ----
+--
++
+Key-value-json::
++
+--
+[source,bash]
+----
+$ bin/pulsar-admin sources create \
+  --name <csc_connector_name> \
+  --archive /pathto/to/pulsar-cassandra-source-1.0.5.nar \
+  --tenant public \
+  --namespace default \
+  --destination-topic-name persistent://public/default/data-<keyspace>.<table> \
+  --parallelism 1 \
+  --source-config {
+  	"events.topic": "persistent://public/default/events-<keyspace>.<table>",
+  	"keyspace": "<C*_keyspace>",
+  	"table": "<C*_table>",
+  	"contactPoints": "<C*_contact_point_list>",
+  	"port": "9042",
+  	"loadBalancing.localDc": "<C*_DC_name>"
+    "outputFormat": "key-value-json"
+  }
+----
+--
++
+Json::
++
+--
+[source,bash]
+----
+$ bin/pulsar-admin sources create \
+  --name <csc_connector_name> \
+  --archive /pathto/to/pulsar-cassandra-source-1.0.5.nar \
+  --tenant public \
+  --namespace default \
+  --destination-topic-name persistent://public/default/data-<keyspace>.<table> \
+  --parallelism 1 \
+  --source-config {
+  	"events.topic": "persistent://public/default/events-<keyspace>.<table>",
+  	"keyspace": "<C*_keyspace>",
+  	"table": "<C*_table>",
+  	"contactPoints": "<C*_contact_point_list>",
+  	"port": "9042",
+  	"loadBalancing.localDc": "<C*_DC_name>"
+    "outputFormat": "json"
+  }
+----
+--
+====
 
 . Verify the CSC connector is deployed. 
 +
 [source, bash]
 ----
-pulsar-admin source list
-[
- "<csc_connector_name>"
-]
+pulsar-admin sources list ["<csc_connector_name>"]
 ----
 
 . Check the CSC connector log file at `<$PULSAR_HOME>/logs/functions/public/default/<csc_connector_name>` for errors.
