@@ -455,15 +455,19 @@ public abstract class PulsarCassandraSourceTests {
                         dataSpecMap.get("map").cqlValue
                 );
 
+                // force udt values to be null by populating 1 item, using zudt.newValue() without explicitly setting
+                // any field to non-null value will cause the udt column itself to be null in the C* table
+                UdtValue zudtOptionalValues = zudt.newValue(dataSpecMap.get("text").cqlValue);
+
                 cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table3 (" +
                         "xtext text, xascii ascii, xboolean boolean, xblob blob, xtimestamp timestamp, xtime time, xdate date, xuuid uuid, xtimeuuid timeuuid, xtinyint tinyint, xsmallint smallint, xint int, xbigint bigint, xvarint varint, xdecimal decimal, xdouble double, xfloat float, xinet4 inet, xinet6 inet, " +
-                        "ytext text, yascii ascii, yboolean boolean, yblob blob, ytimestamp timestamp, ytime time, ydate date, yuuid uuid, ytimeuuid timeuuid, ytinyint tinyint, ysmallint smallint, yint int, ybigint bigint, yvarint varint, ydecimal decimal, ydouble double, yfloat float, yinet4 inet, yinet6 inet, yduration duration, yudt zudt, ylist list<text>, yset set<int>, ymap map<text, double>, ylistofmap list<frozen<map<text,double>>>, ysetofudt set<frozen<zudt>>," +
+                        "ytext text, yascii ascii, yboolean boolean, yblob blob, ytimestamp timestamp, ytime time, ydate date, yuuid uuid, ytimeuuid timeuuid, ytinyint tinyint, ysmallint smallint, yint int, ybigint bigint, yvarint varint, ydecimal decimal, ydouble double, yfloat float, yinet4 inet, yinet6 inet, yduration duration, yudt zudt, yudtoptional zudt, ylist list<text>, yset set<int>, ymap map<text, double>, ylistofmap list<frozen<map<text,double>>>, ysetofudt set<frozen<zudt>>," +
                         "primary key (xtext, xascii, xboolean, xblob, xtimestamp, xtime, xdate, xuuid, xtimeuuid, xtinyint, xsmallint, xint, xbigint, xvarint, xdecimal, xdouble, xfloat, xinet4, xinet6)) " +
                         "WITH CLUSTERING ORDER BY (xascii ASC, xboolean DESC, xblob ASC, xtimestamp DESC, xtime DESC, xdate ASC, xuuid DESC, xtimeuuid ASC, xtinyint DESC, xsmallint ASC, xint DESC, xbigint ASC, xvarint DESC, xdecimal ASC, xdouble DESC, xfloat ASC, xinet4 ASC, xinet6 DESC) AND cdc=true");
                 cqlSession.execute("INSERT INTO " + ksName + ".table3 (" +
                                 "xtext, xascii, xboolean, xblob, xtimestamp, xtime, xdate, xuuid, xtimeuuid, xtinyint, xsmallint, xint, xbigint, xvarint, xdecimal, xdouble, xfloat, xinet4, xinet6, " +
-                                "ytext, yascii, yboolean, yblob, ytimestamp, ytime, ydate, yuuid, ytimeuuid, ytinyint, ysmallint, yint, ybigint, yvarint, ydecimal, ydouble, yfloat, yinet4, yinet6, yduration, yudt, ylist, yset, ymap, ylistofmap, ysetofudt" +
-                                ") VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?, ?,?,?,?,?)",
+                                "ytext, yascii, yboolean, yblob, ytimestamp, ytime, ydate, yuuid, ytimeuuid, ytinyint, ysmallint, yint, ybigint, yvarint, ydecimal, ydouble, yfloat, yinet4, yinet6, yduration, yudt, yudtoptional, ylist, yset, ymap, ylistofmap, ysetofudt" +
+                                ") VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?,?, ?,?,?,?,?)",
                         dataSpecMap.get("text").cqlValue,
                         dataSpecMap.get("ascii").cqlValue,
                         dataSpecMap.get("boolean").cqlValue,
@@ -506,6 +510,7 @@ public abstract class PulsarCassandraSourceTests {
 
                         dataSpecMap.get("duration").cqlValue,
                         zudtValue,
+                        zudtOptionalValues,
 
                         dataSpecMap.get("list").cqlValue,
                         dataSpecMap.get("set").cqlValue,
@@ -615,7 +620,7 @@ public abstract class PulsarCassandraSourceTests {
 
     void assertField(String fieldName, Object value) {
         String vKey = fieldName.substring(1);
-        if (!vKey.equals("udt") && ! vKey.equals("setofudt")) {
+        if (!vKey.equals("udt") && !vKey.equals("udtoptional") && ! vKey.equals("setofudt")) {
             Assert.assertTrue("Unknown field " + vKey, dataSpecMap.containsKey(vKey));
         }
         if (value instanceof GenericRecord) {
@@ -669,6 +674,17 @@ public abstract class PulsarCassandraSourceTests {
             case "udt": {
                 for (Field f : gr.getFields()) {
                     assertField(f.getName(), gr.getField(f.getName()));
+                }
+            }
+            return;
+            case "udtoptional": {
+                for (Field f : gr.getFields()) {
+                    if (f.getName().equals("ztext")){
+                        assertField(f.getName(), gr.getField(f.getName()));
+                    }
+                    else {
+                        assertNull(gr.getField(f.getName()));
+                    }
                 }
             }
             return;
@@ -778,6 +794,17 @@ public abstract class PulsarCassandraSourceTests {
                 for (Iterator<Map.Entry<String, JsonNode>> it = node.fields(); it.hasNext(); ) {
                     Map.Entry<String, JsonNode> f = it.next();
                     assertField(f.getKey(), f.getValue());
+                }
+            }
+            return;
+            case "udtoptional": {
+                for (Iterator<Map.Entry<String, JsonNode>> it = node.fields(); it.hasNext(); ) {
+                    Map.Entry<String, JsonNode> f = it.next();
+                    if (f.getKey().equals("ztext")) {
+                        assertField(f.getKey(), f.getValue());
+                    } else {
+                        assertNull(f.getValue());
+                    }
                 }
             }
             return;

@@ -170,7 +170,7 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
             case ProtocolConstants.DataType.TIME:
                 return CqlLogicalTypes.timeMicrosType;
             case ProtocolConstants.DataType.UDT:
-                return buildUDTSchema(ksm, dataType.asCql(false, true), false);
+                return buildUDTSchema(ksm, dataType.asCql(false, true), true);
             case ProtocolConstants.DataType.UUID:
             case ProtocolConstants.DataType.TIMEUUID:
                 return CqlLogicalTypes.uuidType;
