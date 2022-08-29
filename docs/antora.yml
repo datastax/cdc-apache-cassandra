@@ -1,7 +1,7 @@
 name: cdc-apache-cassandra
 title: DataStax CDC for Apache Cassandra(R) Documentation
-version: "2.2.0"
-display_version: "2.2.0"
+version: "2.2.1"
+display_version: "2.2.1"
 asciidoc:
   attributes:
     cdc_cass_first: 'DataStax CDC for Apache Cassandra®'
