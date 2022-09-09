@@ -57,8 +57,8 @@ And to enable CDC for your C* deployment:
 JVM_OPTS="$JVM_OPTS -javaagent:/home/automaton/cdc104/agent-dse4-pulsar-1.0.5-all.jar"
 ----
 
-The CDC parameter mappings between JVM and C* environmemt variables are provided in xref:stringMappings.adoc[CDC Environment Parameter Strings]. +
-For the full set of JVM configuration options, see <<agentParams,Change Agent Parameters>>.
+The CDC parameter mappings between JVM and C* environment variables are provided in xref:stringMappings.adoc[CDC Environment Parameter Strings]. +
+For the full set of JVM configuration options, see xref:agentParams.adoc[Table Change Agent Parameters].
 
 == `Cassandra.yaml`
 In addition to configuring the change agent, enable CDC on the Cassandra node by setting `cdc_enabled` to `true` in the `cassandra.yaml` file.
