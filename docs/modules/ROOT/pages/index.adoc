@@ -11,7 +11,6 @@ for tables having Change Data Capture (CDC) enabled to https://www.datastax.com/
 * Propagates Cassandra schema change to the built-in Pulsar schema registry
 * Supports AVRO message format
 
-
 == Architecture
 
 Other than the prerequisite C* and Pulsar clusters, {cdc_cass} has two components:
@@ -91,32 +90,37 @@ For each update to the table, an MD5 digest is calculated to de-duplicate the up
 
 == Supported Cassandra data structures
 
-The following Cassandra CQL3 data types (with the associated AVRO type or logical-type) are supported:
+The following CQL data types are encoded as AVRO logical types: 
 
-* text (string)
 * ascii (string)
-* tinyint (int)
-* smallint (int)
-* int (int)
 * bigint (long)
-* double (double)
-* float (float)
-* inet (string)
-* decimal (cql_decimal)
-* varint (cql_varint)
-* duration (cql_duration)
 * blob(bytes)
 * boolean (boolean)
-* timestamp (timestamp-millis)
-* time (time-micros)
-* date (date)
-* uuid (uuid)
-* timeuuid (uuid)
-* User Defined Types (record)
 * Collection types:
 ** list (array)
 ** set (array)
 ** map (map)
+* date (date)
+* decimal (cql_decimal)
+* double (double)
+* duration (cql_duration)
+* float (float)
+* inet (string)
+* int (int)
+* smallint (int)
+* text (string)
+* time (time-micros)
+* timestamp (timestamp-millis)
+* timeuuid (uuid)
+* tinyint (int)
+* User Defined Types (record)
+* uuid (uuid)
+* varint (cql_varint)
+
+[NOTE]
+====
+If using the `key-value-json` output format, the supported C* types are the same as AVRO. The output is an exact schema with logical types, but with a JSON schema type.
+====
 
 Cassandra static columns are supported:
 
