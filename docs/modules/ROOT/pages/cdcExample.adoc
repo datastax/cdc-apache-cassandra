@@ -106,7 +106,7 @@ $ pulsar-admin source create \
   	"table": "<C*_table>",
   	"contactPoints": "<C*_contact_point_list>",
   	"port": "9042",
-  	"loadBalancing.localDc": "<C*_DC_name>"
+  	"loadBalancing.localDc": "<C*_DC_name>",
     "outputFormat": "key-value-avro"
   }
 ----
@@ -130,7 +130,7 @@ $ pulsar-admin source create \
   	"table": "<C*_table>",
   	"contactPoints": "<C*_contact_point_list>",
   	"port": "9042",
-  	"loadBalancing.localDc": "<C*_DC_name>"
+  	"loadBalancing.localDc": "<C*_DC_name>",
     "outputFormat": "key-value-json"
   }
 ----
@@ -154,7 +154,7 @@ $ pulsar-admin source create \
   	"table": "<C*_table>",
   	"contactPoints": "<C*_contact_point_list>",
   	"port": "9042",
-  	"loadBalancing.localDc": "<C*_DC_name>"
+  	"loadBalancing.localDc": "<C*_DC_name>",
     "outputFormat": "json"
   }
 ----
