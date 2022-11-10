@@ -1,6 +1,0 @@
-2022-07-08 08:16:54,783 [main] INFO : Configured scenario log at logs/scenario_20220708_101654_419.log
-2022-07-08 08:16:54,787 [main] INFO : Running NoSQLBench Version 4.15.101
-2022-07-08 08:16:54,788 [main] INFO : command-line: tags=phase:schema yaml=nb.yaml
-2022-07-08 08:16:55,811 [main] INFO : client-hardware: {"physical-cores":"6","logical-cores":"6","max-frequency-ghz":"0.00","sockets":"1","processor-name":"Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz","memory-GiB":"32.00","heap-max-GiB":"8.00","if-speeds":"[0Mib, 9Mib, 95Mib, 20Mib]"}
-2022-07-08 08:16:55,818 [main] ERROR: Illegal character in scheme name at index 4: tags=phase:schema.js
-2022-07-08 08:16:55,819 [main] ERROR: for the full stack trace, run with --show-stacktraces

@@ -1,6 +1,0 @@
-2022-07-08 08:18:44,454 [main] INFO : Configured scenario log at logs/scenario_20220708_101843_661.log
-2022-07-08 08:18:44,457 [main] INFO : Running NoSQLBench Version 4.15.101
-2022-07-08 08:18:44,458 [main] INFO : command-line: run driver=cql tags=phase:schema workload=file://
-2022-07-08 08:18:44,865 [main] INFO : client-hardware: {"physical-cores":"6","logical-cores":"6","max-frequency-ghz":"0.00","sockets":"1","processor-name":"Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz","memory-GiB":"32.00","heap-max-GiB":"8.00","if-speeds":"[0Mib, 9Mib, 95Mib, 30Mib]"}
-2022-07-08 08:18:44,871 [main] ERROR: Expected authority at index 7: file://
-2022-07-08 08:18:44,871 [main] ERROR: for the full stack trace, run with --show-stacktraces
