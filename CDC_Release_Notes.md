@@ -1,6 +1,12 @@
 # Release notes for CDC for Apache Cassandra&trade;
 The CDC for Apache Cassandra&trade; is compatible for Apache Cassandra&trade; 3.11, 4.0, and DSE 6.8.
 
+# Release notes for 2.2.2
+10 Nov 2022
+
+## Changes
+* Upgrade JacksonXML to 2.12.7.1
+
 # Release notes for 2.2.1
 29 August 2022
 
