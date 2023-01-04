@@ -1,6 +1,6 @@
 site:
   title: DataStax CDC for Apache Cassandra documentation
-  url: http://docs.datastax.com/en/cdc-for-cassandra
+  url: https://docs.datastax.com/en/cdc-for-cassandra
   start_page: cdc-apache-cassandra::index.adoc
 
 content:
