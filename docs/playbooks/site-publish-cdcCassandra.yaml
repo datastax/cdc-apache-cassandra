@@ -4,10 +4,10 @@ site:
 //  start_page: cdc-apache-cassandra::index.adoc
 
 output:
-  dir: '~/work/astra-docs/build/site'
+  dir: '~/work/cdc-apache-cassandra/build/site'
 
 content:
-  edit_url: 'https://github.com/datastax/cdc-apache-cassandra/blob/master/docs/{path}'
+  //edit_url: 'https://github.com/datastax/cdc-apache-cassandra/blob/master/docs/{path}'
   sources:
   - url: '~/work/cdc-apache-cassandra'
     branches: HEAD
@@ -17,7 +17,7 @@ ui:
   bundle:
     url: https://github.com/riptano/antora-ui-pulsar/raw/main/releases/download/v0.2/ui-bundle.zip
     snapshot: true
-  supplemental_files: '~/work/cdc-apache/cassandra/playbooks/supplemental-ui'
+  supplemental_files: '~/work/cdc-apache-cassandra/playbooks/supplemental-ui'
   output_dir: assets
 
 asciidoc:
