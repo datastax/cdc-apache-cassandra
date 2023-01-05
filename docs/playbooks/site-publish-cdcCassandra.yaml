@@ -17,7 +17,7 @@ ui:
   bundle:
     url: https://github.com/riptano/antora-ui-pulsar/raw/main/releases/download/v0.2/ui-bundle.zip
     snapshot: true
-  supplemental_files: '~/work/cdc-apache-cassandra/playbooks/supplemental-ui'
+  supplemental_files: '~/work/cdc-apache-cassandra/docs/playbooks/supplemental-ui'
   output_dir: assets
 
 asciidoc:
@@ -25,4 +25,4 @@ asciidoc:
     cdc-apache-cassandra: 'ssh://github.com/polandll/cdc-apache-cassandra.git'
     source-highlighter: highlightjs
   extensions:
-  - '~/work/cdc-apache-cassandra/playbooks/lib/tabs-block.js'
+  - '~/work/cdc-apache-cassandra/docs/playbooks/lib/tabs-block.js'
