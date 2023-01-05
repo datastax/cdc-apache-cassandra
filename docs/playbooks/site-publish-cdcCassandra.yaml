@@ -1,24 +1,26 @@
 site:
   title: DataStax CDC for Apache Cassandra documentation
   url: https://docs.datastax.com/en/cdc-for-cassandra
-  start_page: cdc-apache-cassandra::index.adoc
+//  start_page: cdc-apache-cassandra::index.adoc
+ output:
+  dir: '~/work/astra-docs/build/site'
 
 content:
   edit_url: 'https://github.com/datastax/cdc-apache-cassandra/blob/master/docs/{path}'
   sources:
-  - url: ./..
-    start-path: docs
+  - url: '~/work/cdc-apache-cassandra'
     branches: HEAD
+    start-path: docs-src/core
 
 ui:
   bundle:
     url: https://github.com/riptano/antora-ui-pulsar/raw/main/releases/download/v0.2/ui-bundle.zip
     snapshot: true
-  supplemental_files: ./supplemental-ui
+  supplemental_files: '~/work/cdc-apache/cassandra/playbooks/supplemental-ui'
   output_dir: assets
 
 asciidoc:
   attributes:
     source-highlighter: highlightjs
   extensions:
-  - ./lib/tabs-block.js
+  - '~/work/cdc-apache-cassandra/playbooks/lib/tabs-block.js'
