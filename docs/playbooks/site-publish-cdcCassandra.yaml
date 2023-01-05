@@ -6,7 +6,7 @@ site:
 content:
   edit_url: 'https://github.com/datastax/cdc-apache-cassandra/blob/master/docs/{path}'
   sources:
-  - url: ..
+  - url: ./..
     start-path: docs
     branches: HEAD
 
