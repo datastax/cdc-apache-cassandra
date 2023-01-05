@@ -5,7 +5,7 @@ site:
 
 content:
   sources:
-  - url: /Users/lorinapoland/CLONES/cdc-apache-cassandra/
+  - url: ./..
     branches: HEAD
     start-path: docs/docs-src/core
 
