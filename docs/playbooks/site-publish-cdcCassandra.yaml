@@ -11,7 +11,7 @@ content:
   sources:
   - url: '~/work/cdc-apache-cassandra'
     branches: [master]
-    start-path: docs-src/core
+    start-path: docs/docs-src/core
 
 ui:
   bundle:
