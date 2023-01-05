@@ -3,8 +3,8 @@
   "scripts": {
     "build:prod:cdcCassandra": "npm run build:publish:cdcCassandra",
     "build:dev:cdcCassandra": "npm run build:local:cdcCassandra",
-    "build:publish:cdcCassandra": "antora --fetch --clean site-publish-cdcCassandra.yaml",
-    "build:local:cdcCassandra": "antora --stacktrace --fetch --clean site-local-cdcCassandra.yaml"
+    "build:publish:cdcCassandra": "antora --fetch --clean playbooks/site-publish-cdcCassandra.yaml",
+    "build:local:cdcCassandra": "antora --stacktrace --fetch --clean playbooks/site-local-cdcCassandra.yaml"
   },
   "repository": {
     "type": "git",
