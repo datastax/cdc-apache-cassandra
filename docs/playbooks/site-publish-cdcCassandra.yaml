@@ -22,6 +22,7 @@ ui:
 
 asciidoc:
   attributes:
+    cdc-apache-cassandra: 'ssh://github.com/polandll/cdc-apache-cassandra.git'
     source-highlighter: highlightjs
   extensions:
   - '~/work/cdc-apache-cassandra/playbooks/lib/tabs-block.js'
