@@ -1,17 +1,18 @@
 {
   "name": "cdcrep-docs",
   "scripts": {
-    "build:prod": "npm run build:publish",
-    "build:dev": "npm run build:local",
-    "build:publish": "antora --fetch --clean site-publish.yaml",
-    "build:local": "antora --stacktrace --fetch --clean site-local.yaml"
+    "build:prod:cdcCassandra": "npm run build:publish:cdcCassandra",
+    "build:dev:cdcCassandra": "npm run build:local:cdcCassandra",
+    "build:publish:cdcCassandra": "antora --fetch --clean --log-level=debug playbooks/site-publish-cdcCassandra.yaml",
+    "build:local:cdcCassandra": "antora --stacktrace --fetch --clean playbooks/site-local-cdcCassandra.yaml"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/riptano/cdcrep.git"
+    "url": "git+https://github.com/riptano/cdc-apache-cassandra.git"
   },
   "dependencies": {
-    "@antora/cli": "^2.3.4",
-    "@antora/site-generator-default": "^2.3.4"
+    "antora": "^3.1.2",
+    "@antora/cli": "^3.1.2",
+    "@antora/site-generator-default": "^3.1.2"
   }
 }

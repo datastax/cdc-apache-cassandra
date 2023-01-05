@@ -51,8 +51,9 @@ In a worst-case scenario, where a CDC-enabled C* has 100% write workload, the CD
 * CQL column names must not match a Pulsar primitive type name (ex: INT32) below
 
 ==== Table Pulsar primitive types
+
 [cols=2*, options=header]
-[autowidth]
+[%autowidth]
 |===
 |*Primitive type*
 |*Description*

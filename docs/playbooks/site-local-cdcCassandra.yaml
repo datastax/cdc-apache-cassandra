@@ -5,9 +5,9 @@ site:
 
 content:
   sources:
-  - url: ..
-    start-path: docs
+  - url: ./..
     branches: HEAD
+    start-path: docs/docs-src/core
 
 ui:
   bundle:
