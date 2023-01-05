@@ -2,7 +2,8 @@ site:
   title: DataStax CDC for Apache Cassandra documentation
   url: https://docs.datastax.com/en/cdc-for-cassandra
 //  start_page: cdc-apache-cassandra::index.adoc
- output:
+
+output:
   dir: '~/work/astra-docs/build/site'
 
 content:
