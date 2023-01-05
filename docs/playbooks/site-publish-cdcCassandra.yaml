@@ -1,13 +1,13 @@
 site:
   title: DataStax CDC for Apache Cassandra documentation
   url: https://docs.datastax.com/en/cdc-for-cassandra
-//  start_page: cdc-apache-cassandra::index.adoc
+  start_page: cdc-apache-cassandra::index.adoc
 
 output:
   dir: '~/work/cdc-apache-cassandra/build/site'
 
 content:
-  //edit_url: 'https://github.com/datastax/cdc-apache-cassandra/blob/master/docs/{path}'
+  edit_url: 'https://github.com/datastax/cdc-apache-cassandra/blob/master/docs/{path}'
   sources:
   - url: '~/work/cdc-apache-cassandra'
     branches: HEAD
