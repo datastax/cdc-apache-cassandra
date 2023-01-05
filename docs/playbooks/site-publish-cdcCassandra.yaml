@@ -10,8 +10,8 @@ content:
   //edit_url: 'https://github.com/datastax/cdc-apache-cassandra/blob/master/docs/{path}'
   sources:
   - url: '~/work/cdc-apache-cassandra'
-    branches: [master]
-    start-path: docs/docs-src/core
+    branches: HEAD
+    start_path: docs-src/core
 
 ui:
   bundle:
