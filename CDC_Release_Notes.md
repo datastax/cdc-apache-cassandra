@@ -1,6 +1,12 @@
 # Release notes for CDC for Apache Cassandra&trade;
 The CDC for Apache Cassandra&trade; is compatible for Apache Cassandra&trade; 3.11, 4.0, and DSE 6.8.
 
+# Release notes for 2.2.3
+2 Feb 2023
+
+## Changes
+* Cassandra connector: Fix an internal error: ClassCastException when outputFormat is set to `json` 
+
 # Release notes for 2.2.2
 10 Nov 2022
 
