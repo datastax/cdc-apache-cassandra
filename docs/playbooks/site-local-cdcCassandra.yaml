@@ -12,7 +12,7 @@ output:
 
 content:
   sources:
-  - url: ./..
+  - url: ./../..
     branches: HEAD
     start-path: docs/docs-src/core
 
