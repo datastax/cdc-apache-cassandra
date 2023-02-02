@@ -2,9 +2,17 @@ site:
   title: DataStax CDC for Apache Cassandra documentation
   url: /docs/cdc-apache-cassandra
 
+output:
+  # The output.dir in the site-local playbook should take the form
+  # "./../build/<docset-name>". The reason for this is because DataStax docs are
+  # often stored on separate branches of the same repo. Using the docset name
+  # for the output directory ensures that different docset builds within the
+  # same repo don't overwrite each other
+  dir: ./../build/cdc-apache-cassandra
+
 content:
   sources:
-  - url: ./../..
+  - url: ./..
     branches: HEAD
     start-path: docs/docs-src/core
 
