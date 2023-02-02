@@ -1,7 +1,6 @@
 site:
   title: DataStax CDC for Apache Cassandra documentation
   url: https://docs.datastax.com/en/cdc-for-cassandra
-  start_page: cdc-apache-cassandra::index.adoc
 
 output:
   dir: '~/work/cdc-apache-cassandra/docs/build/site'
@@ -15,7 +14,7 @@ content:
 
 ui:
   bundle:
-    url: https://github.com/riptano/antora-ui-pulsar/raw/main/releases/download/v0.2/ui-bundle.zip
+    url: https://github.com/riptano/antora-ui-docs/releases/latest/download/ui-bundle.zip
     snapshot: true
   supplemental_files: '~/work/cdc-apache-cassandra/docs/playbooks/supplemental-ui'
   output_dir: assets
