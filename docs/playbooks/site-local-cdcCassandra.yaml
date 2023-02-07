@@ -11,20 +11,40 @@ output:
   dir: ./../build/cdc-apache-cassandra
 
 content:
+  edit_url: false
   sources:
   - url: ./../..
     branches: HEAD
-    start-path: docs/docs-src/core
+    start_path: docs/docs-src/core
 
 ui:
   bundle:
     url: https://github.com/riptano/antora-ui-docs/releases/latest/download/ui-bundle.zip
     snapshot: true
-  supplemental_files: ./supplemental-ui
+  # Uncomment the "supplemental_files" line below ONLY IF you're trying to
+  # change the banner logo to something other than the default logo provided by
+  # the UI bundle. NOTE: The non-default logo must be named "logo.svg" and be
+  # located @ "playbooks/supplemental-ui/img/logo.svg".
+  #supplemental_files: ./supplemental-ui
   output_dir: assets
 
 asciidoc:
   attributes:
-    source-highlighter: highlightjs
+    page-pagination: ''
+    sectanchors: ''
+    sectlinks: ''
+    idprefix: ''
+    idseparator: '-'
+
+    support_url: 'https://houston.datastax.com/hc/requests/new'
+    astra_docs_base_url: 'https://docs.datastax.com/en/astra/docs'
+
+    # The "glossary-url" attribute below is used by writers when linking to a
+    # term in the glossary. Referencing this attribute in an adoc file will
+    # automatically insert the root URL where the glossary pages are located.
+    # For example, the following syntax will generate a link to the glossary
+    # page for "agent": {glossary-url}agent[agent,window="_blank"]
+    glossary-url: 'https://docs.datastax.com/en/glossary/docs/index.html#'
+
   extensions:
   - ./lib/tabs-block.js
