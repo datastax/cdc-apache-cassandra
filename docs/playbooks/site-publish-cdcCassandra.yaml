@@ -1,8 +1,17 @@
 site:
   title: DataStax CDC for Apache Cassandra documentation
   url: https://docs.datastax.com/en/cdc-for-cassandra
+  # The keys.segmentIo site key must be in the site-publish playbook of each
+  # docset. This loads Segment into the docset build, and is a requirement for
+  # collecting site analytics.
+  keys:
+    segmentIo: d24gQtyKIUu5mLdkp11xjfiXLhRqx0HH
 
 output:
+  # Bsys requires the output.dir in the site-publish playbook to be specifically
+  # set to "~/work/<repo-name>/build/site". This is because bsys clones the
+  # content source repo into "/work", and then looks for the Antora-generated
+  # site in "build/site" within the repo directory when deploying/syncing.
   dir: '~/work/cdc-apache-cassandra/docs/build/site'
 
 content:
@@ -16,12 +25,33 @@ ui:
   bundle:
     url: https://github.com/riptano/antora-ui-docs/releases/latest/download/ui-bundle.zip
     snapshot: true
-  supplemental_files: '~/work/cdc-apache-cassandra/docs/playbooks/supplemental-ui'
+  # Uncomment the "supplemental_files" line below ONLY IF you're trying to
+  # change the banner logo to something other than the default logo provided by
+  # the UI bundle. NOTE: The non-default logo must be named "logo.svg" and be
+  # located @ "playbooks/supplemental-ui/img/logo.svg".
+  #supplemental_files: '~/work/cdc-apache-cassandra/docs/playbooks/supplemental-ui'
   output_dir: assets
 
 asciidoc:
   attributes:
-    cdc-apache-cassandra: 'ssh://github.com/polandll/cdc-apache-cassandra.git'
+    page-pagination: ''
+    sectanchors: ''
+    sectlinks: ''
+    idprefix: ''
+    idseparator: '-'
     source-highlighter: highlightjs
+
+    # The "glossary-url" attribute below is used by writers when linking to a
+    # term in the glossary. Referencing this attribute in an adoc file will
+    # automatically insert the root URL where the glossary pages are located.
+    # For example, the following syntax will generate a link to the glossary
+    # page for "agent": {glossary-url}agent[agent,window="_blank"]
+    glossary-url: 'https://docs.datastax.com/en/glossary/docs/index.html#'
+
+    # Bsys requires the URLs of the content source repos of the current docset
+    # to be listed as attributes in the site-publish playbook in the form
+    # "<repo-name>: 'ssh://github.com/<org-name>/<repo-name>.git'".
+    cdc-apache-cassandra: 'ssh://github.com/datastax/cdc-apache-cassandra'
+
   extensions:
   - '~/work/cdc-apache-cassandra/docs/playbooks/lib/tabs-block.js'
