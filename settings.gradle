@@ -5,7 +5,7 @@ buildscript {
     }
     dependencies {
         classpath "io.github.lhotari.gradle-nar-plugin:gradle-nar-plugin:0.5.1"
-        classpath 'com.github.jengelman.gradle.plugins:shadow:6.1.0'
+        classpath "gradle.plugin.com.github.johnrengelman:shadow:7.1.2"
         classpath "com.avast.gradle:gradle-docker-compose-plugin:0.14.9"
 
         // workaround for issue https://github.com/n0mer/gradle-git-properties/issues/195
@@ -35,3 +35,4 @@ include 'connector-distribution'
 
 include 'docs'
 
+include 'cdc-backfill-client'

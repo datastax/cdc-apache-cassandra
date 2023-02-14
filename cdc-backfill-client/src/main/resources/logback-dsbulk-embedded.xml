@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Copyright DataStax, Inc.
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<configuration>
+    <!--
+    This is a copy of DSBulk's original log configuration file, with minimal changes to make it
+    more suitable for the migrator tool, when using the embedded DSBulk runtime.
+    -->
+    <property name="OPERATION_ID" value=""/>
+    <contextListener class="ch.qos.logback.classic.jul.LevelChangePropagator"/>
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <!--
+        DSBulk log messages are printed to standard error, to leave standard out free for
+        output from workflow executions that print their results to that channel.
+        But in this tool, it is safe to use System.out.
+        -->
+        <target>System.out</target>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>INFO</level>
+        </filter>
+        <!--
+        Don't print metrics on the console.
+        -->
+        <filter class="ch.qos.logback.core.filter.EvaluatorFilter">
+            <evaluator class="ch.qos.logback.classic.boolex.OnMarkerEvaluator">
+                <marker>METRICS</marker>
+            </evaluator>
+            <onMismatch>NEUTRAL</onMismatch>
+            <onMatch>DENY</onMatch>
+        </filter>
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %-5level [DSBULK-%property{OPERATION_ID}] %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+    <root level="ERROR">
+        <!--
+        DSBulk also logs to a main log file, but this appender is
+        created programmatically in LogSettings.
+        -->
+        <appender-ref ref="CONSOLE"/>
+    </root>
+    <!--
+    Do not change the loggers below; they are programmatically manipulated
+    by LogSettings to apply the desired verbosity level.
+    -->
+    <logger name="com.datastax.oss.dsbulk" level="INFO"/>
+    <logger name="com.datastax.oss.driver" level="WARN"/>
+    <logger name="com.datastax.dse.driver" level="WARN"/>
+    <logger name="io.netty" level="WARN"/>
+    <logger name="reactor.core" level="WARN"/>
+</configuration>
