@@ -1,10 +1,10 @@
 {
   "name": "cdcrep-docs",
   "scripts": {
-    "build:prod:cdcCassandra": "npm run build:publish:cdcCassandra",
-    "build:dev:cdcCassandra": "npm run build:local:cdcCassandra",
-    "build:publish:cdcCassandra": "antora --fetch --clean --log-level=debug playbooks/site-publish-cdcCassandra.yaml",
-    "build:local:cdcCassandra": "antora --stacktrace --fetch --clean playbooks/site-local-cdcCassandra.yaml"
+    "build:prod:cdc-cassandra": "npm run build:publish:cdc-cassandra",
+    "build:dev:cdc-cassandra": "npm run build:local:cdc-cassandra",
+    "build:publish:cdc-cassandra": "antora --fetch --clean --log-level=debug playbooks/site-publish-cdc-cassandra.yaml",
+    "build:local:cdc-cassandra": "antora --stacktrace --fetch --clean playbooks/site-local-cdc-cassandra.yaml"
   },
   "repository": {
     "type": "git",
