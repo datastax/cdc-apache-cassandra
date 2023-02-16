@@ -1,0 +1,56 @@
+plugins {
+    id 'com.github.johnrengelman.shadow'
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': "$mainClassName"
+    }
+}
+
+shadowJar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    manifest {
+        attributes(
+                'Main-Class': "$mainClassName"
+        )
+    }
+
+    // Required to merge the 'dsbulk-reference.conf' otherwise the runtime will fail with:
+    // No configuration setting found for key 'dsbulk.metaSettings'
+    transform(com.github.jengelman.gradle.plugins.shadow.transformers.AppendingTransformer) {
+        resource = 'dsbulk-reference.conf'
+    }
+
+    zip64=true
+}
+
+jar.enabled = true
+assemble.dependsOn(shadowJar)
+
+dependencies {
+    implementation project(':agent-dse4')
+    implementation project(':agent')
+
+    implementation "com.datastax.oss:dsbulk-config:${dsbulkVersion}"
+    implementation "com.datastax.oss:dsbulk-runner:${dsbulkVersion}"
+    implementation "com.datastax.oss:dsbulk-workflow-unload:${dsbulkVersion}"
+    implementation "com.datastax.oss:dsbulk-connectors-csv:${dsbulkVersion}"
+    implementation "com.datastax.oss:dsbulk-executor-reactor:${dsbulkVersion}"
+    implementation "com.datastax.oss:dsbulk-batcher-reactor:${dsbulkVersion}"
+    implementation "com.google.guava:guava:${guavaVersion}"
+
+    implementation "info.picocli:picocli:4.6.3"
+    implementation "org.slf4j:slf4j-api:1.7.36"
+    implementation "ch.qos.logback:logback-classic:1.2.11"
+    implementation "org.apache.cassandra:cassandra-all:${cassandra4Version}"
+    implementation "com.datastax.dse:dse-db:${dse4Version}"
+    implementation "${pulsarGroup}:pulsar-client:${pulsarVersion}"
+    testImplementation "org.junit.jupiter:junit-jupiter-api:5.8.1"
+    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:5.8.1"
+}
+
+test {
+    useJUnitPlatform()
+}

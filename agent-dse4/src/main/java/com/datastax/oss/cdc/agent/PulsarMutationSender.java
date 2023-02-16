@@ -84,6 +84,10 @@ public class PulsarMutationSender extends AbstractPulsarMutationSender<TableMeta
         super(config, DatabaseDescriptor.getPartitionerName().equals(Murmur3Partitioner.class.getName()));
     }
 
+    public PulsarMutationSender(AgentConfig config, boolean useMurmur3Partitioner) {
+        super(config, useMurmur3Partitioner);
+    }
+
     @Override
     public void incSkippedMutations() {
         CdcMetrics.skippedMutations.inc();
