@@ -43,38 +43,5 @@ public class ModelUtils {
 
     public static final Logger LOGGER = LoggerFactory.getLogger(ModelUtils.class);
 
-    public static ExportedTable buildExportedTable(
-            ClusterInfo origin, Credentials credentials, BackFillSettings inclusionSettings) {
-        try (CqlSession session = SessionUtils.createSession(origin, credentials)) {
-            LOGGER.info("Tables to migrate:");
-            KeyspaceMetadata keyspace = getExportedKeyspace(session, inclusionSettings);
-            TableMetadata table = getExportedTablesInKeyspace(keyspace, inclusionSettings);
-            List<ExportedColumn> exportedColumns = buildExportedPKColumns(table);
-            ExportedTable exportedTable = new ExportedTable(keyspace, table, exportedColumns);
-            LOGGER.info(
-                    "- {} ({})", exportedTable, "regular");
-            return exportedTable;
-        }
-    }
 
-    private static KeyspaceMetadata getExportedKeyspace(
-            CqlSession session, BackFillSettings settings) {
-        return session.getMetadata().getKeyspace(settings.keyspace).get();
-    }
-
-    private static TableMetadata getExportedTablesInKeyspace(
-            KeyspaceMetadata keyspace, BackFillSettings settings) {
-
-        //TableType tableType = settings.getTableType();
-        return keyspace.getTable(settings.table).get();
-    }
-
-    private static List<ExportedColumn> buildExportedPKColumns(
-            TableMetadata table) {
-        List<ExportedColumn> exportedColumns = new ArrayList<>();
-        for (ColumnMetadata pk : table.getPrimaryKey()) {
-            exportedColumns.add(new ExportedColumn(pk, true, null, null));
-        }
-        return exportedColumns;
-    }
 }

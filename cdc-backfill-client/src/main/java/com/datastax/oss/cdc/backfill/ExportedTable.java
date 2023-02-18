@@ -34,7 +34,8 @@ public class ExportedTable {
         this.table = table;
         this.keyspace = keyspace;
         this.columns = columns;
-        fullyQualifiedName = TableUtils.getFullyQualifiedTableName(table);
+        this.fullyQualifiedName =
+                String.format("%s.%s", table.getKeyspace().asCql(true), table.getName().asCql(true));
     }
 
     @Override

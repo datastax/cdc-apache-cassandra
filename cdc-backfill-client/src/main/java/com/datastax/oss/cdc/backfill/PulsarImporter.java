@@ -49,13 +49,12 @@ public class PulsarImporter {
         this.exportedTable = exportedTable;
     }
 
-    public TableExportReport importTable(TableExporter migrator) {
+    public ExitStatus importTable() {
         try {
             connector.init();
         } catch (Exception e) {
             throw new RuntimeException("Failed to init connector!", e);
         }
-        String operationId = "OperationID"; // TODO: Retrieve operation ID retrieveImportOperationId();
         Map<String, Object> tenantInfo = new HashMap<>();
         tenantInfo.put(PULSAR_SERVICE_URL, "pulsar://localhost:6650/");
         //tenantInfo.put(PULSAR_AUTH_PLUGIN_CLASS_NAME, "MyAuthPlugin");
@@ -82,7 +81,7 @@ public class PulsarImporter {
 
         LOGGER.info("sent {} records to Pulsar", c);
         CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0])).join();
-        return new TableExportReport(migrator, ExitStatus.STATUS_OK, operationId, true);
+        return ExitStatus.STATUS_OK;
     }
 
 }

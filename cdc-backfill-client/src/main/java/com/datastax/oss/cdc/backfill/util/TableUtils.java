@@ -16,17 +16,21 @@
 
 package com.datastax.oss.cdc.backfill.util;
 
+import com.datastax.oss.cdc.backfill.BackFillSettings;
+import com.datastax.oss.cdc.backfill.ClusterInfo;
+import com.datastax.oss.cdc.backfill.Credentials;
+import com.datastax.oss.cdc.backfill.ExportedColumn;
+import com.datastax.oss.cdc.backfill.ExportedTable;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
+import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import com.datastax.oss.driver.api.core.type.DataTypes;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class TableUtils {
 
-    public static String getFullyQualifiedTableName(TableMetadata table) {
-        return String.format("%s.%s", table.getKeyspace().asCql(true), table.getName().asCql(true));
-    }
 
-    public static boolean isCounterTable(TableMetadata table) {
-        return table.getColumns().values().stream()
-                .anyMatch(column -> column.getType() == DataTypes.COUNTER);
-    }
 }

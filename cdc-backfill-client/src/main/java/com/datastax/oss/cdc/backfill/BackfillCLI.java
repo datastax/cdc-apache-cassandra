@@ -17,7 +17,9 @@
 package com.datastax.oss.cdc.backfill;
 
 
+import com.datastax.oss.cdc.backfill.factory.BackfillFactory;
 import com.datastax.oss.cdc.backfill.util.LoggingUtils;
+import com.datastax.oss.dsbulk.connectors.api.Connector;
 import picocli.CommandLine;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
@@ -26,8 +28,7 @@ import picocli.CommandLine.Option;
 @Command(
         name = "BackfillCLI",
         description =
-                "A tool for read historical data from a Cassandra table and sending equivalent mutation records " +
-                        "to the events topic.",
+                "A tool for back-filling the CDC data topic with historical data from that source Cassandra table.",
         versionProvider = VersionProvider.class,
         sortOptions = false,
         usageHelpWidth = 100)
@@ -59,7 +60,13 @@ public class BackfillCLI {
             usageHelpWidth = 100)
     private int backfill(
             @ArgGroup(exclusive = false, multiplicity = "1") BackFillSettings settings) {
-        CassandraToPulsarMigrator migrator = new CassandraToPulsarMigrator(settings);
+        // Bootstrap the backfill dependencies
+        final BackfillFactory factory = new BackfillFactory(settings);
+        final TableExporter exporter = factory.createTableExporter();
+        final Connector connector = factory.createCVSConnector(exporter.tableDataDir);
+        final PulsarImporter importer = factory.createPulsarImporter(connector, exporter.getExportedTable());
+        final CassandraToPulsarMigrator migrator = new CassandraToPulsarMigrator(exporter, importer);
+
         return migrator.migrate().exitCode();
     }
 }
