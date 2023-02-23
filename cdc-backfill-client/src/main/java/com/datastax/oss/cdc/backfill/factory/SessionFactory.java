@@ -31,7 +31,7 @@ public class SessionFactory {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SessionFactory.class);
 
-    public CqlSession createSession(ClusterInfo clusterInfo, Credentials credentials) {
+    public CqlSession newSession(ClusterInfo clusterInfo, Credentials credentials) {
         String clusterName = clusterInfo.isOrigin() ? "origin" : "target";
         try {
             LOGGER.info("Contacting {} cluster...", clusterName);

@@ -111,7 +111,7 @@ public class TableExporter {
 
     private ExitStatus invokeDsbulk(String operationId, List<String> args) {
         int exitCode;
-        final DataStaxBulkLoader loader = this.dsBulkFactory.createLoader(args.toArray(new String[0]));
+        final DataStaxBulkLoader loader = this.dsBulkFactory.newLoader(args.toArray(new String[0]));
         LoggingUtils.configureLogging(DSBULK_CONFIGURATION_FILE);
         System.setProperty("OPERATION_ID", operationId);
         try {
@@ -240,7 +240,7 @@ public class TableExporter {
     private ExportedTable buildExportedTable() {
         final ClusterInfo origin = this.settings.exportSettings.clusterInfo;
         final ExportSettings.ExportCredentials credentials = this.settings.exportSettings.credentials;
-        try (CqlSession session = sessionFactory.createSession(origin, credentials)) {
+        try (CqlSession session = sessionFactory.newSession(origin, credentials)) {
             KeyspaceMetadata keyspace = session.getMetadata().getKeyspace(settings.keyspace).get();
             TableMetadata table = keyspace.getTable(this.settings.table).get();
             List<ExportedColumn> exportedColumns = buildExportedPKColumns(table);
