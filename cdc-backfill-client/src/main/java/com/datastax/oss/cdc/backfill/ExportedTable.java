@@ -16,10 +16,8 @@
 
 package com.datastax.oss.cdc.backfill;
 
-import com.amazonaws.services.kms.model.UnsupportedOperationException;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
-import com.datastax.oss.driver.api.core.type.DataType;
 import com.google.common.collect.ImmutableMap;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.AsciiType;
@@ -39,7 +37,6 @@ import org.apache.cassandra.db.marshal.SimpleDateType;
 import org.apache.cassandra.db.marshal.TimeType;
 import org.apache.cassandra.db.marshal.TimeUUIDType;
 import org.apache.cassandra.db.marshal.TimestampType;
-import org.apache.cassandra.db.marshal.TypeParser;
 import org.apache.cassandra.db.marshal.UTF8Type;
 import org.apache.cassandra.db.marshal.UUIDType;
 
