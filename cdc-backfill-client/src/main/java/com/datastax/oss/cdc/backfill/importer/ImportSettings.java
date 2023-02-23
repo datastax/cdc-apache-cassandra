@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.datastax.oss.cdc.backfill;
+package com.datastax.oss.cdc.backfill.importer;
 
 import picocli.CommandLine;
 

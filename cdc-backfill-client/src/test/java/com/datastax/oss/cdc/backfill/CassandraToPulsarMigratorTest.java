@@ -16,6 +16,8 @@
 
 package com.datastax.oss.cdc.backfill;
 
+import com.datastax.oss.cdc.backfill.exporter.TableExporter;
+import com.datastax.oss.cdc.backfill.importer.PulsarImporter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;

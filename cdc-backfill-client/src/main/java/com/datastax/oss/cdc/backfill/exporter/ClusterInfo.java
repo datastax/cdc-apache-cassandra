@@ -14,11 +14,23 @@
  * limitations under the License.
  */
 
-package com.datastax.oss.cdc.backfill;
+package com.datastax.oss.cdc.backfill.exporter;
 
-public interface Credentials {
+import java.net.InetSocketAddress;
+import java.nio.file.Path;
+import java.util.List;
 
-    String getUsername();
+public interface ClusterInfo {
 
-    char[] getPassword();
+    boolean isOrigin();
+
+    List<InetSocketAddress> getContactPoints();
+
+    Path getBundle();
+
+    String getProtocolVersion();
+
+    default boolean isAstra() {
+        return getBundle() != null;
+    }
 }

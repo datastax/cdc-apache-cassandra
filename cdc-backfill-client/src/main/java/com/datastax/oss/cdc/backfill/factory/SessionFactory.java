@@ -15,8 +15,8 @@
  */
 package com.datastax.oss.cdc.backfill.factory;
 
-import com.datastax.oss.cdc.backfill.ClusterInfo;
-import com.datastax.oss.cdc.backfill.Credentials;
+import com.datastax.oss.cdc.backfill.exporter.ClusterInfo;
+import com.datastax.oss.cdc.backfill.exporter.Credentials;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
 import com.datastax.oss.driver.api.core.config.DefaultDriverOption;

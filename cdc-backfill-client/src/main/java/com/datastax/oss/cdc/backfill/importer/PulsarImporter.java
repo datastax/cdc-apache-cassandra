@@ -14,17 +14,15 @@
  * limitations under the License.
  */
 
-package com.datastax.oss.cdc.backfill;
+package com.datastax.oss.cdc.backfill.importer;
 
 import com.datastax.oss.cdc.agent.AbstractMutation;
 import com.datastax.oss.cdc.agent.Mutation;
 import com.datastax.oss.cdc.agent.PulsarMutationSender;
-
+import com.datastax.oss.cdc.backfill.ExitStatus;
 import com.datastax.oss.cdc.backfill.factory.PulsarMutationSenderFactory;
 import com.datastax.oss.dsbulk.connectors.api.Connector;
-import com.datastax.oss.dsbulk.connectors.api.DefaultIndexedField;
 import com.datastax.oss.dsbulk.connectors.api.DefaultMappedField;
-import com.datastax.oss.dsbulk.connectors.api.Record;
 import com.datastax.oss.dsbulk.connectors.api.Resource;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.schema.TableMetadata;

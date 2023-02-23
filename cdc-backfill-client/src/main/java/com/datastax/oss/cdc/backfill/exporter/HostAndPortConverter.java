@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.datastax.oss.cdc.backfill;
+package com.datastax.oss.cdc.backfill.exporter;
 
 import com.datastax.oss.driver.shaded.guava.common.net.HostAndPort;
 import picocli.CommandLine.ITypeConverter;

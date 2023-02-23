@@ -16,10 +16,10 @@
 
 package com.datastax.oss.cdc.backfill.factory;
 
-import com.datastax.oss.cdc.backfill.BackFillSettings;
-import com.datastax.oss.cdc.backfill.ExportedTable;
-import com.datastax.oss.cdc.backfill.PulsarImporter;
-import com.datastax.oss.cdc.backfill.TableExporter;
+import com.datastax.oss.cdc.backfill.BackfillSettings;
+import com.datastax.oss.cdc.backfill.exporter.ExportedTable;
+import com.datastax.oss.cdc.backfill.importer.PulsarImporter;
+import com.datastax.oss.cdc.backfill.exporter.TableExporter;
 import com.datastax.oss.cdc.backfill.util.ConnectorUtils;
 import com.datastax.oss.dsbulk.connectors.api.Connector;
 import com.datastax.oss.dsbulk.connectors.csv.CSVConnector;
@@ -30,9 +30,9 @@ import java.net.URISyntaxException;
 import java.nio.file.Path;
 
 public class BackfillFactory {
-    private final BackFillSettings settings;
+    private final BackfillSettings settings;
 
-    public BackfillFactory(BackFillSettings setting) {
+    public BackfillFactory(BackfillSettings setting) {
         this.settings = setting;
     }
 

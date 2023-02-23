@@ -16,6 +16,8 @@
 
 package com.datastax.oss.cdc.backfill;
 
+import com.datastax.oss.cdc.backfill.exporter.ExportSettings;
+import com.datastax.oss.cdc.backfill.exporter.TableExporter;
 import com.datastax.oss.cdc.backfill.factory.DsBulkFactory;
 import com.datastax.oss.cdc.backfill.factory.SessionFactory;
 import com.datastax.oss.driver.shaded.guava.common.net.HostAndPort;
@@ -47,7 +49,7 @@ public class TableExporterTest extends SimulacronITBase {
     private TableExporter exporter;
     private DsBulkFactory dsBulkFactory;
     private SessionFactory sessionFactory;
-    private BackFillSettings settings;
+    private BackfillSettings settings;
 
     TableExporterTest(BoundCluster origin) {
         super(origin);
@@ -100,8 +102,8 @@ public class TableExporterTest extends SimulacronITBase {
                 .containsExactlyInAnyOrder("textPK", "first", "textPK", "second"); // 2 cvs files with headers
     }
 
-    private BackFillSettings createSettings() {
-        BackFillSettings settings = new BackFillSettings();
+    private BackfillSettings createSettings() {
+        BackfillSettings settings = new BackfillSettings();
         settings.dataDir = dataDir;
         settings.keyspace = "test";
         settings.table = "t1";

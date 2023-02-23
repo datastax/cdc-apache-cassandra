@@ -19,7 +19,7 @@ package com.datastax.oss.cdc.backfill;
 import com.datastax.oss.cdc.agent.AbstractMutation;
 import com.datastax.oss.cdc.agent.PulsarMutationSender;
 import com.datastax.oss.cdc.backfill.factory.PulsarMutationSenderFactory;
-import com.datastax.oss.cdc.backfill.factory.SessionFactory;
+import com.datastax.oss.cdc.backfill.importer.PulsarImporter;
 import com.datastax.oss.dsbulk.connectors.api.Connector;
 import com.datastax.oss.dsbulk.connectors.csv.CSVConnector;
 import com.datastax.oss.dsbulk.tests.utils.StringUtils;
@@ -37,8 +37,6 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.net.URL;
 import java.util.ArrayList;

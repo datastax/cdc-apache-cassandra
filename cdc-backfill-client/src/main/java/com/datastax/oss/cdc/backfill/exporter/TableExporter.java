@@ -13,8 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.datastax.oss.cdc.backfill;
+package com.datastax.oss.cdc.backfill.exporter;
 
+import com.datastax.oss.cdc.backfill.BackfillSettings;
+import com.datastax.oss.cdc.backfill.ExitStatus;
 import com.datastax.oss.cdc.backfill.factory.DsBulkFactory;
 import com.datastax.oss.cdc.backfill.factory.SessionFactory;
 import com.datastax.oss.cdc.backfill.util.LoggingUtils;
@@ -48,7 +50,7 @@ public class TableExporter {
             Objects.requireNonNull(ClassLoader.getSystemResource("logback-dsbulk-embedded.xml"));
     private static final Logger LOGGER = LoggerFactory.getLogger(TableExporter.class);
 
-    protected final BackFillSettings settings;
+    protected final BackfillSettings settings;
 
     protected final Path tableDataDir;
 
@@ -60,7 +62,7 @@ public class TableExporter {
     private final ExportedTable exportedTable;
     private final SessionFactory sessionFactory;
 
-    public  TableExporter(DsBulkFactory dsBulkFactory, SessionFactory sessionFactory, BackFillSettings settings) {
+    public  TableExporter(DsBulkFactory dsBulkFactory, SessionFactory sessionFactory, BackfillSettings settings) {
         this.dsBulkFactory = dsBulkFactory;
         this.sessionFactory = sessionFactory;
         this.settings = settings;
@@ -107,6 +109,10 @@ public class TableExporter {
 
     public ExportedTable getExportedTable() {
         return this.exportedTable;
+    }
+
+    public Path getTableDataDir() {
+        return tableDataDir;
     }
 
     private ExitStatus invokeDsbulk(String operationId, List<String> args) {

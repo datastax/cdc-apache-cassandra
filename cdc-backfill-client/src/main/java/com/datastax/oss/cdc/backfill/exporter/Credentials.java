@@ -14,23 +14,11 @@
  * limitations under the License.
  */
 
-package com.datastax.oss.cdc.backfill;
+package com.datastax.oss.cdc.backfill.exporter;
 
-import com.datastax.oss.driver.api.core.CqlIdentifier;
-import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
+public interface Credentials {
 
-public class ExportedColumn {
+    String getUsername();
 
-    public final ColumnMetadata col;
-    public final boolean pk;
-    public final CqlIdentifier writetime;
-    public final CqlIdentifier ttl;
-
-    public ExportedColumn(
-            ColumnMetadata col, boolean pk, CqlIdentifier writetime, CqlIdentifier ttl) {
-        this.col = col;
-        this.pk = pk;
-        this.writetime = writetime;
-        this.ttl = ttl;
-    }
+    char[] getPassword();
 }

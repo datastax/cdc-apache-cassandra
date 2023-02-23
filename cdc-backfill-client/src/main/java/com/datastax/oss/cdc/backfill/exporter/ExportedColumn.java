@@ -14,23 +14,22 @@
  * limitations under the License.
  */
 
-package com.datastax.oss.cdc.backfill;
+package com.datastax.oss.cdc.backfill.exporter;
 
-import java.net.InetSocketAddress;
-import java.nio.file.Path;
-import java.util.List;
+import com.datastax.oss.driver.api.core.CqlIdentifier;
+import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
+public class ExportedColumn {
 
-public interface ClusterInfo {
+    public final ColumnMetadata col;
+    public final boolean pk;
+    public final CqlIdentifier writetime;
+    public final CqlIdentifier ttl;
 
-    boolean isOrigin();
-
-    List<InetSocketAddress> getContactPoints();
-
-    Path getBundle();
-
-    String getProtocolVersion();
-
-    default boolean isAstra() {
-        return getBundle() != null;
+    public ExportedColumn(
+            ColumnMetadata col, boolean pk, CqlIdentifier writetime, CqlIdentifier ttl) {
+        this.col = col;
+        this.pk = pk;
+        this.writetime = writetime;
+        this.ttl = ttl;
     }
 }

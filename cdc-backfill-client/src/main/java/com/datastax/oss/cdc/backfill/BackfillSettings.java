@@ -16,16 +16,17 @@
 
 package com.datastax.oss.cdc.backfill;
 
+import com.datastax.oss.cdc.backfill.exporter.ExportSettings;
+import com.datastax.oss.cdc.backfill.importer.ImportSettings;
 import picocli.CommandLine;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.regex.Pattern;
 
 /**
  * Define settings for the backfill operation, those will translate to DSBulk or Puslar client settings as appropriate.
  */
-public class BackFillSettings {
+public class BackfillSettings {
 
     @CommandLine.Option(
             names = {"-h", "--help"},

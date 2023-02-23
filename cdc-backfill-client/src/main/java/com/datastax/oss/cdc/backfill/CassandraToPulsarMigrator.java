@@ -16,6 +16,8 @@
 
 package com.datastax.oss.cdc.backfill;
 
+import com.datastax.oss.cdc.backfill.exporter.TableExporter;
+import com.datastax.oss.cdc.backfill.importer.PulsarImporter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

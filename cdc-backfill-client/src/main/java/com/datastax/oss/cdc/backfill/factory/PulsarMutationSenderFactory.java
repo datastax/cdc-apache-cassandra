@@ -18,7 +18,7 @@ package com.datastax.oss.cdc.backfill.factory;
 
 import com.datastax.oss.cdc.agent.AgentConfig;
 import com.datastax.oss.cdc.agent.PulsarMutationSender;
-import com.datastax.oss.cdc.backfill.ImportSettings;
+import com.datastax.oss.cdc.backfill.importer.ImportSettings;
 
 public class PulsarMutationSenderFactory {
 
