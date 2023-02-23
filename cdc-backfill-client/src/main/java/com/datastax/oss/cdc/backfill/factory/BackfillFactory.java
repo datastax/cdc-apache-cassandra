@@ -25,6 +25,8 @@ import com.datastax.oss.dsbulk.connectors.api.Connector;
 import com.datastax.oss.dsbulk.connectors.csv.CSVConnector;
 import com.typesafe.config.Config;
 
+import java.io.IOException;
+import java.net.URISyntaxException;
 import java.nio.file.Path;
 
 public class BackfillFactory {
@@ -34,12 +36,12 @@ public class BackfillFactory {
         this.settings = setting;
     }
 
-    public TableExporter createTableExporter() {
+    public TableExporter newTableExporter() {
         // export from C* table to disk
         return new TableExporter(new DsBulkFactory(), new SessionFactory(), settings);
     }
 
-    public Connector createCVSConnector(final Path tableDataDir) {
+    public Connector newCVSConnector(final Path tableDataDir) throws URISyntaxException, IOException {
         CSVConnector connector = new CSVConnector();
         Config connectorConfig =
                 ConnectorUtils.createConfig(
@@ -51,10 +53,12 @@ public class BackfillFactory {
                         "fileNamePattern",
                         "\"**/output-*\"");
         connector.configure(connectorConfig, true, true);
-        return  connector;
+        connector.init();
+        return connector;
     }
 
     public PulsarImporter createPulsarImporter(Connector connector, ExportedTable exportedTable) {
-        return new PulsarImporter(connector, exportedTable);
+        return new PulsarImporter(connector, exportedTable.getCassandraSchemaTable(),
+                new PulsarMutationSenderFactory(settings.importSettings));
     }
 }

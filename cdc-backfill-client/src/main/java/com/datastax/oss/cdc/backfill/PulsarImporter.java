@@ -16,72 +16,120 @@
 
 package com.datastax.oss.cdc.backfill;
 
-import com.clearspring.analytics.stream.membership.DataOutputBuffer;
-import com.datastax.oss.cdc.agent.AgentConfig;
+import com.datastax.oss.cdc.agent.AbstractMutation;
 import com.datastax.oss.cdc.agent.Mutation;
 import com.datastax.oss.cdc.agent.PulsarMutationSender;
+
+import com.datastax.oss.cdc.backfill.factory.PulsarMutationSenderFactory;
 import com.datastax.oss.dsbulk.connectors.api.Connector;
 import com.datastax.oss.dsbulk.connectors.api.DefaultIndexedField;
+import com.datastax.oss.dsbulk.connectors.api.DefaultMappedField;
+import com.datastax.oss.dsbulk.connectors.api.Record;
 import com.datastax.oss.dsbulk.connectors.api.Resource;
-import org.apache.cassandra.db.marshal.UTF8Type;
+import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.schema.TableMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 
+import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-import static com.datastax.oss.cdc.agent.AgentConfig.PULSAR_SERVICE_URL;
-
 public class PulsarImporter {
-    private static final Logger LOGGER = LoggerFactory.getLogger(TableExporter.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(PulsarImporter.class);
 
     final private Connector connector;
-    final private ExportedTable exportedTable;
+    final private TableMetadata tableMetadata;
 
-    public PulsarImporter(Connector connector, ExportedTable exportedTable) {
+    private final PulsarMutationSender mutationSender;
+
+    /**
+     *  Token is not used because for CDC back-fill purposes, we used a round-robin routing mode when sending
+     *  mutations. In the regular CDC operations mode, the routing algorithm follows what the C* partitioner use
+     *  as per {@link DatabaseDescriptor#getPartitionerName()}
+     */
+    private final static String MUTATION_TOKEN = "";
+
+    /**
+     *  Commit log segment id and position message property names that originates from the commit log and are
+     *  used for e2e testing. Doesn't apply for CDC back-filling.
+     */
+    private final static long MUTATION_SEGMENT = -1;
+    private final static int MUTATION_OFFSET = -1;
+
+    /**
+     * Used for deduplication when mutations are sent from the agents. Please note that the digest is calculated
+     * based on the {@link org.apache.cassandra.db.Mutation} and not the wrapper mutation object
+     * {@link AbstractMutation} which makes it impossible for the back-filling CLI to calculate.
+     * However, reusing the same constant for the digest would suffice to mimic and insert, and we don't expect
+     * dedupe to kick in because the CLI tool will process each mutation once.
+     */
+    private final static String MUTATION_DIGEST = "BACK_FILL_INSERT";
+
+    /**
+     * Used by the connector to explicitly set the coordinator node to that once that originally comes form the agent
+     * node. Doesn't apply for CDC back-filling.
+     */
+    private final static UUID MUTATION_NODE = null;
+
+    public PulsarImporter(Connector connector, TableMetadata tableMetadata, PulsarMutationSenderFactory factory) {
         this.connector = connector;
-        this.exportedTable = exportedTable;
+        this.tableMetadata = tableMetadata;
+        this.mutationSender = factory.newPulsarMutationSender();
     }
 
     public ExitStatus importTable() {
         try {
-            connector.init();
+            List<CompletableFuture<?>> futures = new ArrayList<>();
+            List<DefaultMappedField> fields = new ArrayList<>();
+            this.tableMetadata.primaryKeyColumns().forEach(f-> fields.add(new DefaultMappedField(f.toString())));
+            long c = Flux
+                    .from(connector.read())
+                    .flatMap(Resource::read).map(record -> {
+                        // TODO: Convert CVS values (string) to Avro types
+                        Object[] pkValues = fields.stream().map(record::getFieldValue).toArray();
+                        // tsMicro is used to emit e2e metrics by the connectors, if you carry over the C* WRITETIME
+                        // of the source records, the metric will be greatly skewed because those records are historical.
+                        // For now, will mimic the metric by using now()
+                        // TODO: Disable the e2e latency metric if the records are emitted from cdc back-filling CLI
+                        final long tsMicro = Instant.now().toEpochMilli() * 1000;
+                        futures.add(mutationSender.sendMutationAsync(createMutation(pkValues, tableMetadata, tsMicro)));
+                        return record;
+                    })
+                    .count()
+                    .block();
+
+            LOGGER.info("Sent {} records to Pulsar", c);
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0])).join();
+            return ExitStatus.STATUS_OK;
+
         } catch (Exception e) {
-            throw new RuntimeException("Failed to init connector!", e);
+            LOGGER.error("Failed to import table", e);
+            return ExitStatus.STATUS_COMPLETED_WITH_ERRORS;
+        } finally {
+            if (connector != null) {
+                try {
+                    connector.close();
+                } catch (Exception e) {
+                    LOGGER.warn("Error while closing CVS connector", e);
+                }
+            }
         }
-        Map<String, Object> tenantInfo = new HashMap<>();
-        tenantInfo.put(PULSAR_SERVICE_URL, "pulsar://localhost:6650/");
-        //tenantInfo.put(PULSAR_AUTH_PLUGIN_CLASS_NAME, "MyAuthPlugin");
-        //tenantInfo.put(PULSAR_AUTH_PARAMS, "sdds");
-        //tenantInfo.put(SSL_ALLOW_INSECURE_CONNECTION, "true");
-        //tenantInfo.put(SSL_HOSTNAME_VERIFICATION_ENABLE, "true");
-        //tenantInfo.put(TLS_TRUST_CERTS_FILE_PATH, "/test.p12");
+    }
 
-        AgentConfig config = AgentConfig.create(AgentConfig.Platform.PULSAR, tenantInfo);
-        PulsarMutationSender sender = new PulsarMutationSender(config, true);
-        List<CompletableFuture<?>> futures = new ArrayList<>();
-        long c = Flux.from(connector.read()).flatMap(Resource::read).map(record -> {
-            //System.out.println("Sending to pulsar " + record.toString());
-            Object[] pkValues = new Object[]{record.getFieldValue(new DefaultIndexedField(0))};
-            DataOutputBuffer dataOutputBuffer = new DataOutputBuffer();
-            //org.apache.cassandra.db.Mutation.serializer.serialize(mutation, dataOutputBuffer, descriptor.getMessagingVersion());
-            //String md5Digest = DigestUtils.md5Hex(dataOutputBuffer.getData());
-            TableMetadata.Builder builder = TableMetadata.builder(exportedTable.keyspace.getName().toString(), exportedTable.table.getName().toString());
-            exportedTable.table.getPartitionKey().forEach(k-> builder.addPartitionKeyColumn(k.getName().toString(), UTF8Type.instance));
-            TableMetadata t = builder.build();
-            futures.add(sender.sendMutationAsync(new Mutation(UUID.randomUUID(), 0L, 0, pkValues, 0, "", t, "")));
-            return record;
-        }).count().block().longValue();
 
-        LOGGER.info("sent {} records to Pulsar", c);
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0])).join();
-        return ExitStatus.STATUS_OK;
+
+    private AbstractMutation<TableMetadata> createMutation(Object[] pkValues, TableMetadata tableMetadata, long tsMicro) {
+        return new Mutation(MUTATION_NODE,
+                MUTATION_SEGMENT,
+                MUTATION_OFFSET,
+                pkValues, tsMicro,
+                MUTATION_DIGEST,
+                tableMetadata,
+                MUTATION_TOKEN);
     }
 
 }

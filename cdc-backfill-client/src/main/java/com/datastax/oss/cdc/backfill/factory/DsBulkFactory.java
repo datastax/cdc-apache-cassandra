@@ -19,7 +19,7 @@ package com.datastax.oss.cdc.backfill.factory;
 import com.datastax.oss.dsbulk.runner.DataStaxBulkLoader;
 
 public class DsBulkFactory {
-    public DataStaxBulkLoader createLoader(String[] args) {
+    public DataStaxBulkLoader newLoader(String[] args) {
         return new DataStaxBulkLoader(args);
     }
 }

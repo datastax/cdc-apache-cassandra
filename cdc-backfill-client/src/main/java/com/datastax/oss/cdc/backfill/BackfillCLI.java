@@ -25,6 +25,9 @@ import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
+import java.io.IOException;
+import java.net.URISyntaxException;
+
 @Command(
         name = "BackfillCLI",
         description =
@@ -59,11 +62,11 @@ public class BackfillCLI {
             abbreviateSynopsis = true,
             usageHelpWidth = 100)
     private int backfill(
-            @ArgGroup(exclusive = false, multiplicity = "1") BackFillSettings settings) {
+            @ArgGroup(exclusive = false, multiplicity = "1") BackFillSettings settings) throws URISyntaxException, IOException {
         // Bootstrap the backfill dependencies
         final BackfillFactory factory = new BackfillFactory(settings);
-        final TableExporter exporter = factory.createTableExporter();
-        final Connector connector = factory.createCVSConnector(exporter.tableDataDir);
+        final TableExporter exporter = factory.newTableExporter();
+        final Connector connector = factory.newCVSConnector(exporter.tableDataDir);
         final PulsarImporter importer = factory.createPulsarImporter(connector, exporter.getExportedTable());
         final CassandraToPulsarMigrator migrator = new CassandraToPulsarMigrator(exporter, importer);
 

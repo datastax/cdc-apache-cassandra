@@ -63,6 +63,9 @@ public class BackFillSettings {
     @CommandLine.ArgGroup(exclusive = false, multiplicity = "1")
     public ExportSettings exportSettings = new ExportSettings();
 
+    @CommandLine.ArgGroup(exclusive = false)
+    public ImportSettings importSettings = new ImportSettings();
+
     @CommandLine.Option(
             names = {"-l", "--dsbulk-log-dir"},
             paramLabel = "PATH",
