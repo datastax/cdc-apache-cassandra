@@ -25,7 +25,6 @@ import java.util.Arrays;
 import java.util.Iterator;
 
 public class ConnectorUtils {
-
     public static Config createConfig(String path, Object... additionalArgs) {
         Config baseConfig = ConfigUtils.createApplicationConfig(null).resolve().getConfig(path);
         if (additionalArgs != null && additionalArgs.length != 0) {

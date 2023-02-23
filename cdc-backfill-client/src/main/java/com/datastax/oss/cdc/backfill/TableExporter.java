@@ -15,31 +15,22 @@
  */
 package com.datastax.oss.cdc.backfill;
 
-import com.clearspring.analytics.stream.membership.DataOutputBuffer;
-import com.datastax.oss.cdc.agent.AgentConfig;
-import com.datastax.oss.cdc.agent.Mutation;
-import com.datastax.oss.cdc.agent.PulsarMutationSender;
+import com.datastax.oss.cdc.backfill.factory.DsBulkFactory;
+import com.datastax.oss.cdc.backfill.factory.SessionFactory;
 import com.datastax.oss.cdc.backfill.util.LoggingUtils;
-import com.datastax.oss.dsbulk.config.ConfigUtils;
-import com.datastax.oss.dsbulk.connectors.api.DefaultIndexedField;
-import com.datastax.oss.dsbulk.connectors.api.Resource;
-import com.datastax.oss.dsbulk.connectors.csv.CSVConnector;
+import com.datastax.oss.driver.api.core.CqlIdentifier;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
+import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
+import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import com.datastax.oss.dsbulk.runner.DataStaxBulkLoader;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigParseOptions;
-import org.apache.cassandra.db.marshal.UTF8Type;
-import org.apache.cassandra.schema.TableMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import reactor.core.publisher.Flux;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -47,19 +38,12 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
-import static com.datastax.oss.cdc.agent.AgentConfig.PULSAR_SERVICE_URL;
-
-public class TableExporter extends TableProcessor {
+public class TableExporter {
     private static final URL DSBULK_CONFIGURATION_FILE =
             Objects.requireNonNull(ClassLoader.getSystemResource("logback-dsbulk-embedded.xml"));
     private static final Logger LOGGER = LoggerFactory.getLogger(TableExporter.class);
@@ -71,52 +55,49 @@ public class TableExporter extends TableProcessor {
     protected final Path exportAckDir;
     protected final Path exportAckFile;
 
-    protected final Path importAckDir;
-    protected final Path importAckFile;
+    private final DsBulkFactory dsBulkFactory;
 
-    public TableExporter(ExportedTable exportedTable, BackFillSettings settings) {
-        super(exportedTable);
+    private final ExportedTable exportedTable;
+    private final SessionFactory sessionFactory;
+
+    public  TableExporter(DsBulkFactory dsBulkFactory, SessionFactory sessionFactory, BackFillSettings settings) {
+        this.dsBulkFactory = dsBulkFactory;
+        this.sessionFactory = sessionFactory;
         this.settings = settings;
+        this.exportedTable = buildExportedTable();
         this.tableDataDir =
                 settings
                         .dataDir
                         .resolve(exportedTable.keyspace.getName().asInternal())
                         .resolve(exportedTable.table.getName().asInternal());
         this.exportAckDir = settings.dataDir.resolve("__exported__");
-        this.importAckDir = settings.dataDir.resolve("__imported__");
         this.exportAckFile =
                 exportAckDir.resolve(
                         exportedTable.keyspace.getName().asInternal()
                                 + "__"
                                 + exportedTable.table.getName().asInternal()
                                 + ".exported");
-        this.importAckFile =
-                importAckDir.resolve(
-                        exportedTable.keyspace.getName().asInternal()
-                                + "__"
-                                + exportedTable.table.getName().asInternal()
-                                + ".imported");
     }
 
-    public TableExportReport exportTable() {
-        String operationId;
-        if ((operationId = retrieveExportOperationId()) != null) {
+    public ExitStatus exportTable() {
+        String operationId = retrieveExportOperationId();
+        if (operationId != null) {
             LOGGER.warn(
                     "Table {}.{}: already exported, skipping (delete this file to re-export: {}).",
                     exportedTable.keyspace.getName(),
                     exportedTable.table.getName(),
                     exportAckFile);
-            return new TableExportReport(this, ExitStatus.STATUS_OK, operationId, true);
+            return ExitStatus.STATUS_OK;
         } else {
             LOGGER.info("Exporting {}...", exportedTable.fullyQualifiedName);
-            operationId = createOperationId(true);
+            operationId = createOperationId();
             List<String> args = createExportArgs(operationId);
             ExitStatus status = invokeDsbulk(operationId, args);
             LOGGER.info("Export of {} finished with {}", exportedTable.fullyQualifiedName, status);
             if (status == ExitStatus.STATUS_OK) {
                 createExportAckFile(operationId);
             }
-            return new TableExportReport(this, status, operationId, true);
+            return status;
         }
     }
     
@@ -124,13 +105,13 @@ public class TableExporter extends TableProcessor {
         return Files.exists(exportAckFile);
     }
 
-    public boolean isImported() {
-        return Files.exists(importAckFile);
+    public ExportedTable getExportedTable() {
+        return this.exportedTable;
     }
 
-    public ExitStatus invokeDsbulk(String operationId, List<String> args) {
-        DataStaxBulkLoader loader = new DataStaxBulkLoader(args.toArray(new String[0]));
+    private ExitStatus invokeDsbulk(String operationId, List<String> args) {
         int exitCode;
+        final DataStaxBulkLoader loader = this.dsBulkFactory.createLoader(args.toArray(new String[0]));
         LoggingUtils.configureLogging(DSBULK_CONFIGURATION_FILE);
         System.setProperty("OPERATION_ID", operationId);
         try {
@@ -141,12 +122,12 @@ public class TableExporter extends TableProcessor {
         }
         return ExitStatus.forCode(exitCode);
     }
-    private String createOperationId(boolean export) {
+    private String createOperationId() {
         ZonedDateTime now = Instant.now().atZone(ZoneOffset.UTC);
         String timestamp = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS").format(now);
         return String.format(
                 "%s_%s_%s_%s",
-                (export ? "EXPORT" : "IMPORT"),
+                "EXPORT" ,
                 exportedTable.keyspace.getName().asInternal(),
                 exportedTable.table.getName().asInternal(),
                 timestamp);
@@ -177,31 +158,6 @@ public class TableExporter extends TableProcessor {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-    }
-
-    private void createImportAckFile(String operationId) {
-        try {
-            Files.createDirectories(importAckDir);
-            Files.createFile(importAckFile);
-            Files.write(importAckFile, operationId.getBytes(StandardCharsets.UTF_8));
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    private boolean hasExportedData() {
-        if (isExported()) {
-            try (DirectoryStream<Path> stream = Files.newDirectoryStream(tableDataDir)) {
-                for (Path entry : stream) {
-                    String fileName = entry.getFileName().toString();
-                    if (fileName.startsWith("output")) {
-                        return true;
-                    }
-                }
-            } catch (IOException ignored) {
-            }
-        }
-        return false;
     }
 
     private List<String> createExportArgs(String operationId) {
@@ -252,65 +208,56 @@ public class TableExporter extends TableProcessor {
         args.add(buildExportQuery());
         args.add("--dsbulk.monitoring.console");
         args.add("false");
+        args.add("--executor.maxPerSecond");
+        args.add(String.valueOf(settings.maxRowsPerSecond));
         args.addAll(settings.exportSettings.extraDsbulkOptions);
         return args;
     }
 
-    private List<String> createImportArgs(String operationId) {
-        List<String> args = new ArrayList<>();
-        args.add("load");
-        if (settings.exportSettings.clusterInfo.bundle != null) {
-            args.add("-b");
-            args.add(String.valueOf(settings.exportSettings.clusterInfo.bundle));
-        } else {
-            args.add("-h");
-            String hosts =
-                    settings.exportSettings.clusterInfo.hostsAndPorts.stream()
-                            .map(hp -> "\"" + hp + "\"")
-                            .collect(Collectors.joining(","));
-            args.add("[" + hosts + "]");
-        }
-        if (settings.exportSettings.clusterInfo.protocolVersion != null) {
-            args.add("--driver.advanced.protocol.version");
-            args.add(settings.exportSettings.clusterInfo.protocolVersion);
-        }
-        if (settings.exportSettings.credentials != null) {
-            args.add("-u");
-            args.add(settings.exportSettings.credentials.username);
-            args.add("-p");
-            args.add(String.valueOf(settings.exportSettings.credentials.password));
-        }
-        args.add("-url");
-        args.add(String.valueOf(tableDataDir));
-        args.add("-maxRecords");
-        args.add(String.valueOf(settings.exportSettings.maxRecords));
-        args.add("-maxConcurrentFiles");
-        args.add(settings.exportSettings.maxConcurrentFiles);
-        args.add("-maxConcurrentQueries");
-        args.add(settings.exportSettings.maxConcurrentQueries);
-        args.add("--schema.splits");
-        args.add(settings.exportSettings.splits);
-        args.add("-cl");
-        args.add(String.valueOf(settings.exportSettings.consistencyLevel));
-        args.add("-maxErrors");
-        args.add("0");
-        args.add("-header");
-        args.add("false");
-        args.add("--engine.executionId");
-        args.add(operationId);
-        args.add("-logDir");
-        args.add(String.valueOf(settings.dsbulkLogDir));
-        args.add("-query");
-        args.add(buildExportQuery());
-        args.add("--dsbulk.monitoring.console");
-        args.add("false");
-        args.addAll(settings.exportSettings.extraDsbulkOptions);
-        return args;
+    protected String escape(CqlIdentifier id) {
+        return id.asCql(true);
     }
 
-    @Override
-    protected String escape(String text) {
-        return text.replace("\"", "\\\"");
+    protected String buildExportQuery() {
+        StringBuilder builder = new StringBuilder("SELECT ");
+        Iterator<ExportedColumn> cols = exportedTable.columns.iterator();
+        while (cols.hasNext()) {
+            ExportedColumn exportedColumn = cols.next();
+            String name = escape(exportedColumn.col.getName());
+            builder.append(name);
+            if (cols.hasNext()) {
+                builder.append(", ");
+            }
+        }
+        builder.append(" FROM ");
+        builder.append(escape(exportedTable.keyspace.getName()));
+        builder.append(".");
+        builder.append(escape(exportedTable.table.getName()));
+
+        return builder.toString();
+    }
+
+    private ExportedTable buildExportedTable() {
+        final ClusterInfo origin = this.settings.exportSettings.clusterInfo;
+        final ExportSettings.ExportCredentials credentials = this.settings.exportSettings.credentials;
+        try (CqlSession session = sessionFactory.createSession(origin, credentials)) {
+            KeyspaceMetadata keyspace = session.getMetadata().getKeyspace(settings.keyspace).get();
+            TableMetadata table = keyspace.getTable(this.settings.table).get();
+            List<ExportedColumn> exportedColumns = buildExportedPKColumns(table);
+            ExportedTable exportedTable = new ExportedTable(keyspace, table, exportedColumns);
+            LOGGER.info("Table to migrate: {}", exportedTable );
+            return exportedTable;
+        }
+    }
+
+
+    private List<ExportedColumn> buildExportedPKColumns(
+            TableMetadata table) {
+        List<ExportedColumn> exportedColumns = new ArrayList<>();
+        for (ColumnMetadata pk : table.getPrimaryKey()) {
+            exportedColumns.add(new ExportedColumn(pk, true, null, null));
+        }
+        return exportedColumns;
     }
 }
 

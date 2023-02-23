@@ -48,6 +48,8 @@ dependencies {
     implementation "com.datastax.dse:dse-db:${dse4Version}"
     implementation "${pulsarGroup}:pulsar-client:${pulsarVersion}"
     testImplementation "org.junit.jupiter:junit-jupiter-api:5.8.1"
+    testImplementation "org.mockito:mockito-core:3.11.1"
+    testImplementation "com.datastax.oss:dsbulk-tests:${dsbulkVersion}"
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:5.8.1"
 }
 

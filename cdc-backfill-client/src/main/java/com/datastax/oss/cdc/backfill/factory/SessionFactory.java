@@ -13,8 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.datastax.oss.cdc.backfill.util;
-
+package com.datastax.oss.cdc.backfill.factory;
 
 import com.datastax.oss.cdc.backfill.ClusterInfo;
 import com.datastax.oss.cdc.backfill.Credentials;
@@ -24,16 +23,15 @@ import com.datastax.oss.driver.api.core.config.DefaultDriverOption;
 import com.datastax.oss.driver.api.core.config.DriverConfigLoader;
 import com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class SessionUtils {
+public class SessionFactory {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(SessionUtils.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(SessionFactory.class);
 
-    public static CqlSession createSession(ClusterInfo clusterInfo, Credentials credentials) {
+    public CqlSession createSession(ClusterInfo clusterInfo, Credentials credentials) {
         String clusterName = clusterInfo.isOrigin() ? "origin" : "target";
         try {
             LOGGER.info("Contacting {} cluster...", clusterName);
