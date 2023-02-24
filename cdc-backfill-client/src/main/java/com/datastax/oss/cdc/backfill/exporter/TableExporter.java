@@ -70,14 +70,14 @@ public class TableExporter {
         this.tableDataDir =
                 settings
                         .dataDir
-                        .resolve(exportedTable.keyspace.getName().asInternal())
-                        .resolve(exportedTable.table.getName().asInternal());
+                        .resolve(exportedTable.getKeyspace().getName().asInternal())
+                        .resolve(exportedTable.getTable().getName().asInternal());
         this.exportAckDir = settings.dataDir.resolve("__exported__");
         this.exportAckFile =
                 exportAckDir.resolve(
-                        exportedTable.keyspace.getName().asInternal()
+                        exportedTable.getKeyspace().getName().asInternal()
                                 + "__"
-                                + exportedTable.table.getName().asInternal()
+                                + exportedTable.getTable().getName().asInternal()
                                 + ".exported");
     }
 
@@ -86,16 +86,16 @@ public class TableExporter {
         if (operationId != null) {
             LOGGER.warn(
                     "Table {}.{}: already exported, skipping (delete this file to re-export: {}).",
-                    exportedTable.keyspace.getName(),
-                    exportedTable.table.getName(),
+                    exportedTable.getKeyspace().getName(),
+                    exportedTable.getTable().getName(),
                     exportAckFile);
             return ExitStatus.STATUS_OK;
         } else {
-            LOGGER.info("Exporting {}...", exportedTable.fullyQualifiedName);
+            LOGGER.info("Exporting {}...", exportedTable);
             operationId = createOperationId();
             List<String> args = createExportArgs(operationId);
             ExitStatus status = invokeDsbulk(operationId, args);
-            LOGGER.info("Export of {} finished with {}", exportedTable.fullyQualifiedName, status);
+            LOGGER.info("Export of {} finished with {}", exportedTable, status);
             if (status == ExitStatus.STATUS_OK) {
                 createExportAckFile(operationId);
             }
@@ -134,8 +134,8 @@ public class TableExporter {
         return String.format(
                 "%s_%s_%s_%s",
                 "EXPORT" ,
-                exportedTable.keyspace.getName().asInternal(),
-                exportedTable.table.getName().asInternal(),
+                exportedTable.getKeyspace().getName().asInternal(),
+                exportedTable.getTable().getName().asInternal(),
                 timestamp);
     }
 
@@ -226,7 +226,7 @@ public class TableExporter {
 
     protected String buildExportQuery() {
         StringBuilder builder = new StringBuilder("SELECT ");
-        Iterator<ExportedColumn> cols = exportedTable.columns.iterator();
+        Iterator<ExportedColumn> cols = exportedTable.getColumns().iterator();
         while (cols.hasNext()) {
             ExportedColumn exportedColumn = cols.next();
             String name = escape(exportedColumn.col.getName());
@@ -236,9 +236,9 @@ public class TableExporter {
             }
         }
         builder.append(" FROM ");
-        builder.append(escape(exportedTable.keyspace.getName()));
+        builder.append(escape(exportedTable.getKeyspace().getName()));
         builder.append(".");
-        builder.append(escape(exportedTable.table.getName()));
+        builder.append(escape(exportedTable.getTable().getName()));
 
         return builder.toString();
     }

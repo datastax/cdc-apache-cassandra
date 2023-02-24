@@ -20,27 +20,56 @@ import com.datastax.oss.cdc.agent.AbstractMutation;
 import com.datastax.oss.cdc.agent.Mutation;
 import com.datastax.oss.cdc.agent.PulsarMutationSender;
 import com.datastax.oss.cdc.backfill.ExitStatus;
+import com.datastax.oss.cdc.backfill.exporter.ExportedTable;
 import com.datastax.oss.cdc.backfill.factory.PulsarMutationSenderFactory;
+import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
+import com.datastax.oss.driver.api.core.type.reflect.GenericType;
+import com.datastax.oss.dsbulk.codecs.api.ConvertingCodec;
+import com.datastax.oss.dsbulk.codecs.api.ConvertingCodecFactory;
 import com.datastax.oss.dsbulk.connectors.api.Connector;
 import com.datastax.oss.dsbulk.connectors.api.DefaultMappedField;
 import com.datastax.oss.dsbulk.connectors.api.Resource;
+import com.google.common.collect.ImmutableMap;
 import org.apache.cassandra.config.DatabaseDescriptor;
+import org.apache.cassandra.db.marshal.AbstractType;
+import org.apache.cassandra.db.marshal.AsciiType;
+import org.apache.cassandra.db.marshal.BooleanType;
+import org.apache.cassandra.db.marshal.ByteType;
+import org.apache.cassandra.db.marshal.BytesType;
+import org.apache.cassandra.db.marshal.DecimalType;
+import org.apache.cassandra.db.marshal.DoubleType;
+import org.apache.cassandra.db.marshal.DurationType;
+import org.apache.cassandra.db.marshal.FloatType;
+import org.apache.cassandra.db.marshal.InetAddressType;
+import org.apache.cassandra.db.marshal.Int32Type;
+import org.apache.cassandra.db.marshal.IntegerType;
+import org.apache.cassandra.db.marshal.LongType;
+import org.apache.cassandra.db.marshal.ShortType;
+import org.apache.cassandra.db.marshal.SimpleDateType;
+import org.apache.cassandra.db.marshal.TimeType;
+import org.apache.cassandra.db.marshal.TimeUUIDType;
+import org.apache.cassandra.db.marshal.TimestampType;
+import org.apache.cassandra.db.marshal.UTF8Type;
+import org.apache.cassandra.db.marshal.UUIDType;
 import org.apache.cassandra.schema.TableMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 
 import java.time.Instant;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 public class PulsarImporter {
     private static final Logger LOGGER = LoggerFactory.getLogger(PulsarImporter.class);
 
     final private Connector connector;
-    final private TableMetadata tableMetadata;
+    final private ExportedTable exportedTable;
 
     private final PulsarMutationSender mutationSender;
 
@@ -72,29 +101,49 @@ public class PulsarImporter {
      * node. Doesn't apply for CDC back-filling.
      */
     private final static UUID MUTATION_NODE = null;
+    private final static ConvertingCodecFactory codecFactory = new ConvertingCodecFactory();
 
-    public PulsarImporter(Connector connector, TableMetadata tableMetadata, PulsarMutationSenderFactory factory) {
+    public PulsarImporter(Connector connector, ExportedTable exportedTable, PulsarMutationSenderFactory factory) {
         this.connector = connector;
-        this.tableMetadata = tableMetadata;
+        this.exportedTable = exportedTable;
         this.mutationSender = factory.newPulsarMutationSender();
     }
 
     public ExitStatus importTable() {
         try {
             List<CompletableFuture<?>> futures = new ArrayList<>();
-            List<DefaultMappedField> fields = new ArrayList<>();
-            this.tableMetadata.primaryKeyColumns().forEach(f-> fields.add(new DefaultMappedField(f.toString())));
+            // prepare PK codecs
+            Map<String, ConvertingCodec<String, AbstractType<?>>> codecs =
+                    this.exportedTable.getPrimaryKey()
+                            .stream()
+                            .map(k-> new AbstractMap.SimpleEntry<String, ConvertingCodec<String, AbstractType<?>>>(
+                                    k.getName().toString(),
+                                    codecFactory.createConvertingCodec(k.getType(), GenericType.STRING, false)))
+                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+            // prepare fields
+            List<DefaultMappedField> fields = this.exportedTable
+                    .getPrimaryKey()
+                    .stream()
+                    .map(ColumnMetadata::getName)
+                    .map(Object::toString)
+                    .map(DefaultMappedField::new)
+                    .collect(Collectors.toList());
+
             long c = Flux
                     .from(connector.read())
                     .flatMap(Resource::read).map(record -> {
-                        // TODO: Convert CVS values (string) to Avro types
-                        Object[] pkValues = fields.stream().map(record::getFieldValue).toArray();
+                        List<Object> pkValues = fields.stream().map(field-> {
+                            Object val = record.getFieldValue(field);
+                            Object newVal = codecs.get(field.getFieldName()).externalToInternal((String) val);
+                            return newVal;
+                        }).collect(Collectors.toList());
                         // tsMicro is used to emit e2e metrics by the connectors, if you carry over the C* WRITETIME
                         // of the source records, the metric will be greatly skewed because those records are historical.
                         // For now, will mimic the metric by using now()
                         // TODO: Disable the e2e latency metric if the records are emitted from cdc back-filling CLI
                         final long tsMicro = Instant.now().toEpochMilli() * 1000;
-                        futures.add(mutationSender.sendMutationAsync(createMutation(pkValues, tableMetadata, tsMicro)));
+                        futures.add(mutationSender.sendMutationAsync(createMutation(pkValues.toArray(), this.exportedTable.getCassandraTable(), tsMicro)));
                         return record;
                     })
                     .count()
@@ -117,8 +166,6 @@ public class PulsarImporter {
             }
         }
     }
-
-
 
     private AbstractMutation<TableMetadata> createMutation(Object[] pkValues, TableMetadata tableMetadata, long tsMicro) {
         return new Mutation(MUTATION_NODE,
