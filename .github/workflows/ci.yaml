@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - master
+      - cvs-to-cql # TODO: Remove this branch
   push:
     branches:
       - master
