@@ -50,9 +50,22 @@ dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter-api:5.8.1"
     testImplementation "org.mockito:mockito-core:3.11.1"
     testImplementation "com.datastax.oss:dsbulk-tests:${dsbulkVersion}"
+
+    testImplementation project(':connector')
+    testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
+    testImplementation project(':testcontainers')
+    testImplementation("${pulsarGroup}:pulsar-client:${pulsarVersion}")
+
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:5.8.1"
 }
 
 test {
+    dependsOn project(':agent-c4').shadowJar
+    dependsOn shadowJar
+
+    systemProperty "connectorBuildDir", buildDir
+    systemProperty "agentBuildDir", project(':agent-c4').buildDir
+    systemProperty "cdcBackfillBuildDir", project(':cdc-backfill-client').buildDir
+
     useJUnitPlatform()
 }
