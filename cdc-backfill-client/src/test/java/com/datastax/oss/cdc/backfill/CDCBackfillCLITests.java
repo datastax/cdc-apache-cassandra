@@ -55,6 +55,8 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.Network;
 import org.testcontainers.utility.DockerImageName;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -192,7 +194,7 @@ public abstract class CDCBackfillCLITests {
             // although CDC is disabled, back-filling depends on the connector to send the back-filled mutations to the
             // date topic
             deployConnector(ksName, "table1");
-            runBackfillingAsync(ksName, "table1");
+            runBackfillAsync(ksName, "table1");
 
             try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
                 Map<String, Integer> mutationTable1 = new HashMap<>();
@@ -236,22 +238,33 @@ public abstract class CDCBackfillCLITests {
         }
     }
 
-    private void runBackfillingAsync(String ksName, String tableName) {
+    private void runBackfillAsync(String ksName, String tableName) {
         new Thread(() -> {
             try {
-                String cdcBackfillingBuildDir = System.getProperty("cdcBackfillingBuildDir");
+                String cdcBackfillBuildDir = System.getProperty("cdcBackfillBuildDir");
                 String projectVersion = System.getProperty("projectVersion");
-                String cdcBackfillingJarFile = String.format(Locale.ROOT,  "cdc-backfill-client-2.2.3-%s-all.jar", projectVersion);
-                String cdcBackfillingFullJarPath = String.format(Locale.ROOT, "%s/libs/%s", cdcBackfillingBuildDir, cdcBackfillingJarFile);
+                String cdcBackfillJarFile = String.format(Locale.ROOT,  "cdc-backfill-client-%s-all.jar", projectVersion);
+                String cdcBackfillFullJarPath = String.format(Locale.ROOT, "%s/libs/%s", cdcBackfillBuildDir, cdcBackfillJarFile);
 
-                Process proc = Runtime.getRuntime().exec(
-                        String.format("java -jar %s backfill --data-dir=target/export --export-host=cassandra-1:9042 --keyspace %s --table %s",
-                                cdcBackfillingFullJarPath, ksName, tableName));
-                proc.waitFor();
-                log.info("Backfilling finished");
+                ProcessBuilder pb = new ProcessBuilder("java", "-jar", cdcBackfillFullJarPath, "backfill",
+                        "--data-dir", "target/export", "--export-host", cassandraContainer1.getCqlHostAddress(), "--keyspace", ksName, "--table", tableName,
+                        "--export-consistency", "ONE", "--pulsar-url", pulsarContainer.getPulsarBrokerUrl());
+
+                log.info("Running backfill command: {} ", pb.command());
+
+                Process proc = pb.start();
+                boolean finished = proc.waitFor(90, TimeUnit.SECONDS);
+                proc.errorReader().lines().forEach(log::error);
+                proc.inputReader().lines().forEach(log::info);
+
+                if (!finished) {
+                    proc.destroy();
+                    throw new RuntimeException("Backfilling process did not finish in 90 seconds");
+                }
 
             } catch (InterruptedException | IOException e) {
                 log.error("Failed to run backfilling", e);
+                throw new RuntimeException(e);
             }
         }).start();
     }
