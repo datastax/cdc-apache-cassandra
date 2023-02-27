@@ -68,7 +68,7 @@ test {
 
     systemProperty "connectorBuildDir", buildDir
     systemProperty "agentBuildDir", project(':agent-c4').buildDir
-    systemProperty "cdcBackfillBuildDir", project(':cdc-backfill-client').buildDir
+    systemProperty "cdcBackfillBuildDir", buildDir
 
     useJUnitPlatform()
 }

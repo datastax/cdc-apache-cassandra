@@ -30,7 +30,7 @@ allprojects {
         maven { url "https://repo.typesafe.com/typesafe/releases/" }
         maven { url "https://repo.datastax.com/artifactory/datastax-public-releases-local" }
         maven {
-            url "https://repo.datastax.com/artifactory/dse"
+            url "https://datastax.jfrog.io/artifactory/dse" // only temporarily! Restore the public URL.
             if (project.hasProperty('dseRepoUsername') && project.hasProperty('dseRepoPassword')) {
                 credentials() {
                     username "$dseRepoUsername"
