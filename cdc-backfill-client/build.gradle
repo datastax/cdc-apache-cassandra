@@ -63,6 +63,9 @@ test {
     dependsOn project(':agent-c4').shadowJar
     dependsOn shadowJar
 
+    environment 'PULSAR_IMAGE', testPulsarImage + ':' + testPulsarImageTag
+    environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra4Version
+
     systemProperty "connectorBuildDir", buildDir
     systemProperty "agentBuildDir", project(':agent-c4').buildDir
     systemProperty "cdcBackfillBuildDir", project(':cdc-backfill-client').buildDir
