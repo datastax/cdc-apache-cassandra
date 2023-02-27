@@ -56,8 +56,8 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -81,10 +81,6 @@ import static org.junit.jupiter.api.Assertions.*;
 @Slf4j
 @RequiredArgsConstructor
 public abstract class CDCBackfillCLITests {
-
-    private static final String CQL_VARINT = "cql_varint";
-    private static final String CQL_DECIMAL = "cql_decimal";
-    private static final String CQL_DURATION = "cql_duration";
 
     public static final DockerImageName CASSANDRA_IMAGE = DockerImageName.parse(
             Optional.ofNullable(System.getenv("CASSANDRA_IMAGE"))
@@ -254,8 +250,21 @@ public abstract class CDCBackfillCLITests {
 
                 Process proc = pb.start();
                 boolean finished = proc.waitFor(90, TimeUnit.SECONDS);
-                proc.errorReader().lines().forEach(log::error);
-                proc.inputReader().lines().forEach(log::info);
+
+                BufferedReader stdInput = new BufferedReader(new
+                        InputStreamReader(proc.getInputStream()));
+                String s = null;
+                while ((s = stdInput.readLine()) != null) {
+                    System.out.println(s);
+                }
+
+                // mimic proc.errorReader() in java 17
+                new BufferedReader(new InputStreamReader(proc.getErrorStream(), StandardCharsets.UTF_8)).lines()
+                        .forEach(log::error);
+
+                // mimic proc.inputReader() in java 17
+                new BufferedReader(new InputStreamReader(proc.getInputStream(), StandardCharsets.UTF_8)).lines()
+                        .forEach(log::info);
 
                 if (!finished) {
                     proc.destroy();
