@@ -29,6 +29,20 @@ shadowJar {
 jar.enabled = true
 assemble.dependsOn(shadowJar)
 
+compileTestJava {
+    options.compilerArgs += '-parameters'
+}
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs += '-Xlint:none'
+}
+
+sourceSets {
+    // Make the compileOnly dependencies available when compiling/running tests
+    test.compileClasspath += configurations.compileClasspath
+    test.runtimeClasspath += configurations.compileClasspath
+}
+
 dependencies {
     implementation project(':agent-dse4')
     implementation project(':agent')
