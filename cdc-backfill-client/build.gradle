@@ -80,9 +80,10 @@ test {
     environment 'PULSAR_IMAGE', testPulsarImage + ':' + testPulsarImageTag
     environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra4Version
 
-    systemProperty "connectorBuildDir", buildDir
+    systemProperty "connectorBuildDir", project(':connector').buildDir
     systemProperty "agentBuildDir", project(':agent-c4').buildDir
     systemProperty "cdcBackfillBuildDir", buildDir
+    systemProperty "projectVersion", project.version
 
     useJUnitPlatform()
 }
