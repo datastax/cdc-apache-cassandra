@@ -75,7 +75,10 @@ dependencies {
 
 test {
     dependsOn project(':agent-c4').shadowJar
+    dependsOn project(':connector').assemble // couldn't take dependency on nar directly
     dependsOn shadowJar
+
+    useJUnitPlatform()
 
     environment 'PULSAR_IMAGE', testPulsarImage + ':' + testPulsarImageTag
     environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra4Version
@@ -84,6 +87,4 @@ test {
     systemProperty "agentBuildDir", project(':agent-c4').buildDir
     systemProperty "cdcBackfillBuildDir", buildDir
     systemProperty "projectVersion", project.version
-
-    useJUnitPlatform()
 }
