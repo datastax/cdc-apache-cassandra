@@ -58,7 +58,7 @@ public class BackfillFactory {
     }
 
     public PulsarImporter createPulsarImporter(Connector connector, ExportedTable exportedTable) {
-        return new PulsarImporter(connector, exportedTable.getCassandraSchemaTable(),
+        return new PulsarImporter(connector, exportedTable,
                 new PulsarMutationSenderFactory(settings.importSettings));
     }
 }

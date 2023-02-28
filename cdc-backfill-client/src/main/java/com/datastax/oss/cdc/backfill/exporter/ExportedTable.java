@@ -16,6 +16,7 @@
 
 package com.datastax.oss.cdc.backfill.exporter;
 
+import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import com.google.common.collect.ImmutableMap;
@@ -70,10 +71,10 @@ public class ExportedTable {
             .put(TimeUUIDType.instance.asCQL3Type().toString(), TimeUUIDType.instance)
             .build();
 
-    public final KeyspaceMetadata keyspace;
-    public final TableMetadata table;
-    public final List<ExportedColumn> columns;
-    public final String fullyQualifiedName;
+    private final KeyspaceMetadata keyspace;
+    private final TableMetadata table;
+    private final List<ExportedColumn> columns;
+    private final String fullyQualifiedName;
 
     public ExportedTable(
             KeyspaceMetadata keyspace, TableMetadata table, List<ExportedColumn> columns) {
@@ -88,7 +89,7 @@ public class ExportedTable {
      * Adapts the {@link TableMetadata} to {@link org.apache.cassandra.schema.TableMetadata} to be used with pulsar
      * importer
      */
-    public org.apache.cassandra.schema.TableMetadata getCassandraSchemaTable() {
+    public org.apache.cassandra.schema.TableMetadata getCassandraTable() {
         org.apache.cassandra.schema.TableMetadata.Builder builder =
                 org.apache.cassandra.schema.TableMetadata.builder(
                         keyspace.getName().toString(),
@@ -101,6 +102,26 @@ public class ExportedTable {
                 builder.addClusteringColumn(k.getName().toString(),
                         getAbstractDataType(k.getType().asCql(false, true))));
         return builder.build();
+    }
+
+    public KeyspaceMetadata getKeyspace() {
+        return keyspace;
+    }
+
+    public TableMetadata getTable() {
+        return table;
+    }
+
+    public List<ExportedColumn> getColumns() {
+        return columns;
+    }
+
+    public List<ColumnMetadata> getPrimaryKey() {
+        return table.getPrimaryKey();
+    }
+
+    public String getName(){
+        return this.table.getName().asInternal();
     }
 
     private AbstractType<?>  getAbstractDataType(String asCql) {
