@@ -53,7 +53,6 @@ public class BackfillFactory {
                         "fileNamePattern",
                         "\"**/output-*\"");
         connector.configure(connectorConfig, true, true);
-        connector.init();
         return connector;
     }
 

@@ -99,7 +99,6 @@ public class PulsarImporterTest {
         // given
         Config connectorConfig = createConnectorConfigs("sample-001.csv");
         connector.configure(connectorConfig, true, true);
-        connector.init();
 
         List<ColumnMetadata> cassandraColumns = new ArrayList<>();
         ColumnIdentifier identifier = new ColumnIdentifier("key", true);
@@ -128,7 +127,6 @@ public class PulsarImporterTest {
         // given
         Config connectorConfig = createConnectorConfigs("sample-002.csv");
         connector.configure(connectorConfig, true, true);
-        connector.init();
 
         List<ColumnMetadata> cassandraColumns = new ArrayList<>();
         ColumnIdentifier xtextIdentifier =

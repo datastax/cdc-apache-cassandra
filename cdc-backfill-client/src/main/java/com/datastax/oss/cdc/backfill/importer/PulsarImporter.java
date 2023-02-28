@@ -110,6 +110,8 @@ public class PulsarImporter {
                     .map(DefaultMappedField::new)
                     .collect(Collectors.toList());
 
+            // determines exactly what files and folders need to be read, should be only called once export is done
+            connector.init();
             long c = Flux
                     .from(connector.read())
                     .flatMap(Resource::read).map(record -> {
