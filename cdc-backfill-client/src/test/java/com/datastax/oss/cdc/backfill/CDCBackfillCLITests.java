@@ -95,6 +95,7 @@ public abstract class CDCBackfillCLITests {
     private static Network testNetwork;
     private static PulsarContainer<?> pulsarContainer;
     private static CassandraContainer<?> cassandraContainer1;
+    private static CassandraContainer<?> cassandraContainer2;
     private static final ObjectMapper mapper = new ObjectMapper();
 
     private final String outputFormat;
@@ -131,7 +132,12 @@ public abstract class CDCBackfillCLITests {
         cassandraContainer1 = CassandraContainer.createCassandraContainerWithAgent(
                 CASSANDRA_IMAGE, testNetwork, 1, agentBuildDir, "agent-c4",
                 "pulsarServiceUrl=" + pulsarServiceUrl, "c4");
+        // Connector requires 2 nodes to work
+        cassandraContainer2 = CassandraContainer.createCassandraContainerWithAgent(
+                CASSANDRA_IMAGE, testNetwork, 2, agentBuildDir, "agent-c4",
+                "pulsarServiceUrl=" + pulsarServiceUrl, "c4");
         cassandraContainer1.start();
+        cassandraContainer2.start();
     }
 
     @AfterAll
@@ -208,24 +214,22 @@ public abstract class CDCBackfillCLITests {
                         assertEquals(this.schemaType, record.getSchemaType());
                         Object key = getKey(msg);
                         GenericRecord value = getValue(record);
-                        assertEquals((Integer) 0, mutationTable1.putIfAbsent(getAndAssertKeyFieldAsString(key, "id"), 0));
+                        assertEquals((Integer) 0, mutationTable1.computeIfAbsent(getAndAssertKeyFieldAsString(key, "id"), k -> 0));
                         assertEquals(1, value.getField("a"));
                         mutationTable1.compute(getAndAssertKeyFieldAsString(key, "id"), (k, v) -> v + 1);
                         consumer.acknowledge(msg);
                     }
+                    // 100 messages should've been received
+                    assertEquals(100, mutationTable1.values().stream().count());
                     for (int cols = 1; cols <= 100; cols++) {
                         assertEquals((Integer) 1, mutationTable1.get(String.valueOf(cols)));
                     }
 
                     // make sure no more messages are received
-                    while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null &&
-                            mutationTable1.values().stream().count() < 1_000) { // anything larger than 100 is a bug
+                    while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null ) {
                         Object key = getKey(msg);
-                        mutationTable1.putIfAbsent(getAndAssertKeyFieldAsString(key, "id"), 0);
-                        consumer.acknowledge(msg);
+                        fail("Received more messages than expected. Unwanted key: " + key);
                     }
-
-                    assertEquals(100, mutationTable1.values().stream().count());
                 }
             }
         } finally {
@@ -250,13 +254,6 @@ public abstract class CDCBackfillCLITests {
 
                 Process proc = pb.start();
                 boolean finished = proc.waitFor(90, TimeUnit.SECONDS);
-
-                BufferedReader stdInput = new BufferedReader(new
-                        InputStreamReader(proc.getInputStream()));
-                String s = null;
-                while ((s = stdInput.readLine()) != null) {
-                    System.out.println(s);
-                }
 
                 // mimic proc.errorReader() in java 17
                 new BufferedReader(new InputStreamReader(proc.getErrorStream(), StandardCharsets.UTF_8)).lines()
