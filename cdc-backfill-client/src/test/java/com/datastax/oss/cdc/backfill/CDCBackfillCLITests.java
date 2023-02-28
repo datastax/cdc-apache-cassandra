@@ -248,7 +248,7 @@ public abstract class CDCBackfillCLITests {
 
                 ProcessBuilder pb = new ProcessBuilder("java", "-jar", cdcBackfillFullJarPath, "backfill",
                         "--data-dir", "target/export", "--export-host", cassandraContainer1.getCqlHostAddress(), "--keyspace", ksName, "--table", tableName,
-                        "--export-consistency", "ONE", "--pulsar-url", pulsarContainer.getPulsarBrokerUrl());
+                        "--export-consistency", "LOCAL_QUORUM", "--pulsar-url", pulsarContainer.getPulsarBrokerUrl());
 
                 log.info("Running backfill command: {} ", pb.command());
 
