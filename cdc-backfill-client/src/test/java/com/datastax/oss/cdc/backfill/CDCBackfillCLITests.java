@@ -20,6 +20,7 @@ import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.data.CqlDuration;
 import com.datastax.oss.driver.shaded.guava.common.collect.Lists;
+import com.datastax.oss.dsbulk.tests.utils.FileUtils;
 import com.datastax.testcontainers.PulsarContainer;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
 import lombok.RequiredArgsConstructor;
@@ -49,7 +50,9 @@ import org.apache.pulsar.shade.org.apache.avro.generic.IndexedRecord;
 import org.apache.pulsar.shade.org.apache.avro.util.Utf8;
 import org.junit.Assert;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.Network;
@@ -62,6 +65,8 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.HashMap;
@@ -102,6 +107,9 @@ public abstract class CDCBackfillCLITests {
 
     private final SchemaType schemaType;
 
+    private Path dataDir;
+    private Path logsDir;
+
     @BeforeAll
     public static void initBeforeClass() throws Exception {
         testNetwork = Network.newNetwork();
@@ -138,6 +146,23 @@ public abstract class CDCBackfillCLITests {
                 "pulsarServiceUrl=" + pulsarServiceUrl, "c4");
         cassandraContainer1.start();
         cassandraContainer2.start();
+    }
+
+    @BeforeEach
+    public void init() throws IOException {
+        // create temp dirs
+        dataDir = Files.createTempDirectory("data");
+        logsDir = Files.createTempDirectory("logs");
+    }
+
+    @AfterEach
+    void deleteTempDirs() {
+        if (dataDir != null && Files.exists(dataDir)) {
+            FileUtils.deleteDirectory(dataDir);
+        }
+        if (logsDir != null && Files.exists(logsDir)) {
+            FileUtils.deleteDirectory(logsDir);
+        }
     }
 
     @AfterAll
@@ -247,7 +272,8 @@ public abstract class CDCBackfillCLITests {
                 String cdcBackfillFullJarPath = String.format(Locale.ROOT, "%s/libs/%s", cdcBackfillBuildDir, cdcBackfillJarFile);
 
                 ProcessBuilder pb = new ProcessBuilder("java", "-jar", cdcBackfillFullJarPath, "backfill",
-                        "--data-dir", "target/export", "--export-host", cassandraContainer1.getCqlHostAddress(), "--keyspace", ksName, "--table", tableName,
+                        "--data-dir", dataDir.toString(), "--dsbulk-log-dir", logsDir.toString() ,
+                        "--export-host", cassandraContainer1.getCqlHostAddress(), "--keyspace", ksName, "--table", tableName,
                         "--export-consistency", "LOCAL_QUORUM", "--pulsar-url", pulsarContainer.getPulsarBrokerUrl());
 
                 log.info("Running backfill command: {} ", pb.command());
