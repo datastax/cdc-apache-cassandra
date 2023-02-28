@@ -17,7 +17,6 @@
 package com.datastax.oss.cdc.backfill.e2e;
 
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
-import com.datastax.oss.cdc.backfill.CassandraFamily;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.data.CqlDuration;
 import com.datastax.oss.dsbulk.tests.utils.FileUtils;
@@ -50,6 +49,7 @@ import org.apache.pulsar.shade.org.apache.avro.util.Utf8;
 import org.junit.Assert;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
@@ -82,7 +82,7 @@ import static com.datastax.oss.cdc.DataSpec.dataSpecMap;
 import static org.junit.jupiter.api.Assertions.*;
 
 @Slf4j
-public abstract class BackfillCLITests {
+public class BackfillCLIE2ETests {
 
     public static final DockerImageName CASSANDRA_IMAGE = DockerImageName.parse(
             Optional.ofNullable(System.getenv("CASSANDRA_IMAGE"))
@@ -99,14 +99,11 @@ public abstract class BackfillCLITests {
     private static CassandraContainer<?> cassandraContainer1;
     private static CassandraContainer<?> cassandraContainer2;
     private static final ObjectMapper mapper = new ObjectMapper();
-
-    private final CassandraFamily cassandraFamily;
-
     private Path dataDir;
     private Path logsDir;
 
-    public BackfillCLITests(CassandraFamily cassandraFamily) throws Exception {
-        this.cassandraFamily = cassandraFamily;
+    @BeforeAll
+    public static void initBeforeClass() throws Exception {
         testNetwork = Network.newNetwork();
 
         String connectorBuildDir = System.getProperty("connectorBuildDir");
@@ -131,42 +128,19 @@ public abstract class BackfillCLITests {
         assertEquals(0, result.getExitCode());
 
         String pulsarServiceUrl = "pulsar://pulsar:" + pulsarContainer.BROKER_PORT;
+        String cassandraFamily = System.getProperty("cassandraFamily");
+        String agentName =  "agent-" + cassandraFamily;
         String agentBuildDir = System.getProperty("agentBuildDir");
+        log.info("cassandraFamily: {}, agentName: {}, agentBuildDir: {}", cassandraFamily, agentName, agentBuildDir);
         cassandraContainer1 = CassandraContainer.createCassandraContainerWithAgent(
-                CASSANDRA_IMAGE, testNetwork, 1, agentBuildDir, getAgentName(),
-                "pulsarServiceUrl=" + pulsarServiceUrl, getCassandraVersion());
+                CASSANDRA_IMAGE, testNetwork, 1, agentBuildDir, agentName,
+                "pulsarServiceUrl=" + pulsarServiceUrl, cassandraFamily);
         // Connector requires 2 nodes to work
         cassandraContainer2 = CassandraContainer.createCassandraContainerWithAgent(
-                CASSANDRA_IMAGE, testNetwork, 2, agentBuildDir, getAgentName(),
-                "pulsarServiceUrl=" + pulsarServiceUrl, getCassandraVersion());
+                CASSANDRA_IMAGE, testNetwork, 2, agentBuildDir, agentName,
+                "pulsarServiceUrl=" + pulsarServiceUrl, cassandraFamily);
         cassandraContainer1.start();
         cassandraContainer2.start();
-    }
-
-    private String getAgentName() {
-        switch (this.cassandraFamily) {
-            case C3:
-                return "agent-c3";
-            case C4:
-                return "agent-c4";
-            case DSE4:
-                return "agent-dse4";
-            default:
-                throw new IllegalArgumentException("Unknown cassandra version: " + this.cassandraFamily);
-        }
-    }
-
-    private String getCassandraVersion() {
-        switch (this.cassandraFamily) {
-            case C3:
-                return "c3";
-            case C4:
-                return "c4";
-            case DSE4:
-                return "dse4";
-            default:
-                throw new IllegalArgumentException("Unknown cassandra version: " + this.cassandraFamily);
-        }
     }
 
     @BeforeEach
