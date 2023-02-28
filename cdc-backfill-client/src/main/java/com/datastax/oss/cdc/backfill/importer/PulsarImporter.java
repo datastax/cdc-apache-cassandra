@@ -21,6 +21,7 @@ import com.datastax.oss.cdc.agent.Mutation;
 import com.datastax.oss.cdc.agent.PulsarMutationSender;
 import com.datastax.oss.cdc.backfill.ExitStatus;
 import com.datastax.oss.cdc.backfill.exporter.ExportedTable;
+import com.datastax.oss.cdc.backfill.factory.ConnectorFactory;
 import com.datastax.oss.cdc.backfill.factory.PulsarMutationSenderFactory;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.type.reflect.GenericType;
@@ -48,7 +49,7 @@ import java.util.stream.Collectors;
 public class PulsarImporter {
     private static final Logger LOGGER = LoggerFactory.getLogger(PulsarImporter.class);
 
-    final private Connector connector;
+    final private ConnectorFactory connectorFactory;
     final private ExportedTable exportedTable;
 
     private final PulsarMutationSender mutationSender;
@@ -83,14 +84,16 @@ public class PulsarImporter {
     private final static UUID MUTATION_NODE = null;
     private final static ConvertingCodecFactory codecFactory = new ConvertingCodecFactory();
 
-    public PulsarImporter(Connector connector, ExportedTable exportedTable, PulsarMutationSenderFactory factory) {
-        this.connector = connector;
+    public PulsarImporter(ConnectorFactory connectorFactory, ExportedTable exportedTable, PulsarMutationSenderFactory factory) {
+        this.connectorFactory = connectorFactory;
         this.exportedTable = exportedTable;
         this.mutationSender = factory.newPulsarMutationSender();
     }
 
     public ExitStatus importTable() {
+        Connector connector = null;
         try {
+            connector = connectorFactory.newCVSConnector();
             List<CompletableFuture<?>> futures = new ArrayList<>();
             // prepare PK codecs
             Map<String, ConvertingCodec<String, AbstractType<?>>> codecs =
@@ -110,8 +113,6 @@ public class PulsarImporter {
                     .map(DefaultMappedField::new)
                     .collect(Collectors.toList());
 
-            // determines exactly what files and folders need to be read, should be only called once export is done
-            connector.init();
             long c = Flux
                     .from(connector.read())
                     .flatMap(Resource::read).map(record -> {
@@ -158,5 +159,4 @@ public class PulsarImporter {
                 tableMetadata,
                 MUTATION_TOKEN);
     }
-
 }

@@ -1,12 +1,12 @@
 /**
  * Copyright DataStax, Inc 2021.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 
-package com.datastax.oss.cdc.backfill;
+package com.datastax.oss.cdc.backfill.e2e;
 
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
+import com.datastax.oss.cdc.backfill.CassandraFamily;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.data.CqlDuration;
-import com.datastax.oss.driver.shaded.guava.common.collect.Lists;
 import com.datastax.oss.dsbulk.tests.utils.FileUtils;
 import com.datastax.testcontainers.PulsarContainer;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
-import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
@@ -51,7 +50,6 @@ import org.apache.pulsar.shade.org.apache.avro.util.Utf8;
 import org.junit.Assert;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
@@ -84,8 +82,7 @@ import static com.datastax.oss.cdc.DataSpec.dataSpecMap;
 import static org.junit.jupiter.api.Assertions.*;
 
 @Slf4j
-@RequiredArgsConstructor
-public abstract class CDCBackfillCLITests {
+public abstract class BackfillCLITests {
 
     public static final DockerImageName CASSANDRA_IMAGE = DockerImageName.parse(
             Optional.ofNullable(System.getenv("CASSANDRA_IMAGE"))
@@ -103,20 +100,18 @@ public abstract class CDCBackfillCLITests {
     private static CassandraContainer<?> cassandraContainer2;
     private static final ObjectMapper mapper = new ObjectMapper();
 
-    private final String outputFormat;
-
-    private final SchemaType schemaType;
+    private final CassandraFamily cassandraFamily;
 
     private Path dataDir;
     private Path logsDir;
 
-    @BeforeAll
-    public static void initBeforeClass() throws Exception {
+    public BackfillCLITests(CassandraFamily cassandraFamily) throws Exception {
+        this.cassandraFamily = cassandraFamily;
         testNetwork = Network.newNetwork();
 
         String connectorBuildDir = System.getProperty("connectorBuildDir");
         String projectVersion = System.getProperty("projectVersion");
-        String connectorJarFile = String.format(Locale.ROOT,  "pulsar-cassandra-source-%s.nar", projectVersion);
+        String connectorJarFile = String.format(Locale.ROOT, "pulsar-cassandra-source-%s.nar", projectVersion);
         pulsarContainer = new PulsarContainer<>(PULSAR_IMAGE)
                 .withNetwork(testNetwork)
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withName("pulsar"))
@@ -138,14 +133,40 @@ public abstract class CDCBackfillCLITests {
         String pulsarServiceUrl = "pulsar://pulsar:" + pulsarContainer.BROKER_PORT;
         String agentBuildDir = System.getProperty("agentBuildDir");
         cassandraContainer1 = CassandraContainer.createCassandraContainerWithAgent(
-                CASSANDRA_IMAGE, testNetwork, 1, agentBuildDir, "agent-c4",
-                "pulsarServiceUrl=" + pulsarServiceUrl, "c4");
+                CASSANDRA_IMAGE, testNetwork, 1, agentBuildDir, getAgentName(),
+                "pulsarServiceUrl=" + pulsarServiceUrl, getCassandraVersion());
         // Connector requires 2 nodes to work
         cassandraContainer2 = CassandraContainer.createCassandraContainerWithAgent(
-                CASSANDRA_IMAGE, testNetwork, 2, agentBuildDir, "agent-c4",
-                "pulsarServiceUrl=" + pulsarServiceUrl, "c4");
+                CASSANDRA_IMAGE, testNetwork, 2, agentBuildDir, getAgentName(),
+                "pulsarServiceUrl=" + pulsarServiceUrl, getCassandraVersion());
         cassandraContainer1.start();
         cassandraContainer2.start();
+    }
+
+    private String getAgentName() {
+        switch (this.cassandraFamily) {
+            case C3:
+                return "agent-c3";
+            case C4:
+                return "agent-c4";
+            case DSE4:
+                return "agent-dse4";
+            default:
+                throw new IllegalArgumentException("Unknown cassandra version: " + this.cassandraFamily);
+        }
+    }
+
+    private String getCassandraVersion() {
+        switch (this.cassandraFamily) {
+            case C3:
+                return "c3";
+            case C4:
+                return "c4";
+            case DSE4:
+                return "dse4";
+            default:
+                throw new IllegalArgumentException("Unknown cassandra version: " + this.cassandraFamily);
+        }
     }
 
     @BeforeEach
@@ -184,7 +205,7 @@ public abstract class CDCBackfillCLITests {
                 CassandraSourceConnectorConfig.TABLE_NAME_CONFIG, tableName,
                 CassandraSourceConnectorConfig.EVENTS_TOPIC_NAME_CONFIG, "persistent://public/default/events-" + ksName + "." + tableName,
                 CassandraSourceConnectorConfig.EVENTS_SUBSCRIPTION_NAME_CONFIG, "sub1",
-                CassandraSourceConnectorConfig.OUTPUT_FORMAT, this.outputFormat);
+                CassandraSourceConnectorConfig.OUTPUT_FORMAT, "key-value-json");
         Container.ExecResult result = pulsarContainer.execInContainer(
                 "/pulsar/bin/pulsar-admin",
                 "source", "create",
@@ -236,7 +257,7 @@ public abstract class CDCBackfillCLITests {
                     while ((msg = consumer.receive(90, TimeUnit.SECONDS)) != null &&
                             mutationTable1.values().stream().count() < 100) {
                         GenericRecord record = msg.getValue();
-                        assertEquals(this.schemaType, record.getSchemaType());
+                        assertEquals(SchemaType.KEY_VALUE, record.getSchemaType());
                         Object key = getKey(msg);
                         GenericRecord value = getValue(record);
                         assertEquals((Integer) 0, mutationTable1.computeIfAbsent(getAndAssertKeyFieldAsString(key, "id"), k -> 0));
@@ -251,7 +272,7 @@ public abstract class CDCBackfillCLITests {
                     }
 
                     // make sure no more messages are received
-                    while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null ) {
+                    while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null) {
                         Object key = getKey(msg);
                         fail("Received more messages than expected. Unwanted key: " + key);
                     }
@@ -268,11 +289,11 @@ public abstract class CDCBackfillCLITests {
             try {
                 String cdcBackfillBuildDir = System.getProperty("cdcBackfillBuildDir");
                 String projectVersion = System.getProperty("projectVersion");
-                String cdcBackfillJarFile = String.format(Locale.ROOT,  "cdc-backfill-client-%s-all.jar", projectVersion);
+                String cdcBackfillJarFile = String.format(Locale.ROOT, "cdc-backfill-client-%s-all.jar", projectVersion);
                 String cdcBackfillFullJarPath = String.format(Locale.ROOT, "%s/libs/%s", cdcBackfillBuildDir, cdcBackfillJarFile);
 
                 ProcessBuilder pb = new ProcessBuilder("java", "-jar", cdcBackfillFullJarPath, "backfill",
-                        "--data-dir", dataDir.toString(), "--dsbulk-log-dir", logsDir.toString() ,
+                        "--data-dir", dataDir.toString(), "--dsbulk-log-dir", logsDir.toString(),
                         "--export-host", cassandraContainer1.getCqlHostAddress(), "--keyspace", ksName, "--table", tableName,
                         "--export-consistency", "LOCAL_QUORUM", "--pulsar-url", pulsarContainer.getPulsarBrokerUrl());
 
@@ -313,11 +334,11 @@ public abstract class CDCBackfillCLITests {
                 Assert.assertEquals(expectedMap.size(), gm.size());
                 // convert AVRO Utf8 keys to String.
                 Map<String, Object> actualMap = gm.entrySet().stream().collect(Collectors.toMap(e -> e.getKey().toString(), e -> e.getValue()));
-                for(Map.Entry<String, Object> entry : expectedMap.entrySet())
+                for (Map.Entry<String, Object> entry : expectedMap.entrySet())
                     Assert.assertEquals(expectedMap.get(entry.getKey()), actualMap.get(entry.getKey()));
                 return;
         }
-        Assert.assertTrue("Unexpected field="+field, false);
+        Assert.assertTrue("Unexpected field=" + field, false);
     }
 
     void assertGenericArray(String field, GenericArray ga) {
@@ -345,7 +366,7 @@ public abstract class CDCBackfillCLITests {
                     Map<String, Object> actualMap = gm.entrySet().stream().collect(Collectors.toMap(
                             e -> e.getKey().toString(),
                             e -> e.getValue()));
-                    for(Map.Entry<String, Object> entry : expectedMap.entrySet())
+                    for (Map.Entry<String, Object> entry : expectedMap.entrySet())
                         Assert.assertEquals(expectedMap.get(entry.getKey()), actualMap.get(entry.getKey()));
                 }
                 return;
@@ -353,19 +374,19 @@ public abstract class CDCBackfillCLITests {
             case "setofudt": {
                 for (int i = 0; i < ga.size(); i++) {
                     GenericData.Record gr = (GenericData.Record) ga.get(i);
-                    for(Schema.Field f : gr.getSchema().getFields()) {
+                    for (Schema.Field f : gr.getSchema().getFields()) {
                         assertField(f.name(), gr.get(f.name()));
                     }
                 }
                 return;
             }
         }
-        Assert.assertTrue("Unexpected field="+field, false);
+        Assert.assertTrue("Unexpected field=" + field, false);
     }
 
     void assertField(String fieldName, Object value) {
         String vKey = fieldName.substring(1);
-        if (!vKey.equals("udt") && !vKey.equals("udtoptional") && ! vKey.equals("setofudt")) {
+        if (!vKey.equals("udt") && !vKey.equals("udtoptional") && !vKey.equals("setofudt")) {
             Assert.assertTrue("Unknown field " + vKey, dataSpecMap.containsKey(vKey));
         }
         if (value instanceof GenericRecord) {
@@ -388,7 +409,7 @@ public abstract class CDCBackfillCLITests {
                 CqlLogicalTypes.CqlVarintConversion cqlVarintConversion = new CqlLogicalTypes.CqlVarintConversion();
                 value = cqlVarintConversion.fromRecord(gr, gr.getSchema(), CqlLogicalTypes.CQL_VARINT_LOGICAL_TYPE);
             } else if (CqlLogicalTypes.CQL_DURATION.equals(gr.getSchema().getName())) {
-                CqlLogicalTypes.CqlDurationConversion  cqlDurationConversion = new CqlLogicalTypes.CqlDurationConversion();
+                CqlLogicalTypes.CqlDurationConversion cqlDurationConversion = new CqlLogicalTypes.CqlDurationConversion();
                 value = cqlDurationConversion.fromRecord(gr, gr.getSchema(), CqlLogicalTypes.CQL_DURATION_LOGICAL_TYPE);
             }
             Assert.assertEquals("Wrong value for regular field " + fieldName, dataSpecMap.get(vKey).avroValue, value);
@@ -424,17 +445,16 @@ public abstract class CDCBackfillCLITests {
             return;
             case "udtoptional": {
                 for (Field f : gr.getFields()) {
-                    if (f.getName().equals("ztext")){
+                    if (f.getName().equals("ztext")) {
                         assertField(f.getName(), gr.getField(f.getName()));
-                    }
-                    else {
+                    } else {
                         assertNull(gr.getField(f.getName()));
                     }
                 }
             }
             return;
         }
-        Assert.assertTrue("Unexpected field="+field, false);
+        Assert.assertTrue("Unexpected field=" + field, false);
     }
 
     @SneakyThrows
@@ -493,7 +513,7 @@ public abstract class CDCBackfillCLITests {
                 AtomicInteger size = new AtomicInteger();
                 node.fieldNames().forEachRemaining(f -> size.getAndIncrement());
                 Assert.assertEquals(expectedMap.size(), size.get());
-                for(Map.Entry<String, Object> entry : expectedMap.entrySet())
+                for (Map.Entry<String, Object> entry : expectedMap.entrySet())
                     Assert.assertEquals(expectedMap.get(entry.getKey()), node.get(entry.getKey()).asDouble());
                 return;
             }
@@ -506,7 +526,7 @@ public abstract class CDCBackfillCLITests {
                     AtomicInteger size = new AtomicInteger();
                     mapNode.fieldNames().forEachRemaining(f -> size.getAndIncrement());
                     Assert.assertEquals(expectedMap.size(), size.get());
-                    for(Map.Entry<String, Object> entry : expectedMap.entrySet())
+                    for (Map.Entry<String, Object> entry : expectedMap.entrySet())
                         Assert.assertEquals(expectedMap.get(entry.getKey()), mapNode.get(entry.getKey()).asDouble());
                 }
                 return;
@@ -554,12 +574,12 @@ public abstract class CDCBackfillCLITests {
             }
             return;
         }
-        Assert.assertTrue("Unexpected field="+field, false);
+        Assert.assertTrue("Unexpected field=" + field, false);
     }
 
     static String genericRecordToString(GenericRecord genericRecord) {
         StringBuilder sb = new StringBuilder("{");
-        for(Field field : genericRecord.getFields()) {
+        for (Field field : genericRecord.getFields()) {
             if (genericRecord.getField(field) != null) {
                 if (sb.length() > 1)
                     sb.append(",");
@@ -586,14 +606,9 @@ public abstract class CDCBackfillCLITests {
 
     Map<String, Object> genericRecordToMap(GenericRecord genericRecord) {
         Map<String, Object> map = new HashMap<>();
-        if (outputFormat.contains("json")) {
-            return jsonNodeToMap((JsonNode) genericRecord.getNativeObject());
-        } else {
-            for (Field field : genericRecord.getFields()) {
-                map.put(field.getName(), genericRecord.getField(field));
-            }
+        for (Field field : genericRecord.getFields()) {
+            map.put(field.getName(), genericRecord.getField(field));
         }
-
         return map;
     }
 
@@ -609,19 +624,19 @@ public abstract class CDCBackfillCLITests {
     private Object getKey(Message<GenericRecord> msg) {
         Object nativeObject = msg.getValue().getNativeObject();
         return (nativeObject instanceof KeyValue) ?
-                ((KeyValue<GenericRecord, GenericRecord>)nativeObject).getKey():
+                ((KeyValue<GenericRecord, GenericRecord>) nativeObject).getKey() :
                 readTree(msg.getKey());
     }
 
     @SneakyThrows
-    private JsonNode readTree(String json)  {
+    private JsonNode readTree(String json) {
         return mapper.readTree(json);
     }
 
     private int getAndAssertKeyFieldAsInt(Object key, String fieldName) {
         if (key instanceof GenericRecord) {
             assertTrue(((GenericRecord) key).getField(fieldName) instanceof Integer);
-            return  (int)((GenericRecord) key).getField(fieldName);
+            return (int) ((GenericRecord) key).getField(fieldName);
         } else if (key instanceof JsonNode) {
             assertTrue(((JsonNode) key).get(fieldName).isInt());
             return ((JsonNode) key).get(fieldName).asInt();
@@ -633,7 +648,7 @@ public abstract class CDCBackfillCLITests {
     private String getAndAssertKeyFieldAsString(Object key, String fieldName) {
         if (key instanceof GenericRecord) {
             assertTrue(((GenericRecord) key).getField(fieldName) instanceof String);
-            return (String)((GenericRecord) key).getField(fieldName);
+            return (String) ((GenericRecord) key).getField(fieldName);
         } else if (key instanceof JsonNode) {
             assertTrue(((JsonNode) key).get(fieldName).isTextual());
             return ((JsonNode) key).get(fieldName).asText();
@@ -642,39 +657,10 @@ public abstract class CDCBackfillCLITests {
         throw new RuntimeException("unknown key type " + key.getClass().getName());
     }
 
-    private void assertKeyFieldIsNull(Object key, String fieldName) {
-        if (key instanceof GenericRecord) {
-            assertNull(((GenericRecord) key).getField(fieldName));
-        } else if (key instanceof JsonNode) {
-            assertTrue(((JsonNode) key).get(fieldName).isNull());
-        } else {
-            throw new RuntimeException("unknown key type " + key.getClass().getName());
-        }
-    }
-
-    private List<String> getKeyFields(Object key) {
-        if (key instanceof GenericRecord) {
-            return ((GenericRecord) key).getFields().stream().map(f->f.getName()).collect(Collectors.toList());
-        } else if (key instanceof JsonNode) {
-            return Lists.newArrayList(((JsonNode) key).fieldNames());
-        }
-
-        throw new RuntimeException("unknown key type " + key.getClass().getName());
-    }
-
     private GenericRecord getValue(GenericRecord genericRecord) {
         return (genericRecord.getNativeObject() instanceof KeyValue) ?
-                ((KeyValue<GenericRecord, GenericRecord>)genericRecord.getNativeObject()).getValue() :
+                ((KeyValue<GenericRecord, GenericRecord>) genericRecord.getNativeObject()).getValue() :
                 genericRecord;
-    }
-
-    private void assertNullValue(GenericRecord value) {
-        if (this.outputFormat.equals("json")) {
-            // With JSON only format, the data topic receives an empty JSON for delete mutations
-            assertEquals("{}", value.getNativeObject().toString());
-        } else {
-            assertNull(value);
-        }
     }
 
     protected void dumpFunctionLogs(String name) {
@@ -693,13 +679,13 @@ public abstract class CDCBackfillCLITests {
 
         public static final String CQL_VARINT = "cql_varint";
         public static final CqlVarintLogicalType CQL_VARINT_LOGICAL_TYPE = new CqlVarintLogicalType();
-        public static final Schema varintType  = CQL_VARINT_LOGICAL_TYPE.addToSchema(Schema.create(Schema.Type.BYTES));
+        public static final Schema varintType = CQL_VARINT_LOGICAL_TYPE.addToSchema(Schema.create(Schema.Type.BYTES));
 
         public static final String CQL_DECIMAL = "cql_decimal";
         public static final String CQL_DECIMAL_BIGINT = "bigint";
         public static final String CQL_DECIMAL_SCALE = "scale";
         public static final CqlDecimalLogicalType CQL_DECIMAL_LOGICAL_TYPE = new CqlDecimalLogicalType();
-        public static final Schema decimalType  = CQL_DECIMAL_LOGICAL_TYPE.addToSchema(
+        public static final Schema decimalType = CQL_DECIMAL_LOGICAL_TYPE.addToSchema(
                 SchemaBuilder.record(CQL_DECIMAL)
                         .fields()
                         .name(CQL_DECIMAL_BIGINT).type().bytesType().noDefault()
@@ -712,7 +698,7 @@ public abstract class CDCBackfillCLITests {
         public static final String CQL_DURATION_DAYS = "days";
         public static final String CQL_DURATION_NANOSECONDS = "nanoseconds";
         public static final CqlDurationLogicalType CQL_DURATION_LOGICAL_TYPE = new CqlDurationLogicalType();
-        public static final Schema durationType  = CQL_DURATION_LOGICAL_TYPE.addToSchema(
+        public static final Schema durationType = CQL_DURATION_LOGICAL_TYPE.addToSchema(
                 SchemaBuilder.record(CQL_DURATION)
                         .fields()
                         .name(CQL_DURATION_MONTHS).type().intType().noDefault()
@@ -832,7 +818,7 @@ public abstract class CDCBackfillCLITests {
 
             @Override
             public CqlDuration fromRecord(IndexedRecord value, Schema schema, LogicalType type) {
-                return CqlDuration.newInstance((int)value.get(0), (int)value.get(1), (long)value.get(2));
+                return CqlDuration.newInstance((int) value.get(0), (int) value.get(1), (long) value.get(2));
             }
 
             @Override

@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-package com.datastax.oss.cdc.backfill;
+package com.datastax.oss.cdc.backfill.e2e;
 
-import org.apache.pulsar.common.schema.SchemaType;
+import com.datastax.oss.cdc.backfill.CassandraFamily;
 
-// TODO: Adapt to make a test per C* env. No need to test different schema types.
-public class CDCBackFillC4Test extends CDCBackfillCLITests{
-    public CDCBackFillC4Test() {
-        super("key-value-json", SchemaType.KEY_VALUE);
+public class BackFillC3Test extends BackfillCLITests {
+    public BackFillC3Test() throws Exception {
+        super(CassandraFamily.C3);
     }
 }
