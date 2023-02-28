@@ -87,7 +87,7 @@ public class BackfillCLIE2ETests {
     public static final DockerImageName CASSANDRA_IMAGE = DockerImageName.parse(
             Optional.ofNullable(System.getenv("CASSANDRA_IMAGE"))
                     .orElse("cassandra:" + System.getProperty("cassandraVersion"))
-    ).asCompatibleSubstituteFor("c4");
+    ).asCompatibleSubstituteFor("cassandra");
 
     public static final DockerImageName PULSAR_IMAGE = DockerImageName.parse(
             Optional.ofNullable(System.getenv("PULSAR_IMAGE"))
@@ -132,15 +132,23 @@ public class BackfillCLIE2ETests {
         String agentName =  "agent-" + cassandraFamily;
         String agentBuildDir = System.getProperty("agentBuildDir");
         log.info("cassandraFamily: {}, agentName: {}, agentBuildDir: {}", cassandraFamily, agentName, agentBuildDir);
-        cassandraContainer1 = CassandraContainer.createCassandraContainerWithAgent(
-                CASSANDRA_IMAGE, testNetwork, cassandraFamily, 1, agentBuildDir, agentName,
-                String.format("pulsarServiceUrl=%s,cdcWorkingDir=/var/lib/cassandra/cdc", pulsarServiceUrl), cassandraFamily);
-        // Connector requires 2 nodes to work
-        cassandraContainer2 = CassandraContainer.createCassandraContainerWithAgent(
-                CASSANDRA_IMAGE, testNetwork, cassandraFamily, 2, agentBuildDir, agentName,
-                String.format("pulsarServiceUrl=%s,cdcWorkingDir=/var/lib/cassandra/cdc", pulsarServiceUrl), cassandraFamily);
-        cassandraContainer1.start();
-        cassandraContainer2.start();
+        try {
+            cassandraContainer1 = CassandraContainer.createCassandraContainerWithAgent(
+                    CASSANDRA_IMAGE, testNetwork, cassandraFamily, 1, agentBuildDir, agentName,
+                    String.format("pulsarServiceUrl=%s,cdcWorkingDir=/var/lib/cassandra/cdc", pulsarServiceUrl),
+                    cassandraFamily);
+
+            // Connector requires 2 nodes to work
+            cassandraContainer2 = CassandraContainer.createCassandraContainerWithAgent(
+                    CASSANDRA_IMAGE, testNetwork, cassandraFamily, 2, agentBuildDir, agentName,
+                    String.format("pulsarServiceUrl=%s,cdcWorkingDir=/var/lib/cassandra/cdc", pulsarServiceUrl),
+                    cassandraFamily);
+            cassandraContainer1.start();
+            cassandraContainer2.start();
+        } catch (Exception e) {
+            log.error("Failed to create cassandra container", e);
+            throw e;
+        }
     }
 
     @BeforeEach
