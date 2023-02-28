@@ -299,6 +299,10 @@ public abstract class CDCBackfillCLITests {
                 if (!finished) {
                     proc.destroy();
                     throw new RuntimeException("Backfilling process did not finish in 90 seconds");
+                } else if (proc.exitValue() != 0) {
+                    throw new RuntimeException("Backfilling process failed with exit code " + proc.exitValue());
+                } else {
+                    log.info("Backfilling process finished successfully");
                 }
 
             } catch (InterruptedException | IOException e) {
