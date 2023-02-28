@@ -59,6 +59,7 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
@@ -217,6 +218,9 @@ public abstract class CDCBackfillCLITests {
                 for (int cols = 1; cols <= 100; cols++) {
                     cqlSession.execute(String.format("INSERT INTO %s.table1 (id, a) VALUES('%s',1)", ksName, cols));
                 }
+
+                log.info("Sleeping for 20 seconds to make sure all records are inserted");
+                Thread.sleep(20_000);
             }
             // although CDC is disabled, back-filling depends on the connector to send the back-filled mutations to the
             // date topic
@@ -280,6 +284,9 @@ public abstract class CDCBackfillCLITests {
 
                 Process proc = pb.start();
                 boolean finished = proc.waitFor(90, TimeUnit.SECONDS);
+                File directory = new File(dataDir.resolve(ksName).resolve(tableName).toString());
+                log.info("dataDir: {}", directory);
+                log.info("dataDir files: {}", directory.list());
 
                 // mimic proc.errorReader() in java 17
                 new BufferedReader(new InputStreamReader(proc.getErrorStream(), StandardCharsets.UTF_8)).lines()
