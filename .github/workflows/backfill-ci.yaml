@@ -1,4 +1,4 @@
-name: CI
+name: Backfill CI
 
 on:
   pull_request:
@@ -28,7 +28,7 @@ jobs:
           DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
         run: |
           ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
-          build -x test
+          cdc-backfill-client:build
 
   test:
     needs: build
@@ -38,9 +38,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module: ['agent', 'agent-c3', 'agent-c4', 'agent-dse4', 'connector']
         jdk: ['11', '17']
-        pulsarImageTag: ['2.8.0_1.1.42', '2.8.3_1.0.11', '2.10_0.4']
+        pulsarImageTag: ['2.10_0.4']
     steps:
       - uses: actions/checkout@v3
       - name: Set up JDK ${{ matrix.jdk }}
@@ -72,3 +71,47 @@ jobs:
           ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
           -PpulsarImageTag=${{ matrix.pulsarImageTag }} \
           ${{ matrix.module }}:test
+
+  test-backfill-cli:
+    needs: build
+    name: Test Backfill CLI
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        jdk: ['11'] # TODO: Restore '17'
+        pulsarImageTag: ['2.10_0.4'] # TODO: Restore '2.8.0_1.1.42', '2.8.3_1.0.11',
+        cassandraFamily: ['c3', 'c4', 'dse4']
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up JDK ${{ matrix.jdk }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.jdk }}
+          distribution: 'adopt'
+
+      - name: Get project version
+        uses: HardNorth/github-version-generate@v1.3.0
+        with:
+          version-source: file
+          version-file: gradle.properties
+          version-file-extraction-pattern: '(?<=version=).+'
+
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Test with Gradle
+        env:
+          DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
+          DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
+        run: |
+          ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
+          -PpulsarImageTag=${{ matrix.pulsarImageTag }} \
+          -PcassandraFamily=${{ matrix.cassandraFamily }} \
+          cdc-backfill-client:e2eTest
