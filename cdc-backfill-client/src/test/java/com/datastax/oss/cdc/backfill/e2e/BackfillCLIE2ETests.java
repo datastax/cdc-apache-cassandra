@@ -143,6 +143,14 @@ public class BackfillCLIE2ETests {
                     CASSANDRA_IMAGE, testNetwork, cassandraFamily, 2, agentBuildDir, agentName,
                     String.format("pulsarServiceUrl=%s,cdcWorkingDir=/var/lib/cassandra/cdc", pulsarServiceUrl),
                     cassandraFamily);
+
+            if ("dse4".equals(cassandraFamily)) {
+                cassandraContainer1 = cassandraContainer1.withEnv("DC", CassandraContainer.LOCAL_DC)
+                        .withContainerConfigLocation("/config");
+                cassandraContainer2 = cassandraContainer2.withEnv("DC", CassandraContainer.LOCAL_DC)
+                        .withContainerConfigLocation("/config");
+            }
+
             cassandraContainer1.start();
             cassandraContainer2.start();
         } catch (Exception e) {
