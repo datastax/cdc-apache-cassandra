@@ -300,7 +300,7 @@ public class BackfillCLIE2ETests {
                 cqlSession.execute("INSERT INTO " + ksName + ".table2 (" +
                                 "xtext, xascii, xboolean, xblob, xtimestamp, xtime, xdate, xuuid, xtimeuuid, xtinyint, xsmallint, xint, xbigint, xvarint, xdecimal, xdouble, xfloat, xinet4, xinet6, " +
                                 "ytext" +
-                                ") VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?,?, ?,?,?,?,?)",
+                                ") VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?)",
                         dataSpecMap.get("text").cqlValue,
                         dataSpecMap.get("ascii").cqlValue,
                         dataSpecMap.get("boolean").cqlValue,
@@ -331,17 +331,17 @@ public class BackfillCLIE2ETests {
 
             try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
                 try (Consumer<GenericRecord> consumer = pulsarClient.newConsumer(org.apache.pulsar.client.api.Schema.AUTO_CONSUME())
-                        .topic(String.format(Locale.ROOT, "data-%s.table3", ksName))
+                        .topic(String.format(Locale.ROOT, "data-%s.table2", ksName))
                         .subscriptionName("sub1")
                         .subscriptionType(SubscriptionType.Key_Shared)
                         .subscriptionMode(SubscriptionMode.Durable)
                         .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                         .subscribe()) {
-                    int mutationTable3Count = 0;
+                    int mutationTable2Count = 0;
                     Message<GenericRecord> msg;
-                    while ((msg = consumer.receive(120, TimeUnit.SECONDS)) != null && mutationTable3Count < 1) {
+                    while ((msg = consumer.receive(120, TimeUnit.SECONDS)) != null && mutationTable2Count < 1) {
                         GenericRecord genericRecord = msg.getValue();
-                        mutationTable3Count++;
+                        mutationTable2Count++;
                         assertEquals(SchemaType.KEY_VALUE, genericRecord.getSchemaType());
                         GenericRecord key = getKey(msg);
                         GenericRecord value = getValue(genericRecord);
@@ -360,7 +360,13 @@ public class BackfillCLIE2ETests {
 
                         consumer.acknowledge(msg);
                     }
-                    assertEquals(1, mutationTable3Count);
+                    assertEquals(1, mutationTable2Count);
+
+                    // make sure no more messages are received
+                    while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null) {
+                        Object key = getKey(msg);
+                        fail("Received more messages than expected. Unwanted key: " + key);
+                    }
                 }
             }
         } finally {
