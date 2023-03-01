@@ -4,7 +4,6 @@ on:
   pull_request:
     branches:
       - master
-      - cvs-to-cql # TODO: Remove this branch
   push:
     branches:
       - master
@@ -80,8 +79,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        jdk: ['11'] # TODO: Restore '17'
-        pulsarImageTag: ['2.10_0.4'] # TODO: Restore '2.8.0_1.1.42', '2.8.3_1.0.11',
+        jdk: ['11', '17']
+        pulsarImageTag: ['2.10_0.4']
         cassandraFamily: ['c3', 'c4', 'dse4']
     steps:
       - uses: actions/checkout@v3

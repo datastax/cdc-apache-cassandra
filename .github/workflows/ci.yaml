@@ -4,7 +4,6 @@ on:
   pull_request:
     branches:
       - master
-      - cvs-to-cql # TODO: Remove this branch
   push:
     branches:
       - master
@@ -28,7 +27,7 @@ jobs:
           DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
         run: |
           ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
-          build -x test
+          build -x test -x cdc-backfill-client:compileJava
 
   test:
     needs: build
