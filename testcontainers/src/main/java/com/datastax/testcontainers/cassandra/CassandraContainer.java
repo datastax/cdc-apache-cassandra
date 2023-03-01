@@ -270,18 +270,30 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
                                                                           String agentName,
                                                                           String agentParams,
                                                                           String cassandraVersion) {
+        return createCassandraContainerWithAgent(image, network, "cassandra", nodeIndex, agentBuildDir,
+                agentName, agentParams, cassandraVersion);
+    }
+
+    public static CassandraContainer<?> createCassandraContainerWithAgent(DockerImageName image,
+                                                                          Network network,
+                                                                          String configLocation,
+                                                                          int nodeIndex,
+                                                                          String agentBuildDir,
+                                                                          String agentName,
+                                                                          String agentParams,
+                                                                          String cassandraVersion) {
         String projectVersion = System.getProperty("projectVersion");
         String jarFile = String.format(Locale.ROOT, "%s-%s-all.jar", agentName, projectVersion);
         CassandraContainer<?> cassandraContainer = new CassandraContainer<>(image)
                 .withCreateContainerCmdModifier(c -> c.withName("cassandra-" + nodeIndex))
                 .withNetwork(network)
-                .withConfigurationOverride("cassandra")
+                .withConfigurationOverride(configLocation)
                 .withFileSystemBind(
                         String.format(Locale.ROOT, "%s/libs/%s", agentBuildDir, jarFile),
                         String.format(Locale.ROOT, "/%s", jarFile))
                 .withEnv("JVM_EXTRA_OPTS", String.format(Locale.ROOT,
                         "-javaagent:/%s=%s -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" +
-                        (cassandraVersion.equals("c4") ? "*:8000" : "8000"), jarFile, agentParams))
+                                (cassandraVersion.equals("c4") ? "*:8000" : "8000"), jarFile, agentParams))
                 .withEnv("MAX_HEAP_SIZE","1500m")
                 .withEnv("HEAP_NEWSIZE","300m")
                 .withEnv("DS_LICENSE", "accept")

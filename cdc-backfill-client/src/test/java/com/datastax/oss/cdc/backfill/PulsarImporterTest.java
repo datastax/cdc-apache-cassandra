@@ -19,23 +19,19 @@ package com.datastax.oss.cdc.backfill;
 import com.datastax.oss.cdc.agent.AbstractMutation;
 import com.datastax.oss.cdc.agent.PulsarMutationSender;
 import com.datastax.oss.cdc.backfill.exporter.ExportedTable;
+import com.datastax.oss.cdc.backfill.factory.ConnectorFactory;
 import com.datastax.oss.cdc.backfill.factory.PulsarMutationSenderFactory;
 import com.datastax.oss.cdc.backfill.importer.PulsarImporter;
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.type.DataTypes;
 import com.datastax.oss.driver.internal.core.metadata.schema.DefaultColumnMetadata;
-import com.datastax.oss.dsbulk.connectors.api.Connector;
-import com.datastax.oss.dsbulk.connectors.csv.CSVConnector;
 import com.datastax.oss.dsbulk.tests.utils.StringUtils;
-import com.datastax.oss.dsbulk.tests.utils.TestConfigUtils;
-import com.typesafe.config.Config;
 import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.db.marshal.BooleanType;
 import org.apache.cassandra.db.marshal.IntegerType;
 import org.apache.cassandra.db.marshal.UTF8Type;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -45,6 +41,7 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 import java.net.URL;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -57,7 +54,6 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class PulsarImporterTest {
-    private Connector connector;
     @Mock
     private TableMetadata tableMetadata;
 
@@ -78,28 +74,16 @@ public class PulsarImporterTest {
     public void init() {
         MockitoAnnotations.openMocks(this);
 
-        connector = new CSVConnector();
         Mockito.when(sender.sendMutationAsync(Mockito.any())).thenReturn(CompletableFuture.completedFuture(null));
         Mockito.when(factory.newPulsarMutationSender()).thenReturn(sender);
-        importer = new PulsarImporter(connector, exportedTable, factory);
-    }
-
-    @AfterEach
-    public void cleanup() {
-        if (connector != null) {
-            try {
-                connector.close();
-            } catch (Exception e) {
-            }
-        }
     }
 
     @Test
-    public void testImportPartitionKeyOnly() throws Exception {
+    public void testImportPartitionKeyOnly() {
         // given
-        Config connectorConfig = createConnectorConfigs("sample-001.csv");
-        connector.configure(connectorConfig, true, true);
-        connector.init();
+        String fileName = "sample-001.csv";
+        ConnectorFactory connectorFactory = new ConnectorFactory(Paths.get(url(fileName)));
+        importer = new PulsarImporter(connectorFactory, exportedTable, factory);
 
         List<ColumnMetadata> cassandraColumns = new ArrayList<>();
         ColumnIdentifier identifier = new ColumnIdentifier("key", true);
@@ -124,11 +108,11 @@ public class PulsarImporterTest {
     }
 
     @Test
-    public void testImportPartitionAndClusteringKeys() throws Exception {
+    public void testImportPartitionAndClusteringKeys() {
         // given
-        Config connectorConfig = createConnectorConfigs("sample-002.csv");
-        connector.configure(connectorConfig, true, true);
-        connector.init();
+        String fileName = "sample-002.csv";
+        ConnectorFactory connectorFactory = new ConnectorFactory(Paths.get(url(fileName)));
+        importer = new PulsarImporter(connectorFactory, exportedTable, factory);
 
         List<ColumnMetadata> cassandraColumns = new ArrayList<>();
         ColumnIdentifier xtextIdentifier =
@@ -168,19 +152,8 @@ public class PulsarImporterTest {
         assertThat(allPkValues[1], contains("v2text", false, 3));
     }
 
-    private Config createConnectorConfigs(String fileName) {
-        Config settings =
-                TestConfigUtils.createTestConfig(
-                        "dsbulk.connector.csv",
-                        "url",
-                        url("/" + fileName),
-                        "header",
-                        true);
-
-        return settings;
-    }
     private static String url(String resource) {
-        return StringUtils.quoteJson(rawURL(resource));
+        return StringUtils.quoteJson(rawURL("/" +resource));
     }
 
     private static URL rawURL(String resource) {

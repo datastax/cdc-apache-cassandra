@@ -16,12 +16,11 @@
 
 package com.datastax.oss.cdc.backfill;
 
-
 import com.datastax.oss.cdc.backfill.exporter.TableExporter;
 import com.datastax.oss.cdc.backfill.factory.BackfillFactory;
+import com.datastax.oss.cdc.backfill.factory.ConnectorFactory;
 import com.datastax.oss.cdc.backfill.importer.PulsarImporter;
 import com.datastax.oss.cdc.backfill.util.LoggingUtils;
-import com.datastax.oss.dsbulk.connectors.api.Connector;
 import picocli.CommandLine;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
@@ -68,8 +67,8 @@ public class BackfillCLI {
         // Bootstrap the backfill dependencies
         final BackfillFactory factory = new BackfillFactory(settings);
         final TableExporter exporter = factory.newTableExporter();
-        final Connector connector = factory.newCVSConnector(exporter.getTableDataDir());
-        final PulsarImporter importer = factory.createPulsarImporter(connector, exporter.getExportedTable());
+        final ConnectorFactory connectorFactory = new ConnectorFactory(exporter.getTableDataDir());
+        final PulsarImporter importer = factory.newPulsarImporter(connectorFactory, exporter.getExportedTable());
         final CassandraToPulsarMigrator migrator = new CassandraToPulsarMigrator(exporter, importer);
 
         return migrator.migrate().exitCode();

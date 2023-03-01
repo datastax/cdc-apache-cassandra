@@ -36,7 +36,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
 
-import static com.datastax.oss.dsbulk.tests.utils.FileUtils.readAllLinesInDirectoryAsStream;
+import static com.datastax.oss.dsbulk.tests.utils.FileUtils.readAllLinesInDirectoryAsStreamExcludingHeaders;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -98,8 +98,8 @@ public class TableExporterTest extends SimulacronITBase {
 
         assertThat(tableDir).exists().isDirectory();
         assertThat(exportAck).exists().isRegularFile();
-        assertThat(readAllLinesInDirectoryAsStream(tableDir).collect(toList()))
-                .containsExactlyInAnyOrder("textPK", "first", "textPK", "second"); // 2 cvs files with headers
+        assertThat(readAllLinesInDirectoryAsStreamExcludingHeaders(tableDir).collect(toList()))
+                .containsExactlyInAnyOrder("first", "second");
     }
 
     private BackfillSettings createSettings() {

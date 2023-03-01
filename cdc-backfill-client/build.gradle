@@ -29,6 +29,20 @@ shadowJar {
 jar.enabled = true
 assemble.dependsOn(shadowJar)
 
+compileTestJava {
+    options.compilerArgs += '-parameters'
+}
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs += '-Xlint:none'
+}
+
+sourceSets {
+    // Make the compileOnly dependencies available when compiling/running tests
+    test.compileClasspath += configurations.compileClasspath
+    test.runtimeClasspath += configurations.compileClasspath
+}
+
 dependencies {
     implementation project(':agent-dse4')
     implementation project(':agent')
@@ -50,9 +64,53 @@ dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter-api:5.8.1"
     testImplementation "org.mockito:mockito-core:3.11.1"
     testImplementation "com.datastax.oss:dsbulk-tests:${dsbulkVersion}"
+
+    testImplementation project(':connector')
+    testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
+    testImplementation project(':testcontainers')
+    testImplementation("${pulsarGroup}:pulsar-client:${pulsarVersion}")
+
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:5.8.1"
 }
 
 test {
     useJUnitPlatform()
+
+    exclude 'com/datastax/oss/cdc/backfill/e2e/**' // exclude e2e tests
+}
+
+task e2eTest(type: Test) {
+    include 'com/datastax/oss/cdc/backfill/e2e/**'
+
+    testLogging.showStandardStreams = true
+
+    dependsOn project(':connector').assemble // couldn't take dependency on nar directly
+    dependsOn shadowJar
+
+    useJUnitPlatform()
+
+    environment 'PULSAR_IMAGE', testPulsarImage + ':' + testPulsarImageTag
+    def cassandraFamily =  project.hasProperty("cassandraFamily") ? project.property("cassandraFamily") : "c4";
+    if (cassandraFamily == "c3") {
+        dependsOn project(':agent-c3').shadowJar
+        systemProperty "cassandraFamily", "c3"
+        systemProperty "agentBuildDir", project(':agent-c3').buildDir
+        environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra3Version
+    } else if (cassandraFamily == "c4") {
+        dependsOn project(':agent-c4').shadowJar
+        systemProperty "cassandraFamily", "c4"
+        systemProperty "agentBuildDir", project(':agent-c4').buildDir
+        environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra4Version
+    } else if (cassandraFamily == "dse4") {
+        dependsOn project(':agent-dse4').shadowJar
+        systemProperty "cassandraFamily", "dse4"
+        systemProperty "agentBuildDir", project(':agent-dse4').buildDir
+        environment 'CASSANDRA_IMAGE', 'datastax/dse-server:' + dse4Version
+    } else {
+        throw new GradleException("Unknown Cassandra family. Use -PcassandraFamily=[c3|c4|dse4]")
+    }
+
+    systemProperty "connectorBuildDir", project(':connector').buildDir
+    systemProperty "cdcBackfillBuildDir", buildDir
+    systemProperty "projectVersion", project.version
 }

@@ -1,4 +1,4 @@
-name: CI
+name: Backfill CI
 
 on:
   pull_request:
@@ -27,19 +27,19 @@ jobs:
           DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
         run: |
           ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
-          build -x test -x cdc-backfill-client:compileJava
+          cdc-backfill-client:build
 
   test:
     needs: build
-    name: Test
+    name: Test Backfill CLI
     runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        module: ['agent', 'agent-c3', 'agent-c4', 'agent-dse4', 'connector']
-        jdk: ['11', '17']
-        pulsarImageTag: ['2.8.0_1.1.42', '2.8.3_1.0.11', '2.10_0.4']
+        jdk: ['11'] # TODO: Enable java 17 tests
+        pulsarImageTag: ['2.10_0.4']
+        cassandraFamily: ['c3', 'c4', 'dse4']
     steps:
       - uses: actions/checkout@v3
       - name: Set up JDK ${{ matrix.jdk }}
@@ -70,4 +70,5 @@ jobs:
         run: |
           ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
           -PpulsarImageTag=${{ matrix.pulsarImageTag }} \
-          ${{ matrix.module }}:test
+          -PcassandraFamily=${{ matrix.cassandraFamily }} \
+          cdc-backfill-client:e2eTest

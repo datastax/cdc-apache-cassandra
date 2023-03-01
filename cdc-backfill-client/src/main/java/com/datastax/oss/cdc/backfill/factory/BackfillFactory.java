@@ -18,16 +18,8 @@ package com.datastax.oss.cdc.backfill.factory;
 
 import com.datastax.oss.cdc.backfill.BackfillSettings;
 import com.datastax.oss.cdc.backfill.exporter.ExportedTable;
-import com.datastax.oss.cdc.backfill.importer.PulsarImporter;
 import com.datastax.oss.cdc.backfill.exporter.TableExporter;
-import com.datastax.oss.cdc.backfill.util.ConnectorUtils;
-import com.datastax.oss.dsbulk.connectors.api.Connector;
-import com.datastax.oss.dsbulk.connectors.csv.CSVConnector;
-import com.typesafe.config.Config;
-
-import java.io.IOException;
-import java.net.URISyntaxException;
-import java.nio.file.Path;
+import com.datastax.oss.cdc.backfill.importer.PulsarImporter;
 
 public class BackfillFactory {
     private final BackfillSettings settings;
@@ -41,24 +33,8 @@ public class BackfillFactory {
         return new TableExporter(new DsBulkFactory(), new SessionFactory(), settings);
     }
 
-    public Connector newCVSConnector(final Path tableDataDir) throws URISyntaxException, IOException {
-        CSVConnector connector = new CSVConnector();
-        Config connectorConfig =
-                ConnectorUtils.createConfig(
-                        "dsbulk.connector.csv",
-                        "url",
-                        tableDataDir,
-                        "recursive",
-                        true,
-                        "fileNamePattern",
-                        "\"**/output-*\"");
-        connector.configure(connectorConfig, true, true);
-        connector.init();
-        return connector;
-    }
-
-    public PulsarImporter createPulsarImporter(Connector connector, ExportedTable exportedTable) {
-        return new PulsarImporter(connector, exportedTable,
+    public PulsarImporter newPulsarImporter(ConnectorFactory connectorFactory, ExportedTable exportedTable) {
+        return new PulsarImporter(connectorFactory, exportedTable,
                 new PulsarMutationSenderFactory(settings.importSettings));
     }
 }
