@@ -27,7 +27,7 @@ jobs:
           DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
         run: |
           ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
-          build -x test -x cdc-backfill-client:compileJava
+          build -x test -x backfill-cli:compileJava
 
   test:
     needs: build

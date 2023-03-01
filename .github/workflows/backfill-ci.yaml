@@ -27,7 +27,7 @@ jobs:
           DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
         run: |
           ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
-          cdc-backfill-client:build
+          backfill-cli:build
 
   test:
     needs: build
@@ -71,4 +71,4 @@ jobs:
           ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
           -PpulsarImageTag=${{ matrix.pulsarImageTag }} \
           -PcassandraFamily=${{ matrix.cassandraFamily }} \
-          cdc-backfill-client:e2eTest
+          backfill-cli:e2eTest

@@ -279,7 +279,7 @@ public class BackfillCLIE2ETests {
             try {
                 String cdcBackfillBuildDir = System.getProperty("cdcBackfillBuildDir");
                 String projectVersion = System.getProperty("projectVersion");
-                String cdcBackfillJarFile = String.format(Locale.ROOT, "cdc-backfill-client-%s-all.jar", projectVersion);
+                String cdcBackfillJarFile = String.format(Locale.ROOT, "backfill-cli-%s-all.jar", projectVersion);
                 String cdcBackfillFullJarPath = String.format(Locale.ROOT, "%s/libs/%s", cdcBackfillBuildDir, cdcBackfillJarFile);
 
                 ProcessBuilder pb = new ProcessBuilder("java", "-jar", cdcBackfillFullJarPath, "backfill",

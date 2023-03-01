@@ -35,4 +35,4 @@ include 'connector-distribution'
 
 include 'docs'
 
-include 'cdc-backfill-client'
+include 'backfill-cli'
