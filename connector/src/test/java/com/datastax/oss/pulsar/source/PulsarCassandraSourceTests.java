@@ -540,6 +540,8 @@ public abstract class PulsarCassandraSourceTests {
                         // check primary key fields
                         Map<String, Object> keyMap = keyToMap(key);
                         for (String fieldName : getKeyFields(key)) {
+                            String vKey = fieldName.substring(1);
+                            log.info("Checking key: {}, value {}, expected {}", fieldName, keyMap.get(fieldName), dataSpecMap.get(vKey).avroValue);
                             assertField(fieldName, keyMap.get(fieldName));
                         }
 

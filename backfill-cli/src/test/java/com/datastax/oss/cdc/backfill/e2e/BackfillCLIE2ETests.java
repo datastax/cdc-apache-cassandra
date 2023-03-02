@@ -350,7 +350,8 @@ public class BackfillCLIE2ETests {
                         // check primary key fields
                         Map<String, Object> keyMap = keyToMap(key);
                         for (String fieldName : getKeyFields(key)) {
-                            log.info("Checking key: {}, value {}, expected {}", fieldName, keyMap.get(fieldName), dataSpecMap.get(fieldName).avroValue);
+                            String vKey = fieldName.substring(1);
+                            log.info("Checking key: {}, value {}, expected {}", fieldName, keyMap.get(fieldName), dataSpecMap.get(vKey).avroValue);
                             assertField(fieldName, keyMap.get(fieldName));
                         }
 
