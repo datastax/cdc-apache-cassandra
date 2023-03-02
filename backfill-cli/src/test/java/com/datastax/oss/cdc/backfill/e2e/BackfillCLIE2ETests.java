@@ -19,8 +19,6 @@ package com.datastax.oss.cdc.backfill.e2e;
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.data.CqlDuration;
-import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableSet;
-import com.datastax.oss.driver.shaded.guava.common.collect.Lists;
 import com.datastax.oss.dsbulk.tests.utils.FileUtils;
 import com.datastax.testcontainers.PulsarContainer;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
@@ -352,7 +350,7 @@ public class BackfillCLIE2ETests {
                         // check primary key fields
                         Map<String, Object> keyMap = keyToMap(key);
                         for (String fieldName : getKeyFields(key)) {
-                            log.info("Checking key: {}, value {}", fieldName, keyMap.get(fieldName));
+                            log.info("Checking key: {}, value {}, expected {}", fieldName, keyMap.get(fieldName), dataSpecMap.get(fieldName).avroValue);
                             assertField(fieldName, keyMap.get(fieldName));
                         }
 
