@@ -16,9 +16,7 @@
 package com.datastax.oss.pulsar.source;
 
 import org.apache.pulsar.common.schema.SchemaType;
-import org.junit.Ignore;
 
-@Ignore
 public class JsonOnlyCassandraSourceTests  extends PulsarCassandraSourceTests {
     public JsonOnlyCassandraSourceTests() {
         super("json", SchemaType.JSON);

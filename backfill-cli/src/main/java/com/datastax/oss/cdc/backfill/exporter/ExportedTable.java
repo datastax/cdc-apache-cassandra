@@ -20,7 +20,6 @@ import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import com.google.common.collect.ImmutableMap;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.AsciiType;
 import org.apache.cassandra.db.marshal.BooleanType;
@@ -44,7 +43,6 @@ import org.apache.cassandra.db.marshal.UUIDType;
 
 import java.util.List;
 
-@Slf4j
 public class ExportedTable {
 
     /**
@@ -100,12 +98,9 @@ public class ExportedTable {
                 builder.addPartitionKeyColumn(
                         k.getName().toString(),
                         getAbstractDataType(k.getType().asCql(false, true))));
-        this.table.getClusteringColumns().forEach((k, __) -> {
-                    log.info("Adding clustering column: {}, getType: {}, asCql: {}, abstract: {}", k.getName(),k.getType(), k.getType().asCql(false, true),  getAbstractDataType(k.getType().asCql(false, true)));
-                    builder.addClusteringColumn(k.getName().toString(),
-                            getAbstractDataType(k.getType().asCql(false, true)));
-                }
-            );
+        this.table.getClusteringColumns().forEach((k, __) ->
+                builder.addClusteringColumn(k.getName().toString(),
+                        getAbstractDataType(k.getType().asCql(false, true))));
         return builder.build();
     }
 
