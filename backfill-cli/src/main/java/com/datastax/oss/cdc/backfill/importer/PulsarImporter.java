@@ -19,12 +19,14 @@ package com.datastax.oss.cdc.backfill.importer;
 import com.datastax.oss.cdc.agent.AbstractMutation;
 import com.datastax.oss.cdc.agent.Mutation;
 import com.datastax.oss.cdc.agent.PulsarMutationSender;
+import com.datastax.oss.cdc.agent.exceptions.CassandraConnectorSchemaException;
 import com.datastax.oss.cdc.backfill.ExitStatus;
 import com.datastax.oss.cdc.backfill.exporter.ExportedTable;
 import com.datastax.oss.cdc.backfill.factory.ConnectorFactory;
 import com.datastax.oss.cdc.backfill.factory.PulsarMutationSenderFactory;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.type.reflect.GenericType;
+import com.datastax.oss.driver.shaded.guava.common.annotations.VisibleForTesting;
 import com.datastax.oss.dsbulk.codecs.api.ConvertingCodec;
 import com.datastax.oss.dsbulk.codecs.api.ConvertingCodecFactory;
 import com.datastax.oss.dsbulk.connectors.api.Connector;
@@ -42,11 +44,11 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.AbstractMap;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static java.time.ZoneOffset.UTC;
@@ -58,6 +60,8 @@ public class PulsarImporter {
     final private ExportedTable exportedTable;
 
     private final PulsarMutationSender mutationSender;
+
+    private final Semaphore inflightPulsarMessages;
 
     /**
      *  Token is not used because for CDC back-fill purposes, we used a round-robin routing mode when sending
@@ -89,17 +93,27 @@ public class PulsarImporter {
     private final static UUID MUTATION_NODE = null;
     private final static ConvertingCodecFactory codecFactory = new ConvertingCodecFactory();
 
+    /**
+     * The maximum number of in-flight pulsar messages currently being imported
+     */
+    @VisibleForTesting
+    public static final int MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING = 1000;
+
+    private final AtomicInteger sentMutations = new AtomicInteger(0);
+    private final AtomicInteger skippedMutations = new AtomicInteger(0);
+    private final AtomicInteger sentErrors = new AtomicInteger(0);
+
     public PulsarImporter(ConnectorFactory connectorFactory, ExportedTable exportedTable, PulsarMutationSenderFactory factory) {
         this.connectorFactory = connectorFactory;
         this.exportedTable = exportedTable;
         this.mutationSender = factory.newPulsarMutationSender();
+        this.inflightPulsarMessages = new Semaphore(MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING);
     }
 
     public ExitStatus importTable() {
         Connector connector = null;
         try {
             connector = connectorFactory.newCVSConnector();
-            List<CompletableFuture<?>> futures = new ArrayList<>();
             // prepare PK codecs
             Map<String, ConvertingCodec<String, AbstractType<?>>> codecs =
                     this.exportedTable.getPrimaryKey()
@@ -117,8 +131,7 @@ public class PulsarImporter {
                     .map(Object::toString)
                     .map(DefaultMappedField::new)
                     .collect(Collectors.toList());
-
-            long c = Flux
+            long recordsCount = Flux
                     .from(connector.read())
                     .flatMap(Resource::read).map(record -> {
                         List<Object> pkValues = fields.stream().map(field-> {
@@ -141,19 +154,27 @@ public class PulsarImporter {
                         // For now, will mimic the metric by using now()
                         // TODO: Disable the e2e latency metric if the records are emitted from cdc back-filling CLI
                         final long tsMicro = Instant.now().toEpochMilli() * 1000;
-                        futures.add(mutationSender.sendMutationAsync(createMutation(pkValues.toArray(), this.exportedTable.getCassandraTable(), tsMicro)));
+                        sendMutationAsync(createMutation(pkValues.toArray(), this.exportedTable.getCassandraTable(), tsMicro));
                         return record;
                     })
                     .count()
                     .block();
 
-            LOGGER.info("Sent {} records to Pulsar", c);
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[0])).join();
-            return ExitStatus.STATUS_OK;
+            // Attempt to acquire all the permits to ensure that all the messages have finished processing
+            inflightPulsarMessages.acquire(MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING);
+            LOGGER.info("Pulsar Importer Summary: " +
+                            "Read mutations from disk={}, Sent mutations={}, Skipped mutations={}, Failed mutations={}",
+                    recordsCount, sentMutations.get(), skippedMutations.get(), sentErrors.get());
+
+            if (recordsCount == sentMutations.get()) {
+                return ExitStatus.STATUS_OK;
+            } else {
+                return ExitStatus.STATUS_COMPLETED_WITH_ERRORS;
+            }
 
         } catch (Exception e) {
             LOGGER.error("Failed to import table", e);
-            return ExitStatus.STATUS_COMPLETED_WITH_ERRORS;
+            return ExitStatus.STATUS_ABORTED_FATAL_ERROR;
         } finally {
             if (connector != null) {
                 try {
@@ -173,5 +194,32 @@ public class PulsarImporter {
                 MUTATION_DIGEST,
                 tableMetadata,
                 MUTATION_TOKEN);
+    }
+
+    private void sendMutationAsync(AbstractMutation<TableMetadata> mutation) {
+        LOGGER.debug("Sending mutation={}", mutation);
+        try {
+            inflightPulsarMessages.acquireUninterruptibly(); // may block
+            this.mutationSender.sendMutationAsync(mutation)
+                    .handle((msgId, e)-> {
+                        if (e == null) {
+                            sentMutations.incrementAndGet();
+                            LOGGER.debug("Sent mutation={}", mutation);
+                        } else {
+                            if (e instanceof CassandraConnectorSchemaException) {
+                                LOGGER.error("Invalid primary key schema for mutation={}", mutation, e);
+                                skippedMutations.incrementAndGet();
+                            } else {
+                                LOGGER.error("Sent failed mutation={}", mutation, e);
+                                sentErrors.incrementAndGet();
+                            }
+                        }
+                        inflightPulsarMessages.release();
+                        return msgId;
+                    });
+        } catch(Exception e) {
+            LOGGER.error("Send failed:", e);
+            sentErrors.incrementAndGet();
+        }
     }
 }
