@@ -275,6 +275,9 @@ public class BackfillCLIE2ETests {
                     }
                 }
             }
+        } catch (Exception e) {
+            log.error("testBackfillCLISinglePk failed!", e);
+            throw e;
         } finally {
             dumpFunctionLogs("cassandra-source-" + ksName + "-table1");
             undeployConnector(ksName, "table1");
@@ -369,6 +372,9 @@ public class BackfillCLIE2ETests {
                     }
                 }
             }
+        } catch (Exception e) {
+            log.error("testBackfillCLIFullSchema failed!", e);
+            throw e;
         } finally {
             dumpFunctionLogs("cassandra-source-" + ksName + "-table2");
             undeployConnector(ksName, "table2");
