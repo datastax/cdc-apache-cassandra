@@ -33,11 +33,11 @@ import com.datastax.oss.dsbulk.connectors.api.Resource;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.schema.TableMetadata;
+import org.apache.cassandra.serializers.SimpleDateSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 
-import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -48,6 +48,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+
+import static java.time.ZoneOffset.UTC;
 
 public class PulsarImporter {
     private static final Logger LOGGER = LoggerFactory.getLogger(PulsarImporter.class);
@@ -129,7 +131,8 @@ public class PulsarImporter {
                             } else if (newVal instanceof LocalDate) {
                                 // Agent expect SimpleDateType to be Integer in epoch days
                                 // see com.datastax.oss.cdc.agent.PulsarMutationSender#cqlToAvro
-                                newVal = Math.toIntExact(((LocalDate) newVal).toEpochDay());
+                                newVal = SimpleDateSerializer.timeInMillisToDay(
+                                        ((LocalDate) newVal).atStartOfDay(UTC).toInstant().toEpochMilli());
                             }
                             return newVal;
                         }).collect(Collectors.toList());
