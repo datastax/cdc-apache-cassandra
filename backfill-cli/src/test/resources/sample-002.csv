@@ -1,3 +1,3 @@
-xtext,xboolean,xint
-vtext,1,2
-v2text,0,3
+xtext,xboolean,xint,xtime,xdate,xblob
+vtext,1,2,01:02:03,2023-03-02,AAE=
+v2text,0,3,01:02:04,2023-03-01,AQ==

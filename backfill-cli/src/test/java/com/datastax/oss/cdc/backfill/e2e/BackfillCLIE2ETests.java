@@ -22,7 +22,6 @@ import com.datastax.oss.driver.api.core.data.CqlDuration;
 import com.datastax.oss.dsbulk.tests.utils.FileUtils;
 import com.datastax.testcontainers.PulsarContainer;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 import org.apache.pulsar.client.api.Consumer;
@@ -35,8 +34,6 @@ import org.apache.pulsar.client.api.schema.Field;
 import org.apache.pulsar.client.api.schema.GenericRecord;
 import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.common.schema.SchemaType;
-import org.apache.pulsar.shade.com.fasterxml.jackson.databind.JsonNode;
-import org.apache.pulsar.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.pulsar.shade.org.apache.avro.Conversion;
 import org.apache.pulsar.shade.org.apache.avro.LogicalType;
 import org.apache.pulsar.shade.org.apache.avro.Schema;
@@ -68,14 +65,12 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static com.datastax.oss.cdc.DataSpec.dataSpecMap;
@@ -98,7 +93,6 @@ public class BackfillCLIE2ETests {
     private static PulsarContainer<?> pulsarContainer;
     private static CassandraContainer<?> cassandraContainer1;
     private static CassandraContainer<?> cassandraContainer2;
-    private static final ObjectMapper mapper = new ObjectMapper();
     private Path dataDir;
     private Path logsDir;
 
@@ -183,8 +177,13 @@ public class BackfillCLIE2ETests {
     }
 
     @Test
-    public void testBackfillingSinglePk() throws InterruptedException, IOException {
-        testBackfillingSinglePk("ks1");
+    public void testBackfillCLISinglePk() throws InterruptedException, IOException {
+        testBackfillCLISinglePk("ks1");
+    }
+
+    @Test
+    public void testBackfillCLIFullSchema() throws InterruptedException, IOException {
+        testBackfillCLIFullSchema("ks1");
     }
 
     void deployConnector(String ksName, String tableName) throws IOException, InterruptedException {
@@ -195,7 +194,7 @@ public class BackfillCLIE2ETests {
                 CassandraSourceConnectorConfig.TABLE_NAME_CONFIG, tableName,
                 CassandraSourceConnectorConfig.EVENTS_TOPIC_NAME_CONFIG, "persistent://public/default/events-" + ksName + "." + tableName,
                 CassandraSourceConnectorConfig.EVENTS_SUBSCRIPTION_NAME_CONFIG, "sub1",
-                CassandraSourceConnectorConfig.OUTPUT_FORMAT, "key-value-json");
+                CassandraSourceConnectorConfig.OUTPUT_FORMAT, "key-value-avro");
         Container.ExecResult result = pulsarContainer.execInContainer(
                 "/pulsar/bin/pulsar-admin",
                 "source", "create",
@@ -216,7 +215,7 @@ public class BackfillCLIE2ETests {
                 "--name", "cassandra-source-" + ksName + "-" + tableName);
     }
 
-    public void testBackfillingSinglePk(String ksName) throws InterruptedException, IOException {
+    public void testBackfillCLISinglePk(String ksName) throws InterruptedException, IOException {
         try {
             try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
                 cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName +
@@ -248,7 +247,7 @@ public class BackfillCLIE2ETests {
                             mutationTable1.values().stream().count() < 100) {
                         GenericRecord record = msg.getValue();
                         assertEquals(SchemaType.KEY_VALUE, record.getSchemaType());
-                        Object key = getKey(msg);
+                        GenericRecord key = getKey(msg);
                         GenericRecord value = getValue(record);
                         assertEquals((Integer) 0, mutationTable1.computeIfAbsent(getAndAssertKeyFieldAsString(key, "id"), k -> 0));
                         assertEquals(1, value.getField("a"));
@@ -271,6 +270,100 @@ public class BackfillCLIE2ETests {
         } finally {
             dumpFunctionLogs("cassandra-source-" + ksName + "-table1");
             undeployConnector(ksName, "table1");
+        }
+    }
+
+    public void testBackfillCLIFullSchema(String ksName) throws InterruptedException, IOException {
+        try {
+            try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName +
+                        " WITH replication = {'class':'SimpleStrategy','replication_factor':'2'};");
+
+                // Primary key fields are prefixed with 'x'
+                // Non-primary key fields are prefixed with 'y'. Only one field is sufficient for the test because the
+                // full schema types are e2e tested in the connector project
+                cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table2 (" +
+                        "xtext text, xascii ascii, xboolean boolean, xblob blob, xtimestamp timestamp, xtime time, xdate date, xuuid uuid, xtimeuuid timeuuid, xtinyint tinyint, xsmallint smallint, xint int, xbigint bigint, xvarint varint, xdecimal decimal, xdouble double, xfloat float, xinet4 inet, xinet6 inet, " +
+                        "ytext text," +
+                        "primary key (xtext, xascii, xboolean, xblob, xtimestamp, xtime, xdate, xuuid, xtimeuuid, xtinyint, xsmallint, xint, xbigint, xvarint, xdecimal, xdouble, xfloat, xinet4, xinet6)) " +
+                        "WITH CLUSTERING ORDER BY (xascii ASC, xboolean DESC, xblob ASC, xtimestamp DESC, xtime DESC, xdate ASC, xuuid DESC, xtimeuuid ASC, xtinyint DESC, xsmallint ASC, xint DESC, xbigint ASC, xvarint DESC, xdecimal ASC, xdouble DESC, xfloat ASC, xinet4 ASC, xinet6 DESC) " +
+                        "AND cdc=false"); // make sure cdc is disabled
+
+                cqlSession.execute("INSERT INTO " + ksName + ".table2 (" +
+                                "xtext, xascii, xboolean, xblob, xtimestamp, xtime, xdate, xuuid, xtimeuuid, xtinyint, xsmallint, xint, xbigint, xvarint, xdecimal, xdouble, xfloat, xinet4, xinet6, " +
+                                "ytext" +
+                                ") VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?)",
+                        dataSpecMap.get("text").cqlValue,
+                        dataSpecMap.get("ascii").cqlValue,
+                        dataSpecMap.get("boolean").cqlValue,
+                        dataSpecMap.get("blob").cqlValue,
+                        dataSpecMap.get("timestamp").cqlValue,
+                        dataSpecMap.get("time").cqlValue,
+                        dataSpecMap.get("date").cqlValue,
+                        dataSpecMap.get("uuid").cqlValue,
+                        dataSpecMap.get("timeuuid").cqlValue,
+                        dataSpecMap.get("tinyint").cqlValue,
+                        dataSpecMap.get("smallint").cqlValue,
+                        dataSpecMap.get("int").cqlValue,
+                        dataSpecMap.get("bigint").cqlValue,
+                        dataSpecMap.get("varint").cqlValue,
+                        dataSpecMap.get("decimal").cqlValue,
+                        dataSpecMap.get("double").cqlValue,
+                        dataSpecMap.get("float").cqlValue,
+                        dataSpecMap.get("inet4").cqlValue,
+                        dataSpecMap.get("inet6").cqlValue,
+
+                        dataSpecMap.get("text").cqlValue
+                );
+            }
+            // although CDC is disabled, back-filling depends on the connector to send the back-filled mutations to the
+            // date topic
+            deployConnector(ksName, "table2");
+            runBackfillAsync(ksName, "table2");
+
+            try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
+                try (Consumer<GenericRecord> consumer = pulsarClient.newConsumer(org.apache.pulsar.client.api.Schema.AUTO_CONSUME())
+                        .topic(String.format(Locale.ROOT, "data-%s.table2", ksName))
+                        .subscriptionName("sub1")
+                        .subscriptionType(SubscriptionType.Key_Shared)
+                        .subscriptionMode(SubscriptionMode.Durable)
+                        .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+                        .subscribe()) {
+                    int mutationTable2Count = 0;
+                    Message<GenericRecord> msg;
+                    while ((msg = consumer.receive(120, TimeUnit.SECONDS)) != null && mutationTable2Count < 1) {
+                        GenericRecord genericRecord = msg.getValue();
+                        mutationTable2Count++;
+                        assertEquals(SchemaType.KEY_VALUE, genericRecord.getSchemaType());
+                        GenericRecord key = getKey(msg);
+                        GenericRecord value = getValue(genericRecord);
+
+                        // check primary key fields
+                        Map<String, Object> keyMap = genericRecordToMap(key);
+                        for (String fieldName : getKeyFields(key)) {
+                            assertField(fieldName, keyMap.get(fieldName));
+                        }
+
+                        // check regular columns.
+                        Map<String, Object> valueMap = genericRecordToMap(value);
+                        for (Field field : value.getFields()) {
+                            assertField(field.getName(), valueMap.get(field.getName()));
+                        }
+
+                        consumer.acknowledge(msg);
+                    }
+                    assertEquals(1, mutationTable2Count);
+
+                    // make sure no more messages are received
+                    while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null) {
+                        Object key = getKey(msg);
+                        fail("Received more messages than expected. Unwanted key: " + key);
+                    }
+                }
+            }
+        } finally {
+            dumpFunctionLogs("cassandra-source-" + ksName + "-table2");
+            undeployConnector(ksName, "table2");
         }
     }
 
@@ -381,8 +474,6 @@ public class BackfillCLIE2ETests {
         }
         if (value instanceof GenericRecord) {
             assertGenericRecords(vKey, (GenericRecord) value);
-        } else if (value instanceof JsonNode) {
-            assertJsonNode(vKey, (JsonNode) value);
         } else if (value instanceof Collection) {
             assertGenericArray(vKey, (GenericData.Array) value);
         } else if (value instanceof Map) {
@@ -447,124 +538,8 @@ public class BackfillCLIE2ETests {
         Assert.assertTrue("Unexpected field=" + field, false);
     }
 
-    @SneakyThrows
-    void assertJsonNode(String field, JsonNode node) {
-        switch (field) {
-            case "text":
-            case "ascii":
-            case "uuid":
-            case "timeuuid":
-            case "inet4":
-            case "inet6": {
-                Assert.assertEquals("Wrong value for regular field " + field, dataSpecMap.get(field).jsonValue(), node.asText());
-            }
-            return;
-            case "boolean": {
-                Assert.assertEquals("Wrong value for regular field " + field, dataSpecMap.get(field).jsonValue(), node.asBoolean());
-            }
-            return;
-            case "blob":
-            case "varint": {
-                Assert.assertArrayEquals("Wrong value for regular field " + field, (byte[]) dataSpecMap.get(field).jsonValue(), node.binaryValue());
-            }
-            return;
-            case "timestamp":
-            case "time":
-            case "date":
-            case "tinyint":
-            case "smallint":
-            case "int":
-            case "bigint":
-            case "double":
-            case "float": {
-                Assert.assertEquals("Wrong value for regular field " + field, dataSpecMap.get(field).jsonValue(), node.numberValue());
-            }
-            return;
-            case "set": {
-                Assert.assertTrue(node.isArray());
-                Set set = (Set) dataSpecMap.get("set").jsonValue();
-                for (JsonNode x : node)
-                    Assert.assertTrue(set.contains(x.asInt()));
-                return;
-            }
-            case "list": {
-                Assert.assertTrue(node.isArray());
-                List list = (List) dataSpecMap.get("list").jsonValue();
-                int fieldCounter = 0;
-                for (JsonNode x : node) {
-                    Assert.assertEquals(list.get(fieldCounter), x.asText());
-                    fieldCounter++;
-                }
-                return;
-            }
-            case "map": {
-                Assert.assertTrue(node.isContainerNode());
-                Map<String, Object> expectedMap = (Map<String, Object>) dataSpecMap.get("map").jsonValue();
-                AtomicInteger size = new AtomicInteger();
-                node.fieldNames().forEachRemaining(f -> size.getAndIncrement());
-                Assert.assertEquals(expectedMap.size(), size.get());
-                for (Map.Entry<String, Object> entry : expectedMap.entrySet())
-                    Assert.assertEquals(expectedMap.get(entry.getKey()), node.get(entry.getKey()).asDouble());
-                return;
-            }
-            case "listofmap": {
-                List list = (List) dataSpecMap.get("listofmap").jsonValue();
-                int fieldCounter = 0;
-                for (JsonNode mapNode : node) {
-                    Assert.assertTrue(mapNode.isContainerNode());
-                    Map<String, Object> expectedMap = (Map<String, Object>) list.get(fieldCounter);
-                    AtomicInteger size = new AtomicInteger();
-                    mapNode.fieldNames().forEachRemaining(f -> size.getAndIncrement());
-                    Assert.assertEquals(expectedMap.size(), size.get());
-                    for (Map.Entry<String, Object> entry : expectedMap.entrySet())
-                        Assert.assertEquals(expectedMap.get(entry.getKey()), mapNode.get(entry.getKey()).asDouble());
-                }
-                return;
-            }
-            case "setofudt": {
-                for (JsonNode udtNode : node) {
-                    for (Iterator<Map.Entry<String, JsonNode>> it = udtNode.fields(); it.hasNext(); ) {
-                        Map.Entry<String, JsonNode> f = it.next();
-                        assertField(f.getKey(), f.getValue());
-                    }
-                }
-                return;
-            }
-            case "decimal": {
-                byte[] bytes = node.get(CqlLogicalTypes.CQL_DECIMAL_BIGINT).binaryValue();
-                BigInteger bigInteger = new BigInteger(bytes);
-                BigDecimal bigDecimal = new BigDecimal(bigInteger, node.get(CqlLogicalTypes.CQL_DECIMAL_SCALE).asInt());
-                Assert.assertEquals("Wrong value for field " + field, dataSpecMap.get(field).jsonValue(), bigDecimal);
-            }
-            return;
-            case "duration": {
-                Assert.assertEquals("Wrong value for field " + field, dataSpecMap.get(field).jsonValue(),
-                        CqlDuration.newInstance(
-                                node.get(CqlLogicalTypes.CQL_DURATION_MONTHS).asInt(),
-                                node.get(CqlLogicalTypes.CQL_DURATION_DAYS).asInt(),
-                                node.get(CqlLogicalTypes.CQL_DURATION_NANOSECONDS).asLong()));
-            }
-            return;
-            case "udt": {
-                for (Iterator<Map.Entry<String, JsonNode>> it = node.fields(); it.hasNext(); ) {
-                    Map.Entry<String, JsonNode> f = it.next();
-                    assertField(f.getKey(), f.getValue());
-                }
-            }
-            return;
-            case "udtoptional": {
-                for (Iterator<Map.Entry<String, JsonNode>> it = node.fields(); it.hasNext(); ) {
-                    Map.Entry<String, JsonNode> f = it.next();
-                    if (f.getKey().equals("ztext")) {
-                        assertField(f.getKey(), f.getValue());
-                    } else {
-                        assertNull(f.getValue());
-                    }
-                }
-            }
-            return;
-        }
-        Assert.assertTrue("Unexpected field=" + field, false);
+    private List<String> getKeyFields(Object key) {
+        return ((GenericRecord) key).getFields().stream().map(f->f.getName()).collect(Collectors.toList());
     }
 
     static String genericRecordToString(GenericRecord genericRecord) {
@@ -584,16 +559,6 @@ public class BackfillCLIE2ETests {
         return sb.append("}").toString();
     }
 
-    Map<String, Object> keyToMap(Object key) {
-        if (key instanceof GenericRecord) {
-            return genericRecordToMap((GenericRecord) key);
-        } else if (key instanceof JsonNode) {
-            return jsonNodeToMap((JsonNode) key);
-        }
-
-        throw new RuntimeException("unknown key type " + key.getClass().getName());
-    }
-
     Map<String, Object> genericRecordToMap(GenericRecord genericRecord) {
         Map<String, Object> map = new HashMap<>();
         for (Field field : genericRecord.getFields()) {
@@ -602,49 +567,14 @@ public class BackfillCLIE2ETests {
         return map;
     }
 
-    static Map<String, Object> jsonNodeToMap(JsonNode jsonNode) {
-        Map<String, Object> map = new HashMap<>();
-        for (Iterator<String> it = jsonNode.fieldNames(); it.hasNext(); ) {
-            String field = it.next();
-            map.put(field, jsonNode.get(field));
-        }
-        return map;
-    }
-
-    private Object getKey(Message<GenericRecord> msg) {
+    private GenericRecord getKey(Message<GenericRecord> msg) {
         Object nativeObject = msg.getValue().getNativeObject();
-        return (nativeObject instanceof KeyValue) ?
-                ((KeyValue<GenericRecord, GenericRecord>) nativeObject).getKey() :
-                readTree(msg.getKey());
+        return ((KeyValue<GenericRecord, GenericRecord>)nativeObject).getKey();
     }
 
-    @SneakyThrows
-    private JsonNode readTree(String json) {
-        return mapper.readTree(json);
-    }
-
-    private int getAndAssertKeyFieldAsInt(Object key, String fieldName) {
-        if (key instanceof GenericRecord) {
-            assertTrue(((GenericRecord) key).getField(fieldName) instanceof Integer);
-            return (int) ((GenericRecord) key).getField(fieldName);
-        } else if (key instanceof JsonNode) {
-            assertTrue(((JsonNode) key).get(fieldName).isInt());
-            return ((JsonNode) key).get(fieldName).asInt();
-        }
-
-        throw new RuntimeException("unknown key type " + key.getClass().getName());
-    }
-
-    private String getAndAssertKeyFieldAsString(Object key, String fieldName) {
-        if (key instanceof GenericRecord) {
-            assertTrue(((GenericRecord) key).getField(fieldName) instanceof String);
-            return (String) ((GenericRecord) key).getField(fieldName);
-        } else if (key instanceof JsonNode) {
-            assertTrue(((JsonNode) key).get(fieldName).isTextual());
-            return ((JsonNode) key).get(fieldName).asText();
-        }
-
-        throw new RuntimeException("unknown key type " + key.getClass().getName());
+    private String getAndAssertKeyFieldAsString(GenericRecord key, String fieldName) {
+        assertTrue(key.getField(fieldName) instanceof String);
+        return (String) key.getField(fieldName);
     }
 
     private GenericRecord getValue(GenericRecord genericRecord) {
