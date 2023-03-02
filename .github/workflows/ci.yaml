@@ -39,7 +39,7 @@ jobs:
       matrix:
         module: ['agent', 'agent-c3', 'agent-c4', 'agent-dse4', 'connector']
         jdk: ['11', '17']
-        pulsarImageTag: ['2.8.0_1.1.42', '2.8.3_1.0.11', '2.10_0.4']
+        pulsarImage: ['datastax/lunastreaming:2.10_2.4', 'apachepulsar/pulsar:2.10.3', 'apachepulsar/pulsar:2.11.0']
     steps:
       - uses: actions/checkout@v3
       - name: Set up JDK ${{ matrix.jdk }}
@@ -68,6 +68,15 @@ jobs:
           DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
           DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
         run: |
+          set -e
+          PREV_IFS=$IFS
+          IFS=':'
+          read -ra PULSAR_FULL_IMAGE <<< "${{ matrix.pulsarImage }}"
+          IFS=$PREV_IFS
+          PULSAR_IMAGE=${PULSAR_FULL_IMAGE[0]}
+          PULSAR_IMAGE_VERSION=${PULSAR_FULL_IMAGE[1]}
+          
           ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
-          -PpulsarImageTag=${{ matrix.pulsarImageTag }} \
+          -PtestPulsarImage=$PULSAR_IMAGE \
+          -PtestPulsarImageTag=$PULSAR_IMAGE_TAG \
           ${{ matrix.module }}:test
