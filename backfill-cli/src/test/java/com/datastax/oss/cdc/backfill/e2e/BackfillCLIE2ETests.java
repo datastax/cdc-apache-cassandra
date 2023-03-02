@@ -370,8 +370,8 @@ public class BackfillCLIE2ETests {
                 }
             }
         } finally {
-            dumpFunctionLogs("cassandra-source-" + ksName + "-table1");
-            undeployConnector(ksName, "table1");
+            dumpFunctionLogs("cassandra-source-" + ksName + "-table2");
+            undeployConnector(ksName, "table2");
         }
     }
 

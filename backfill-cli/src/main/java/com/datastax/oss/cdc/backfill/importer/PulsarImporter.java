@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 
 import java.time.Instant;
+import java.time.LocalTime;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.List;
@@ -119,6 +120,11 @@ public class PulsarImporter {
                         List<Object> pkValues = fields.stream().map(field-> {
                             Object val = record.getFieldValue(field);
                             Object newVal = codecs.get(field.getFieldName()).externalToInternal((String) val);
+                            if (newVal instanceof LocalTime) {
+                                // Agent expect TimeType to be Long in nanoseconds
+                                // see com.datastax.oss.cdc.agent.PulsarMutationSender#cqlToAvro
+                                newVal = ((LocalTime) newVal).toNanoOfDay();
+                            }
                             return newVal;
                         }).collect(Collectors.toList());
                         // tsMicro is used to emit e2e metrics by the connectors, if you carry over the C* WRITETIME

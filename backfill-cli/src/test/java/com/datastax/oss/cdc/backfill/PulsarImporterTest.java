@@ -29,6 +29,7 @@ import com.datastax.oss.dsbulk.tests.utils.StringUtils;
 import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.db.marshal.BooleanType;
 import org.apache.cassandra.db.marshal.IntegerType;
+import org.apache.cassandra.db.marshal.TimeType;
 import org.apache.cassandra.db.marshal.UTF8Type;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
@@ -42,6 +43,7 @@ import org.mockito.MockitoAnnotations;
 
 import java.net.URL;
 import java.nio.file.Paths;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -125,11 +127,17 @@ public class PulsarImporterTest {
                 new ColumnMetadata("ks1", "xboolean", xbooleanIdentifier, BooleanType.instance, 1, ColumnMetadata.Kind.CLUSTERING);
         ColumnIdentifier xintIdentifier =
                 new ColumnIdentifier("xint", true);
+        ColumnIdentifier xtimeIdentifier =
+                new ColumnIdentifier("xtime", true);
         ColumnMetadata xintColumnMetadata =
                 new ColumnMetadata("ks1", "xint", xintIdentifier, IntegerType.instance, 2, ColumnMetadata.Kind.CLUSTERING);
+        ColumnMetadata xtimeColumnMetadata =
+                new ColumnMetadata("ks1", "xtime", xtimeIdentifier, TimeType.instance, 3, ColumnMetadata.Kind.CLUSTERING);
         cassandraColumns.add(xtextColumnMetadata);
         cassandraColumns.add(xbooleanColumnMetadata);
         cassandraColumns.add(xintColumnMetadata);
+        cassandraColumns.add(xtimeColumnMetadata);
+
         Mockito.when(tableMetadata.primaryKeyColumns()).thenReturn(cassandraColumns);
 
         Mockito.when(exportedTable.getCassandraTable()).thenReturn(tableMetadata);
@@ -137,6 +145,7 @@ public class PulsarImporterTest {
         columns.add(new DefaultColumnMetadata(CqlIdentifier.fromInternal("ks1"), CqlIdentifier.fromInternal("table1"), CqlIdentifier.fromInternal("xtext"), DataTypes.TEXT, false));
         columns.add(new DefaultColumnMetadata(CqlIdentifier.fromInternal("ks1"), CqlIdentifier.fromInternal("table1"), CqlIdentifier.fromInternal("xboolean"), DataTypes.BOOLEAN, false));
         columns.add(new DefaultColumnMetadata(CqlIdentifier.fromInternal("ks1"), CqlIdentifier.fromInternal("table1"), CqlIdentifier.fromInternal("xint"), DataTypes.INT, false));
+        columns.add(new DefaultColumnMetadata(CqlIdentifier.fromInternal("ks1"), CqlIdentifier.fromInternal("table1"), CqlIdentifier.fromInternal("xtime"), DataTypes.TIME, false));
         Mockito.when(exportedTable.getPrimaryKey()).thenReturn(columns);
 
         // when
@@ -148,8 +157,8 @@ public class PulsarImporterTest {
         List<AbstractMutation<TableMetadata>> pkValues = abstractMutationCaptor.getAllValues();
         assertEquals(2, pkValues.size());
         List<Object>[] allPkValues = pkValues.stream().map(v-> v.getPkValues()).map(Arrays::asList).toArray(List[]::new);
-        assertThat(allPkValues[0], contains("vtext", true, 2));
-        assertThat(allPkValues[1], contains("v2text", false, 3));
+        assertThat(allPkValues[0], contains("vtext", true, 2, LocalTime.of(1, 2, 3).toNanoOfDay()));
+        assertThat(allPkValues[1], contains("v2text", false, 3, LocalTime.of(1, 2, 4).toNanoOfDay()));
     }
 
     private static String url(String resource) {
