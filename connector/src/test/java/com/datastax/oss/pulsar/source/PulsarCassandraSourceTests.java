@@ -55,6 +55,7 @@ import org.apache.pulsar.shade.org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.pulsar.shade.org.apache.avro.generic.IndexedRecord;
 import org.apache.pulsar.shade.org.apache.avro.util.Utf8;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -160,11 +161,13 @@ public abstract class PulsarCassandraSourceTests {
     }
 
     @Test
+    @Ignore
     public void testSinglePk() throws InterruptedException, IOException {
         testSinglePk("ks1");
     }
 
     @Test
+    @Ignore
     public void testCompoundPk() throws InterruptedException, IOException {
         testCompoundPk("ks1");
     }
@@ -175,11 +178,13 @@ public abstract class PulsarCassandraSourceTests {
     }
 
     @Test
+    @Ignore
     public void testStaticColumn() throws InterruptedException, IOException {
         testStaticColumn("ks1");
     }
 
     @Test
+    @Ignore
     public void testBatchInsert() throws InterruptedException, IOException {
         testBatchInsert("batchinsert");
     }

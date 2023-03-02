@@ -130,7 +130,7 @@ public class PulsarMutationSender extends AbstractPulsarMutationSender<TableMeta
     public Object cqlToAvro(TableMetadata tableMetadata, String columnName, Object value) {
         ColumnMetadata columnMetadata = tableMetadata.getColumn(ColumnIdentifier.getInterned(columnName, false));
         AbstractType<?> type = columnMetadata.type.isReversed() ? ((ReversedType) columnMetadata.type).baseType : columnMetadata.type;
-        log.trace("column name={} type={} class={} value={}",
+        log.warn("column name={} type={} class={} value={}",
                 columnMetadata.name, type.getClass().getName(),
                 value != null ? value.getClass().getName() : null, value);
 

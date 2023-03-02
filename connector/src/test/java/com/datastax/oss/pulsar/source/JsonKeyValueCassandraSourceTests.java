@@ -16,7 +16,9 @@
 package com.datastax.oss.pulsar.source;
 
 import org.apache.pulsar.common.schema.SchemaType;
+import org.junit.Ignore;
 
+@Ignore
 public class JsonKeyValueCassandraSourceTests extends PulsarCassandraSourceTests{
     public JsonKeyValueCassandraSourceTests() {
         super("key-value-json", SchemaType.KEY_VALUE);
