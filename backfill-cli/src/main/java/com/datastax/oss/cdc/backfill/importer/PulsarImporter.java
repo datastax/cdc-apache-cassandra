@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.AbstractMap;
 import java.util.ArrayList;
@@ -124,6 +125,10 @@ public class PulsarImporter {
                                 // Agent expect TimeType to be Long in nanoseconds
                                 // see com.datastax.oss.cdc.agent.PulsarMutationSender#cqlToAvro
                                 newVal = ((LocalTime) newVal).toNanoOfDay();
+                            } else if (newVal instanceof LocalDate) {
+                                // Agent expect SimpleDateType to be Integer in epoch days
+                                // see com.datastax.oss.cdc.agent.PulsarMutationSender#cqlToAvro
+                                newVal = Math.toIntExact(((LocalDate) newVal).toEpochDay());
                             }
                             return newVal;
                         }).collect(Collectors.toList());
