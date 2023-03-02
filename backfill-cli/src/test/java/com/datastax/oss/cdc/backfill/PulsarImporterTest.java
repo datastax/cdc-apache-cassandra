@@ -28,6 +28,7 @@ import com.datastax.oss.driver.internal.core.metadata.schema.DefaultColumnMetada
 import com.datastax.oss.dsbulk.tests.utils.StringUtils;
 import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.db.marshal.BooleanType;
+import org.apache.cassandra.db.marshal.BytesType;
 import org.apache.cassandra.db.marshal.IntegerType;
 import org.apache.cassandra.db.marshal.SimpleDateType;
 import org.apache.cassandra.db.marshal.TimeType;
@@ -43,6 +44,7 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 import java.net.URL;
+import java.nio.ByteBuffer;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -133,17 +135,22 @@ public class PulsarImporterTest {
                 new ColumnIdentifier("xtime", true);
         ColumnIdentifier xdateIdentifier =
                 new ColumnIdentifier("xdate", true);
+        ColumnIdentifier xblobIdentifier =
+                new ColumnIdentifier("xblob", true);
         ColumnMetadata xintColumnMetadata =
                 new ColumnMetadata("ks1", "xint", xintIdentifier, IntegerType.instance, 2, ColumnMetadata.Kind.CLUSTERING);
         ColumnMetadata xtimeColumnMetadata =
                 new ColumnMetadata("ks1", "xtime", xtimeIdentifier, TimeType.instance, 3, ColumnMetadata.Kind.CLUSTERING);
         ColumnMetadata xdateColumnMetadata =
                 new ColumnMetadata("ks1", "xdate", xdateIdentifier, SimpleDateType.instance, 4, ColumnMetadata.Kind.CLUSTERING);
+        ColumnMetadata xblobColumnMetadata =
+                new ColumnMetadata("ks1", "xblob", xblobIdentifier, BytesType.instance, 5, ColumnMetadata.Kind.CLUSTERING);
         cassandraColumns.add(xtextColumnMetadata);
         cassandraColumns.add(xbooleanColumnMetadata);
         cassandraColumns.add(xintColumnMetadata);
         cassandraColumns.add(xtimeColumnMetadata);
         cassandraColumns.add(xdateColumnMetadata);
+        cassandraColumns.add(xblobColumnMetadata);
 
         Mockito.when(tableMetadata.primaryKeyColumns()).thenReturn(cassandraColumns);
 
@@ -154,6 +161,7 @@ public class PulsarImporterTest {
         columns.add(new DefaultColumnMetadata(CqlIdentifier.fromInternal("ks1"), CqlIdentifier.fromInternal("table1"), CqlIdentifier.fromInternal("xint"), DataTypes.INT, false));
         columns.add(new DefaultColumnMetadata(CqlIdentifier.fromInternal("ks1"), CqlIdentifier.fromInternal("table1"), CqlIdentifier.fromInternal("xtime"), DataTypes.TIME, false));
         columns.add(new DefaultColumnMetadata(CqlIdentifier.fromInternal("ks1"), CqlIdentifier.fromInternal("table1"), CqlIdentifier.fromInternal("xdate"), DataTypes.DATE, false));
+        columns.add(new DefaultColumnMetadata(CqlIdentifier.fromInternal("ks1"), CqlIdentifier.fromInternal("table1"), CqlIdentifier.fromInternal("xblob"), DataTypes.BLOB, false));
         Mockito.when(exportedTable.getPrimaryKey()).thenReturn(columns);
 
         // when
@@ -165,8 +173,10 @@ public class PulsarImporterTest {
         List<AbstractMutation<TableMetadata>> pkValues = abstractMutationCaptor.getAllValues();
         assertEquals(2, pkValues.size());
         List<Object>[] allPkValues = pkValues.stream().map(v-> v.getPkValues()).map(Arrays::asList).toArray(List[]::new);
-        assertThat(allPkValues[0], contains("vtext", true, 2, LocalTime.of(1, 2, 3).toNanoOfDay(), ((Long)LocalDate.of(2023, 3, 2).toEpochDay()).intValue()));
-        assertThat(allPkValues[1], contains("v2text", false, 3, LocalTime.of(1, 2, 4).toNanoOfDay(), ((Long)LocalDate.of(2023, 3, 1).toEpochDay()).intValue()));
+        assertThat(allPkValues[0], contains("vtext", true, 2, LocalTime.of(1, 2, 3).toNanoOfDay(),
+                ((Long)LocalDate.of(2023, 3, 2).toEpochDay()).intValue(), ByteBuffer.wrap(new byte[]{0x00, 0x01})));
+        assertThat(allPkValues[1], contains("v2text", false, 3, LocalTime.of(1, 2, 4).toNanoOfDay(),
+                ((Long)LocalDate.of(2023, 3, 1).toEpochDay()).intValue(), ByteBuffer.wrap(new byte[]{0x01})));
     }
 
     private static String url(String resource) {
