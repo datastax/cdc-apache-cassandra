@@ -19,6 +19,7 @@ package com.datastax.oss.cdc.backfill.e2e;
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.data.CqlDuration;
+import com.datastax.oss.driver.shaded.guava.common.collect.Lists;
 import com.datastax.oss.dsbulk.tests.utils.FileUtils;
 import com.datastax.testcontainers.PulsarContainer;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
@@ -253,7 +254,7 @@ public class BackfillCLIE2ETests {
                             mutationTable1.values().stream().count() < 100) {
                         GenericRecord record = msg.getValue();
                         assertEquals(SchemaType.KEY_VALUE, record.getSchemaType());
-                        GenericRecord key = getKey(msg);
+                        Object key = getKey(msg);
                         GenericRecord value = getValue(record);
                         assertEquals((Integer) 0, mutationTable1.computeIfAbsent(getAndAssertKeyFieldAsString(key, "id"), k -> 0));
                         assertEquals(1, value.getField("a"));
@@ -344,7 +345,7 @@ public class BackfillCLIE2ETests {
                         GenericRecord genericRecord = msg.getValue();
                         mutationTable2Count++;
                         assertEquals(SchemaType.KEY_VALUE, genericRecord.getSchemaType());
-                        GenericRecord key = getKey(msg);
+                        Object key = getKey(msg);
                         GenericRecord value = getValue(genericRecord);
 
                         // check primary key fields
@@ -555,8 +556,14 @@ public class BackfillCLIE2ETests {
         Assert.assertTrue("Unexpected field=" + field, false);
     }
 
-    private List<String> getKeyFields(GenericRecord key) {
-        return key.getFields().stream().map(f->f.getName()).collect(Collectors.toList());
+    private List<String> getKeyFields(Object key) {
+        if (key instanceof GenericRecord) {
+            return ((GenericRecord) key).getFields().stream().map(f->f.getName()).collect(Collectors.toList());
+        } else if (key instanceof JsonNode) {
+            return Lists.newArrayList(((JsonNode) key).fieldNames());
+        }
+
+        throw new RuntimeException("unknown key type " + key.getClass().getName());
     }
 
     @SneakyThrows
@@ -723,9 +730,11 @@ public class BackfillCLIE2ETests {
         return map;
     }
 
-    private GenericRecord getKey(Message<GenericRecord> msg) {
-        KeyValue nativeObject = (KeyValue) msg.getValue().getNativeObject();
-        return  ((KeyValue<GenericRecord, GenericRecord>) nativeObject).getKey();
+    private Object getKey(Message<GenericRecord> msg) {
+        Object nativeObject = msg.getValue().getNativeObject();
+        return (nativeObject instanceof KeyValue) ?
+                ((KeyValue<GenericRecord, GenericRecord>)nativeObject).getKey():
+                readTree(msg.getKey());
     }
 
     @SneakyThrows
