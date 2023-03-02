@@ -352,12 +352,14 @@ public class BackfillCLIE2ETests {
                         // check primary key fields
                         Map<String, Object> keyMap = keyToMap(key);
                         for (String fieldName : getKeyFields(key)) {
+                            log.info("Checking key: {}, value {}", fieldName, keyMap.get(fieldName));
                             assertField(fieldName, keyMap.get(fieldName));
                         }
 
                         // check regular columns.
                         Map<String, Object> valueMap = genericRecordToMap(value);
                         for (Field field : value.getFields()) {
+                            log.info("Checking value: {}, value {}", field.getName(), valueMap.get(field.getName()));
                             assertField(field.getName(), valueMap.get(field.getName()));
                         }
 
