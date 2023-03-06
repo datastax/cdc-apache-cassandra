@@ -75,6 +75,8 @@ jobs:
           IFS=$PREV_IFS
           PULSAR_IMAGE=${PULSAR_FULL_IMAGE[0]}
           PULSAR_IMAGE_VERSION=${PULSAR_FULL_IMAGE[1]}
+
+          echo "Running tests, pulsar: ${{ matrix.pulsarImage }}, pulsar image: $PULSAR_IMAGE, pulsar image tag: $PULSAR_IMAGE_TAG, cassandra: ${{ matrix.cassandraFamily }}"  
           
           ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
           -PtestPulsarImage=$PULSAR_IMAGE \
