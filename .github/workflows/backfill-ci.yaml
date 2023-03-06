@@ -38,7 +38,7 @@ jobs:
       fail-fast: false
       matrix:
         jdk: ['11'] # TODO: Enable java 17 tests https://issues.apache.org/jira/browse/CASSANDRA-16895
-        pulsarImageTag: ['2.10_0.4']
+        pulsarImage: ['datastax/lunastreaming:2.10_3.4', 'apachepulsar/pulsar:2.10.3', 'apachepulsar/pulsar:2.11.0']
         cassandraFamily: ['c3', 'c4', 'dse4']
     steps:
       - uses: actions/checkout@v3
@@ -68,7 +68,16 @@ jobs:
           DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
           DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
         run: |
+          set -e
+          PREV_IFS=$IFS
+          IFS=':'
+          read -ra PULSAR_FULL_IMAGE <<< "${{ matrix.pulsarImage }}"
+          IFS=$PREV_IFS
+          PULSAR_IMAGE=${PULSAR_FULL_IMAGE[0]}
+          PULSAR_IMAGE_TAG=${PULSAR_FULL_IMAGE[1]}
+          
           ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
-          -PpulsarImageTag=${{ matrix.pulsarImageTag }} \
+          -PtestPulsarImage=$PULSAR_IMAGE \
+          -PtestPulsarImageTag=$PULSAR_IMAGE_TAG \
           -PcassandraFamily=${{ matrix.cassandraFamily }} \
           backfill-cli:e2eTest
