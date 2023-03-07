@@ -47,6 +47,7 @@ import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -62,6 +63,11 @@ public class PulsarImporter {
     private final PulsarMutationSender mutationSender;
 
     private final Semaphore inflightPulsarMessages;
+
+    /**
+     * Keeps track of last mutation future exception to facilitate a fail-fast strategy
+     */
+    private volatile Throwable lastException = null;
 
     /**
      *  Token is not used because for CDC back-fill purposes, we used a round-robin routing mode when sending
@@ -100,7 +106,6 @@ public class PulsarImporter {
     public static final int MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING = 1000;
 
     private final AtomicInteger sentMutations = new AtomicInteger(0);
-    private final AtomicInteger skippedMutations = new AtomicInteger(0);
     private final AtomicInteger sentErrors = new AtomicInteger(0);
 
     public PulsarImporter(ConnectorFactory connectorFactory, ExportedTable exportedTable, PulsarMutationSenderFactory factory) {
@@ -112,6 +117,7 @@ public class PulsarImporter {
 
     public ExitStatus importTable() {
         Connector connector = null;
+        long recordsCount = -1;
         try {
             connector = connectorFactory.newCVSConnector();
             // prepare PK codecs
@@ -131,7 +137,8 @@ public class PulsarImporter {
                     .map(Object::toString)
                     .map(DefaultMappedField::new)
                     .collect(Collectors.toList());
-            long recordsCount = Flux
+
+            recordsCount = Flux
                     .from(connector.read())
                     .flatMap(Resource::read).map(record -> {
                         List<Object> pkValues = fields.stream().map(field-> {
@@ -154,26 +161,30 @@ public class PulsarImporter {
                         // For now, will mimic the metric by using now()
                         // TODO: Disable the e2e latency metric if the records are emitted from cdc back-filling CLI
                         final long tsMicro = Instant.now().toEpochMilli() * 1000;
-                        sendMutationAsync(createMutation(pkValues.toArray(), this.exportedTable.getCassandraTable(), tsMicro));
+                        final AbstractMutation<TableMetadata> mutation =
+                                createMutation(pkValues.toArray(), this.exportedTable.getCassandraTable(), tsMicro);
+                        sendMutationAsync(mutation);
                         return record;
                     })
+                    .takeWhile(resource -> lastException == null) // fail fast
                     .count()
                     .block();
 
-            // Attempt to acquire all the permits to ensure that all the messages have finished processing
-            inflightPulsarMessages.acquire(MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING);
-            LOGGER.info("Pulsar Importer Summary: " +
-                            "Read mutations from disk={}, Sent mutations={}, Skipped mutations={}, Failed mutations={}",
-                    recordsCount, sentMutations.get(), skippedMutations.get(), sentErrors.get());
-
-            if (recordsCount == sentMutations.get()) {
-                return ExitStatus.STATUS_OK;
-            } else {
-                return ExitStatus.STATUS_COMPLETED_WITH_ERRORS;
+            if (lastException != null) {
+                return ExitStatus.STATUS_ABORTED_FATAL_ERROR;
             }
 
+            // Attempt to acquire all the permits to ensure that all the messages have finished processing
+            inflightPulsarMessages.acquire(MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING);
+
+            // An error could've happened in the last batch of messages, re-check last exception
+            if (lastException != null) {
+                return ExitStatus.STATUS_ABORTED_FATAL_ERROR;
+            }
+
+            return ExitStatus.STATUS_OK;
         } catch (Exception e) {
-            LOGGER.error("Failed to import table", e);
+            lastException = e;
             return ExitStatus.STATUS_ABORTED_FATAL_ERROR;
         } finally {
             if (connector != null) {
@@ -183,6 +194,7 @@ public class PulsarImporter {
                     LOGGER.warn("Error while closing CVS connector", e);
                 }
             }
+            printSummary(recordsCount);
         }
     }
 
@@ -196,30 +208,45 @@ public class PulsarImporter {
                 MUTATION_TOKEN);
     }
 
+    private void printSummary(long recordsCount) {
+        ExitStatus status = ExitStatus.STATUS_OK;
+        if (lastException != null) {
+            LOGGER.error("Failed to import table", lastException);
+            status = ExitStatus.STATUS_ABORTED_FATAL_ERROR;
+        }
+        LOGGER.info("Pulsar Importer Summary: Import status={}, " +
+                        "Read mutations from disk={}, Sent mutations={}, Failed mutations={}", status,
+                recordsCount, sentMutations.get(), sentErrors.get());
+    }
+
     private void sendMutationAsync(AbstractMutation<TableMetadata> mutation) {
         LOGGER.debug("Sending mutation={}", mutation);
         try {
             inflightPulsarMessages.acquireUninterruptibly(); // may block
             this.mutationSender.sendMutationAsync(mutation)
-                    .handle((msgId, e)-> {
+                .handle((msgId, e)-> {
+                    try {
                         if (e == null) {
                             sentMutations.incrementAndGet();
                             LOGGER.debug("Sent mutation={}", mutation);
                         } else {
                             if (e instanceof CassandraConnectorSchemaException) {
-                                LOGGER.error("Invalid primary key schema for mutation={}", mutation, e);
-                                skippedMutations.incrementAndGet();
+                                LOGGER.error("Invalid primary key schema for mutation={}", mutation);
                             } else {
-                                LOGGER.error("Sent failed mutation={}", mutation, e);
-                                sentErrors.incrementAndGet();
+                                LOGGER.error("Sent failed mutation={}", mutation);
                             }
+                            sentErrors.incrementAndGet();
+                            lastException = e;
                         }
-                        inflightPulsarMessages.release();
                         return msgId;
-                    });
+                    } finally {
+                        inflightPulsarMessages.release();
+                    }
+                });
         } catch(Exception e) {
             LOGGER.error("Send failed:", e);
             sentErrors.incrementAndGet();
+            throw e;
         }
     }
 }
