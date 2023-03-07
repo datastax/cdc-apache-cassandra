@@ -25,6 +25,9 @@ import com.datastax.oss.cdc.backfill.importer.PulsarImporter;
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.type.DataTypes;
 import com.datastax.oss.driver.internal.core.metadata.schema.DefaultColumnMetadata;
+import com.datastax.oss.dsbulk.connectors.api.Connector;
+import com.datastax.oss.dsbulk.connectors.api.Record;
+import com.datastax.oss.dsbulk.connectors.api.Resource;
 import com.datastax.oss.dsbulk.tests.utils.StringUtils;
 import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.db.marshal.BooleanType;
@@ -35,6 +38,8 @@ import org.apache.cassandra.db.marshal.TimeType;
 import org.apache.cassandra.db.marshal.UTF8Type;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
+import org.apache.pulsar.client.api.MessageId;
+import org.apache.pulsar.client.impl.MessageIdImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -42,7 +47,10 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
+import reactor.core.publisher.Flux;
 
+import java.io.IOException;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.file.Paths;
@@ -56,11 +64,18 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+import static com.datastax.oss.cdc.backfill.importer.PulsarImporter.MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING;
+import static org.assertj.core.api.Fail.fail;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class PulsarImporterTest {
     @Mock
@@ -182,6 +197,145 @@ public class PulsarImporterTest {
         assertThat(allPkValues[1], containsInRelativeOrder("v2text", false, 3, LocalTime.of(1, 2, 4).toNanoOfDay(),
                 ByteBuffer.wrap(new byte[]{0x01})));
         assertEquals(LocalDate.of(2023, 3, 1), cqlSimpleDateToLocalDate((Integer) allPkValues[1].get(4)));
+    }
+
+    @Test
+    public void testImportInflightMessagesBound() throws URISyntaxException, IOException, ExecutionException, InterruptedException {
+        // given
+        Connector connector = Mockito.mock(Connector.class);
+        Resource resource = Mockito.mock(Resource.class);
+        Record record = Mockito.mock(Record.class);
+        Record[] records = new Record[MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING / 2 + 1];
+        Arrays.fill(records, record);
+        Mockito.when(resource.read()).thenReturn(Flux.just(records));
+        Mockito.when(connector.read()).thenReturn(Flux.just(resource, resource));
+
+        ConnectorFactory connectorFactory = Mockito.mock(ConnectorFactory.class);
+        Mockito.when(connectorFactory.newCVSConnector()).thenReturn(connector);
+
+        CompletableFuture<MessageId>[] futures = new CompletableFuture[MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING + 2];
+        for (int i = 0; i < MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING + 2; i++) {
+            futures[i] = new CompletableFuture<>();
+            // note that Arrays.fill(futures, new CompletableFuture<>()) will reuse the same future object
+        }
+
+        int beforeLastFutureIndex = MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING;
+        int lastFutureIndex = MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING + 1;
+        CompletableFuture<MessageId> beforeLastfuture = futures[beforeLastFutureIndex];
+        CompletableFuture<MessageId> lastFuture = futures[lastFutureIndex];
+
+        //Mockito.reset(sender, factory);
+        sender = Mockito.mock(PulsarMutationSender.class);
+        factory = Mockito.mock(PulsarMutationSenderFactory.class);
+        AtomicInteger futureIndex = new AtomicInteger();
+        Mockito.doAnswer(invocation -> futures[futureIndex.getAndIncrement()]).when(sender).sendMutationAsync(Mockito.any());
+        Mockito.when(factory.newPulsarMutationSender()).thenReturn(sender);
+        importer = new PulsarImporter(connectorFactory, exportedTable, factory);
+
+        // when
+        CompletableFuture<ExitStatus> importFuture =
+                CompletableFuture.supplyAsync(() -> importer.importTable());
+        // then
+        // since MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING + 2 futures are in-flight, the import should be blocked
+        assertImportBlocked(importFuture);
+
+        // at this point, mutation sender should've been invoked exactly MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING times
+        Mockito.verify(sender, Mockito.times(MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING))
+                .sendMutationAsync(Mockito.any());
+
+        // release MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING futures
+        for (int i = 0; i < MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING; i++) {
+            futures[i].complete(new MessageIdImpl(i, i, i));
+        }
+
+        // at this point, all records should've been sent to pulsar (but not yet complete)
+        Mockito.verify(sender, Mockito.times(MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING + 2))
+                .sendMutationAsync(Mockito.any());
+
+        assertImportBlocked(importFuture);
+
+        // release another future. Although the memory is not full, there is still 1 future in-flight. The overall
+        // import should still be blocked
+        beforeLastfuture.complete(new MessageIdImpl(beforeLastFutureIndex, beforeLastFutureIndex, beforeLastFutureIndex));
+        assertImportBlocked(importFuture);
+
+        // release the last future. The import should be unblocked
+        lastFuture.complete(new MessageIdImpl(lastFutureIndex, lastFutureIndex, lastFutureIndex));
+        assertImportUnBlocked(importFuture);
+
+        // verify that no more interactions with sender because no new records should've been sent.
+        assertTrue(importFuture.isDone());
+        assertThat(importFuture.get(), is(ExitStatus.STATUS_OK));
+        Mockito.verifyNoMoreInteractions(sender);
+    }
+
+    @Test
+    public void testImportFailsFast() throws URISyntaxException, IOException, ExecutionException, InterruptedException {
+        // given
+        Connector connector = Mockito.mock(Connector.class);
+        Resource resource = Mockito.mock(Resource.class);
+        Record record = Mockito.mock(Record.class);
+        Record[] records = new Record[MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING * 2];
+        Arrays.fill(records, record);
+        Mockito.when(resource.read()).thenReturn(Flux.just(records));
+        Mockito.when(connector.read()).thenReturn(Flux.just(resource));
+
+        ConnectorFactory connectorFactory = Mockito.mock(ConnectorFactory.class);
+        Mockito.when(connectorFactory.newCVSConnector()).thenReturn(connector);
+
+        CompletableFuture<MessageId>[] futures = new CompletableFuture[MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING * 2];
+        for (int i = 0; i < MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING * 2; i++) {
+            futures[i] = new CompletableFuture<>();
+            // note that Arrays.fill(futures, new CompletableFuture<>()) will reuse the same future object
+        }
+
+        sender = Mockito.mock(PulsarMutationSender.class);
+        factory = Mockito.mock(PulsarMutationSenderFactory.class);
+        AtomicInteger futureIndex = new AtomicInteger();
+        Mockito.doAnswer(invocation -> futures[futureIndex.getAndIncrement()]).when(sender).sendMutationAsync(Mockito.any());
+        Mockito.when(factory.newPulsarMutationSender()).thenReturn(sender);
+        importer = new PulsarImporter(connectorFactory, exportedTable, factory);
+
+        // when
+        CompletableFuture<ExitStatus> importFuture =
+                CompletableFuture.supplyAsync(() -> importer.importTable());
+
+        // at this point the cli should be blocked waiting for some futures to complete
+        assertImportBlocked(importFuture);
+
+        // complete the 5th future with an exception, the cli should return immediately
+        futures[4].completeExceptionally(new RuntimeException("poison pill"));
+
+        // import should be unblocked because although some futures are still in-flight, one has failed already
+        assertImportUnBlocked(importFuture);
+
+        // then
+        assertTrue(importFuture.isDone());
+        assertThat(importFuture.get(), is(ExitStatus.STATUS_ABORTED_FATAL_ERROR));
+    }
+
+    private void assertImportUnBlocked(CompletableFuture<ExitStatus> importFuture) {
+        try {
+            importFuture.get(1, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            fail("Import should have been completed, got exception instead");
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void assertImportBlocked(CompletableFuture<ExitStatus> importFuture) {
+        try {
+            importFuture.get(5, TimeUnit.SECONDS);
+            fail("Import should have timed out");
+        } catch (InterruptedException e) {
+            fail("Import should have timed out, got interrupted instead");
+            throw new RuntimeException(e);
+        } catch (ExecutionException e) {
+            fail("Import should have timed out, got execution exception instead");
+            throw new RuntimeException(e);
+        } catch (TimeoutException e) {
+            // expected
+        }
     }
 
     private static String url(String resource) {
