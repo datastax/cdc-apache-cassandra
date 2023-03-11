@@ -42,12 +42,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class TableExporter {
     private static final URL DSBULK_CONFIGURATION_FILE =
-            Objects.requireNonNull(ClassLoader.getSystemResource("logback-dsbulk-embedded.xml"));
+            TableExporter.class.getClassLoader().getResource("logback-dsbulk-embedded.xml");
     private static final Logger LOGGER = LoggerFactory.getLogger(TableExporter.class);
 
     protected final BackfillSettings settings;

@@ -14,13 +14,23 @@
  * limitations under the License.
  */
 
-package com.datastax.oss.cdc.backfill.factory;
+package com.datastax.oss.cdc.backfill.dsbulk;
 
-import com.datastax.oss.cdc.backfill.dsbulk.BackfillBulkLoader;
+import edu.umd.cs.findbugs.annotations.Nullable;
 
-public class DsBulkFactory {
-    public BackfillBulkLoader newLoader(String[] args) {
-        ClassLoader configClassLoader = DsBulkFactory.class.getClassLoader();
-        return new BackfillBulkLoader(configClassLoader, args);
+public class BackfillGlobalHelpRequestException extends Exception {
+    private final String connectorName;
+
+    BackfillGlobalHelpRequestException() {
+        this((String)null);
+    }
+
+    BackfillGlobalHelpRequestException(@Nullable String connectorName) {
+        this.connectorName = connectorName;
+    }
+
+    @Nullable
+    public String getConnectorName() {
+        return this.connectorName;
     }
 }
