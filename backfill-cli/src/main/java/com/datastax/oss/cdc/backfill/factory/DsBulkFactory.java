@@ -16,10 +16,11 @@
 
 package com.datastax.oss.cdc.backfill.factory;
 
-import com.datastax.oss.dsbulk.runner.DataStaxBulkLoader;
+import com.datastax.oss.cdc.backfill.dsbulk.BackfillBulkLoader;
 
 public class DsBulkFactory {
-    public DataStaxBulkLoader newLoader(String[] args) {
-        return new DataStaxBulkLoader(args);
+    public BackfillBulkLoader newLoader(String[] args) {
+        ClassLoader configClassLoader = DsBulkFactory.class.getClassLoader();
+        return new BackfillBulkLoader(configClassLoader, args);
     }
 }

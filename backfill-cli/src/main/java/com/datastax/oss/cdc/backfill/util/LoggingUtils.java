@@ -33,16 +33,20 @@ public class LoggingUtils {
     static {
         try {
             MIGRATOR_CONFIGURATION_FILE =
-                    Objects.requireNonNull(
                             System.getProperty("logback. configurationFile") == null
-                                    ? ClassLoader.getSystemResource("logback-cdc-backfill.xml")
-                                    : Paths.get(System.getProperty("logback. configurationFile")).toUri().toURL());
+                                    ? LoggingUtils.class.getClassLoader().getResource("logback-cdc-backfill.xml")
+                                    : Paths.get(System.getProperty("logback. configurationFile")).toUri().toURL();
         } catch (MalformedURLException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public static void configureLogging(URL configurationFile) {
+    public static void  configureLogging(URL configurationFile) {
+        if (configurationFile == null || !(LoggerFactory.getILoggerFactory() instanceof LoggerContext)) {
+            // don't configure the logger if the configuration file is missing or if running as a pulsar admin
+            // extension
+            return;
+        }
         LoggerContext loggerContext = (LoggerContext) LoggerFactory.getILoggerFactory();
         loggerContext.reset();
         JoranConfigurator configurator = new JoranConfigurator();

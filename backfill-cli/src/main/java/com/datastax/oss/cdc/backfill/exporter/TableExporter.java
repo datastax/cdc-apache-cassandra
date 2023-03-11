@@ -29,12 +29,15 @@ import com.datastax.oss.dsbulk.runner.DataStaxBulkLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -42,12 +45,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class TableExporter {
     private static final URL DSBULK_CONFIGURATION_FILE =
-            Objects.requireNonNull(ClassLoader.getSystemResource("logback-dsbulk-embedded.xml"));
+            TableExporter.class.getClassLoader().getResource("logback-dsbulk-embedded.xml");
     private static final Logger LOGGER = LoggerFactory.getLogger(TableExporter.class);
 
     protected final BackfillSettings settings;

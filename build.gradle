@@ -105,7 +105,8 @@ subprojects {
         excludes([ "**/cassandra.yaml",
                    "**/logback*",
                    '**/cassandra-source-version.properties',
-                   '**/source-cassandra-*'
+                   '**/source-cassandra-*',
+                   '**/command_factory.yml',
         ])
     }
 

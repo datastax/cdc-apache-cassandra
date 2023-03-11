@@ -1,0 +1,6 @@
+Manifest-Version: 1.0
+Nar-Version: 2.2.3
+Nar-Id: pulsar-cassandra-cdc-admin-nar
+Nar-Group: com.datastax.oss
+Main-Class: com.datastax.oss.cdc.backfill.BackfillCLI
+

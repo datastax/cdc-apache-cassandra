@@ -35,7 +35,9 @@ public class ConnectorUtils {
                 baseConfig =
                         ConfigFactory.parseString(
                                         key + "=" + value,
-                                        ConfigParseOptions.defaults().setOriginDescription("command line argument"))
+                                        ConfigParseOptions.defaults()
+                                                .setOriginDescription("command line argument")
+                                                .setClassLoader(ConnectorUtils.class.getClassLoader()))
                                 .withFallback(baseConfig);
             }
         }

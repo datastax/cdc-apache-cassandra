@@ -1,0 +1,3 @@
+factoryClass: 'com.datastax.oss.cdc.backfill.admin.CommandFactory'
+name: 'cassandra-cdc'
+description: 'Cassandra CDC - Pulsar Admin Custom Commands'
