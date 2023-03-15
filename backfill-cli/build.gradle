@@ -23,6 +23,26 @@ shadowJar {
         resource = 'dsbulk-reference.conf'
     }
 
+    transform(com.github.jengelman.gradle.plugins.shadow.transformers.AppendingTransformer) {
+        resource = 'driver-reference.conf'
+    }
+
+    dependencies {
+        // Exclude log4j from the shadow jar. This is optional step and meant to reduce the size of the nar.
+        exclude "org/apache/logging/**"
+        exclude "org/apache/log4j/**"
+        exclude "org/apache/commons/logging/**"
+        // relocate doesn't work if the target exist
+        exclude 'com/datastax/oss/dsbulk/workflow/commons/settings/LogSettings.class'
+        exclude 'com/datastax/oss/dsbulk/workflow/commons/settings/LogSettings$1.class'
+    }
+
+    // Change the behavior LogSettings to skip logback configuration if it is not bound at runtime
+    //relocate 'com.datastax.oss.cdc.backfill.dsbulk.LogSettings', 'com.datastax.oss.dsbulk.workflow.commons.settings.LogSettings'
+    relocate('com.datastax.oss.cdc.backfill.dsbulk', 'com.datastax.oss.dsbulk.workflow.commons.settings') {
+        include 'com.datastax.oss.cdc.backfill.dsbulk.LogSettings**'
+    }
+
     zip64=true
 }
 
@@ -61,6 +81,8 @@ dependencies {
     implementation "org.apache.cassandra:cassandra-all:${cassandra4Version}"
     implementation "com.datastax.dse:dse-db:${dse4Version}"
     implementation "${pulsarGroup}:pulsar-client:${pulsarVersion}"
+    implementation "${pulsarGroup}:pulsar-client-tools-api:${pulsarVersion}"
+
     testImplementation "org.junit.jupiter:junit-jupiter-api:5.8.1"
     testImplementation "org.mockito:mockito-core:3.11.1"
     testImplementation "com.datastax.oss:dsbulk-tests:${dsbulkVersion}"
@@ -71,6 +93,26 @@ dependencies {
     testImplementation("${pulsarGroup}:pulsar-client:${pulsarVersion}")
 
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:5.8.1"
+}
+
+// Custom nar task that wraps the shadowJar for pulsar admin extension purposes.
+tasks.register('nar', Zip) {
+    // bundle the shadow jar as is
+    from(shadowJar.archivePath) {
+        into "META-INF/bundled-dependencies"
+    }
+
+    // bundle metadata and command_factory.yaml files
+    sourceSets.main.resources.include("META-INF/**").each {
+        def splitPath = it.parent.split("META-INF")
+        def relativeParentDir = splitPath.length > 1 ? splitPath.last() : ""
+        from(it) {
+            into "META-INF" + relativeParentDir
+        }
+    }
+
+    archiveName "pulsar-cassandra-admin-${project.version}-nar.nar"
+    destinationDir file("${buildDir}/libs")
 }
 
 test {

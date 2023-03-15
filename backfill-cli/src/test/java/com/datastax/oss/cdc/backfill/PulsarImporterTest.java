@@ -248,11 +248,13 @@ public class PulsarImporterTest {
             futures[i].complete(new MessageIdImpl(i, i, i));
         }
 
+        // blocking before verifying the sender solves some rare flakiness issues. It gives more time to the import
+        // thread to respond to the release of the inflightPulsarMessages semaphore. Please note that the block will
+        // run on the test thread, but the sender works on the default thread pool for the reactor flux
+        assertImportBlocked(importFuture);
         // at this point, all records should've been sent to pulsar (but not yet complete)
         Mockito.verify(sender, Mockito.times(MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING + 2))
                 .sendMutationAsync(Mockito.any());
-
-        assertImportBlocked(importFuture);
 
         // release another future. Although the memory is not full, there is still 1 future in-flight. The overall
         // import should still be blocked

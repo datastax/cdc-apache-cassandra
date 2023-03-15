@@ -14,13 +14,25 @@
  * limitations under the License.
  */
 
-package com.datastax.oss.cdc.backfill.factory;
+package com.datastax.oss.cdc.backfill.dsbulk;
 
-import com.datastax.oss.cdc.backfill.dsbulk.BackfillBulkLoader;
+import com.datastax.oss.dsbulk.workflow.api.WorkflowProvider;
+import com.typesafe.config.Config;
 
-public class DsBulkFactory {
-    public BackfillBulkLoader newLoader(String[] args) {
-        ClassLoader configClassLoader = DsBulkFactory.class.getClassLoader();
-        return new BackfillBulkLoader(configClassLoader, args);
+public class BackfillParsedCommandLine {
+    private final WorkflowProvider workflowProvider;
+    private final Config config;
+
+    BackfillParsedCommandLine(WorkflowProvider workflowProvider, Config config) {
+        this.workflowProvider = workflowProvider;
+        this.config = config;
+    }
+
+    public WorkflowProvider getWorkflowProvider() {
+        return this.workflowProvider;
+    }
+
+    public Config getConfig() {
+        return this.config;
     }
 }

@@ -16,6 +16,7 @@
 
 package com.datastax.oss.cdc.backfill.util;
 
+import com.datastax.oss.cdc.backfill.dsbulk.BackfillConfigUtil;
 import com.datastax.oss.dsbulk.config.ConfigUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -26,7 +27,9 @@ import java.util.Iterator;
 
 public class ConnectorUtils {
     public static Config createConfig(String path, Object... additionalArgs) {
-        Config baseConfig = ConfigUtils.createApplicationConfig(null).resolve().getConfig(path);
+        Config baseConfig = BackfillConfigUtil.
+                createApplicationConfig(null, ConnectorUtils.class.getClassLoader())
+                .resolve().getConfig(path);
         if (additionalArgs != null && additionalArgs.length != 0) {
             Iterator<Object> it = Arrays.asList(additionalArgs).iterator();
             while (it.hasNext()) {
@@ -35,7 +38,9 @@ public class ConnectorUtils {
                 baseConfig =
                         ConfigFactory.parseString(
                                         key + "=" + value,
-                                        ConfigParseOptions.defaults().setOriginDescription("command line argument"))
+                                        ConfigParseOptions.defaults()
+                                                .setOriginDescription("command line argument")
+                                                .setClassLoader(ConnectorUtils.class.getClassLoader()))
                                 .withFallback(baseConfig);
             }
         }
