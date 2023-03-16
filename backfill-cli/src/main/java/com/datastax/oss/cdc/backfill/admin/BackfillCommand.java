@@ -219,14 +219,12 @@ public class BackfillCommand implements CustomCommand {
         if (isNotBlank(params.tlsKeyStorePassword)) {
             args.add("--pulsar-ssl-keystore-password=" + params.tlsKeyStorePassword);
         }
-        // TODO: tls cipher suites are available on the pulsar client builder but not pulsar admin,
-//        if (isNotBlank(params.tlsCipherSuites)) {
-//            args.add("--pulsar-ssl-cipher-suites=" + params.tlsCipherSuites);
-//        }
-        // TODO: enabled protocols are available on the pulsar client builder but not pulsar admin,
-//        if (isNotBlank(params.tlsEnabledProtocols)) {
-//            args.add("--pulsar-ssl-enabled-protocols=" + params.tlsEnabledProtocols);
-//        }
+        if (isNotBlank(params.tlsCiphers)) {
+            args.add("--pulsar-ssl-cipher-suites=" + params.tlsCiphers);
+        }
+        if (isNotBlank(params.tlsProtocols)) {
+            args.add("--pulsar-ssl-enabled-protocols=" + params.tlsProtocols);
+        }
         args.add("--pulsar-ssl-allow-insecure-connections=" + params.tlsAllowInsecureConnection);
         args.add("--pulsar-ssl-enable-hostname-verification=" + params.tlsEnableHostnameVerification);
         if(isNotBlank(params.tlsTrustCertsFilePath)) {
@@ -253,6 +251,8 @@ public class BackfillCommand implements CustomCommand {
         String tlsKeyStoreType;
         String tlsKeyStorePath;
         String tlsKeyStorePassword;
+        String tlsCiphers;
+        String tlsProtocols;
         String tlsKeyFilePath;
         String tlsCertificateFilePath;
         boolean tlsAllowInsecureConnection;
@@ -280,6 +280,8 @@ public class BackfillCommand implements CustomCommand {
         params.tlsKeyStoreType = properties.getProperty("tlsKeyStoreType", "JKS");
         params.tlsKeyStorePath = properties.getProperty("tlsKeyStorePath");
         params.tlsKeyStorePassword = properties.getProperty("tlsKeyStorePassword");
+        params.tlsCiphers = properties.getProperty("tlsCiphers");
+        params.tlsProtocols = properties.getProperty("tlsProtocols");
         params.tlsKeyFilePath = properties.getProperty("tlsKeyFilePath");
         params.tlsCertificateFilePath = properties.getProperty("tlsCertificateFilePath");
 
