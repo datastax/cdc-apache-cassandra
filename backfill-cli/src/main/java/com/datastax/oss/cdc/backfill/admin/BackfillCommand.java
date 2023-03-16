@@ -16,6 +16,7 @@
 
 package com.datastax.oss.cdc.backfill.admin;
 
+import com.amazonaws.transform.MapEntry;
 import com.datastax.oss.cdc.backfill.BackfillCLI;
 import org.apache.pulsar.admin.cli.extensions.CommandExecutionContext;
 import org.apache.pulsar.admin.cli.extensions.CustomCommand;
@@ -23,12 +24,17 @@ import org.apache.pulsar.admin.cli.extensions.ParameterDescriptor;
 import org.apache.pulsar.admin.cli.extensions.ParameterType;
 import picocli.CommandLine;
 
+import java.io.PrintWriter;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.apache.commons.lang3.StringUtils.isBlank;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
@@ -44,6 +50,11 @@ public class BackfillCommand implements CustomCommand {
         return "Backfills the CDC data topic with historical data from that source Cassandra table.";
     }
 
+    /**
+     * Delegate to the picocli library to validate the command line arguments so all parameters are marked as optional.
+     * Commands have to be defined here to be accepted by the Pulsar CLI extension but the idea is to make them
+     * as thin as possible
+     */
     @Override
     public List<ParameterDescriptor> parameters() {
         List<ParameterDescriptor> parameters = new ArrayList<>();
@@ -52,7 +63,6 @@ public class BackfillCommand implements CustomCommand {
                         .description("The directory where data will be exported to and imported from")
                         .type(ParameterType.STRING)
                         .names(Arrays.asList("--data-dir", "-d"))
-                        .required(false)
                         .build());
         parameters.add(
                 ParameterDescriptor.builder()
@@ -61,7 +71,6 @@ public class BackfillCommand implements CustomCommand {
                                 "If the port is not specified, it will default to 9042.")
                         .type(ParameterType.STRING)
                         .names(Arrays.asList("--export-host"))
-                        .required(true)
                         .build());
         parameters.add(
                 ParameterDescriptor.builder()
@@ -71,7 +80,6 @@ public class BackfillCommand implements CustomCommand {
                                         + "Options --export-host and --export-bundle are mutually exclusive.")
                         .type(ParameterType.STRING)
                         .names(Arrays.asList("--export-bundle"))
-                        .required(false)
                         .build());
         parameters.add(
                 ParameterDescriptor.builder()
@@ -81,7 +89,6 @@ public class BackfillCommand implements CustomCommand {
                                         + "the client and the server.")
                         .type(ParameterType.STRING)
                         .names(Arrays.asList("--export-protocol-version"))
-                        .required(false)
                         .build());
         parameters.add(
                 ParameterDescriptor.builder()
@@ -89,7 +96,6 @@ public class BackfillCommand implements CustomCommand {
                                 "The username to use to authenticate against the origin cluster.")
                         .type(ParameterType.STRING)
                         .names(Arrays.asList("--export-username"))
-                        .required(true)
                         .build());
         parameters.add(
                 ParameterDescriptor.builder()
@@ -97,7 +103,6 @@ public class BackfillCommand implements CustomCommand {
                                 "The password to use to authenticate against the origin cluster.")
                         .type(ParameterType.STRING)
                         .names(Arrays.asList("--export-password"))
-                        .required(true)
                         .build());
         parameters.add(
                 ParameterDescriptor.builder()
@@ -105,7 +110,6 @@ public class BackfillCommand implements CustomCommand {
                                 "The consistency level to use when exporting data. The default is LOCAL_QUORUM.")
                         .type(ParameterType.STRING)
                         .names(Arrays.asList("--export-consistency"))
-                        .required(false)
                         .build());
         parameters.add(
                 ParameterDescriptor.builder()
@@ -114,7 +118,6 @@ public class BackfillCommand implements CustomCommand {
                                         + "The default is -1 (export the entire table).")
                         .type(ParameterType.INTEGER)
                         .names(Arrays.asList("--export-max-records"))
-                        .required(false)
                         .build());
         parameters.add(
                 ParameterDescriptor.builder()
@@ -123,7 +126,6 @@ public class BackfillCommand implements CustomCommand {
                                         + "Must be a positive number or the special value AUTO. The default is AUTO.")
                         .type(ParameterType.STRING)
                         .names(Arrays.asList("--export-max-concurrent-files"))
-                        .required(false)
                         .build());
         parameters.add(
                 ParameterDescriptor.builder()
@@ -132,18 +134,16 @@ public class BackfillCommand implements CustomCommand {
                                         + "Must be a positive number or the special value AUTO. The default is AUTO.")
                         .type(ParameterType.STRING)
                         .names(Arrays.asList("--export-max-concurrent-queries"))
-                        .required(false)
                         .build());
         parameters.add(
                 ParameterDescriptor.builder()
                         .description(
                                 "An extra DSBulk option to use when exporting. "
                                         + "Any valid DSBulk option can be specified here, and it will passed as is to the DSBulk process. "
-                                        + "DSBulk options, including driver options, must be passed as '--long.option.name=<value>'. "
+                                        + "DSBulk options, including driver options, must be passed as '--long.option1.name=<value1>|--long.option2.name=<value2>'. "
                                         + "Short options are not supported. ")
                         .type(ParameterType.STRING)
                         .names(Arrays.asList("--export-dsbulk-option"))
-                        .required(false)
                         .build());
 
         parameters.add(
@@ -151,14 +151,12 @@ public class BackfillCommand implements CustomCommand {
                         .description("The name of the keyspace where the table to be exported exists")
                         .type(ParameterType.STRING)
                         .names(Arrays.asList("--keyspace", "-k"))
-                        .required(true)
                         .build());
         parameters.add(
                 ParameterDescriptor.builder()
                         .description("The name of the table to export data from for cdc back filling")
                         .type(ParameterType.STRING)
                         .names(Arrays.asList("--table", "-t"))
-                        .required(true)
                         .build());
         parameters.add(
                 ParameterDescriptor.builder()
@@ -166,7 +164,6 @@ public class BackfillCommand implements CustomCommand {
                                 + "The default value is `events-`.")
                         .type(ParameterType.STRING)
                         .names(Arrays.asList("--events-topic-prefix"))
-                        .required(false)
                         .build());
         parameters.add(
                 ParameterDescriptor.builder()
@@ -174,7 +171,6 @@ public class BackfillCommand implements CustomCommand {
                                 + "Setting this option to any negative value or zero will disable it. The default is -1.")
                         .type(ParameterType.INTEGER)
                         .names(Arrays.asList("--max-rows-per-second"))
-                        .required(false)
                         .build());
 
         return parameters;
@@ -182,16 +178,36 @@ public class BackfillCommand implements CustomCommand {
 
     @Override
     public boolean execute(Map<String, Object> parameters, CommandExecutionContext context) {
-        CommandLine commandLine = new CommandLine(new BackfillCLI());
+        List<String> args = parseParameters(parameters, context);
+        int exitCode = new CommandLine(new BackfillCLI())
+                .setParameterExceptionHandler(new ShortErrorMessageHandler())
+                .execute(args.toArray(new String[0]));
+        return exitCode == 0;
+    }
+
+    private List<String> parseParameters(Map<String, Object> parameters,  CommandExecutionContext context) {
         List<String> args = parameters.entrySet().stream()
                 .filter(e -> e.getValue() != null)
+                .flatMap(e -> explodeListOptions(e))
                 .map(e -> e.getKey() + "=" + e.getValue())
-                        .collect(Collectors.toList());
+                .collect(Collectors.toList());
         PulsarClientParams params = parseClientConfRootParams(context.getConfiguration());
         populateClientConfRootParams(args, params);
-        args.add(0, "backfill");
-        int exitCode = commandLine.execute(args.toArray(new String[0]));
-        return exitCode == 0;
+        return args;
+    }
+
+    private static Set<String> listOptions = new HashSet<>(Arrays.asList("--export-dsbulk-option"));
+    private Stream<? extends Map.Entry<String,Object>> explodeListOptions(Map.Entry<String, Object> entry) {
+        List<Map.Entry<String, Object>> entries = new ArrayList<>();
+        if (listOptions.contains(entry.getKey())) {
+            String[] options = entry.getValue().toString().split("\\|");
+            for (String option : options) {
+                entries.add(new AbstractMap.SimpleEntry<>(entry.getKey(), option));
+            }
+        } else {
+            entries.add(entry);
+        }
+        return entries.stream();
     }
 
     private void populateClientConfRootParams(List<String> args, PulsarClientParams params) {
@@ -292,5 +308,28 @@ public class BackfillCommand implements CustomCommand {
                 .getProperty("tlsEnableHostnameVerification", "false"));
         params.tlsTrustCertsFilePath = properties.getProperty("tlsTrustCertsFilePath");
         return params;
+    }
+
+
+    /**
+     * Shorten the error message by excluding the usage help message. This makes it more consistent with pulsar admin
+     * when invalid options are used.
+     */
+    static class ShortErrorMessageHandler implements CommandLine.IParameterExceptionHandler {
+        public int handleParseException(CommandLine.ParameterException ex, String[] args) {
+            CommandLine cmd = ex.getCommandLine();
+            PrintWriter writer = cmd.getErr();
+
+            writer.println(ex.getMessage());
+            CommandLine.UnmatchedArgumentException.printSuggestions(ex, writer);
+            writer.print(cmd.getHelp().fullSynopsis());
+
+            CommandLine.Model.CommandSpec spec = cmd.getCommandSpec();
+            writer.printf("Try '%s' for more information.%n", "cassandra-cdc");
+
+            return cmd.getExitCodeExceptionMapper() != null
+                    ? cmd.getExitCodeExceptionMapper().getExitCode(ex)
+                    : spec.exitCodeOnInvalidInput();
+        }
     }
 }
