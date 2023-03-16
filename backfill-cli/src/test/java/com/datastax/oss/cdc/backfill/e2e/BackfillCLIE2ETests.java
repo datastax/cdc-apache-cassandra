@@ -375,7 +375,7 @@ public class BackfillCLIE2ETests {
                 String cdcBackfillJarFile = String.format(Locale.ROOT, "backfill-cli-%s-all.jar", projectVersion);
                 String cdcBackfillFullJarPath = String.format(Locale.ROOT, "%s/libs/%s", cdcBackfillBuildDir, cdcBackfillJarFile);
 
-                ProcessBuilder pb = new ProcessBuilder("java", "-jar", cdcBackfillFullJarPath, "backfill",
+                ProcessBuilder pb = new ProcessBuilder("java", "-jar", cdcBackfillFullJarPath,
                         "--data-dir", dataDir.toString(), "--dsbulk-log-dir", logsDir.toString(),
                         "--export-host", cassandraContainer1.getCqlHostAddress(), "--keyspace", ksName, "--table", tableName,
                         "--export-consistency", "LOCAL_QUORUM", "--pulsar-url", pulsarContainer.getPulsarBrokerUrl());

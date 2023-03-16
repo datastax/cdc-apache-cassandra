@@ -29,12 +29,6 @@ import java.nio.file.Paths;
 public class BackfillSettings {
 
     @CommandLine.Option(
-            names = {"-h", "--help"},
-            usageHelp = true,
-            description = "Displays this help message.")
-    boolean usageHelpRequested;
-
-    @CommandLine.Option(
             names = {"-d", "--data-dir"},
             paramLabel = "PATH",
             description =

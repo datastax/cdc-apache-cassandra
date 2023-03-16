@@ -26,17 +26,17 @@ import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
-import java.io.IOException;
-import java.net.URISyntaxException;
+import java.util.concurrent.Callable;
 
 @Command(
-        name = "BackfillCLI",
+        name = "backfill",
         description =
                 "A tool for back-filling the CDC data topic with historical data from that source Cassandra table.",
         versionProvider = VersionProvider.class,
         sortOptions = false,
+        abbreviateSynopsis = true,
         usageHelpWidth = 100)
-public class BackfillCLI {
+public class BackfillCLI implements Callable<Integer> {
 
     @Option(
             names = {"-h", "--help"},
@@ -50,20 +50,17 @@ public class BackfillCLI {
             description = "Displays version info.")
     boolean versionInfoRequested;
 
+    @ArgGroup(exclusive = false, multiplicity = "1")
+    BackfillSettings settings;
+
     public static void main(String[] args) {
         LoggingUtils.configureLogging(LoggingUtils.MIGRATOR_CONFIGURATION_FILE);
-        CommandLine commandLine = new CommandLine(new BackfillCLI());
-        int exitCode = commandLine.execute(args);
+        int exitCode = new CommandLine(new BackfillCLI()).execute(args);
         System.exit(exitCode);
     }
 
-    @Command(
-            name = "backfill",
-            optionListHeading = "Available options:%n",
-            abbreviateSynopsis = true,
-            usageHelpWidth = 100)
-    private int backfill(
-            @ArgGroup(exclusive = false, multiplicity = "1") BackfillSettings settings) throws URISyntaxException, IOException {
+    @Override
+    public Integer call()  {
         // Bootstrap the backfill dependencies
         final BackfillFactory factory = new BackfillFactory(settings);
         final TableExporter exporter = factory.newTableExporter();

@@ -37,7 +37,7 @@ public class ExportSettings {
                 names = "--export-host",
                 paramLabel = "HOST[:PORT]",
                 description =
-                        "The host name or IP and, optionally, the port of a node from the origin cluster. "
+                        "The host name or IP and, optionally, the port of a node from the Cassandra cluster. "
                                 + "If the port is not specified, it will default to 9042. "
                                 + "This option can be specified multiple times. "
                                 + "Options --export-host and --export-bundle are mutually exclusive.",
@@ -49,7 +49,7 @@ public class ExportSettings {
                 names = "--export-bundle",
                 paramLabel = "PATH",
                 description =
-                        "The path to a secure connect bundle to connect to the origin cluster, "
+                        "The path to a secure connect bundle to connect to the Cassandra cluster, "
                                 + "if that cluster is a DataStax Astra cluster. "
                                 + "Options --export-host and --export-bundle are mutually exclusive.",
                 required = true)
@@ -59,7 +59,7 @@ public class ExportSettings {
                 names = "--export-protocol-version",
                 paramLabel = "VERSION",
                 description =
-                        "The protocol version to use to connect to the origin cluster, e.g. 'V4'. "
+                        "The protocol version to use to connect to the Cassandra cluster, e.g. 'V4'. "
                                 + "If not specified, the driver will negotiate the highest version supported by both "
                                 + "the client and the server.")
         public String protocolVersion;
@@ -142,7 +142,7 @@ public class ExportSettings {
             names = "--export-max-records",
             paramLabel = "NUM",
             description =
-                    "The maximum number of records to export for each table. Must be a positive number or -1. "
+                    "The maximum number of records to export from the table. Must be a positive number or -1. "
                             + "The default is -1 (export the entire table).",
             defaultValue = "-1")
     public int maxRecords = -1;
