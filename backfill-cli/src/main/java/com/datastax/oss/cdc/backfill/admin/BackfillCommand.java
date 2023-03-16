@@ -17,17 +17,12 @@
 package com.datastax.oss.cdc.backfill.admin;
 
 import com.datastax.oss.cdc.backfill.BackfillCLI;
-import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
 import org.apache.pulsar.admin.cli.extensions.CommandExecutionContext;
 import org.apache.pulsar.admin.cli.extensions.CustomCommand;
 import org.apache.pulsar.admin.cli.extensions.ParameterDescriptor;
 import org.apache.pulsar.admin.cli.extensions.ParameterType;
 import picocli.CommandLine;
 
-import java.io.File;
-import java.net.URL;
-import java.net.URLClassLoader;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
