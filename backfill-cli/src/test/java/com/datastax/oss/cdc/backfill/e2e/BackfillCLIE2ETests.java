@@ -65,6 +65,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -116,7 +117,7 @@ public class BackfillCLIE2ETests {
                 .withFileSystemBind(
                         String.format(Locale.ROOT, "%s/libs/%s", connectorBuildDir, backfillNarFile),
                         String.format(Locale.ROOT, "/pulsar/connectors/%s", backfillNarFile))
-                .withClasspathResourceMapping("redis.conf",
+                .withClasspathResourceMapping("client.conf",
                         "/pulsar/conf/client.conf",
                         BindMode.READ_ONLY)
                 .withStartupTimeout(Duration.ofSeconds(60));
@@ -379,14 +380,14 @@ public class BackfillCLIE2ETests {
     private void runBackfillAsync(String ksName, String tableName) {
         new Thread(() -> {
             try {
-                String[] bacfillCommand = new String[] {
+                String[] backfillCommand = new String[] {
                         "/pulsar/bin/pulsar-admin", "cassandra-cdc", "backfill", "--data-dir", dataDir.toString(),
                         "--export-host", cassandraContainer1.getCqlHostAddress(), "--keyspace", ksName, "--table",
                         tableName, "--export-consistency", "LOCAL_QUORUM"
                 };
-                log.info("Running backfill command: {} ", bacfillCommand);
-                Container.ExecResult result = pulsarContainer.execInContainer(bacfillCommand);
-                assertEquals(0, result.getExitCode(), "backfill coomand failed:" + result.getStdout());
+                log.info("Running backfill command: {} ", Arrays.toString(backfillCommand));
+                Container.ExecResult result = pulsarContainer.execInContainer(backfillCommand);
+                assertEquals(0, result.getExitCode(), "backfill command failed:" + result.getStdout());
                 log.info("backfill command finished successfully");
             } catch (InterruptedException | IOException e) {
                 log.error("Failed to run backfilling", e);
