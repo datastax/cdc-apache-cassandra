@@ -126,10 +126,10 @@ public class BackfillCLIE2ETests {
         // ./pulsar-admin namespaces set-auto-topic-creation public/default --enable --type partitioned --num-partitions 1
         Container.ExecResult result = pulsarContainer.execInContainer(
                 "/pulsar/bin/pulsar-admin", "namespaces", "set-auto-topic-creation", "public/default", "--enable");
-        assertEquals(0, result.getExitCode());
+        assertEquals(0, result.getExitCode(), result.getStdout());
         result = pulsarContainer.execInContainer(
                 "/pulsar/bin/pulsar-admin", "namespaces", "set-is-allow-auto-update-schema", "public/default", "--enable");
-        assertEquals(0, result.getExitCode());
+        assertEquals(0, result.getExitCode(), result.getStdout());
 
         String pulsarServiceUrl = "pulsar://pulsar:" + pulsarContainer.BROKER_PORT;
         String cassandraFamily = System.getProperty("cassandraFamily");
