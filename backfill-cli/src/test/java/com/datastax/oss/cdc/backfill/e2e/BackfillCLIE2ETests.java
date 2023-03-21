@@ -126,7 +126,7 @@ public class BackfillCLIE2ETests {
         // ./pulsar-admin namespaces set-auto-topic-creation public/default --enable --type partitioned --num-partitions 1
         Container.ExecResult result = pulsarContainer.execInContainer(
                 "/pulsar/bin/pulsar-admin", "namespaces", "set-auto-topic-creation", "public/default", "--enable");
-        assertEquals(0, result.getExitCode(), result.getStdout());
+        assertEquals(0, result.getExitCode(), "Failed to set auto topic create " + result.getStdout() + " " + result.getStderr());
         result = pulsarContainer.execInContainer(
                 "/pulsar/bin/pulsar-admin", "namespaces", "set-is-allow-auto-update-schema", "public/default", "--enable");
         assertEquals(0, result.getExitCode(), result.getStdout());
