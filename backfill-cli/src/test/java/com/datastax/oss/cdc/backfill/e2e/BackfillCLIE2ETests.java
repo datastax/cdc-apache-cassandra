@@ -24,6 +24,7 @@ import com.datastax.testcontainers.PulsarContainer;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
+import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.Message;
 import org.apache.pulsar.client.api.PulsarClient;
@@ -103,6 +104,7 @@ public class BackfillCLIE2ETests {
         String connectorBuildDir = System.getProperty("connectorBuildDir");
         String projectVersion = System.getProperty("projectVersion");
         String connectorJarFile = String.format(Locale.ROOT, "pulsar-cassandra-source-%s.nar", projectVersion);
+        String backfillNarFile =  String.format(Locale.ROOT, "pulsar-cassandra-admin-%s.nar", projectVersion);
         pulsarContainer = new PulsarContainer<>(PULSAR_IMAGE)
                 .withNetwork(testNetwork)
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withName("pulsar"))
@@ -110,6 +112,9 @@ public class BackfillCLIE2ETests {
                 .withFileSystemBind(
                         String.format(Locale.ROOT, "%s/libs/%s", connectorBuildDir, connectorJarFile),
                         String.format(Locale.ROOT, "/pulsar/connectors/%s", connectorJarFile))
+                .withFileSystemBind(
+                        String.format(Locale.ROOT, "%s/libs/%s", connectorBuildDir, backfillNarFile),
+                        String.format(Locale.ROOT, "/pulsar/connectors/%s", backfillNarFile))
                 .withStartupTimeout(Duration.ofSeconds(60));
         pulsarContainer.start();
 
@@ -370,38 +375,15 @@ public class BackfillCLIE2ETests {
     private void runBackfillAsync(String ksName, String tableName) {
         new Thread(() -> {
             try {
-                String cdcBackfillBuildDir = System.getProperty("cdcBackfillBuildDir");
-                String projectVersion = System.getProperty("projectVersion");
-                String cdcBackfillJarFile = String.format(Locale.ROOT, "backfill-cli-%s-all.jar", projectVersion);
-                String cdcBackfillFullJarPath = String.format(Locale.ROOT, "%s/libs/%s", cdcBackfillBuildDir, cdcBackfillJarFile);
-
-                ProcessBuilder pb = new ProcessBuilder("java", "-jar", cdcBackfillFullJarPath,
-                        "--data-dir", dataDir.toString(), "--dsbulk-log-dir", logsDir.toString(),
-                        "--export-host", cassandraContainer1.getCqlHostAddress(), "--keyspace", ksName, "--table", tableName,
-                        "--export-consistency", "LOCAL_QUORUM", "--pulsar-url", pulsarContainer.getPulsarBrokerUrl());
-
-                log.info("Running backfill command: {} ", pb.command());
-
-                Process proc = pb.start();
-                boolean finished = proc.waitFor(90, TimeUnit.SECONDS);
-
-                // mimic proc.errorReader() in java 17
-                new BufferedReader(new InputStreamReader(proc.getErrorStream(), StandardCharsets.UTF_8)).lines()
-                        .forEach(log::error);
-
-                // mimic proc.inputReader() in java 17
-                new BufferedReader(new InputStreamReader(proc.getInputStream(), StandardCharsets.UTF_8)).lines()
-                        .forEach(log::info);
-
-                if (!finished) {
-                    proc.destroy();
-                    throw new RuntimeException("Backfilling process did not finish in 90 seconds");
-                } else if (proc.exitValue() != 0) {
-                    throw new RuntimeException("Backfilling process failed with exit code " + proc.exitValue());
-                } else {
-                    log.info("Backfilling process finished successfully");
-                }
-
+                String[] bacfillCommand = new String[] {
+                        "/pulsar/bin/pulsar-admin", "cassandra-cdc", "backfill", "--data-dir", dataDir.toString(),
+                        "--export-host", cassandraContainer1.getCqlHostAddress(), "--keyspace", ksName, "--table",
+                        tableName, "--export-consistency", "LOCAL_QUORUM"
+                };
+                log.info("Running backfill command: {} ", bacfillCommand);
+                Container.ExecResult result = pulsarContainer.execInContainer(bacfillCommand);
+                assertEquals(0, result.getExitCode(), "backfill coomand failed:" + result.getStdout());
+                log.info("backfill command finished successfully");
             } catch (InterruptedException | IOException e) {
                 log.error("Failed to run backfilling", e);
                 throw new RuntimeException(e);

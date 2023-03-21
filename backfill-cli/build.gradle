@@ -128,6 +128,7 @@ task e2eTest(type: Test) {
 
     dependsOn project(':connector').assemble // couldn't take dependency on nar directly
     dependsOn shadowJar
+    dependsOn nar
 
     useJUnitPlatform()
 
