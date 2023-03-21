@@ -104,6 +104,7 @@ public class BackfillCLIE2ETests {
         testNetwork = Network.newNetwork();
 
         String connectorBuildDir = System.getProperty("connectorBuildDir");
+        String cdcBackfillBuildDir = System.getProperty("cdcBackfillBuildDir");
         String projectVersion = System.getProperty("projectVersion");
         String connectorJarFile = String.format(Locale.ROOT, "pulsar-cassandra-source-%s.nar", projectVersion);
         String backfillNarFile =  String.format(Locale.ROOT, "pulsar-cassandra-admin-%s.nar", projectVersion);
@@ -115,8 +116,8 @@ public class BackfillCLIE2ETests {
                         String.format(Locale.ROOT, "%s/libs/%s", connectorBuildDir, connectorJarFile),
                         String.format(Locale.ROOT, "/pulsar/connectors/%s", connectorJarFile))
                 .withFileSystemBind(
-                        String.format(Locale.ROOT, "%s/libs/%s", connectorBuildDir, backfillNarFile),
-                        String.format(Locale.ROOT, "/pulsar/connectors/%s", backfillNarFile))
+                        String.format(Locale.ROOT, "%s/libs/%s", cdcBackfillBuildDir, backfillNarFile),
+                        String.format(Locale.ROOT, "/pulsar/cliextensions/%s", backfillNarFile))
                 .withClasspathResourceMapping("client.conf",
                         "/pulsar/conf/client.conf",
                         BindMode.READ_ONLY)
