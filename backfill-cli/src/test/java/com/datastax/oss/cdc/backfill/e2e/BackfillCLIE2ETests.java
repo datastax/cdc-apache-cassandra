@@ -50,6 +50,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.Network;
 import org.testcontainers.utility.DockerImageName;
@@ -115,6 +116,9 @@ public class BackfillCLIE2ETests {
                 .withFileSystemBind(
                         String.format(Locale.ROOT, "%s/libs/%s", connectorBuildDir, backfillNarFile),
                         String.format(Locale.ROOT, "/pulsar/connectors/%s", backfillNarFile))
+                .withClasspathResourceMapping("redis.conf",
+                        "/pulsar/conf/client.conf",
+                        BindMode.READ_ONLY)
                 .withStartupTimeout(Duration.ofSeconds(60));
         pulsarContainer.start();
 
