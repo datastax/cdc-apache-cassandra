@@ -37,6 +37,7 @@ import org.apache.cassandra.db.marshal.SimpleDateType;
 import org.apache.cassandra.db.marshal.TimeType;
 import org.apache.cassandra.db.marshal.TimestampType;
 import org.apache.cassandra.db.marshal.UTF8Type;
+import org.apache.cassandra.db.marshal.UUIDType;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.pulsar.client.api.MessageId;
@@ -64,6 +65,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -158,6 +160,8 @@ public class PulsarImporterTest {
                 new ColumnIdentifier("xblob", true);
         ColumnIdentifier xtimestampIdentifier =
                 new ColumnIdentifier("xtimestamp", true);
+        ColumnIdentifier xuuidIdentifier =
+                new ColumnIdentifier("xuuid", true);
         ColumnMetadata xintColumnMetadata =
                 new ColumnMetadata("ks1", "xint", xintIdentifier, IntegerType.instance, 2, ColumnMetadata.Kind.CLUSTERING);
         ColumnMetadata xtimeColumnMetadata =
@@ -168,6 +172,8 @@ public class PulsarImporterTest {
                 new ColumnMetadata("ks1", "xblob", xblobIdentifier, BytesType.instance, 5, ColumnMetadata.Kind.CLUSTERING);
         ColumnMetadata xtimestampColumnMetadata =
                 new ColumnMetadata("ks1", "xtimestamp", xtimestampIdentifier, TimestampType.instance, 6, ColumnMetadata.Kind.CLUSTERING);
+        ColumnMetadata xuuidColumnMetadata =
+                new ColumnMetadata("ks1", "xuuid", xuuidIdentifier, UUIDType.instance, 6, ColumnMetadata.Kind.CLUSTERING);
         cassandraColumns.add(xtextColumnMetadata);
         cassandraColumns.add(xbooleanColumnMetadata);
         cassandraColumns.add(xintColumnMetadata);
@@ -175,6 +181,7 @@ public class PulsarImporterTest {
         cassandraColumns.add(xdateColumnMetadata);
         cassandraColumns.add(xblobColumnMetadata);
         cassandraColumns.add(xtimestampColumnMetadata);
+        cassandraColumns.add(xuuidColumnMetadata);
 
         Mockito.when(tableMetadata.primaryKeyColumns()).thenReturn(cassandraColumns);
 
@@ -187,6 +194,7 @@ public class PulsarImporterTest {
         columns.add(new DefaultColumnMetadata(CqlIdentifier.fromInternal("ks1"), CqlIdentifier.fromInternal("table1"), CqlIdentifier.fromInternal("xdate"), DataTypes.DATE, false));
         columns.add(new DefaultColumnMetadata(CqlIdentifier.fromInternal("ks1"), CqlIdentifier.fromInternal("table1"), CqlIdentifier.fromInternal("xblob"), DataTypes.BLOB, false));
         columns.add(new DefaultColumnMetadata(CqlIdentifier.fromInternal("ks1"), CqlIdentifier.fromInternal("table1"), CqlIdentifier.fromInternal("xtimestamp"), DataTypes.TIMESTAMP, false));
+        columns.add(new DefaultColumnMetadata(CqlIdentifier.fromInternal("ks1"), CqlIdentifier.fromInternal("table1"), CqlIdentifier.fromInternal("xuuid"), DataTypes.UUID, false));
         Mockito.when(exportedTable.getPrimaryKey()).thenReturn(columns);
 
         // when
@@ -199,10 +207,12 @@ public class PulsarImporterTest {
         assertEquals(2, pkValues.size());
         List<Object>[] allPkValues = pkValues.stream().map(v-> v.getPkValues()).map(Arrays::asList).toArray(List[]::new);
         assertThat(allPkValues[0], containsInRelativeOrder("vtext", true, 2, LocalTime.of(1, 2, 3).toNanoOfDay(),
-                ByteBuffer.wrap(new byte[]{0x00, 0x01})));
+                ByteBuffer.wrap(new byte[]{0x00, 0x01}), Instant.parse("2023-03-22T18:16:20.808Z"),
+                UUID.fromString("3920dd7d-dcbf-4c2e-bbe5-f300b720ae0d")));
         assertEquals(LocalDate.of(2023, 3, 2), cqlSimpleDateToLocalDate((Integer) allPkValues[0].get(4)));
         assertThat(allPkValues[1], containsInRelativeOrder("v2text", false, 3, LocalTime.of(1, 2, 4).toNanoOfDay(),
-                ByteBuffer.wrap(new byte[]{0x01})));
+                ByteBuffer.wrap(new byte[]{0x01}), Instant.parse("2022-02-21T18:16:20.807Z"),
+                UUID.fromString("19296adf-fa87-4ba2-bad8-ae86d2769ee6")));
         assertEquals(LocalDate.of(2023, 3, 1), cqlSimpleDateToLocalDate((Integer) allPkValues[1].get(4)));
     }
 
