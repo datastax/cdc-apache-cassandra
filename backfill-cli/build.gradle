@@ -97,6 +97,8 @@ dependencies {
 
 // Custom nar task that wraps the shadowJar for pulsar admin extension purposes.
 tasks.register('nar', Zip) {
+    dependsOn shadowJar
+
     // bundle the shadow jar as is
     from(shadowJar.archivePath) {
         into "META-INF/bundled-dependencies"
@@ -110,6 +112,9 @@ tasks.register('nar', Zip) {
             into "META-INF" + relativeParentDir
         }
     }
+
+    // explicitly include all files in the resources folder, otherwise the shadowJar will not include them
+    sourceSets.main.resources.include("**/*")
 
     archiveName "pulsar-cassandra-admin-${project.version}-nar.nar"
     destinationDir file("${buildDir}/libs")
@@ -127,7 +132,6 @@ task e2eTest(type: Test) {
     testLogging.showStandardStreams = true
 
     dependsOn project(':connector').assemble // couldn't take dependency on nar directly
-    dependsOn shadowJar
     dependsOn nar
 
     useJUnitPlatform()
