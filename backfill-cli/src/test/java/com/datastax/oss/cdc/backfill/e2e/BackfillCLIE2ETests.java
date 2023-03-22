@@ -24,7 +24,6 @@ import com.datastax.testcontainers.PulsarContainer;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
-import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.Message;
 import org.apache.pulsar.client.api.PulsarClient;
@@ -55,9 +54,7 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.Network;
 import org.testcontainers.utility.DockerImageName;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;

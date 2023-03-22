@@ -73,6 +73,8 @@ dependencies {
     implementation "com.datastax.oss:dsbulk-connectors-csv:${dsbulkVersion}"
     implementation "com.datastax.oss:dsbulk-executor-reactor:${dsbulkVersion}"
     implementation "com.datastax.oss:dsbulk-batcher-reactor:${dsbulkVersion}"
+    implementation "com.datastax.oss:dsbulk-codecs-api:${dsbulkVersion}"
+    implementation "com.datastax.oss:dsbulk-codecs-text:${dsbulkVersion}"
     implementation "com.google.guava:guava:${guavaVersion}"
 
     implementation "info.picocli:picocli:4.7.1"

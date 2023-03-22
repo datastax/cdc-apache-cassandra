@@ -35,6 +35,7 @@ import org.apache.cassandra.db.marshal.BytesType;
 import org.apache.cassandra.db.marshal.IntegerType;
 import org.apache.cassandra.db.marshal.SimpleDateType;
 import org.apache.cassandra.db.marshal.TimeType;
+import org.apache.cassandra.db.marshal.TimestampType;
 import org.apache.cassandra.db.marshal.UTF8Type;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
@@ -155,6 +156,8 @@ public class PulsarImporterTest {
                 new ColumnIdentifier("xdate", true);
         ColumnIdentifier xblobIdentifier =
                 new ColumnIdentifier("xblob", true);
+        ColumnIdentifier xtimestampIdentifier =
+                new ColumnIdentifier("xtimestamp", true);
         ColumnMetadata xintColumnMetadata =
                 new ColumnMetadata("ks1", "xint", xintIdentifier, IntegerType.instance, 2, ColumnMetadata.Kind.CLUSTERING);
         ColumnMetadata xtimeColumnMetadata =
@@ -163,12 +166,15 @@ public class PulsarImporterTest {
                 new ColumnMetadata("ks1", "xdate", xdateIdentifier, SimpleDateType.instance, 4, ColumnMetadata.Kind.CLUSTERING);
         ColumnMetadata xblobColumnMetadata =
                 new ColumnMetadata("ks1", "xblob", xblobIdentifier, BytesType.instance, 5, ColumnMetadata.Kind.CLUSTERING);
+        ColumnMetadata xtimestampColumnMetadata =
+                new ColumnMetadata("ks1", "xtimestamp", xtimestampIdentifier, TimestampType.instance, 6, ColumnMetadata.Kind.CLUSTERING);
         cassandraColumns.add(xtextColumnMetadata);
         cassandraColumns.add(xbooleanColumnMetadata);
         cassandraColumns.add(xintColumnMetadata);
         cassandraColumns.add(xtimeColumnMetadata);
         cassandraColumns.add(xdateColumnMetadata);
         cassandraColumns.add(xblobColumnMetadata);
+        cassandraColumns.add(xtimestampColumnMetadata);
 
         Mockito.when(tableMetadata.primaryKeyColumns()).thenReturn(cassandraColumns);
 
@@ -180,6 +186,7 @@ public class PulsarImporterTest {
         columns.add(new DefaultColumnMetadata(CqlIdentifier.fromInternal("ks1"), CqlIdentifier.fromInternal("table1"), CqlIdentifier.fromInternal("xtime"), DataTypes.TIME, false));
         columns.add(new DefaultColumnMetadata(CqlIdentifier.fromInternal("ks1"), CqlIdentifier.fromInternal("table1"), CqlIdentifier.fromInternal("xdate"), DataTypes.DATE, false));
         columns.add(new DefaultColumnMetadata(CqlIdentifier.fromInternal("ks1"), CqlIdentifier.fromInternal("table1"), CqlIdentifier.fromInternal("xblob"), DataTypes.BLOB, false));
+        columns.add(new DefaultColumnMetadata(CqlIdentifier.fromInternal("ks1"), CqlIdentifier.fromInternal("table1"), CqlIdentifier.fromInternal("xtimestamp"), DataTypes.TIMESTAMP, false));
         Mockito.when(exportedTable.getPrimaryKey()).thenReturn(columns);
 
         // when
