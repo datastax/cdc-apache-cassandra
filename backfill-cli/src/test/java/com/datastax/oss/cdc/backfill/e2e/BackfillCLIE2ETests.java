@@ -18,6 +18,7 @@ package com.datastax.oss.cdc.backfill.e2e;
 
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.Version;
 import com.datastax.oss.driver.api.core.data.CqlDuration;
 import com.datastax.oss.dsbulk.tests.utils.FileUtils;
 import com.datastax.testcontainers.PulsarContainer;
@@ -54,7 +55,9 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.Network;
 import org.testcontainers.utility.DockerImageName;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -375,7 +378,37 @@ public class BackfillCLIE2ETests {
         }
     }
 
+    /**
+     * Backfill command can be run as a Pulsar Admin extension or as a JAR. Pulsar admin extension is supported as of
+     * Pulsar 2.11 and LS 2.10_3.4. However, Pulsar 2.11 required a java 17 runtime to run CLI which the backfill
+     * command does not yet support. For now, the e2e test will run the backfill command a CLI extension if the image
+     * is LS 2.10_3.4 or later.
+     */
+    private boolean runAsPulsarAdminExtension() {
+        final String imageName = PULSAR_IMAGE.getUnversionedPart();
+        final String imageVersion = PULSAR_IMAGE.getVersionPart();
+
+        return "datastax/lunastreaming".equals(imageName) && compareLSImageVersion(imageVersion, "2.10_3.4") >= 0;
+    }
+
+    /**
+     * Piggyback on {@link com.datastax.oss.driver.api.core.Version} to compare the version of the LS image.
+     */
+    private int compareLSImageVersion(String version1, String version2) {
+        final String adaptedVersion1 = version1.replace("_", "-");
+        final String adaptedVersion2 = version1.replace("_", "-");
+        return Version.parse(adaptedVersion1).compareTo(Version.parse(adaptedVersion2));
+    }
+
     private void runBackfillAsync(String ksName, String tableName) {
+        if (runAsPulsarAdminExtension()) {
+            runBackfillAsPulsarAdminExtensionAsync(ksName, tableName);
+        } else {
+            runBackfillAsJARAsync(ksName, tableName);
+        }
+    }
+
+    private void runBackfillAsPulsarAdminExtensionAsync(String ksName, String tableName) {
         new Thread(() -> {
             try {
                 String[] backfillCommand = new String[] {
@@ -388,6 +421,48 @@ public class BackfillCLIE2ETests {
                 assertEquals(0, result.getExitCode(), "backfill command failed:" + result.getStdout());
                 log.info(result.getStdout());
                 log.info("backfill command finished successfully");
+            } catch (InterruptedException | IOException e) {
+                log.error("Failed to run backfilling", e);
+                throw new RuntimeException(e);
+            }
+        }).start();
+    }
+
+    private void runBackfillAsJARAsync(String ksName, String tableName) {
+        new Thread(() -> {
+            try {
+                String cdcBackfillBuildDir = System.getProperty("cdcBackfillBuildDir");
+                String projectVersion = System.getProperty("projectVersion");
+                String cdcBackfillJarFile = String.format(Locale.ROOT, "backfill-cli-%s-all.jar", projectVersion);
+                String cdcBackfillFullJarPath = String.format(Locale.ROOT, "%s/libs/%s", cdcBackfillBuildDir, cdcBackfillJarFile);
+
+                ProcessBuilder pb = new ProcessBuilder("java", "-jar", cdcBackfillFullJarPath,
+                        "--data-dir", dataDir.toString(), "--dsbulk-log-dir", logsDir.toString(),
+                        "--export-host", cassandraContainer1.getCqlHostAddress(), "--keyspace", ksName, "--table", tableName,
+                        "--export-consistency", "LOCAL_QUORUM", "--pulsar-url", pulsarContainer.getPulsarBrokerUrl());
+
+                log.info("Running backfill command: {} ", pb.command());
+
+                Process proc = pb.start();
+                boolean finished = proc.waitFor(90, TimeUnit.SECONDS);
+
+                // mimic proc.errorReader() in java 17
+                new BufferedReader(new InputStreamReader(proc.getErrorStream(), StandardCharsets.UTF_8)).lines()
+                        .forEach(log::error);
+
+                // mimic proc.inputReader() in java 17
+                new BufferedReader(new InputStreamReader(proc.getInputStream(), StandardCharsets.UTF_8)).lines()
+                        .forEach(log::info);
+
+                if (!finished) {
+                    proc.destroy();
+                    throw new RuntimeException("Backfilling process did not finish in 90 seconds");
+                } else if (proc.exitValue() != 0) {
+                    throw new RuntimeException("Backfilling process failed with exit code " + proc.exitValue());
+                } else {
+                    log.info("Backfilling process finished successfully");
+                }
+
             } catch (InterruptedException | IOException e) {
                 log.error("Failed to run backfilling", e);
                 throw new RuntimeException(e);
