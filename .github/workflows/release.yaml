@@ -123,3 +123,24 @@ jobs:
           asset_path: agent-dse4/build/libs/agent-dse4-${{ env.CURRENT_VERSION }}-all.jar
           asset_name: agent-dse4-${{ env.CURRENT_VERSION }}-all.jar
           asset_content_type: application/java-archive
+      - name: Upload Backfill CLI Release JAR
+        id: upload-backfill-cli-jar
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: backfill-cli/build/libs/backfill-cli-${{ env.CURRENT_VERSION }}-all.jar
+          asset_name: backfill-cli-${{ env.CURRENT_VERSION }}-all.jar
+          asset_content_type: application/java-archive
+      - name: Upload Backfill CLI Release NAR
+        id: upload-backfill-cli-nar
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: backfill-cli/build/libs/pulsar-cassandra-admin-${{ env.CURRENT_VERSION }}-nar.nar
+          asset_name: pulsar-cassandra-admin-${{ env.CURRENT_VERSION }}-nar.nar
+          asset_content_type: application/java-archive
+
