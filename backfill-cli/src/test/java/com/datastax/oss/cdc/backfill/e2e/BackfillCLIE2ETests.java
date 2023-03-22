@@ -107,7 +107,7 @@ public class BackfillCLIE2ETests {
         String cdcBackfillBuildDir = System.getProperty("cdcBackfillBuildDir");
         String projectVersion = System.getProperty("projectVersion");
         String connectorJarFile = String.format(Locale.ROOT, "pulsar-cassandra-source-%s.nar", projectVersion);
-        String backfillNarFile =  String.format(Locale.ROOT, "pulsar-cassandra-admin-%s.nar", projectVersion);
+        String backfillNarFile =  String.format(Locale.ROOT, "pulsar-cassandra-admin-%s-nar.nar", projectVersion);
         pulsarContainer = new PulsarContainer<>(PULSAR_IMAGE)
                 .withNetwork(testNetwork)
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withName("pulsar"))
