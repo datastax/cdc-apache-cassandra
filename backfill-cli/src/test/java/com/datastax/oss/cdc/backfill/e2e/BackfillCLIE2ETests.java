@@ -383,12 +383,13 @@ public class BackfillCLIE2ETests {
             try {
                 String[] backfillCommand = new String[] {
                         "/pulsar/bin/pulsar-admin", "cassandra-cdc", "backfill", "--data-dir", dataDir.toString(),
-                        "--export-host", cassandraContainer1.getCqlHostAddress(), "--keyspace", ksName, "--table",
+                        "--export-host", "cassandra-1", "--keyspace", ksName, "--table",
                         tableName, "--export-consistency", "LOCAL_QUORUM"
                 };
                 log.info("Running backfill command: {} ", Arrays.toString(backfillCommand));
                 Container.ExecResult result = pulsarContainer.execInContainer(backfillCommand);
                 assertEquals(0, result.getExitCode(), "backfill command failed:" + result.getStdout());
+                log.info(result.getStdout());
                 log.info("backfill command finished successfully");
             } catch (InterruptedException | IOException e) {
                 log.error("Failed to run backfilling", e);
