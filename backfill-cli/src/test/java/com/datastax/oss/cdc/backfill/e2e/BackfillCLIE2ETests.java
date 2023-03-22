@@ -18,6 +18,7 @@ package com.datastax.oss.cdc.backfill.e2e;
 
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.Version;
 import com.datastax.oss.driver.api.core.data.CqlDuration;
 import com.datastax.oss.dsbulk.tests.utils.FileUtils;
 import com.datastax.testcontainers.PulsarContainer;
@@ -49,6 +50,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.Network;
 import org.testcontainers.utility.DockerImageName;
@@ -63,6 +65,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -101,8 +104,10 @@ public class BackfillCLIE2ETests {
         testNetwork = Network.newNetwork();
 
         String connectorBuildDir = System.getProperty("connectorBuildDir");
+        String cdcBackfillBuildDir = System.getProperty("cdcBackfillBuildDir");
         String projectVersion = System.getProperty("projectVersion");
         String connectorJarFile = String.format(Locale.ROOT, "pulsar-cassandra-source-%s.nar", projectVersion);
+        String backfillNarFile =  String.format(Locale.ROOT, "pulsar-cassandra-admin-%s-nar.nar", projectVersion);
         pulsarContainer = new PulsarContainer<>(PULSAR_IMAGE)
                 .withNetwork(testNetwork)
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withName("pulsar"))
@@ -110,16 +115,22 @@ public class BackfillCLIE2ETests {
                 .withFileSystemBind(
                         String.format(Locale.ROOT, "%s/libs/%s", connectorBuildDir, connectorJarFile),
                         String.format(Locale.ROOT, "/pulsar/connectors/%s", connectorJarFile))
+                .withFileSystemBind(
+                        String.format(Locale.ROOT, "%s/libs/%s", cdcBackfillBuildDir, backfillNarFile),
+                        String.format(Locale.ROOT, "/pulsar/cliextensions/%s", backfillNarFile))
+                .withClasspathResourceMapping("client.conf",
+                        "/pulsar/conf/client.conf",
+                        BindMode.READ_ONLY)
                 .withStartupTimeout(Duration.ofSeconds(60));
         pulsarContainer.start();
 
         // ./pulsar-admin namespaces set-auto-topic-creation public/default --enable --type partitioned --num-partitions 1
         Container.ExecResult result = pulsarContainer.execInContainer(
                 "/pulsar/bin/pulsar-admin", "namespaces", "set-auto-topic-creation", "public/default", "--enable");
-        assertEquals(0, result.getExitCode());
+        assertEquals(0, result.getExitCode(), "Failed to set auto topic create " + result.getStdout() + " " + result.getStderr());
         result = pulsarContainer.execInContainer(
                 "/pulsar/bin/pulsar-admin", "namespaces", "set-is-allow-auto-update-schema", "public/default", "--enable");
-        assertEquals(0, result.getExitCode());
+        assertEquals(0, result.getExitCode(), result.getStdout());
 
         String pulsarServiceUrl = "pulsar://pulsar:" + pulsarContainer.BROKER_PORT;
         String cassandraFamily = System.getProperty("cassandraFamily");
@@ -367,7 +378,57 @@ public class BackfillCLIE2ETests {
         }
     }
 
+    /**
+     * Backfill command can be run as a Pulsar Admin extension or as a JAR. Pulsar admin extension is supported as of
+     * Pulsar 2.11 and LS 2.10_3.4. However, Pulsar 2.11 required a java 17 runtime to run CLI which the backfill
+     * command does not yet support. For now, the e2e test will run the backfill command a CLI extension if the image
+     * is LS 2.10_3.4 or later.
+     */
+    private boolean runAsPulsarAdminExtension() {
+        final String imageName = PULSAR_IMAGE.getUnversionedPart();
+        final String imageVersion = PULSAR_IMAGE.getVersionPart();
+
+        return "datastax/lunastreaming".equals(imageName) && compareLSImageVersion(imageVersion, "2.10_3.4") >= 0;
+    }
+
+    /**
+     * Piggyback on {@link com.datastax.oss.driver.api.core.Version} to compare the version of the LS image.
+     */
+    private int compareLSImageVersion(String version1, String version2) {
+        final String adaptedVersion1 = version1.replace("_", "-");
+        final String adaptedVersion2 = version1.replace("_", "-");
+        return Version.parse(adaptedVersion1).compareTo(Version.parse(adaptedVersion2));
+    }
+
     private void runBackfillAsync(String ksName, String tableName) {
+        if (runAsPulsarAdminExtension()) {
+            runBackfillAsPulsarAdminExtensionAsync(ksName, tableName);
+        } else {
+            runBackfillAsJARAsync(ksName, tableName);
+        }
+    }
+
+    private void runBackfillAsPulsarAdminExtensionAsync(String ksName, String tableName) {
+        new Thread(() -> {
+            try {
+                String[] backfillCommand = new String[] {
+                        "/pulsar/bin/pulsar-admin", "cassandra-cdc", "backfill", "--data-dir", dataDir.toString(),
+                        "--export-host", "cassandra-1", "--keyspace", ksName, "--table",
+                        tableName, "--export-consistency", "LOCAL_QUORUM"
+                };
+                log.info("Running backfill command: {} ", Arrays.toString(backfillCommand));
+                Container.ExecResult result = pulsarContainer.execInContainer(backfillCommand);
+                assertEquals(0, result.getExitCode(), "backfill command failed:" + result.getStdout());
+                log.info(result.getStdout());
+                log.info("backfill command finished successfully");
+            } catch (InterruptedException | IOException e) {
+                log.error("Failed to run backfilling", e);
+                throw new RuntimeException(e);
+            }
+        }).start();
+    }
+
+    private void runBackfillAsJARAsync(String ksName, String tableName) {
         new Thread(() -> {
             try {
                 String cdcBackfillBuildDir = System.getProperty("cdcBackfillBuildDir");

@@ -16,7 +16,6 @@
 
 package com.datastax.oss.cdc.backfill.admin;
 
-import com.amazonaws.transform.MapEntry;
 import com.datastax.oss.cdc.backfill.BackfillCLI;
 import org.apache.pulsar.admin.cli.extensions.CommandExecutionContext;
 import org.apache.pulsar.admin.cli.extensions.CustomCommand;

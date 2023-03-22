@@ -1,3 +1,3 @@
-xtext,xboolean,xint,xtime,xdate,xblob
-vtext,1,2,01:02:03,2023-03-02,AAE=
-v2text,0,3,01:02:04,2023-03-01,AQ==
+xtext,xboolean,xint,xtime,xdate,xblob,xtimestamp,xuuid
+vtext,1,2,01:02:03,2023-03-02,AAE=,2023-03-22T18:16:20.808Z,3920dd7d-dcbf-4c2e-bbe5-f300b720ae0d
+v2text,0,3,01:02:04,2023-03-01,AQ==,2022-02-21T18:16:20.807Z,19296adf-fa87-4ba2-bad8-ae86d2769ee6

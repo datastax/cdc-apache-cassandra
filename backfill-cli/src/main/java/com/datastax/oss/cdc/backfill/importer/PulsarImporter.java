@@ -22,6 +22,7 @@ import com.datastax.oss.cdc.agent.PulsarMutationSender;
 import com.datastax.oss.cdc.agent.exceptions.CassandraConnectorSchemaException;
 import com.datastax.oss.cdc.backfill.ExitStatus;
 import com.datastax.oss.cdc.backfill.exporter.ExportedTable;
+import com.datastax.oss.cdc.backfill.factory.CodecFactory;
 import com.datastax.oss.cdc.backfill.factory.ConnectorFactory;
 import com.datastax.oss.cdc.backfill.factory.PulsarMutationSenderFactory;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
@@ -99,7 +100,8 @@ public class PulsarImporter {
      * node. Doesn't apply for CDC back-filling.
      */
     private final static UUID MUTATION_NODE = null;
-    private final static ConvertingCodecFactory codecFactory = new ConvertingCodecFactory();
+    private final static ConvertingCodecFactory codecFactory =
+            new CodecFactory().newCodecFactory(PulsarImporter.class.getClassLoader());
 
     /**
      * The maximum number of in-flight pulsar messages currently being imported
@@ -110,10 +112,11 @@ public class PulsarImporter {
     private final AtomicInteger sentMutations = new AtomicInteger(0);
     private final AtomicInteger sentErrors = new AtomicInteger(0);
 
-    public PulsarImporter(ConnectorFactory connectorFactory, ExportedTable exportedTable, PulsarMutationSenderFactory factory) {
+    public PulsarImporter(ConnectorFactory connectorFactory, ExportedTable exportedTable,
+                          PulsarMutationSenderFactory mutationSenderFactory) {
         this.connectorFactory = connectorFactory;
         this.exportedTable = exportedTable;
-        this.mutationSender = factory.newPulsarMutationSender();
+        this.mutationSender = mutationSenderFactory.newPulsarMutationSender();
         this.inflightPulsarMessages = new Semaphore(MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING);
     }
 
