@@ -64,7 +64,7 @@ sourceSets {
 }
 
 dependencies {
-    implementation project(':agent-dse4')
+    implementation project(':agent-c4')
     implementation project(':agent')
 
     implementation "com.datastax.oss:dsbulk-config:${dsbulkVersion}"
@@ -81,7 +81,6 @@ dependencies {
     implementation "org.slf4j:slf4j-api:1.7.36"
     implementation "ch.qos.logback:logback-classic:1.2.11"
     implementation "org.apache.cassandra:cassandra-all:${cassandra4Version}"
-    implementation "com.datastax.dse:dse-db:${dse4Version}"
     implementation "${pulsarGroup}:pulsar-client:${pulsarVersion}"
     implementation "${pulsarGroup}:pulsar-client-tools-api:${pulsarVersion}"
 
@@ -92,7 +91,9 @@ dependencies {
     testImplementation project(':connector')
     testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
     testImplementation project(':testcontainers')
-    testImplementation("${pulsarGroup}:pulsar-client:${pulsarVersion}")
+    testImplementation "${pulsarGroup}:pulsar-client:${pulsarVersion}"
+    // https://mvnrepository.com/artifact/commons-io/commons-io
+    testImplementation 'commons-io:commons-io:2.11.0'
 
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:5.8.1"
 }
