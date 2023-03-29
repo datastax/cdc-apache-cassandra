@@ -39,7 +39,7 @@ shadowJar {
     }
 }
 
-jar.enabled = false
+jar.enabled = true
 assemble.dependsOn(shadowJar)
 
 dependencies {
