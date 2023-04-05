@@ -2,18 +2,18 @@
 
 Capture schema changes in your C* tables and pass them to Apache Pulsar(R) with DataStax Change Data Capture (CDC). This doc will guide you through installing, configuring, and using CDC with C* or DSE in a VM-based deployment.
 
-This installation requires:
+This installation requires the following. Latest version artifacts are available here at [![GitHub release](https://img.shields.io/github/v/release/datastax/cdc-apache-cassandra.svg)](https://github.com/datastax/cdc-apache-cassandra/releases/latest):
 
 * C* or DSE environment 
-** https://downloads.datastax.com/#enterprise[DSE 6.8.21]
+** https://downloads.datastax.com/#enterprise[DSE 6.8.16+]
 ** https://cassandra.apache.org/_/download.html[OSS C*]
 * CDC Agent
-** https://github.com/datastax/cdc-apache-cassandra/releases/download/v1.0.5/agent-dse4-pulsar-1.0.5-all.jar[DSE]
-** https://github.com/datastax/cdc-apache-cassandra/releases/download/v1.0.5/agent-c4-pulsar-1.0.5-all.jar[OSS C*]
+** DSE - use `agent-dse4-<version>-all.jar`
+** OSS C* - use `agent-c4-<version>-all.jar`
 * Pulsar
-** https://github.com/datastax/cdc-apache-cassandra/releases/download/v1.0.5/agent-dse4-pulsar-1.0.5-all.jar[DataStax Luna Streaming 2.8.3_1.0.7 Core]
+** DataStax Luna Streaming - use `agent-dse4-<version>-all.jar`
 * Pulsar C* source connector (CSC)
-** https://github.com/datastax/cdc-apache-cassandra/releases/download/v1.0.5/pulsar-cassandra-source-1.0.5.nar[pulsar-cassandra-source-1.0.5.nar]
+** Pulsar Cassandra Source NAR - use `pulsar-cassandra-source-<version>.nar`
 
 == Installing and configuring
 
@@ -27,7 +27,7 @@ bin/pulsar standalone
 +
 [NOTE]
 ====
-We recommend using the latest CDC agent version (at least version 1.04+) to support C* collection data types.
+We recommend using the latest CDC agent version (at least version `1.0.4`+) to support C* collection data types.
 ====
 . Install C*/DSE with your preferred https://docs.datastax.com/en/install/6.8/install/installWhichOne.html[installation method^]. 
 
@@ -45,16 +45,16 @@ export CDC_PULSAR_AUTH_PARAMS="file://</path/to/token/file>"
 export CDC_TLS_TRUST_CERTS_FILE_PATH=”</path/to/trusted/cert/file>”
 
 # DSE CDC
-JVM_OPTS="$JVM_OPTS -javaagent:/home/automaton/cdc104/agent-dse4-pulsar-1.0.5-all.jar"
+JVM_OPTS="$JVM_OPTS -javaagent:/home/automaton/cdc104/agent-dse4-<version>-all.jar"
 ----
 +
-For CDC agent versions *after 1.03*, the CDC agent Pulsar connection parameters are provided as system environment variables (see *DSE CDC* in the example above).
+For CDC agent versions *after 1.0.3*, the CDC agent Pulsar connection parameters are provided as system environment variables (see *DSE CDC* in the example above).
 +
-For CDC agent versions *before 1.03*, the CDC agent Pulsar connection parameters are also provided as extra JVM options, as below:
+For CDC agent versions *before 1.0.3*, the CDC agent Pulsar connection parameters are also provided as extra JVM options, as below:
 +
 [source,bash]
 ----
-export JVM_EXTRA_OPTS="-javaagent:/path/to/agent-c4-luna-<version>-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
+export JVM_EXTRA_OPTS="-javaagent:/path/to/agent-c4-<version>-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
 ----
 
 . Set the `cassandra.yaml` configuration:
@@ -95,7 +95,7 @@ Key-value-avro::
 ----
 $ pulsar-admin source create \
   --name <csc_connector_name> \
-  --archive /pathto/to/pulsar-cassandra-source-1.0.5.nar \
+  --archive /path/to/pulsar-cassandra-source-<version>.nar \
   --tenant public \
   --namespace default \
   --destination-topic-name <keyspace>.<table> \
@@ -119,7 +119,7 @@ Key-value-json::
 ----
 $ pulsar-admin source create \
   --name <csc_connector_name> \
-  --archive /pathto/to/pulsar-cassandra-source-1.0.5.nar \
+  --archive /path/to/pulsar-cassandra-source-<version>.nar \
   --tenant public \
   --namespace default \
   --destination-topic-name persistent://public/default/data-<keyspace>.<table> \
@@ -136,14 +136,14 @@ $ pulsar-admin source create \
 ----
 --
 +
-Json::
+JSON::
 +
 --
 [source,bash]
 ----
 $ pulsar-admin source create \
   --name <csc_connector_name> \
-  --archive /pathto/to/pulsar-cassandra-source-1.0.5.nar \
+  --archive /path/to/pulsar-cassandra-source-<version>.nar \
   --tenant public \
   --namespace default \
   --destination-topic-name persistent://public/default/data-<keyspace>.<table> \
@@ -185,19 +185,3 @@ pulsar-client consume -s mysub -st auto_consume -n 0 persistent://public/default
 
 For more on monitoring your {cdc_cass} deployment, see xref:monitor.adoc[Monitor {cdc_cass}]. +
 For using CDC with Astra DB, see https://docs.datastax.com/en/astra-streaming/docs/astream-cdc.html[CDC for Astra DB].
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
