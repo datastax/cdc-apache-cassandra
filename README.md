@@ -82,6 +82,10 @@ Cassandra supported CQL3 data types (with the associated AVRO type or logical-ty
 
     ./gradlew assemble
 
+Note: Artifacts for DSE agent are excluded by default. To build the `agent-dse4` module, specify the `dse4` property:
+
+    ./gradlew assemble -Pdse4 
+
 ## Acknowledgments
 
 Apache Cassandra, Apache Pulsar, Cassandra and Pulsar are trademarks of the Apache Software Foundation.
