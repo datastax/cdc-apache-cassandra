@@ -26,7 +26,7 @@ jobs:
           DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
           DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
         run: |
-          ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
+          ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
           build -x test -x backfill-cli:compileJava
 
   test:
@@ -76,7 +76,7 @@ jobs:
           PULSAR_IMAGE=${PULSAR_FULL_IMAGE[0]}
           PULSAR_IMAGE_TAG=${PULSAR_FULL_IMAGE[1]}
                     
-          ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
+          ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
           -PtestPulsarImage=$PULSAR_IMAGE \
           -PtestPulsarImageTag=$PULSAR_IMAGE_TAG \
           ${{ matrix.module }}:test

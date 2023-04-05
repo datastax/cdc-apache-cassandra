@@ -25,7 +25,7 @@ Note: Only Cassandra 4.0 and DSE 6.8.16+ support the near realtime CDC allowing 
 
 ## Documentation
 
-All documentation is available online [here](https://docs.datastax.com/en/cdc-for-cassandra).
+All documentation is available online [here](https://docs.datastax.com/en/cdc-for-cassandra/docs/2.2.2/index.html).
 
 See the [QUICKSTART.md](QUICKSTART.md) page.
 
@@ -81,6 +81,10 @@ Cassandra supported CQL3 data types (with the associated AVRO type or logical-ty
 ## Build from the sources
 
     ./gradlew assemble
+
+Note: Artifacts for DSE agent are excluded by default. To build the `agent-dse4` module, specify the `dse4` property:
+
+    ./gradlew assemble -Pdse4 
 
 ## Acknowledgments
 
