@@ -8,18 +8,18 @@
 The DataStax CDC for Apache Cassandra requires:
 
 * DataStax Change Agent for Apache Cassandra, which is an event producer deployed as a JVM agent on each Cassandra data node.
-* Datastax Source Connector for Apache Pulsar, which is source connector deployed in your streaming platform.
+* DataStax Source Connector for Apache Pulsar, which is source connector deployed in your streaming platform.
 
-![Cassandra-source-connector](docs/modules/ROOT/assets/images/cassandra-source-connector.png)
+![Cassandra-source-connector](docs/docs-src/core/modules/ROOT/assets/images/cassandra-source-connector.png)
 
 Supported streaming platform:
 * Apache Pulsar 2.8.1+
-* Datastax Luna Streaming 2.8.0.1.1.40+
+* DataStax Luna Streaming 2.8.0.1.1.40+
 
 Supported Cassandra version:
 * Cassandra 3.11+
 * Cassandra 4.0+
-* Datastax Enterprise Server 6.8.16+
+* [DataStax Enterprise (DSE)](https://www.datastax.com/products/datastax-enterprise) 6.8.16+
 
 Note: Only Cassandra 4.0 and DSE 6.8.16+ support the near realtime CDC allowing to replicate data as soon as they are synced on disk.
 
@@ -49,7 +49,7 @@ You can collect Cassandra/DSE and Pulsar metrics into Prometheus, and build a Gr
 * The mutation sent throughput from a Cassandra node
 * The pulsar events and data topic rate in
 
-![CDC Dashboard](docs/modules/ROOT/assets/images/cdc-dashboard.png)
+![CDC Dashboard](docs/docs-src/core/modules/ROOT/assets/images/cdc-dashboard.png)
 
 ## Limitations
 
@@ -58,7 +58,7 @@ You can collect Cassandra/DSE and Pulsar metrics into Prometheus, and build a Gr
 * Does not manage TTLs
 * Does not support range deletes
 * Does not sync data available before starting the CDC agent.
-* CQL column names must not match a Pulsar primitive type name (ex: INT32)
+* CQL column names must not match a [Pulsar primitive type](https://pulsar.apache.org/docs/next/schema-understand/#primitive-type) name (ex: INT32)
 
 ## Supported data types
 
