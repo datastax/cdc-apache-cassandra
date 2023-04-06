@@ -192,8 +192,6 @@ public class TableExporter {
         }
         args.add("-url");
         args.add(String.valueOf(tableDataDir));
-        args.add("-maxRecords");
-        args.add(String.valueOf(settings.exportSettings.maxRecords));
         args.add("-maxConcurrentFiles");
         args.add(settings.exportSettings.maxConcurrentFiles);
         args.add("-maxConcurrentQueries");
