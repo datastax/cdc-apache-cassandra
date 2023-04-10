@@ -1,6 +1,13 @@
 # Release notes for CDC for Apache Cassandra&trade;
 The CDC for Apache Cassandra&trade; is compatible for Apache Cassandra&trade; 3.11, 4.0, and DSE 6.8.
 
+# Release notes for 2.2.4
+10 April 2023
+
+## Changes
+* [New] CDC Backfill CLI: a tool for hydrating a CDC data topic with historical Apache Cassandra&trade; table records. See the [README](backfill-cli/README.md) for more details.
+* [Cassandra Source Connector]: Update the java-driver-core dependency to 4.15.0 to leverage some advanced driver settings (namely, `advanced.address-translator`)
+
 # Release notes for 2.2.3
 2 Feb 2023
 
