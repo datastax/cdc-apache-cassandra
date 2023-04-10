@@ -84,10 +84,11 @@ public class TableExporter {
         String operationId = retrieveExportOperationId();
         if (operationId != null) {
             LOGGER.warn(
-                    "Table {}.{}: already exported, skipping (delete this file to re-export: {}).",
+                    "Table {}.{}: already exported, skipping (to re-export, delete the following artifacts: '{}' and '{}').",
                     exportedTable.getKeyspace().getName(),
                     exportedTable.getTable().getName(),
-                    exportAckFile);
+                    exportAckFile,
+                    tableDataDir);
             return ExitStatus.STATUS_OK;
         } else {
             LOGGER.info("Exporting {}...", exportedTable);
