@@ -2,7 +2,7 @@
 
 Capture schema changes in your C* tables and pass them to Apache Pulsar(R) with DataStax Change Data Capture (CDC). This doc will guide you through installing, configuring, and using CDC with C* or DSE in a VM-based deployment.
 
-This installation requires the following. Latest version artifacts are available here at image:https://img.shields.io/github/v/release/datastax/cdc-apache-cassandra?color=green&display_name=tag[GitHub release (latest by date)]:
+This installation requires the following. Latest version artifacts are available here at https://github.com/datastax/cdc-apache-cassandra/releases/latest[image:https://img.shields.io/github/v/release/datastax/cdc-apache-cassandra?color=green&display_name=tag]:
 
 * C* or DSE environment 
 ** https://downloads.datastax.com/#enterprise[DSE 6.8.16+]
