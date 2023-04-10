@@ -113,14 +113,6 @@ public class BackfillCommand implements CustomCommand {
         parameters.add(
                 ParameterDescriptor.builder()
                         .description(
-                                "The maximum number of records to export from the table. Must be a positive number or -1. "
-                                        + "The default is -1 (export the entire table).")
-                        .type(ParameterType.INTEGER)
-                        .names(Arrays.asList("--export-max-records"))
-                        .build());
-        parameters.add(
-                ParameterDescriptor.builder()
-                        .description(
                                 "The maximum number of concurrent files to write to. "
                                         + "Must be a positive number or the special value AUTO. The default is AUTO.")
                         .type(ParameterType.STRING)
