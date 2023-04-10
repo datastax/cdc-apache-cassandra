@@ -139,15 +139,6 @@ public class ExportSettings {
     public DefaultConsistencyLevel consistencyLevel = DefaultConsistencyLevel.LOCAL_QUORUM;
 
     @Option(
-            names = "--export-max-records",
-            paramLabel = "NUM",
-            description =
-                    "The maximum number of records to export from the table. Must be a positive number or -1. "
-                            + "The default is -1 (export the entire table).",
-            defaultValue = "-1")
-    public int maxRecords = -1;
-
-    @Option(
             names = "--export-max-concurrent-files",
             paramLabel = "NUM|AUTO",
             description =
