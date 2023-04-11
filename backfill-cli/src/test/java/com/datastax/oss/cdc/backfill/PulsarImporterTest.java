@@ -128,6 +128,7 @@ public class PulsarImporterTest {
         // then
         assertEquals(ExitStatus.STATUS_OK, status);
         Mockito.verify(sender, Mockito.times(2)).sendMutationAsync(abstractMutationCaptor.capture());
+        Mockito.verify(sender, Mockito.times(1)).close();
         List<AbstractMutation<TableMetadata>> pkValues = abstractMutationCaptor.getAllValues();
         assertEquals(2, pkValues.size());
         List<Object> allPkValues = pkValues.stream().flatMap(v-> Arrays.stream(v.getPkValues())).collect(Collectors.toList());
@@ -203,6 +204,7 @@ public class PulsarImporterTest {
         // then
         assertEquals(ExitStatus.STATUS_OK, status);
         Mockito.verify(sender, Mockito.times(2)).sendMutationAsync(abstractMutationCaptor.capture());
+        Mockito.verify(sender, Mockito.times(1)).close();
         List<AbstractMutation<TableMetadata>> pkValues = abstractMutationCaptor.getAllValues();
         assertEquals(2, pkValues.size());
         List<Object>[] allPkValues = pkValues.stream().map(v-> v.getPkValues()).map(Arrays::asList).toArray(List[]::new);
@@ -285,6 +287,7 @@ public class PulsarImporterTest {
         // verify that no more interactions with sender because no new records should've been sent.
         assertTrue(importFuture.isDone());
         assertThat(importFuture.get(), is(ExitStatus.STATUS_OK));
+        Mockito.verify(sender, Mockito.times(1)).close();
         Mockito.verifyNoMoreInteractions(sender);
     }
 
@@ -330,6 +333,7 @@ public class PulsarImporterTest {
 
         // then
         assertTrue(importFuture.isDone());
+        Mockito.verify(sender, Mockito.times(1)).close();
         assertThat(importFuture.get(), is(ExitStatus.STATUS_ABORTED_FATAL_ERROR));
     }
 
