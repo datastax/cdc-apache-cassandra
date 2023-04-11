@@ -59,6 +59,7 @@ You can collect Cassandra/DSE and Pulsar metrics into Prometheus, and build a Gr
 * Does not support range deletes
 * Does not sync data available before starting the CDC agent.
 * CQL column names must not match a [Pulsar primitive type](https://pulsar.apache.org/docs/next/schema-understand/#primitive-type) name (ex: INT32)
+* Does not support primary key only tables (ex: CREATE TABLE t (k int, c int, PRIMARY KEY (k, c)) WITH cdc=true;)
 
 ## Supported data types
 
