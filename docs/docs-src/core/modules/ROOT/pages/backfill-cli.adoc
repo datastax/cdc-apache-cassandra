@@ -1,0 +1,62 @@
+= CDC Backfill CLI
+
+When CDC is enabled on a topic, the data topic doesn't contain any data from before CDC was enabled.
+The backfill CLI solves this problem by exporting the table's primary key to a Comma Separated Values (CSV) file, storing the CSV file on disk, and sending the primary key from the CSV file to the event topic.
+The Cassandra Source Connector reads the primary key from the event topic and populates the data topic with historical data.
+
+Developers can also use the backfill CLI to trigger change events for downstream applications without having to insert new data.
+
+== Installation
+
+The CDC backfill CLI is distributed both as a jar file and as a Pulsar-admin extension.
+Both artifacts are built with Gradle.
+
+To build the CLI, run the following commands:
+[tabs]
+====
+Gradle::
++
+--
+[source,bash]
+----
+git clone git@github.com:datastax/cdc-apache-cassandra.git
+cd cdc-apache-cassandra
+./gradlew backfill-cli:assemble
+----
+--
+Result::
+--
+[source,bash]
+----
+BUILD SUCCESSFUL in 37s
+17 actionable tasks: 15 executed, 2 up-to-date
+----
+--
+====
+
+Gradle generates two main artifacts:
+* An uber jar file containing the CLI and all its dependencies: backfill-cli/build/libs/backfill-cli-<version>-all.jar
+* A NAR archive that wraps the CLI as a Pulsar-admin Extension: backfill-cli/build/libs/pulsar-cassandra-admin-<version>-nar.nar
+
+To run the standalone Java application, use the following command:
+[source,bash]
+----
+java -jar backfill-cli/build/libs/backfill-cli-<version>-all.jar --data-dir target/export --export-host 127.0.0.1:9042 \
+ --export-username cassandra --export-password cassandra --keyspace ks1 --table table1
+----
+
+To run the Pulsar-admin extension:
+. Move the generated NAR archive to the /cliextensions folder of your Pulsar installation (e.g. /pulsar/cliextensions).
+. Modify the client.conf file of your Pulsar installation to include: `customCommandFactories=cassandra-cdc`.
+. Run the following command:
+[source,bash]
+----
+./bin/pulsar-admin cassandra-cdc backfill --data-dir target/export --export-host 127.0.0.1:9042 \
+ --export-username cassandra --export-password cassandra --keyspace ks1 --table table1
+----
+
+== Parameters reference
+
+== client.conf parameters
+
+== Limitations
