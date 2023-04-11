@@ -19,7 +19,7 @@ On the CLI machine side:
  * Optional: If running the CLI as a Pulsar Admin Extension, Datastax Luna Streaming 2.10_3.1 or later required. It is enough to download the standalone Luna Streaming Shell found on https://github.com/datastax/pulsar/releases.  
  
 On the Cassandra/Pulsar side:
- * DataStax CDC for Apache Cassandra 2.2.4 or later
+ * DataStax CDC for Apache Cassandra 2.2.5 or later
 
 ## Building
 The CLI is build using Gradle. To build the CLI, run the following command:
