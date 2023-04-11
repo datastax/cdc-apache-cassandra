@@ -210,6 +210,13 @@ public class PulsarImporter {
                     LOGGER.warn("Error while closing CVS connector", e);
                 }
             }
+            if (mutationSender != null) {
+                try {
+                    mutationSender.close();
+                } catch (Exception e) {
+                    LOGGER.warn("Error while closing Pulsar mutation sender", e);
+                }
+            }
             printSummary(recordsCount);
         }
     }
