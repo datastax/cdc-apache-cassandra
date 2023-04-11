@@ -197,7 +197,6 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
                         .hashingScheme(HashingScheme.Murmur3_32Hash)
                         .blockIfQueueFull(true)
                         .maxPendingMessages(config.pulsarMaxPendingMessages)
-                        .maxPendingMessagesAcrossPartitions(config.pulsarMaxPendingMessagesAcrossPartitions)
                         .autoUpdatePartitions(true);
 
                 if (config.pulsarBatchDelayInMs > 0) {

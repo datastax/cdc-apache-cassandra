@@ -74,7 +74,7 @@ public class AgentParametersTest {
                 PULSAR_BATCH_DELAY_IN_MS + "=20," +
                 PULSAR_KEY_BASED_BATCHER + "=true," +
                 PULSAR_MAX_PENDING_MESSAGES + "=20," +
-                PULSAR_MAX_PENDING_MESSAGES_ACROSS_PARTITIONS + "=200," +
+                "pulsarMaxPendingMessagesAcrossPartitions" + "=200," + // make sure if someone is passing the deprecated parameter, AgentConfig will not fail
                 PULSAR_AUTH_PLUGIN_CLASS_NAME + "=MyAuthPlugin," +
                 PULSAR_AUTH_PARAMS + "=x:y\\,z:t," +
                 SSL_ALLOW_INSECURE_CONNECTION + "=true," +
@@ -91,7 +91,6 @@ public class AgentParametersTest {
         assertEquals(20L, config.pulsarBatchDelayInMs);
         assertTrue(config.pulsarKeyBasedBatcher);
         assertEquals(20, config.pulsarMaxPendingMessages);
-        assertEquals(200, config.pulsarMaxPendingMessagesAcrossPartitions);
 
         // Pulsar Auth
         assertEquals("MyAuthPlugin", config.pulsarAuthPluginClassName);
