@@ -98,7 +98,7 @@ $ pulsar-admin source create \
   --archive /path/to/pulsar-cassandra-source-<version>.nar \
   --tenant public \
   --namespace default \
-  --destination-topic-name <keyspace>.<table> \
+  --destination-topic-name persistent://public/default/data-<keyspace>.<table> \
   --parallelism 1 \
   --source-config {
   	"events.topic": "persistent://public/default/events-<keyspace>.<table>",
