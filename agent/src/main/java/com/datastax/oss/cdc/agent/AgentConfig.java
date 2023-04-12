@@ -297,6 +297,14 @@ public class AgentConfig {
                     1000, "CDC_PULSAR_MAX_PENDING_MESSAGES", Setting::getEnvAsInteger,
                     "Integer", "pulsar", 4);
 
+    public static final String PULSAR_MEMORY_LIMIT_BYTES= "pulsarMemoryLimitBytes";
+    public long pulsarMemoryLimitBytes;
+    public static final Setting<Long> PULSAR_MEMORY_LIMIT_BYTES_SETTING =
+            new Setting<>(PULSAR_MEMORY_LIMIT_BYTES, Platform.PULSAR, (c, s) -> c.pulsarMemoryLimitBytes = Long.parseLong(s), c -> c.pulsarMemoryLimitBytes,
+                    "Limit of client memory usage (in bytes). The 0 default means memory limit is disabled.",
+                    0L, "CDC_PULSAR_MEMORY_LIMIT_BYTES", Setting::getEnvAsLong,
+                    "Long", "pulsar", 5);
+
     public static final String PULSAR_AUTH_PLUGIN_CLASS_NAME = "pulsarAuthPluginClassName";
     public String pulsarAuthPluginClassName;
     public static final Setting<String> PULSAR_AUTH_PLUGIN_CLASS_NAME_SETTING =
@@ -343,6 +351,7 @@ public class AgentConfig {
         set.add(PULSAR_MAX_PENDING_MESSAGES_SETTING);
         set.add(PULSAR_AUTH_PLUGIN_CLASS_NAME_SETTING);
         set.add(PULSAR_AUTH_PARAMS_SETTING);
+        set.add(PULSAR_MEMORY_LIMIT_BYTES_SETTING);
         settings = Collections.unmodifiableSet(set);
 
         Map<String, Setting<?>> map = new HashMap<>();
@@ -375,6 +384,7 @@ public class AgentConfig {
         this.pulsarMaxPendingMessages = PULSAR_MAX_PENDING_MESSAGES_SETTING.initDefault();
         this.pulsarAuthPluginClassName = PULSAR_AUTH_PLUGIN_CLASS_NAME_SETTING.initDefault();
         this.pulsarAuthParams = PULSAR_AUTH_PARAMS_SETTING.initDefault();
+        this.pulsarMemoryLimitBytes = PULSAR_MEMORY_LIMIT_BYTES_SETTING.initDefault();
     }
 
     public static void main(String[] args) {

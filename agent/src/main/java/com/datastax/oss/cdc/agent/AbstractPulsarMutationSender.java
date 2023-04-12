@@ -92,6 +92,7 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
         try {
             ClientBuilder clientBuilder = PulsarClient.builder()
                     .serviceUrl(config.pulsarServiceUrl)
+                    .memoryLimit(config.pulsarMemoryLimitBytes, SizeUnit.BYTES)
                     .enableTcpNoDelay(false);
 
             if (config.pulsarServiceUrl.startsWith("pulsar+ssl://")) {
