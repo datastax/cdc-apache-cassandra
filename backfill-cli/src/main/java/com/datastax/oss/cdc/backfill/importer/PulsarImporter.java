@@ -172,11 +172,9 @@ public class PulsarImporter {
                             }
                             return newVal;
                         }).collect(Collectors.toList());
-                        // tsMicro is used to emit e2e metrics by the connectors, if you carry over the C* WRITETIME
-                        // of the source records, the metric will be greatly skewed because those records are historical.
-                        // For now, will mimic the metric by using now()
-                        // TODO: Disable the e2e latency metric if the records are emitted from cdc back-filling CLI
-                        final long tsMicro = Instant.now().toEpochMilli() * 1000;
+                        // Disables the e2e latency metric because the {@link com.datastax.oss.cdc.Constants.WRITETIME}
+                        // property won't be set
+                        final long tsMicro = -1;
                         final AbstractMutation<TableMetadata> mutation =
                                 createMutation(pkValues.toArray(), this.exportedTable.getCassandraTable(), tsMicro);
                         sendMutationAsync(mutation);
