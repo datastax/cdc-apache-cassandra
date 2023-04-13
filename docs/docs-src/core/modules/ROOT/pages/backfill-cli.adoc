@@ -56,6 +56,59 @@ To run the Pulsar-admin extension:
 ----
 
 == Parameters reference
+[cols=2*,options="header"]
+|===
+|Parameter
+|Behavior
+
+|--data-dir, -d
+|The directory where data will be exported to and imported from
+|--events-topic-prefix
+|The event topic name prefix. The `<keyspace_name>.<table_name>` is
+appended to that prefix to build the topic name. The default value
+is `events-`.
+|--export-bundle
+|The path to a secure connect bundle to connect to the Cassandra
+cluster, if that cluster is a DataStax Astra cluster. Options
+|--export-host and --export-bundle are mutually exclusive.
+|--export-consistency
+|The consistency level to use when exporting data. The default is
+LOCAL_QUORUM.
+|--export-dsbulk-option
+|An extra DSBulk option to use when exporting. Any valid DSBulk
+option can be specified here, and it will passed as is to the
+DSBulk process. DSBulk options, including driver options, must be
+passed as
+'--long.option1.name=<value1>|--long.option2.name=<value2>'. Short
+options are not supported.
+|--export-host
+|The host name or IP and, optionally, the port of a node from the
+Cassandra cluster. If the port is not specified, it will default
+to 9042.
+|--export-max-concurrent-files
+|The maximum number of concurrent files to write to. Must be a
+positive number or the special value AUTO. The default is AUTO.
+|--export-max-concurrent-queries
+|The maximum number of concurrent queries to execute. Must be a
+positive number or the special value AUTO. The default is AUTO.
+|--export-password
+|The password to use to authenticate against the origin cluster.
+|--export-protocol-version
+|The protocol version to use to connect to the Cassandra cluster,
+e.g. 'V4'. If not specified, the driver will negotiate the highest
+version supported by both the client and the server.
+|--export-username
+|The username to use to authenticate against the origin cluster.
+|--keyspace, -k
+|The name of the keyspace where the table to be exported exists
+|--max-rows-per-second
+|The maximum number of rows per second to read from the Cassandra
+table. Setting this option to any negative value or zero will
+disable it. The default is -1.
+Default: 0
+|--table, -t
+|The name of the table to export data from for cdc back filling
+|===
 
 == client.conf parameters
 
