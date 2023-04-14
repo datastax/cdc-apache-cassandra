@@ -299,7 +299,7 @@ disable it. The default is -1.
 |Displays version info.
 |===
 
-== client.conf parameters
+== Client.conf parameters
 .Client.conf parameters
 [cols=2*,options="header"]
 |===
