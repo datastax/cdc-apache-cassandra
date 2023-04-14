@@ -142,7 +142,7 @@ Created successfully
 +
 [source,bash]
 ----
-bin/pulsar-client consume -s subsc -n 0 -st auto_consume -p Earliest persistent://public/default/data-ks1.table1
+./bin/pulsar-client consume -s subsc -n 0 -st auto_consume -p Earliest persistent://public/default/data-ks1.table1
 ----
 +
 . Now everything is set up: you have a Cassandra table with pre-existing data, a Pulsar topic with a CDC connector, and a Pulsar consumer subscription.
