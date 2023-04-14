@@ -6,6 +6,7 @@ The Cassandra Source Connector reads the primary key from the event topic and po
 
 Developers can also use the backfill CLI to trigger change events for downstream applications without having to insert new data.
 
+[#install]
 == Installation
 
 The CDC backfill CLI is distributed both as a jar file and as a Pulsar-admin extension.
@@ -63,7 +64,13 @@ To run the Pulsar-admin extension:
 
 == Test
 
-This test event will confirm your CDC backfill is working correctly.
+This test quickly confirms your CDC backfill is working correctly.
+
+*Prerequisites:*
+
+* A running https://docs.datastax.com/en/installing/docs/installTARdse.html[DSE Cassandra cluster]
+* A running Pulsar cluster (https://pulsar.apache.org/docs/getting-started-standalone/[standalone] is fine)
+* Backfill CLI built with Gradle (see <<install>>)
 
 . Start DSE Cassandra from the https://docs.datastax.com/en/installing/docs/installTARdse.html[installation directory].
 +
