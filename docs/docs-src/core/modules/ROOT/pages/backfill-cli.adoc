@@ -112,7 +112,7 @@ cqlsh> INSERT INTO ks1.table1 (id,val) VALUES ('3', 'val3');
 +
 [source,bash]
 ----
-bin/pulsar standalone
+./bin/pulsar standalone
 ----
 +
 . Create a Cassandra source connector in Pulsar:
