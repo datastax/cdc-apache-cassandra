@@ -223,59 +223,120 @@ key:[AjE=], properties:[writetime=1681487267246000], content:{key={id=1}, value=
 ====
 
 == Parameters reference
+.CDC backfill CLI parameters
 [cols=2*,options="header"]
 |===
 |Parameter
 |Description
 
-|--data-dir, -d
-|The directory where data will be exported to and imported from
-|--events-topic-prefix
-|The event topic name prefix. The `<keyspace_name>.<table_name>` is
-appended to that prefix to build the topic name. The default value
-is `events-`.
-|--export-bundle
+|--data-dir=PATH
+|The directory where data will be exported to and imported from. The
+default is a 'data' subdirectory in the current working directory.
+The data directory will be created if it does not exist. Tables will
+be exported in subdirectories of the data directory specified here;
+there will be one subdirectory per keyspace inside the data
+directory, then one subdirectory per table inside each keyspace
+directory.
+|--help, -h
+|Displays this help message
+|--dsbulk-log-dir=PATH, -l
+|The directory where DSBulk should store its logs. The default is a
+'logs' subdirectory in the current working directory. This
+subdirectory will be created if it does not exist. Each DSBulk
+operation will create a subdirectory inside the log directory
+specified here.
+|--export-bundle=PATH
 |The path to a secure connect bundle to connect to the Cassandra
 cluster, if that cluster is a DataStax Astra cluster. Options
 --export-host and --export-bundle are mutually exclusive.
-|--export-consistency
+|--export-consistency=CONSISTENCY
 |The consistency level to use when exporting data. The default is
 LOCAL_QUORUM.
-|--export-dsbulk-option
-|An extra DSBulk option to use when exporting. Any valid DSBulk
-option can be specified here, and it will passed as is to the
-DSBulk process. DSBulk options, including driver options, must be
-passed as '--long.option1.name=<value1> --long.option2.name=<value2>'. Short
-options are not supported.
-|--export-host
-|The host name or IP and, optionally, the port of a node from the
-Cassandra cluster. If the port is not specified, it will default
-to 9042.
-|--export-max-concurrent-files
-|The maximum number of concurrent files to write to. Must be a
-positive number or the special value AUTO. The default is AUTO.
-|--export-max-concurrent-queries
+|--export-max-concurrent-files=NUM\|AUTO
+|The maximum number of concurrent files to write to. Must be a positive
+number or the special value AUTO. The default is AUTO.
+|--export-max-concurrent-queries=NUM\|AUTO
 |The maximum number of concurrent queries to execute. Must be a
 positive number or the special value AUTO. The default is AUTO.
+|--export-splits=NUM\|NC
+|The maximum number of token range queries to generate. Use the NC
+syntax to specify a multiple of the number of available cores, e.g.
+8C = 8 times the number of available cores. The default is 8C. This
+is an advanced setting; you should rarely need to modify the default
+value.
+|--export-dsbulk-option=OPT=VALUE
+|An extra DSBulk option to use when exporting. Any valid DSBulk option
+can be specified here, and it will passed as is to the DSBulk
+process. DSBulk options, including driver options, must be passed as
+'--long.option.name=<value>'. Short options are not supported.
+|--export-host=HOST[:PORT]
+|The host name or IP and, optionally, the port of a node from the
+Cassandra cluster. If the port is not specified, it will default to
+9042. This option can be specified multiple times. Options
+--export-host and --export-bundle are mutually exclusive.
 |--export-password
 |The password to use to authenticate against the origin cluster.
-|--export-protocol-version
-|The protocol version to use to connect to the Cassandra cluster,
-e.g. 'V4'. If not specified, the driver will negotiate the highest
+Options --export-username and --export-password must be provided
+together, or not at all. Omit the parameter value to be prompted for
+the password interactively.
+|--export-protocol-version=VERSION
+|The protocol version to use to connect to the Cassandra cluster, e.g.
+'V4'. If not specified, the driver will negotiate the highest
 version supported by both the client and the server.
-|--export-username
+|--export-username=STRING
 |The username to use to authenticate against the origin cluster.
-|--keyspace, -k
+Options --export-username and --export-password must be provided
+together, or not at all.
+|--keyspace=<keyspace>, -k
 |The name of the keyspace where the table to be exported exists
-|--max-rows-per-second
+|--max-rows-per-second=PATH
 |The maximum number of rows per second to read from the Cassandra
 table. Setting this option to any negative value or zero will
 disable it. The default is -1.
-Default: 0
-|--table, -t
+|--table=<table>, -t
 |The name of the table to export data from for cdc back filling
+|--version, -v
+|Displays version info.
 |===
 
 == client.conf parameters
+.Client.conf parameters
+[cols=2*,options="header"]
+|===
+|Parameter
+|Description
+|--events-topic-prefix=<topicPrefix>
+|The event topic name prefix. The `<keyspace_name>.<table_name>` is appended to that prefix to build the topic name.
+|--pulsar-auth-params=<pulsarAuthParams>
+|The Pulsar authentication parameters.
+|--pulsar-auth-plugin-class-name=<pulsarAuthPluginClassName>
+|The Pulsar authentication plugin class name.
+|--pulsar-url=<pulsarServiceUrl>
+|The Pulsar broker service URL.
+|--pulsar-ssl-provider=<sslProvider>
+|The SSL/TLS provider to use.
+|--pulsar-ssl-truststore-path=<sslTruststorePath>
+|The path to the SSL/TLS truststore file.
+|--pulsar-ssl-truststore-password=<sslTruststorePassword>
+|The password for the SSL/TLS truststore.
+|--pulsar-ssl-truststore-type=<sslTruststoreType>
+|The type of the SSL/TLS truststore.
+|--pulsar-ssl-keystore-path=<sslKeystorePath>
+|The path to the SSL/TLS keystore file.
+|--pulsar-ssl-keystore-password=<sslKeystorePassword>
+|The password for the SSL/TLS keystore.
+|--pulsar-ssl-cipher-suites=<sslCipherSuites>
+|Defines one or more cipher suites to use for negotiating the SSL/TLS connection.
+|--pulsar-ssl-enabled-protocols=<sslEnabledProtocols>
+|Enabled SSL/TLS protocols
+|--pulsar-ssl-allow-insecure-connections
+|Allows insecure connections to servers whose certificate has not been signed by an approved CA. You should always disable `sslAllowInsecureConnection` in production environments.
+|--pulsar-ssl-enable-hostname-verification
+|Enable the server hostname verification.
+|--pulsar-ssl-tls-trust-certs-path=<tlsTrustCertsFilePath>
+|The path to the trusted TLS certificate file.
+|--pulsar-ssl-use-key-store-tls
+|If TLS is enabled, specifies whether to use KeyStore type as TLS configuration parameter.
+|===
 
 == Limitations
