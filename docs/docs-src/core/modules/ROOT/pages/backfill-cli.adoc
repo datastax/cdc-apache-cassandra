@@ -12,6 +12,7 @@ The CDC backfill CLI is distributed both as a jar file and as a Pulsar-admin ext
 Both artifacts are built with Gradle.
 
 To build the CLI, run the following commands:
++
 [tabs]
 ====
 Gradle::
@@ -24,7 +25,9 @@ cd cdc-apache-cassandra
 ./gradlew backfill-cli:assemble
 ----
 --
++
 Result::
++
 --
 [source,bash]
 ----
