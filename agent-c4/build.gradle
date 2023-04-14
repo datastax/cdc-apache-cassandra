@@ -80,7 +80,7 @@ test {
     systemProperty "projectVersion", project.version
 }
 
-dockerPrepare.dependsOn(shadowJar)
+dockerPrepare.dependsOn(jar, shadowJar)
 docker {
     name "${dockerRepo}cassandra:${cassandra4Version}-cdc"
     files "$buildDir/libs/", "src/docker/"

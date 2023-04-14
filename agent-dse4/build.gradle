@@ -90,7 +90,7 @@ shadowJar {
 jar.enabled = true
 assemble.dependsOn(shadowJar)
 
-dockerPrepare.dependsOn(shadowJar)
+dockerPrepare.dependsOn(jar, shadowJar)
 docker {
     name "${dockerRepo}dse4-server:${dse4Version}-cdc"
     files "$buildDir/libs/", "src/docker/"
