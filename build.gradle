@@ -5,7 +5,6 @@ plugins {
     id 'java'
     id 'idea'
     id 'application'
-    id "net.ltgt.apt-idea" version "0.21"
     id "com.dorongold.task-tree" version "2.1.0"
     id "jacoco"
     id "com.gorylenko.gradle-git-properties" version "2.3.1"
@@ -16,7 +15,7 @@ plugins {
     id 'com.github.jk1.dependency-license-report'
     id "com.github.johnrengelman.shadow" apply false
     id "io.github.lhotari.gradle-nar-plugin" apply false
-    id 'com.palantir.docker' version '0.30.0' apply false
+    id 'com.palantir.docker' version '0.35.0' apply false
     id 'docker-compose' apply false
 }
 
@@ -24,7 +23,6 @@ allprojects {
     repositories {
         mavenLocal()
         mavenCentral()
-        jcenter() // or Maven central, required for Lombok dependency
         maven { url "https://oss.sonatype.org/content/repositories/snapshots" }
         maven { url "https://packages.confluent.io/maven/" }
         maven { url "https://repo.typesafe.com/typesafe/releases/" }
@@ -112,9 +110,9 @@ subprojects {
 
     jacocoTestReport {
         reports {
-            html.enabled = true
-            xml.enabled = true
-            csv.enabled = false
+            html.required = true
+            xml.required = true
+            csv.required = false
         }
     }
 

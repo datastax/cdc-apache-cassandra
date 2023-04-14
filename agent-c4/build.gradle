@@ -8,11 +8,9 @@ plugins {
 }
 
 application {
-    mainClassName = "$mainClassName"
+    mainClass = "$mainClassName"
 }
 
-configurations.implementation.canBeResolved = true
-configurations.compileOnly.canBeResolved = true
 jar {
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
     manifest {
