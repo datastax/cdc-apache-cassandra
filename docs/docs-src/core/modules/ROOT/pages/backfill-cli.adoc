@@ -147,8 +147,11 @@ Run the backfill CLI to hydrate the data topic with the existing data in the Cas
 Success!
 Your data topic is now populated with the existing data from the Cassandra table.
 . Check your Pulsar subscription as well to ensure Pulsar received the change events:
-%collapsible
+.You should see the following output:
+[%collapsible]
 ====
+[source,plain]
+----
 2023-04-14T11:47:48,652-0400 [main] INFO  org.apache.pulsar.client.impl.schema.AutoConsumeSchema - Configure topic schema \x00\x00\x00\x00\x00\x00\x00\x00 for topic persistent://public/default/data-ks1.table1 : {"key":{"name":"table1","schema":{"type":"record","name":"table1","namespace":"ks1","doc":"Table ks1.table1","fields":[{"name":"id","type":"string"}]},"type":"AVRO","timestamp":0,"properties":{}},"value":{"name":"table1","schema":{"type":"record","name":"table1","namespace":"ks1","doc":"Table ks1.table1","fields":[{"name":"val","type":["null","string"]}]},"type":"AVRO","timestamp":0,"properties":{}}}
 2023-04-14T11:47:48,654-0400 [main] INFO  org.apache.pulsar.client.impl.schema.generic.MultiVersionGenericAvroReader - Load schema reader for version(0), schema is : {
   "name": "table1",
@@ -195,6 +198,7 @@ key:[AjM=], properties:[writetime=1681487267244000], content:{key={id=3}, value=
 ----- got message -----
 key:[AjE=], properties:[writetime=1681487267246000], content:{key={id=1}, value={val=val1}}
 2023-04-14T11:48:18,905-0400 [pulsar-timer-6-1] INFO  org.apache.pulsar.client.impl.ConsumerStatsRecorderImpl - [persistent://public/default/data-ks1.table1] [subsc] [5759a] Prefetched messages: 0 --- Consume throughput received: 0.05 msgs/s --- 0.00 Mbit/s --- Ack sent rate: 0.05 ack/s --- Failed messages: 0 --- batch messages: 0 ---Failed acks: 0
+----
 ====
 
 == Parameters reference
