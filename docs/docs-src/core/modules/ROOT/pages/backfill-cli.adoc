@@ -229,7 +229,7 @@ is `events-`.
 |--export-bundle
 |The path to a secure connect bundle to connect to the Cassandra
 cluster, if that cluster is a DataStax Astra cluster. Options
-|--export-host and --export-bundle are mutually exclusive.
+--export-host and --export-bundle are mutually exclusive.
 |--export-consistency
 |The consistency level to use when exporting data. The default is
 LOCAL_QUORUM.
@@ -237,8 +237,7 @@ LOCAL_QUORUM.
 |An extra DSBulk option to use when exporting. Any valid DSBulk
 option can be specified here, and it will passed as is to the
 DSBulk process. DSBulk options, including driver options, must be
-passed as
-'--long.option1.name=<value1>|--long.option2.name=<value2>'. Short
+passed as '--long.option1.name=<value1> --long.option2.name=<value2>'. Short
 options are not supported.
 |--export-host
 |The host name or IP and, optionally, the port of a node from the
