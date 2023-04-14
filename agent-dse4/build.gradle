@@ -8,7 +8,7 @@ plugins {
 }
 
 application {
-    mainClassName = "$mainClassName"
+    mainClass = "$mainClassName"
 }
 
 jar {

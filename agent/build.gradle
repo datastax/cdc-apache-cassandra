@@ -18,6 +18,6 @@ dependencies {
 
 // generate agent parameters documentation
 application {
-    mainClassName = "com.datastax.oss.cdc.agent.AgentConfig"
+    mainClass = "com.datastax.oss.cdc.agent.AgentConfig"
 }
 
