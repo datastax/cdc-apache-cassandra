@@ -71,7 +71,11 @@ dependencies {
 
     testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
     testImplementation project(':testcontainers')
-    testImplementation("${pulsarGroup}:pulsar-client:${pulsarVersion}")
+    testImplementation("${pulsarGroup}:pulsar-client") {
+        version {
+            strictly("${pulsarVersion}")
+        }
+    }
 
     nar "${pulsarGroup}:pulsar-io:${pulsarVersion}"
 }
