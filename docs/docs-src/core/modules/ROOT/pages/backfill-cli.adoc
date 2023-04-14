@@ -225,7 +225,7 @@ key:[AjE=], properties:[writetime=1681487267246000], content:{key={id=1}, value=
 [cols=2*,options="header"]
 |===
 |Parameter
-|Behavior
+|Description
 
 |--data-dir, -d
 |The directory where data will be exported to and imported from
