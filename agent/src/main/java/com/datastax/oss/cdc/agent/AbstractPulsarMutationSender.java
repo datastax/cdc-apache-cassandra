@@ -92,6 +92,7 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
         try {
             ClientBuilder clientBuilder = PulsarClient.builder()
                     .serviceUrl(config.pulsarServiceUrl)
+                    .memoryLimit(config.pulsarMemoryLimitBytes, SizeUnit.BYTES)
                     .enableTcpNoDelay(false);
 
             if (config.pulsarServiceUrl.startsWith("pulsar+ssl://")) {
@@ -197,7 +198,6 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
                         .hashingScheme(HashingScheme.Murmur3_32Hash)
                         .blockIfQueueFull(true)
                         .maxPendingMessages(config.pulsarMaxPendingMessages)
-                        .maxPendingMessagesAcrossPartitions(config.pulsarMaxPendingMessagesAcrossPartitions)
                         .autoUpdatePartitions(true);
 
                 if (config.pulsarBatchDelayInMs > 0) {
