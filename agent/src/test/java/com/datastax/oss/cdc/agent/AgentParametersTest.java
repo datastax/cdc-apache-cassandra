@@ -71,10 +71,11 @@ public class AgentParametersTest {
     public void testConfigurePulsar() {
         String agentArgs = COMMON_CONFIG +
                 PULSAR_SERVICE_URL + "=pulsar+ssl://mypulsar:6650\\,localhost:6651\\,localhost:6652," +
+                PULSAR_MEMORY_LIMIT_BYTES + "=64," +
                 PULSAR_BATCH_DELAY_IN_MS + "=20," +
                 PULSAR_KEY_BASED_BATCHER + "=true," +
                 PULSAR_MAX_PENDING_MESSAGES + "=20," +
-                PULSAR_MAX_PENDING_MESSAGES_ACROSS_PARTITIONS + "=200," +
+                "pulsarMaxPendingMessagesAcrossPartitions" + "=200," + // make sure if someone is passing the deprecated parameter, AgentConfig will not fail
                 PULSAR_AUTH_PLUGIN_CLASS_NAME + "=MyAuthPlugin," +
                 PULSAR_AUTH_PARAMS + "=x:y\\,z:t," +
                 SSL_ALLOW_INSECURE_CONNECTION + "=true," +
@@ -91,7 +92,7 @@ public class AgentParametersTest {
         assertEquals(20L, config.pulsarBatchDelayInMs);
         assertTrue(config.pulsarKeyBasedBatcher);
         assertEquals(20, config.pulsarMaxPendingMessages);
-        assertEquals(200, config.pulsarMaxPendingMessagesAcrossPartitions);
+        assertEquals(64L, config.pulsarMemoryLimitBytes);
 
         // Pulsar Auth
         assertEquals("MyAuthPlugin", config.pulsarAuthPluginClassName);
@@ -107,9 +108,11 @@ public class AgentParametersTest {
         tenantInfo.put(SSL_ALLOW_INSECURE_CONNECTION, "true");
         tenantInfo.put(SSL_HOSTNAME_VERIFICATION_ENABLE, "true");
         tenantInfo.put(TLS_TRUST_CERTS_FILE_PATH, "/test.p12");
+        tenantInfo.put(PULSAR_MEMORY_LIMIT_BYTES, "64");
 
         AgentConfig config = AgentConfig.create(Platform.PULSAR, tenantInfo);
         assertEquals("pulsar+ssl://mypulsar:6650,localhost:6651,localhost:6652", config.pulsarServiceUrl);
+        assertEquals(64L, config.pulsarMemoryLimitBytes);
 
         // Pulsar Auth
         assertEquals("MyAuthPlugin", config.pulsarAuthPluginClassName);
@@ -129,6 +132,7 @@ public class AgentParametersTest {
     @SetEnvironmentVariable(key = "CDC_PULSAR_BATCH_DELAY_IN_MS", value = "555")
     @SetEnvironmentVariable(key = "CDC_PULSAR_KEY_BASED_BATCHER", value = "true")
     @SetEnvironmentVariable(key = "CDC_PULSAR_MAX_PENDING_MESSAGES", value = "555")
+    @SetEnvironmentVariable(key = "CDC_PULSAR_MEMORY_LIMIT_BYTES", value = "64")
     public void testConfigurePulsarFromEnvVar() {
         AgentConfig config = AgentConfig.create(Platform.PULSAR, "");
         assertEquals("pulsar+ssl://mypulsar:6650,localhost:6651,localhost:6652", config.pulsarServiceUrl);
@@ -139,6 +143,7 @@ public class AgentParametersTest {
         assertEquals(555L, config.pulsarBatchDelayInMs);
         assertEquals(true, config.pulsarKeyBasedBatcher);
         assertEquals(555, config.pulsarMaxPendingMessages);
+        assertEquals(64L, config.pulsarMemoryLimitBytes);
 
         // Pulsar Auth
         assertEquals("MyAuthPlugin", config.pulsarAuthPluginClassName);

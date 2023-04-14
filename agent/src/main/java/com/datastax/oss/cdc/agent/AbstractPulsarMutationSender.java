@@ -92,6 +92,7 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
         try {
             ClientBuilder clientBuilder = PulsarClient.builder()
                     .serviceUrl(config.pulsarServiceUrl)
+                    .memoryLimit(config.pulsarMemoryLimitBytes, SizeUnit.BYTES)
                     .enableTcpNoDelay(false);
 
             if (config.pulsarServiceUrl.startsWith("pulsar+ssl://")) {
@@ -197,7 +198,6 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
                         .hashingScheme(HashingScheme.Murmur3_32Hash)
                         .blockIfQueueFull(true)
                         .maxPendingMessages(config.pulsarMaxPendingMessages)
-                        .maxPendingMessagesAcrossPartitions(config.pulsarMaxPendingMessagesAcrossPartitions)
                         .autoUpdatePartitions(true);
 
                 if (config.pulsarBatchDelayInMs > 0) {
@@ -251,14 +251,17 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
             Producer<KeyValue<byte[], MutationValue>> producer = getProducer(mutation);
             SchemaAndWriter schemaAndWriter = getAvroKeySchema(mutation);
             TypedMessageBuilder<KeyValue<byte[], MutationValue>> messageBuilder = producer.newMessage();
-            return messageBuilder
+            messageBuilder = messageBuilder
                     .value(new KeyValue(
                             serializeAvroGenericRecord(buildAvroKey(schemaAndWriter.schema, mutation), schemaAndWriter.writer),
                             mutation.mutationValue()))
-                    .property(Constants.WRITETIME, mutation.getTs() + "")
                     .property(Constants.SEGMENT_AND_POSITION, mutation.getSegment() + ":" + mutation.getPosition())
-                    .property(Constants.TOKEN, mutation.getToken().toString())
-                    .sendAsync();
+                    .property(Constants.TOKEN, mutation.getToken().toString());
+            // a WRITETIME property is only used by the connector to emit e2e latency metric, skip if the mutation is not timestamped
+            if (mutation.getTs() != -1) {
+                messageBuilder = messageBuilder.property(Constants.WRITETIME, mutation.getTs() + "");
+            }
+            return messageBuilder.sendAsync();
         } catch(Exception e) {
             CompletableFuture future = new CompletableFuture<>();
             future.completeExceptionally(e);

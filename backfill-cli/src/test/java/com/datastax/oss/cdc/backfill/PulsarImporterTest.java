@@ -65,6 +65,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -131,6 +132,8 @@ public class PulsarImporterTest {
         Mockito.verify(sender, Mockito.times(1)).close();
         List<AbstractMutation<TableMetadata>> pkValues = abstractMutationCaptor.getAllValues();
         assertEquals(2, pkValues.size());
+        assertEquals(-1L, pkValues.get(0).getTs());
+        assertEquals(-1L, pkValues.get(1).getTs());
         List<Object> allPkValues = pkValues.stream().flatMap(v-> Arrays.stream(v.getPkValues())).collect(Collectors.toList());
         assertThat(allPkValues, containsInAnyOrder("id3", "id8"));
     }

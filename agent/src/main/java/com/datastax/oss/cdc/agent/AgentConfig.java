@@ -297,13 +297,13 @@ public class AgentConfig {
                     1000, "CDC_PULSAR_MAX_PENDING_MESSAGES", Setting::getEnvAsInteger,
                     "Integer", "pulsar", 4);
 
-    public static final String PULSAR_MAX_PENDING_MESSAGES_ACROSS_PARTITIONS= "pulsarMaxPendingMessagesAcrossPartitions";
-    public int pulsarMaxPendingMessagesAcrossPartitions;
-    public static final Setting<Integer> PULSAR_MAX_PENDING_MESSAGES_ACROSS_PARTITIONS_SETTING =
-            new Setting<>(PULSAR_MAX_PENDING_MESSAGES_ACROSS_PARTITIONS, Platform.PULSAR, (c, s) -> c.pulsarMaxPendingMessagesAcrossPartitions = Integer.parseInt(s), c -> c.pulsarMaxPendingMessagesAcrossPartitions,
-                    "The Pulsar maximum number of pending messages across partitions.",
-                    50000, "CDC_PULSAR_MAX_PENDING_MESSAGES_ACROSS_PARTITIONS", Setting::getEnvAsInteger,
-                    "Integer", "pulsar", 5);
+    public static final String PULSAR_MEMORY_LIMIT_BYTES= "pulsarMemoryLimitBytes";
+    public long pulsarMemoryLimitBytes;
+    public static final Setting<Long> PULSAR_MEMORY_LIMIT_BYTES_SETTING =
+            new Setting<>(PULSAR_MEMORY_LIMIT_BYTES, Platform.PULSAR, (c, s) -> c.pulsarMemoryLimitBytes = Long.parseLong(s), c -> c.pulsarMemoryLimitBytes,
+                    "Limit of client memory usage (in bytes). The 0 default means memory limit is disabled.",
+                    0L, "CDC_PULSAR_MEMORY_LIMIT_BYTES", Setting::getEnvAsLong,
+                    "Long", "pulsar", 5);
 
     public static final String PULSAR_AUTH_PLUGIN_CLASS_NAME = "pulsarAuthPluginClassName";
     public String pulsarAuthPluginClassName;
@@ -349,9 +349,9 @@ public class AgentConfig {
         set.add(PULSAR_BATCH_BATCH_DELAY_IN_MS_SETTING);
         set.add(PULSAR_KEY_BASED_BATCHER_SETTING);
         set.add(PULSAR_MAX_PENDING_MESSAGES_SETTING);
-        set.add(PULSAR_MAX_PENDING_MESSAGES_ACROSS_PARTITIONS_SETTING);
         set.add(PULSAR_AUTH_PLUGIN_CLASS_NAME_SETTING);
         set.add(PULSAR_AUTH_PARAMS_SETTING);
+        set.add(PULSAR_MEMORY_LIMIT_BYTES_SETTING);
         settings = Collections.unmodifiableSet(set);
 
         Map<String, Setting<?>> map = new HashMap<>();
@@ -382,9 +382,9 @@ public class AgentConfig {
         this.pulsarBatchDelayInMs = PULSAR_BATCH_BATCH_DELAY_IN_MS_SETTING.initDefault();
         this.pulsarKeyBasedBatcher = PULSAR_KEY_BASED_BATCHER_SETTING.initDefault();
         this.pulsarMaxPendingMessages = PULSAR_MAX_PENDING_MESSAGES_SETTING.initDefault();
-        this.pulsarMaxPendingMessagesAcrossPartitions = PULSAR_MAX_PENDING_MESSAGES_ACROSS_PARTITIONS_SETTING.initDefault();
         this.pulsarAuthPluginClassName = PULSAR_AUTH_PLUGIN_CLASS_NAME_SETTING.initDefault();
         this.pulsarAuthParams = PULSAR_AUTH_PARAMS_SETTING.initDefault();
+        this.pulsarMemoryLimitBytes = PULSAR_MEMORY_LIMIT_BYTES_SETTING.initDefault();
     }
 
     public static void main(String[] args) {
@@ -509,7 +509,10 @@ public class AgentConfig {
                     throw new IllegalArgumentException(String.format("Unsupported parameter '%s' for the %s platform ", key, platform));
                 }
                 setting.initializer.apply(this, value);
-            } else {
+            } else if ("pulsarMaxPendingMessagesAcrossPartitions".equals(key)) {
+                log.warn("The 'pulsarMaxPendingMessagesAcrossPartitions' parameter is deprecated, the config will be ignored");
+            }
+            else {
                 throw new RuntimeException(String.format("Unknown parameter '%s'", key));
             }
         }
