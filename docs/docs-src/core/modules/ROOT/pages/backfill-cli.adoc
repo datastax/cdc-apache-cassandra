@@ -12,7 +12,6 @@ The CDC backfill CLI is distributed both as a jar file and as a Pulsar-admin ext
 Both artifacts are built with Gradle.
 
 To build the CLI, run the following commands:
-+
 [tabs]
 ====
 Gradle::
@@ -38,8 +37,11 @@ BUILD SUCCESSFUL in 37s
 ====
 
 Gradle generates two main artifacts:
+
 * An uber jar file containing the CLI and all its dependencies: backfill-cli/build/libs/backfill-cli-<version>-all.jar
 * A NAR archive that wraps the CLI as a Pulsar-admin Extension: backfill-cli/build/libs/pulsar-cassandra-admin-<version>-nar.nar
+
+Once the artifacts are generated, you can run the backfill CLI tool as either a standalone Java application or as a Pulsar-admin extension.
 
 To run the standalone Java application, use the following command:
 [source,bash]
@@ -49,6 +51,7 @@ java -jar backfill-cli/build/libs/backfill-cli-<version>-all.jar --data-dir targ
 ----
 
 To run the Pulsar-admin extension:
+
 . Move the generated NAR archive to the /cliextensions folder of your Pulsar installation (e.g. /pulsar/cliextensions).
 . Modify the client.conf file of your Pulsar installation to include: `customCommandFactories=cassandra-cdc`.
 . Run the following command (this assumes the https://docs.datastax.com/en/installing/docs/installTARdse.html[default installation] of DSE Cassandra):
@@ -60,18 +63,20 @@ To run the Pulsar-admin extension:
 
 == Test
 
-This quick test event will confirm your CDC backfill is working correctly.
+This test event will confirm your CDC backfill is working correctly.
 
-. Start DSE Cassandra from its install directory.
+. Start DSE Cassandra from the https://docs.datastax.com/en/installing/docs/installTARdse.html[installation directory].
++
 [source,bash]
 ----
 ./bin/dse cassandra -f
 ----
-
++
 . Confirm that a Cassandra node is running:
++
 [source,bash]
 ----
-➜  dse-6.8.33 ./bin/nodetool status
+./bin/dse-6.8.33 nodetool status
 Datacenter: Cassandra
 =====================
 Status=Up/Down
@@ -79,11 +84,12 @@ Status=Up/Down
 --  Address    Load       Owns (effective)  Host ID                               Token                                    Rack
 UN  127.0.0.1  169.82 KiB  100.0%            d4a8181f-b248-431f-a218-47651a30ef4d  -5094113265891965089                     rack1
 ----
-
++
 . Create a CDC-enabled table and add values to the table with CQL shell:
++
 [source,cql]
 ----
-➜  dse-6.8.33 bin/cqlsh
+./bin/dse-6.8.33 cqlsh
 Connected to Test Cluster at 127.0.0.1:9042.
 [cqlsh 6.8.0 | DSE 6.8.33 | CQL spec 3.4.5 | DSE protocol v2]
 cqlsh> create CREATE KEYSPACE  ks1 WITH REPLICATION = {'class' : 'SimpleStrategy', 'replication_factor' : 1};
@@ -94,14 +100,16 @@ cqlsh> INSERT INTO ks1.table1 (id,val) VALUES ('1', 'val1');
 cqlsh> INSERT INTO ks1.table1 (id,val) VALUES ('2', 'val2');
 cqlsh> INSERT INTO ks1.table1 (id,val) VALUES ('3', 'val3');
 ----
-
++
 . Start Pulsar standalone.
++
 [source,bash]
 ----
 bin/pulsar standalone
 ----
-
++
 . Create a Cassandra source connector in Pulsar:
++
 [source,bash]
 ----
 lunastreaming-2.10.3.1 ./bin/pulsar-admin sources create \
@@ -122,32 +130,37 @@ lunastreaming-2.10.3.1 ./bin/pulsar-admin sources create \
 
 Created successfully
 ----
-
++
 . Create a consumer subscription on the CDC data topic:
++
 [source,bash]
 ----
 bin/pulsar-client consume -s subsc -n 0 -st auto_consume -p Earliest persistent://public/default/data-ks1.table1
 ----
-
-. Now everything is set up: you have a Cassandra table with data, a Pulsar topic with a CDC connector, and a Pulsar consumer subscription.
++
+. Now everything is set up: you have a Cassandra table with pre-existing data, a Pulsar topic with a CDC connector, and a Pulsar consumer subscription.
++
 *The moment of truth!*
 Run the backfill CLI to hydrate the data topic with the existing data in the Cassandra table:
++
 [source,bash]
 ----
 ./bin/pulsar-admin cassandra-cdc backfill --data-dir target/export --export-host 127.0.0.1:9042
  --export-username cassandra --export-password cassandra --keyspace ks1 --table table1
 ----
-
++
 . You will get a lot of output in the console, but the last line should look like this:
++
 [source,bash]
 ----
 2023-04-14T11:38:53,421-0400 [main] INFO  com.datastax.oss.cdc.backfill.importer.PulsarImporter - Pulsar Importer Summary: Import status=STATUS_OK, Read mutations from disk=3, Sent mutations=3, Failed mutations=0
 ----
-
++
 Success!
 Your data topic is now populated with the existing data from the Cassandra table.
-. Check your Pulsar subscription as well to ensure Pulsar received the change events:
-.You should see the following output:
+. Check your Pulsar subscription as well to ensure Pulsar received the change events.
++
+.Pulsar consumer subscription output:
 [%collapsible]
 ====
 [source,plain]
