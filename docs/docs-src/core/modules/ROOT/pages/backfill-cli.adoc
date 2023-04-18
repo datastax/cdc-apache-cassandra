@@ -3,15 +3,17 @@
 When CDC is enabled on a topic, the data topic doesn't contain any data from before CDC was enabled.
 The backfill CLI solves this problem by exporting the table's primary key to a Comma Separated Values (CSV) file, storing the CSV file on disk, and sending the primary key from the CSV file to the event topic.
 The Cassandra Source Connector reads the primary key from the event topic and populates the data topic with historical data.
+Under the hood, the backfill CLI is using https://docs.datastax.com/en/dsbulk/docs/reference/dsbulkCmd.html[DataStax Bulk Loader], a battle-tested data loader tool. This means you can also pass https://docs.datastax.com/en/dsbulk/docs/reference/commonOptions.html[DataStax Bulk Loader options] when exporting data to the backfill CLI.
 
 Developers can also use the backfill CLI to trigger change events for downstream applications without having to insert new data.
 
 [#install]
 == Installation
 
-The CDC backfill CLI is distributed both as a jar file and as a Pulsar-admin extension.
-Both artifacts are built with Gradle.
+The CDC backfill CLI is distributed both as a JAR file and as a Pulsar-admin extension NAR file.
+The Pulsar-admin extension is packaged with the DataStax Luna Streaming distribution in the /cliextensions folder, so you don't need to build from source unless you want to make changes to the code.
 
+Both artifacts are built with Gradle.
 To build the CLI, run the following commands:
 [tabs]
 ====
@@ -39,7 +41,7 @@ BUILD SUCCESSFUL in 37s
 
 Gradle generates two main artifacts:
 
-* An uber jar file containing the CLI and all its dependencies: backfill-cli/build/libs/backfill-cli-<version>-all.jar
+* An uber JAR file containing the CLI and all its dependencies: backfill-cli/build/libs/backfill-cli-<version>-all.jar
 * A NAR archive that wraps the CLI as a Pulsar-admin Extension: backfill-cli/build/libs/pulsar-cassandra-admin-<version>-nar.nar
 
 Once the artifacts are generated, you can run the backfill CLI tool as either a standalone Java application or as a Pulsar-admin extension.
@@ -52,7 +54,10 @@ java -jar backfill-cli/build/libs/backfill-cli-<version>-all.jar --data-dir targ
 ----
 
 To run the Pulsar-admin extension:
-
+[NOTE]
+====
+The Pulsar-admin extension is packaged with the DataStax Luna Streaming distribution in the /cliextensions folder, so you don't need to build from source unless you want to make changes to the code.
+====
 . Move the generated NAR archive to the /cliextensions folder of your Pulsar installation (e.g. /pulsar/cliextensions).
 . Modify the client.conf file of your Pulsar installation to include: `customCommandFactories=cassandra-cdc`.
 . Run the following command (this assumes the https://docs.datastax.com/en/installing/docs/installTARdse.html[default installation] of DSE Cassandra):
@@ -91,7 +96,7 @@ Status=Up/Down
 --  Address    Load       Owns (effective)  Host ID                               Token                                    Rack
 UN  127.0.0.1  169.82 KiB  100.0%            d4a8181f-b248-431f-a218-47651a30ef4d  -5094113265891965089                     rack1
 ----
-+
+
 . Create a CDC-enabled table and add values to the table with CQL shell:
 +
 [source,cql]
@@ -222,8 +227,21 @@ key:[AjE=], properties:[writetime=1681487267246000], content:{key={id=1}, value=
 ----
 ====
 
+Now that you've confirmed the backfill CLI is working, run it manually when you want to backfill data on a CDC-enabled table, or when you need to create events for existing data or upstream applications.
+
 == Parameters reference
 .CDC backfill CLI parameters
+
+When running the backfill CLI as a Pulsar-admin extension, all `--pulsar-*` parameters are loaded from the `client.conf` file.
+
+The `--dsbulk-log-dir` is only available when running the backfill CLI as a standalone Java application.
+
+The `--export-dsbulk-option` parameter passes extra parameters to DSBulk.
+The relevant DSBulk settings configure the CSV connector and can be found https://github.com/datastax/dsbulk/blob/1.10.x/manual/settings.md#connector.csv[here^].
+Shortened option names are not supported.
+
+In both the Pulsar-admin extension and the standalone Java application, C* related configurations are exclusively passed as command line arguments.
+
 [cols=2*,options="header"]
 |===
 |Parameter
@@ -244,7 +262,7 @@ directory.
 'logs' subdirectory in the current working directory. This
 subdirectory will be created if it does not exist. Each DSBulk
 operation will create a subdirectory inside the log directory
-specified here.
+specified here. This command is not available in the Pulsar-admin extension.
 |--export-bundle=PATH
 |The path to a secure connect bundle to connect to the Cassandra
 cluster, if that cluster is a DataStax Astra cluster. Options
@@ -266,9 +284,9 @@ is an advanced setting; you should rarely need to modify the default
 value.
 |--export-dsbulk-option=OPT=VALUE
 |An extra DSBulk option to use when exporting. Any valid DSBulk option
-can be specified here, and it will passed as is to the DSBulk
+can be specified here, and it will be passed as-is to the DSBulk
 process. DSBulk options, including driver options, must be passed as
-'--long.option.name=<value>'. Short options are not supported.
+'--long.option.name=<value>'. Short options are not supported. For more DSBulk options, see https://docs.datastax.com/en/dsbulk/docs/reference/commonOptions.html[here].
 |--export-host=HOST[:PORT]
 |The host name or IP and, optionally, the port of a node from the
 Cassandra cluster. If the port is not specified, it will default to
@@ -300,6 +318,8 @@ disable it. The default is -1.
 |===
 
 == Client.conf parameters
+
+These parameters are loaded from the `clienf.conf` file of the CDC-enabled Pulsar deployment, or passed as command line arguments in the Java application.
 .Client.conf parameters
 [cols=2*,options="header"]
 |===
@@ -339,4 +359,5 @@ disable it. The default is -1.
 |If TLS is enabled, specifies whether to use KeyStore type as TLS configuration parameter.
 |===
 
-== Limitations
+== What's next?
+
