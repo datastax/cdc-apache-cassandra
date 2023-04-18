@@ -230,7 +230,6 @@ key:[AjE=], properties:[writetime=1681487267246000], content:{key={id=1}, value=
 Now that you've confirmed the backfill CLI is working, run it manually when you want to backfill data on a CDC-enabled table, or when you need to create events for existing data or upstream applications.
 
 == Parameters reference
-.CDC backfill CLI parameters
 
 When running the backfill CLI as a Pulsar-admin extension, all `--pulsar-*` parameters are loaded from the `client.conf` file.
 
@@ -242,6 +241,7 @@ Shortened option names are not supported.
 
 In both the Pulsar-admin extension and the standalone Java application, C* related configurations are exclusively passed as command line arguments.
 
+.CDC backfill CLI parameters
 [cols=2*,options="header"]
 |===
 |Parameter
@@ -320,6 +320,7 @@ disable it. The default is -1.
 == Client.conf parameters
 
 These parameters are loaded from the `clienf.conf` file of the CDC-enabled Pulsar deployment, or passed as command line arguments in the Java application.
+
 .Client.conf parameters
 [cols=2*,options="header"]
 |===
