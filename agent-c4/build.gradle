@@ -8,11 +8,9 @@ plugins {
 }
 
 application {
-    mainClassName = "$mainClassName"
+    mainClass = "$mainClassName"
 }
 
-configurations.implementation.canBeResolved = true
-configurations.compileOnly.canBeResolved = true
 jar {
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
     manifest {
@@ -82,7 +80,7 @@ test {
     systemProperty "projectVersion", project.version
 }
 
-dockerPrepare.dependsOn(shadowJar)
+dockerPrepare.dependsOn(jar, shadowJar)
 docker {
     name "${dockerRepo}cassandra:${cassandra4Version}-cdc"
     files "$buildDir/libs/", "src/docker/"
