@@ -45,58 +45,27 @@ Gradle generates two main artifacts:
 * A NAR archive that wraps the CLI as a Pulsar-admin Extension: backfill-cli/build/libs/pulsar-cassandra-admin-<version>-nar.nar
 
 Once the artifacts are generated, you can run the backfill CLI tool as either a standalone Java application or as a Pulsar-admin extension.
-
 [tabs]
 ====
 Java standalone::
 +
 --
-[source,java]
+[source,shell,subs="attributes+"]
 ----
-java -jar backfill-cli/build/libs/backfill-cli-<version>-all.jar --data-dir target/export --export-host 127.0.0.1:9042 \
- --export-username cassandra --export-password cassandra --keyspace ks1 --table table1
+include::example$java-start.sh[]
 ----
 --
 
 Pulsar-admin extension::
 +
 --
-[NOTE]
-====
-The Pulsar-admin extension is packaged with the DataStax Luna Streaming distribution in the /cliextensions folder, so you don't need to build from source unless you want to make changes to the code.
-====
-. Move the generated NAR archive to the /cliextensions folder of your Pulsar installation (e.g. /pulsar/cliextensions).
-. Modify the client.conf file of your Pulsar installation to include: `customCommandFactories=cassandra-cdc`.
-. Run the following command (this assumes the https://docs.datastax.com/en/installing/docs/installTARdse.html[default installation] of DSE Cassandra):
-[source,bash]
+include::partial$extension.adoc[]
++
 ----
-./bin/pulsar-admin cassandra-cdc backfill --data-dir target/export --export-host 127.0.0.1:9042 \
- --export-username cassandra --export-password cassandra --keyspace ks1 --table table1
-----
+include::example$extension-start.sh[]
 ----
 --
 ====
-
-To run the standalone Java application, use the following command:
-[source,bash]
-----
-java -jar backfill-cli/build/libs/backfill-cli-<version>-all.jar --data-dir target/export --export-host 127.0.0.1:9042 \
- --export-username cassandra --export-password cassandra --keyspace ks1 --table table1
-----
-
-To run the Pulsar-admin extension:
-[NOTE]
-====
-The Pulsar-admin extension is packaged with the DataStax Luna Streaming distribution in the /cliextensions folder, so you don't need to build from source unless you want to make changes to the code.
-====
-. Move the generated NAR archive to the /cliextensions folder of your Pulsar installation (e.g. /pulsar/cliextensions).
-. Modify the client.conf file of your Pulsar installation to include: `customCommandFactories=cassandra-cdc`.
-. Run the following command (this assumes the https://docs.datastax.com/en/installing/docs/installTARdse.html[default installation] of DSE Cassandra):
-[source,bash]
-----
-./bin/pulsar-admin cassandra-cdc backfill --data-dir target/export --export-host 127.0.0.1:9042 \
- --export-username cassandra --export-password cassandra --keyspace ks1 --table table1
-----
 
 == Test
 
