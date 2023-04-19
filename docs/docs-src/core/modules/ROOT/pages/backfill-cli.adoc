@@ -3,7 +3,7 @@
 When CDC is enabled on a topic, the data topic doesn't contain any data from before CDC was enabled.
 The backfill CLI solves this problem by exporting the table's primary key to a Comma Separated Values (CSV) file, storing the CSV file on disk, and sending the primary key from the CSV file to the event topic.
 The Cassandra Source Connector reads the primary key from the event topic and populates the data topic with historical data.
-Under the hood, the backfill CLI is using https://docs.datastax.com/en/dsbulk/docs/reference/dsbulkCmd.html[DataStax Bulk Loader], a battle-tested data loader tool. This means you can also pass https://docs.datastax.com/en/dsbulk/docs/reference/commonOptions.html[DataStax Bulk Loader options] when exporting data to the backfill CLI.
+The backfill CLI is powered by the https://docs.datastax.com/en/dsbulk/docs/reference/dsbulkCmd.html[DataStax Bulk Loader], a battle-tested data loader tool. This means you can pass https://docs.datastax.com/en/dsbulk/docs/reference/commonOptions.html[DataStax Bulk Loader options] when exporting data to the backfill CLI.
 
 Developers can also use the backfill CLI to trigger change events for downstream applications without having to insert new data.
 
