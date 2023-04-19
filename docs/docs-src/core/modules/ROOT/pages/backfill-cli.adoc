@@ -1,9 +1,9 @@
 = CDC Backfill CLI
 
-When CDC is enabled on a topic, the data topic doesn't contain any data from before CDC was enabled.
+When CDC is enabled on a table, the data topic doesn't contain any data from before CDC was enabled.
 The backfill CLI solves this problem by exporting the table's primary key to a Comma Separated Values (CSV) file, storing the CSV file on disk, and sending the primary key from the CSV file to the event topic.
 The Cassandra Source Connector reads the primary key from the event topic and populates the data topic with historical data.
-The backfill CLI is powered by the https://docs.datastax.com/en/dsbulk/docs/reference/dsbulkCmd.html[DataStax Bulk Loader], a battle-tested data loader tool. This means you can pass https://docs.datastax.com/en/dsbulk/docs/reference/commonOptions.html[DataStax Bulk Loader options] when exporting data to the backfill CLI.
+The backfill CLI is powered by the https://docs.datastax.com/en/dsbulk/docs/reference/dsbulkCmd.html[DataStax Bulk Loader], a battle-tested data loader tool. This means the CLI takes full advantage of optimizations done in DSBulk when exporting data from table to disk.
 
 Developers can also use the backfill CLI to trigger change events for downstream applications without having to insert new data.
 
@@ -317,11 +317,12 @@ disable it. The default is -1.
 |Displays version info.
 |===
 
-== Client.conf parameters
+== Pulsar connectivity parameters
 
-These parameters are loaded from the `clienf.conf` file of the CDC-enabled Pulsar deployment, or passed as command line arguments in the Java application.
+Pulsar connectivity parameters are auto-populated from the `client.conf` file available to the CLI when used as a Pulsar-admin extension.
+These parameters should be passed as command line arguments in the standalone Java application.
 
-.Client.conf parameters
+.Pulsar connectivity parameters
 [cols=2*,options="header"]
 |===
 |Parameter
