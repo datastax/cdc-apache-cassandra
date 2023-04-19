@@ -362,3 +362,5 @@ These parameters are loaded from the `clienf.conf` file of the CDC-enabled Pulsa
 
 == What's next?
 
+* xref:index.adoc[CDC Home]
+* https://docs.datastax.com/en/dsbulk/docs/reference/dsbulkCmd.html[DataStax Bulk Loader]
