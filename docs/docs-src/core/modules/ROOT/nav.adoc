@@ -1,6 +1,7 @@
 * xref:index.adoc[]
 * xref:install.adoc[]
 * xref:monitor.adoc[]
+* xref:backfill-cli.adoc[]
 * xref:faqs.adoc[]
 * xref:cdc-cassandra-events.adoc[]
 * xref:cdcExample.adoc[]
