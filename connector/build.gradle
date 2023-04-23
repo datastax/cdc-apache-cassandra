@@ -115,6 +115,9 @@ dockerPrepare.dependsOn(nar)
 docker {
     name "${dockerRepo}pulsar:${testPulsarImageTag}-csc"
     files "$buildDir/libs/", "src/docker/"
+    buildx true
+    push true
+    platform "linux/amd64", "linux/arm64"
     buildArgs([BUILD_VERSION: project.version,
                LUNASTREAMING_IMAGE: testPulsarImage,
                LUNASTREAMING_VERSION: testPulsarImageTag])

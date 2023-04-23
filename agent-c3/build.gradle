@@ -78,6 +78,9 @@ dockerPrepare.dependsOn(shadowJar)
 docker {
     name "${dockerRepo}cassandra:${cassandra3Version}-cdc"
     files "$buildDir/libs/", "src/docker/"
+    buildx true
+    push true
+    platform "linux/amd64", "linux/arm64"
     buildArgs([BUILD_VERSION: project.version, CASSANDRA_VERSION: cassandra3Version])
 }
 build.dependsOn(project.tasks['docker'])

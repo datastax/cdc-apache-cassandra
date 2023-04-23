@@ -84,6 +84,9 @@ dockerPrepare.dependsOn(jar, shadowJar)
 docker {
     name "${dockerRepo}cassandra:${cassandra4Version}-cdc"
     files "$buildDir/libs/", "src/docker/"
+    buildx true
+    push true
+    platform "linux/amd64", "linux/arm64"
     buildArgs([BUILD_VERSION: project.version,
                CASSANDRA_VERSION: cassandra4Version,
                COMMITMOG_SYNC_PERIOD_IN_MS: commitlog_sync_period_in_ms,
