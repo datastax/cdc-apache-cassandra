@@ -25,7 +25,7 @@ Note: Only Cassandra 4.0 and DSE 6.8.16+ support the near realtime CDC allowing 
 
 ## Documentation
 
-All documentation is available online [here](https://docs.datastax.com/en/cdc-for-cassandra/docs/2.2.2/index.html).
+All documentation is available online [here](https://docs.datastax.com/en/cdc-for-cassandra/docs/latest/index.html).
 
 See the [QUICKSTART.md](QUICKSTART.md) page.
 
