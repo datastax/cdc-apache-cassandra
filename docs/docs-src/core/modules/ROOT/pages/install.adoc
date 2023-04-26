@@ -168,7 +168,7 @@ Once the connector is running, it will process events from the `events` topic an
 
 For the full set of source configuration options, see xref:cfg-cassandra-source.adoc[{cdc_pulsar} settings].
 For the full set of Cassandra authentication options, see xref:cfg-cassandra-auth.adoc[Cassandra Authentication settings].
-For the full set of Cassandra SSL settings, see xref:cfgCassandraSSL.adoc[Cassandra SSL/TLS settings].
+For the full set of Cassandra SSL settings, see xref:cfg-cassandra-ssl.adoc[Cassandra SSL/TLS settings].
 For advanced configuration of the Cassandra driver in the {cdc_pulsar}, see xref:cfg-cassandra-java-driver-settings.adoc[Pass {cdc_pulsar} settings directly to the DataStax Java driver].
 
 == Enabling and disabling CDC on a table
@@ -188,7 +188,7 @@ include::cfg-cassandra-source.adoc[]
 
 include::cfg-cassandra-auth.adoc[]
 
-include::cfgCassandraSSL.adoc[]
+include::cfg-cassandra-ssl.adoc[]
 
 include::cfg-cassandra-java-driver-settings.adoc[]
 
