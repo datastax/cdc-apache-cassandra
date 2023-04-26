@@ -58,7 +58,7 @@ JVM_OPTS="$JVM_OPTS -javaagent:/home/automaton/cdc104/agent-dse4-pulsar-1.0.5-al
 ----
 
 The CDC parameter mappings between JVM and C* environment variables are provided in xref:stringMappings.adoc[CDC Environment Parameter Strings]. +
-For the full set of JVM configuration options, see xref:agentParams.adoc[Table Change Agent Parameters].
+For the full set of JVM configuration options, see xref:agent-params.adoc[Table Change Agent Parameters].
 
 == `Cassandra.yaml`
 In addition to configuring the change agent, enable CDC on the Cassandra node by setting `cdc_enabled` to `true` in the `cassandra.yaml` file.
@@ -85,7 +85,7 @@ cdc_total_space_in_mb: 50000
 [#agentParams]
 == Change Agent Parameters
 
-include::agentParams.adoc[]
+include::agent-params.adoc[]
 
 == Download {cdc_pulsar}
 IMPORTANT
