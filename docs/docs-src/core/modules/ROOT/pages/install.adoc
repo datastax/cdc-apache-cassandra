@@ -166,7 +166,7 @@ pulsar-admin source status --name cassandra-source-1
 
 Once the connector is running, it will process events from the `events` topic and publish the result to the `data` topic.
 
-For the full set of source configuration options, see xref:cfgCassandraSource.adoc[{cdc_pulsar} settings].
+For the full set of source configuration options, see xref:cfg-cassandra-source.adoc[{cdc_pulsar} settings].
 For the full set of Cassandra authentication options, see xref:cfg-cassandra-auth.adoc[Cassandra Authentication settings].
 For the full set of Cassandra SSL settings, see xref:cfgCassandraSSL.adoc[Cassandra SSL/TLS settings].
 For advanced configuration of the Cassandra driver in the {cdc_pulsar}, see xref:cfg-cassandra-java-driver-settings.adoc[Pass {cdc_pulsar} settings directly to the DataStax Java driver].
@@ -184,7 +184,7 @@ ALTER TABLE foo WITH cdc=false;
 
 When CDC is enabled on a table, updates to that table are sent by the change agent to the {cdc_pulsar} which further processes the event and then sends it to the data topic when it can be processed by other connectors (for example, Elasticsearch).
 
-include::cfgCassandraSource.adoc[]
+include::cfg-cassandra-source.adoc[]
 
 include::cfg-cassandra-auth.adoc[]
 
