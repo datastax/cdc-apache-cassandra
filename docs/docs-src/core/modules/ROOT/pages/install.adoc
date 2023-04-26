@@ -58,7 +58,7 @@ JVM_OPTS="$JVM_OPTS -javaagent:/home/automaton/cdc104/agent-dse4-pulsar-1.0.5-al
 ----
 
 The CDC parameter mappings between JVM and C* environment variables are provided in xref:string-mappings.adoc[CDC Environment Parameter Strings]. +
-For the full set of JVM configuration options, see xref:agent-params.adoc[Table Change Agent Parameters].
+For the full set of JVM configuration options, see xref:agent-parameters.adoc[Table Change Agent Parameters].
 
 == `Cassandra.yaml`
 In addition to configuring the change agent, enable CDC on the Cassandra node by setting `cdc_enabled` to `true` in the `cassandra.yaml` file.
@@ -85,7 +85,7 @@ cdc_total_space_in_mb: 50000
 [#agentParams]
 == Change Agent Parameters
 
-include::agent-params.adoc[]
+include::agent-parameters.adoc[]
 
 == Download {cdc_pulsar}
 IMPORTANT
@@ -166,10 +166,10 @@ pulsar-admin source status --name cassandra-source-1
 
 Once the connector is running, it will process events from the `events` topic and publish the result to the `data` topic.
 
-For the full set of source configuration options, see xref:cfg-cassandra-source.adoc[{cdc_pulsar} settings].
-For the full set of Cassandra authentication options, see xref:cfg-cassandra-auth.adoc[Cassandra Authentication settings].
-For the full set of Cassandra SSL settings, see xref:cfg-cassandra-ssl.adoc[Cassandra SSL/TLS settings].
-For advanced configuration of the Cassandra driver in the {cdc_pulsar}, see xref:cfg-cassandra-java-driver-settings.adoc[Pass {cdc_pulsar} settings directly to the DataStax Java driver].
+For the full set of source configuration options, see xref:configure-cassandra-source.adoc[{cdc_pulsar} settings].
+For the full set of Cassandra authentication options, see xref:configure-cassandra-auth.adoc[Cassandra Authentication settings].
+For the full set of Cassandra SSL settings, see xref:configure-cassandra-ssl.adoc[Cassandra SSL/TLS settings].
+For advanced configuration of the Cassandra driver in the {cdc_pulsar}, see xref:configure-cassandra-java-driver-settings.adoc[Pass {cdc_pulsar} settings directly to the DataStax Java driver].
 
 == Enabling and disabling CDC on a table
 
@@ -184,13 +184,13 @@ ALTER TABLE foo WITH cdc=false;
 
 When CDC is enabled on a table, updates to that table are sent by the change agent to the {cdc_pulsar} which further processes the event and then sends it to the data topic when it can be processed by other connectors (for example, Elasticsearch).
 
-include::cfg-cassandra-source.adoc[]
+include::configure-cassandra-source.adoc[]
 
-include::cfg-cassandra-auth.adoc[]
+include::configure-cassandra-auth.adoc[]
 
-include::cfg-cassandra-ssl.adoc[]
+include::configure-cassandra-ssl.adoc[]
 
-include::cfg-cassandra-java-driver-settings.adoc[]
+include::configure-cassandra-java-driver-settings.adoc[]
 
 == Scaling up your configuration
 
