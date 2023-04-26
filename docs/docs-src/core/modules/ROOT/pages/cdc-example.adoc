@@ -1,4 +1,5 @@
 = Change Data Capture with DataStax Enterprise
+:page-aliases: cdcExample.adoc
 
 Capture schema changes in your C* tables and pass them to Apache Pulsar(R) with DataStax Change Data Capture (CDC). This doc will guide you through installing, configuring, and using CDC with C* or DSE in a VM-based deployment.
 
