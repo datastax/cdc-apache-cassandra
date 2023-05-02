@@ -12,6 +12,7 @@ dependencies {
     implementation("org.apache.avro:avro:${avroVersion}")
     compileOnly("org.slf4j:slf4j-api:${slf4jVersion}")
     testImplementation("org.junit-pioneer:junit-pioneer:1.4.2")
+    testImplementation "com.datastax.oss:dsbulk-tests:${dsbulkVersion}"
 
     implementation("${pulsarGroup}:pulsar-client:${pulsarVersion}")
 }

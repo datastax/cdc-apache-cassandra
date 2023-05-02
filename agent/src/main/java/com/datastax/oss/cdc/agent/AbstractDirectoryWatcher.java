@@ -36,13 +36,13 @@ public abstract class AbstractDirectoryWatcher {
     private final WatchService watchService;
     private final Duration pollInterval;
     private final Path directory;
-    private final Set<WatchEvent.Kind<Path>> kinds;
+    private final Set<WatchEvent.Kind<?>> kinds;
 
-    public AbstractDirectoryWatcher(Path directory, Duration pollInterval, Set<WatchEvent.Kind<Path>> kinds) throws IOException {
+    public AbstractDirectoryWatcher(Path directory, Duration pollInterval, Set<WatchEvent.Kind<?>> kinds) throws IOException {
         this(FileSystems.getDefault().newWatchService(), directory, pollInterval, kinds);
     }
 
-    AbstractDirectoryWatcher(WatchService watchService, Path directory, Duration pollInterval, Set<WatchEvent.Kind<Path>> kinds) throws IOException {
+    AbstractDirectoryWatcher(WatchService watchService, Path directory, Duration pollInterval, Set<WatchEvent.Kind<?>> kinds) throws IOException {
         this.watchService = watchService;
         this.pollInterval = pollInterval;
         this.directory = directory;
@@ -55,16 +55,28 @@ public abstract class AbstractDirectoryWatcher {
         WatchKey key = watchService.poll(pollInterval.toMillis(), TimeUnit.MILLISECONDS);
 
         if (key != null) {
-            for (WatchEvent<?> event : key.pollEvents()) {
-                Path relativePath = (Path) event.context();
-                Path absolutePath = directory.resolve(relativePath);
+            try {
+                for (WatchEvent<?> event : key.pollEvents()) {
+                    if (event.kind() == java.nio.file.StandardWatchEventKinds.OVERFLOW) {
+                        log.warn("Overflow event detected: kind={}, context={}, count={}",
+                                event.kind(), event.context(), event.count());
+                        continue;
+                    }
+                    Path relativePath = (Path) event.context();
+                    Path absolutePath = directory.resolve(relativePath);
 
-                if (kinds.contains(event.kind())) {
-                    log.debug("Detected new commitlog file={}", absolutePath);
-                    handleEvent(event, absolutePath);
+                    if (kinds.contains(event.kind())) {
+                        log.debug("Detected new commitlog file={}", absolutePath);
+                        handleEvent(event, absolutePath);
+                    }
+                }
+            } catch (Exception ex) {
+                log.error("Error while handling WatchKey", ex);
+            } finally {
+                if (!key.reset()) {
+                    log.warn("WatchKey is no longer valid");
                 }
             }
-            key.reset();
         }
     }
 

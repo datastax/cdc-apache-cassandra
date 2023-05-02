@@ -28,6 +28,7 @@ import java.util.stream.Stream;
 
 import static java.nio.file.StandardWatchEventKinds.ENTRY_CREATE;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
+import static java.nio.file.StandardWatchEventKinds.OVERFLOW;
 
 /**
  * Detect and read commitlogs files in the cdc_raw directory.
@@ -36,7 +37,7 @@ import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
 public class CommitLogProcessor extends AbstractProcessor implements AutoCloseable {
     private static final String NAME = "Commit Log Processor";
 
-    private static final Set<WatchEvent.Kind<Path>> watchedEvents = Stream.of(ENTRY_CREATE, ENTRY_MODIFY).collect(Collectors.toSet());
+    private static final Set<WatchEvent.Kind<?>> watchedEvents = Stream.of(ENTRY_CREATE, ENTRY_MODIFY, OVERFLOW).collect(Collectors.toSet());
 
     private final AbstractDirectoryWatcher newCommitLogWatcher;
     private final CommitLogTransfer commitLogTransfer;
