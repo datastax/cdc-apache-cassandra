@@ -57,7 +57,8 @@ public class Agent {
     }
 
     static void startCdcAgent(String agentArgs) throws Exception {
-        log.info("Starting CDC agent, cdc_raw_directory={}", DatabaseDescriptor.getCDCLogLocation());
+        String agentVersion = Agent.class.getPackage().getImplementationVersion();
+        log.info("Starting CDC agent v{}, cdc_raw_directory={}", agentVersion, DatabaseDescriptor.getCDCLogLocation());
         AgentConfig config = AgentConfig.create(AgentConfig.Platform.PULSAR, agentArgs);
 
         SegmentOffsetFileWriter segmentOffsetFileWriter = new SegmentOffsetFileWriter(config.cdcWorkingDir);
