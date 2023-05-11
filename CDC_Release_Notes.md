@@ -1,28 +1,17 @@
 # Release notes for CDC for Apache Cassandra&trade;
 The CDC for Apache Cassandra&trade; is compatible for Apache Cassandra&trade; 3.11, 4.0, and DSE 6.8.
 
-# Release notes for 2.2.8
-9 May 2023
+# Release notes for 2.2.9
+11 May 2023
 
 ## Changes
+* [improve][agent] Log the dse4-agent version upon startup
 * [fix][agent] Properly release all semaphore permits when commit log segment tasks fail partially
-
-# Release notes for 2.2.7
-9 May 2023
-
-## Changes
 * Upgrade org.json to fix CVE-45688
-
-
-# Release notes for 2.2.6
-4 May 2023
-
-## Changes
 * Improve WatchService error handling & logging
 * Add a limitation for primary key only tables
 * Disable the replication_latency metric for backfilled items
 * Update pulsar dependency to 2.10.3
-
 
 # Release notes for 2.2.5
 10 April 2023
