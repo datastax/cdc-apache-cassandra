@@ -36,7 +36,7 @@ asciidoc:
     idprefix: ''
     idseparator: '-'
 
-    support_url: 'https://houston.datastax.com/hc/requests/new'
+    support_url: 'https://support.datastax.com'
     astra_docs_base_url: 'https://docs.datastax.com/en/astra/docs'
 
     # The "glossary-url" attribute below is used by writers when linking to a
