@@ -1,0 +1,5 @@
+# .github/release.yml
+changelog:
+  exclude:
+    authors:
+      - "*"
