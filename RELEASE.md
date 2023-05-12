@@ -7,9 +7,7 @@
 - `connector/src/main/resources/cassandra-source-version.properties`
 - `docs/docs-src/core/antora-cdc-cassandra.yml`: _version_ and _display_version_
 
-2. Add [release notes](https://github.com/datastax/cdc-apache-cassandra/blob/master/CDC_Release_Notes.md).
-
-3. ```
+2. ```
    VERSION=x.y.z
    git add -A 
    git commit -m "Release $VERSION"
@@ -17,3 +15,9 @@
    git push
    git push --tags
    ```
+3. A "pre-release" with artifacts will be automatically generated. Once you are happy with it,  it is time to publish the release:
+   * Navigate to the pre-release and click edit.
+   * Click "Generate release notes", change the "Previous tag" baseline of the generated notes if needed.
+   * Remove the author from the PR description. 
+   * Uncheck the "Set as a pre-release" and check the "Set as the latest release" optins. 
+   * Click "Update release"
