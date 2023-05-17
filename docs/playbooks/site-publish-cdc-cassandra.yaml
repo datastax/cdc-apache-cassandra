@@ -39,7 +39,9 @@ asciidoc:
     sectlinks: ''
     idprefix: ''
     idseparator: '-'
-    source-highlighter: highlightjs
+
+    support_url: 'https://support.datastax.com'
+    astra_docs_base_url: 'https://docs.datastax.com/en/astra/docs'
 
     # The "glossary-url" attribute below is used by writers when linking to a
     # term in the glossary. Referencing this attribute in an adoc file will
