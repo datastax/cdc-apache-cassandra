@@ -164,5 +164,5 @@ The data replicated to DC1 will be processed by the change agent and eventually 
 
 == What's next?
 
-For more on using CDC with Apache Pulsar, including schema management and consumption patterns, see our https://docs.datastax.com/en/streaming/streaming-learning/use-cases-architectures/change-data-capture/index.html[Streaming learning page].
-If you've got more questions about {cdc_cass_first}, see xref::faqs.adoc[].
+* For more on using CDC with Apache Pulsar, including schema management and consumption patterns, see our https://docs.datastax.com/en/streaming/streaming-learning/use-cases-architectures/change-data-capture/index.html[Streaming learning page].
+* If you've got more questions about {cdc_cass_first}, see xref::faqs.adoc[].
