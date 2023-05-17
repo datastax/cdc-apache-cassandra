@@ -365,3 +365,4 @@ These parameters should be passed as command line arguments in the standalone Ja
 
 * xref:index.adoc[CDC Home]
 * https://docs.datastax.com/en/dsbulk/docs/reference/dsbulkCmd.html[DataStax Bulk Loader]
+* For more on using CDC with Apache Pulsar, including schema management and consumption patterns, see our https://docs.datastax.com/en/streaming/streaming-learning/use-cases-architectures/change-data-capture/index.html[Streaming learning page].
