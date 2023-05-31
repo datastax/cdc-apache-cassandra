@@ -11,5 +11,6 @@ asciidoc:
     cdc_pulsar: 'CDC for Cassandra'
     luna_version: '2.10'
     pulsar_version: '2.10'
+    version: '2.2.9' # cdc-apache-cassandra latest {version}
 nav:
 - modules/ROOT/nav.adoc

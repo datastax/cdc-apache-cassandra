@@ -41,8 +41,8 @@ BUILD SUCCESSFUL in 37s
 
 Gradle generates two main artifacts:
 
-* An uber JAR file containing the CLI and all its dependencies: backfill-cli/build/libs/backfill-cli-<version>-all.jar
-* A NAR archive that wraps the CLI as a Pulsar-admin Extension: backfill-cli/build/libs/pulsar-cassandra-admin-<version>-nar.nar
+* An uber JAR file containing the CLI and all its dependencies: backfill-cli/build/libs/backfill-cli-{version}-all.jar
+* A NAR archive that wraps the CLI as a Pulsar-admin Extension: backfill-cli/build/libs/pulsar-cassandra-admin-{version}-nar.nar
 
 Once the artifacts are generated, you can run the backfill CLI tool as either a standalone Java application or as a Pulsar-admin extension.
 [tabs]
