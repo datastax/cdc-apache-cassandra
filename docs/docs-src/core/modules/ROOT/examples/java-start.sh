@@ -1,2 +1,2 @@
-java -jar backfill-cli/build/libs/backfill-cli-<version>-all.jar --data-dir target/export --export-host 127.0.0.1:9042 \
+java -jar backfill-cli/build/libs/backfill-cli-{version}-all.jar --data-dir target/export --export-host 127.0.0.1:9042 \
  --export-username cassandra --export-password cassandra --keyspace ks1 --table table1
