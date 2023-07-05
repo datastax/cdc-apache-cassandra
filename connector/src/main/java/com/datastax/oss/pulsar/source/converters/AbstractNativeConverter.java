@@ -22,13 +22,19 @@ import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
+import com.datastax.oss.driver.api.core.type.CqlVectorType;
 import com.datastax.oss.driver.api.core.type.DataType;
 import com.datastax.oss.driver.api.core.type.ListType;
 import com.datastax.oss.driver.api.core.type.MapType;
 import com.datastax.oss.driver.api.core.type.SetType;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
+import com.datastax.oss.driver.api.core.type.codec.TypeCodec;
+import com.datastax.oss.driver.api.core.type.reflect.GenericType;
+import com.datastax.oss.driver.internal.core.type.codec.CqlVectorCodec;
+import com.datastax.oss.driver.internal.core.type.codec.registry.DefaultCodecRegistry;
 import com.datastax.oss.protocol.internal.ProtocolConstants;
 import com.datastax.oss.pulsar.source.Converter;
+import edu.umd.cs.findbugs.annotations.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
@@ -73,6 +79,13 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
                             Schema collectionSchema = dataTypeSchema(ksm, cm.getType());
                             subSchemas.put(field.name(), collectionSchema);
                             log.info("Add collection schema {}={}", field.name(), collectionSchema);
+                            break;
+                        case ProtocolConstants.DataType.CUSTOM:
+                            if (cm.getType() instanceof CqlVectorType) {
+                                Schema vectorSchema = dataTypeSchema(ksm, cm.getType());
+                                subSchemas.put(field.name(), vectorSchema);
+                                log.info("Add vector schema {}={}", field.name(), vectorSchema);
+                            }
                             break;
                     }
                 }
@@ -121,6 +134,8 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
             case ProtocolConstants.DataType.SET:
             case ProtocolConstants.DataType.MAP:
                 return true;
+            case ProtocolConstants.DataType.CUSTOM:
+                return dataType instanceof CqlVectorType;
         }
         return false;
     }
@@ -189,6 +204,11 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
             case ProtocolConstants.DataType.MAP:
                 MapType mapType = (MapType) dataType;
                 return org.apache.avro.Schema.createMap(dataTypeSchema(ksm, mapType.getValueType()));
+            case ProtocolConstants.DataType.CUSTOM:
+                if (dataType instanceof CqlVectorType) {
+                    CqlVectorType vectorType = (CqlVectorType) dataType;
+                    return org.apache.avro.Schema.createArray(dataTypeSchema(ksm, vectorType.getSubtype()));
+                }
             default:
                 throw new UnsupportedOperationException("Ignoring unsupported type=" + dataType.asCql(false, true));
         }

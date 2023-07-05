@@ -20,10 +20,12 @@ import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.cql.ColumnDefinition;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.data.CqlDuration;
+import com.datastax.oss.driver.api.core.data.CqlVector;
 import com.datastax.oss.driver.api.core.data.UdtValue;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
+import com.datastax.oss.driver.api.core.type.CqlVectorType;
 import com.datastax.oss.driver.api.core.type.DataType;
 import com.datastax.oss.driver.api.core.type.ListType;
 import com.datastax.oss.driver.api.core.type.MapType;
@@ -57,6 +59,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -166,6 +169,17 @@ public class NativeAvroConverter extends AbstractNativeConverter<List<Object>> {
                                 .entrySet().stream().collect(Collectors.toMap(e -> stringify(mapType.getKeyType(), e.getKey()), Map.Entry::getValue));
                         log.debug("field={} mapSchema={} mapValue={}", fieldName, mapSchema, mapValue);
                         genericRecordBuilder.put(fieldName, mapValue);
+                    }
+                    break;
+                    case ProtocolConstants.DataType.CUSTOM: {
+                        if (cm.getType() instanceof CqlVectorType) {
+                            Schema vectorSchema = subSchemas.get(fieldName);
+                            CqlVector<?> vector = row.getCqlVector(fieldName);
+                            log.debug("field={} listSchema={} listValue={}", fieldName, vectorSchema, vector);
+                            List<Object> vectorValue = new ArrayList<>();
+                            vector.getValues().forEach(vectorValue::add);
+                            genericRecordBuilder.put(fieldName, buildArrayValue(vectorSchema, vectorValue));
+                        }
                     }
                     break;
                     default:
