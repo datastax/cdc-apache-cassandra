@@ -47,4 +47,4 @@ asciidoc:
     glossary-url: 'https://docs.datastax.com/en/glossary/docs/index.html#'
 
   extensions:
-  - ./lib/tabs-block.js
+  - '@asciidoctor/tabs'

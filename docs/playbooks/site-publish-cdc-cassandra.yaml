@@ -56,4 +56,4 @@ asciidoc:
     cdc-apache-cassandra: 'ssh://github.com/datastax/cdc-apache-cassandra'
 
   extensions:
-  - '~/work/cdc-apache-cassandra/docs/playbooks/lib/tabs-block.js'
+  - '@asciidoctor/tabs'
