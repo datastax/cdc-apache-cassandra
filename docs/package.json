@@ -3,7 +3,7 @@
   "scripts": {
     "build:prod:cdc-cassandra": "npm run build:publish:cdc-cassandra",
     "build:dev:cdc-cassandra": "npm run build:local:cdc-cassandra",
-    "build:publish:cdc-cassandra": "antora --fetch --clean --log-level=debug playbooks/site-publish-cdc-cassandra.yaml",
+    "build:publish:cdc-cassandra": "antora --stacktrace --fetch --clean playbooks/site-publish-cdc-cassandra.yaml",
     "build:local:cdc-cassandra": "antora --stacktrace --fetch --clean playbooks/site-local-cdc-cassandra.yaml"
   },
   "repository": {
