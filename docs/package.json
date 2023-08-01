@@ -3,7 +3,7 @@
   "scripts": {
     "build:prod:cdc-cassandra": "npm run build:publish:cdc-cassandra",
     "build:dev:cdc-cassandra": "npm run build:local:cdc-cassandra",
-    "build:publish:cdc-cassandra": "antora --fetch --clean --log-level=debug playbooks/site-publish-cdc-cassandra.yaml",
+    "build:publish:cdc-cassandra": "antora --stacktrace --fetch --clean playbooks/site-publish-cdc-cassandra.yaml",
     "build:local:cdc-cassandra": "antora --stacktrace --fetch --clean playbooks/site-local-cdc-cassandra.yaml"
   },
   "repository": {
@@ -11,8 +11,8 @@
     "url": "git+https://github.com/riptano/cdc-apache-cassandra.git"
   },
   "dependencies": {
-    "antora": "^3.1.2",
-    "@antora/cli": "^3.1.2",
-    "@antora/site-generator-default": "^3.1.2"
+    "@antora/cli": "~3.1",
+    "@antora/site-generator": "~3.1",
+    "@asciidoctor/tabs": "^1.0.0-beta.5"
   }
 }

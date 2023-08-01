@@ -1,11 +1,12 @@
 site:
   title: DataStax CDC for Apache Cassandra documentation
   url: https://docs.datastax.com/en/cdc-for-cassandra
-  # The keys.segmentIo site key must be in the site-publish playbook of each
-  # docset. This loads Segment into the docset build, and is a requirement for
-  # collecting site analytics.
+  # The google_analytics and segment_io site keys must be in the release playbook
+  # of each docset. This ensures that the Google Tag Manager (GTM) and Segment
+  # scripts get loaded into the docsets that get published to docs.datastax.com.
   keys:
-    segmentIo: d24gQtyKIUu5mLdkp11xjfiXLhRqx0HH
+    google_analytics: 'GTM-5FSG7Q'
+    segment_io: 'd24gQtyKIUu5mLdkp11xjfiXLhRqx0HH'
 
 output:
   # Bsys requires the output.dir in the site-publish playbook to be specifically
@@ -56,4 +57,4 @@ asciidoc:
     cdc-apache-cassandra: 'ssh://github.com/datastax/cdc-apache-cassandra'
 
   extensions:
-  - '~/work/cdc-apache-cassandra/docs/playbooks/lib/tabs-block.js'
+  - '@asciidoctor/tabs'
