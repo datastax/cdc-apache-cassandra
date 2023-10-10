@@ -22,9 +22,7 @@ include 'agent-c3'
 
 include 'agent-c4'
 
-if (startParameter.projectProperties.containsKey("dse4")) {
-    include 'agent-dse4'
-}
+include 'agent-dse4'
 include 'agent-distribution'
 
 include 'connector'

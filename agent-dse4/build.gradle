@@ -47,7 +47,11 @@ dependencies {
     implementation("org.apache.avro:avro:${avroVersion}")
     implementation("${pulsarGroup}:pulsar-client:${pulsarVersion}")
 
-    compileOnly("com.datastax.dse:dse-db:${dse4Version}")
+    implementation 'io.dropwizard.metrics:metrics-core:4.1.18'
+    implementation 'commons-codec:commons-codec:1.15'
+    implementation("com.google.guava:guava:${guavaVersion}")
+
+    compileOnly files("/Users/ayman.khalil/workplace/datastax/cassandra/build/dse-db-4.0.11-SNAPSHOT.jar")
     testCompileOnly("com.datastax.dse:dse-db:${dse4Version}")
     testImplementation("com.datastax.dse:dse-db:${dse4Version}") {
         exclude group: 'io.netty'

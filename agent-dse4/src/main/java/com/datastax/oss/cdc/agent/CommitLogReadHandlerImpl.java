@@ -25,15 +25,18 @@ import org.apache.cassandra.db.commitlog.CommitLogReadHandler;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.partitions.PartitionUpdate;
 import org.apache.cassandra.db.rows.Row;
+import org.apache.cassandra.db.rows.SerializationHelper;
 import org.apache.cassandra.db.rows.Unfiltered;
 import org.apache.cassandra.db.rows.UnfilteredRowIterator;
 import org.apache.cassandra.io.util.DataInputBuffer;
+import org.apache.cassandra.io.util.DataOutputBuffer;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.service.StorageService;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.commons.codec.digest.DigestUtils;
 
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -213,20 +216,22 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         }
     }
 
-    @Override
-    public void handleMutation(org.apache.cassandra.db.Mutation m, int size, int entryLocation, CommitLogDescriptor desc) {
-        throw new UnsupportedOperationException();
-    }
+//    @Override
+//    public void handleMutation(org.apache.cassandra.db.Mutation m, int size, int entryLocation, CommitLogDescriptor desc) {
+//        throw new UnsupportedOperationException();
+//    }
 
     @Override
-    public void handleMutation(org.apache.cassandra.db.Mutation mutation, int size, int entryLocation, CommitLogDescriptor descriptor, byte[] inputBuffer) {
+    public void handleMutation(org.apache.cassandra.db.Mutation mutation, int size, int entryLocation, CommitLogDescriptor descriptor) {
         if (!mutation.trackedByCDC()) {
             return;
         }
 
         for (PartitionUpdate pu : mutation.getPartitionUpdates()) {
             try {
-                String md5Digest = DigestUtils.md5Hex(new DataInputBuffer(inputBuffer, 0, size));
+                DataOutputBuffer dataOutputBuffer = new DataOutputBuffer();
+                org.apache.cassandra.db.Mutation.serializer.serialize(mutation, dataOutputBuffer, descriptor.getMessagingVersion());
+                String md5Digest = DigestUtils.md5Hex(dataOutputBuffer.getData());
                 process(pu, descriptor.id, entryLocation, md5Digest);
             }
             catch (Exception e) {
@@ -239,7 +244,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
     @Override
     public void handleUnrecoverableError(CommitLogReadException exception) {
         log.error("Unrecoverable error when reading commit log", exception);
-        CdcMetrics.commitLogReadErrors.inc();
+        //CdcMetrics.commitLogReadErrors.inc();
     }
 
     @Override
@@ -376,7 +381,7 @@ public class CommitLogReadHandlerImpl implements CommitLogReadHandler {
         int i = pu.metadata().partitionKeyColumns().size();
         for (ColumnMetadata cd : pu.metadata().clusteringColumns().stream().limit(row.clustering().size()).collect(Collectors.toList())) {
             try {
-                after[i++] = cd.type.compose(row.clustering().get(cd.position()));
+                after[i++] = cd.type.compose(row.clustering().bufferAt(cd.position()));
             }
             catch (Exception e) {
                 throw new RuntimeException(String.format("Failed to populate Column %s with Type %s of Table %s in KeySpace %s.",

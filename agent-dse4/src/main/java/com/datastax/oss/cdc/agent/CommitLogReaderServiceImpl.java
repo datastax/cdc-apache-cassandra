@@ -39,7 +39,7 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
                                       SegmentOffsetWriter segmentOffsetWriter,
                                       CommitLogTransfer commitLogTransfer) {
         super(config, mutationSender, segmentOffsetWriter, commitLogTransfer);
-        this.tasksExecutor = JMXEnabledThreadPoolExecutor.createAndPrestart(
+        this.tasksExecutor = new  JMXEnabledThreadPoolExecutor(
                 config.cdcConcurrentProcessors == -1 ? DatabaseDescriptor.getFlushWriters() : config.cdcConcurrentProcessors,
                 1, TimeUnit.MINUTES,
                 new LinkedBlockingQueue<>(),
@@ -55,14 +55,14 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
 
             public void run() {
                 log.debug("Starting task={} lasSentPosition={}", this, segmentOffsetWriter.position(Optional.empty(), segment));
-                File file = getFile();
+                org.apache.cassandra.io.util.File file = new org.apache.cassandra.io.util.File(getFile());
                 try {
                     if (!file.exists()) {
-                        log.warn("CL file={} does not exist any more, ignoring", file.getName());
+                        log.warn("CL file={} does not exist any more, ignoring", file.toJavaIOFile().getName());
                         finish(TaskStatus.SUCCESS, -1);
                         return;
                     }
-                    long seg = CommitLogUtil.extractTimestamp(file.getName());
+                    long seg = CommitLogUtil.extractTimestamp(file.name());
                     int currentPosition = segmentOffsetWriter.position(Optional.empty(), seg);
                     if (syncPosition > currentPosition) {
                         commitLogReadHandlerImpl = new CommitLogReadHandlerImpl(this::sendAsync);
@@ -81,7 +81,7 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
 
             @Override
             public File getFile() {
-                return new File(DatabaseDescriptor.getCDCLogLocation(), filename);
+                return new File(DatabaseDescriptor.getCDCLogLocation().toJavaIOFile(), filename);
             }
 
             public CompletableFuture<?> sendAsync(AbstractMutation<TableMetadata> mutation) {
