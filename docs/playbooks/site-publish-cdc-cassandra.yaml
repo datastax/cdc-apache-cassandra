@@ -1,6 +1,8 @@
 site:
   title: DataStax CDC for Apache Cassandra documentation
   url: https://docs.datastax.com/en/cdc-for-cassandra
+  start_page: docs::index.adoc
+  robots: allow
   # The google_analytics and segment_io site keys must be in the release playbook
   # of each docset. This ensures that the Google Tag Manager (GTM) and Segment
   # scripts get loaded into the docsets that get published to docs.datastax.com.
