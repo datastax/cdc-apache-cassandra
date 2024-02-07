@@ -4,4 +4,4 @@
 * xref:backfill-cli.adoc[]
 * xref:faqs.adoc[]
 * xref:cdc-cassandra-events.adoc[]
-* xref:cdcExample.adoc[]
+* xref:cdc-example.adoc[]
