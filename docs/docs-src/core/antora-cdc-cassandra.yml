@@ -1,7 +1,8 @@
 name: docs
-title: DataStax CDC for Apache Cassandra® Documentation
-version: "2.2.9"
-display_version: "2.2.9"
+title: DataStax CDC for Apache Cassandra
+version: '2.2.9'
+display_version: '2.2.9'
+start_page: index.adoc
 asciidoc:
   attributes:
     cdc_cass_first: 'DataStax CDC for Apache Cassandra®'
