@@ -1,6 +1,6 @@
 = Installing {cdc_cass} for VM deployment
 
-== Download the DataStax Change Data Capture (CDC) Agent for Apache Cassandra®
+== Download the DataStax Change Data Capture (CDC) Agent for Apache Cassandra(R)
 
 [IMPORTANT]
 ====
@@ -58,7 +58,7 @@ JVM_OPTS="$JVM_OPTS -javaagent:/home/automaton/cdc104/agent-dse4-pulsar-1.0.5-al
 ----
 
 The CDC parameter mappings between JVM and C* environment variables are provided in xref:stringMappings.adoc[CDC Environment Parameter Strings]. +
-For the full set of JVM configuration options, see xref:agentParams.adoc[Table Change Agent Parameters].
+For the full set of JVM configuration options, see xref:install.adoc#agentParams[].
 
 == `Cassandra.yaml`
 In addition to configuring the change agent, enable CDC on the Cassandra node by setting `cdc_enabled` to `true` in the `cassandra.yaml` file.
@@ -85,7 +85,7 @@ cdc_total_space_in_mb: 50000
 [#agentParams]
 == Change Agent Parameters
 
-include::agentParams.adoc[]
+include::partial$agentParams.adoc[]
 
 == Download {cdc_pulsar}
 IMPORTANT
@@ -99,7 +99,7 @@ The following files are available:
 
 [cols="1"]
 |===
-| Streaming platform |  NAR file 
+| Streaming platform |  NAR file
 
 | Apache Pulsar 2.8 and Luna Streaming 2.8 | pulsar-cassandra-source-<version>.nar
 
@@ -166,10 +166,10 @@ pulsar-admin source status --name cassandra-source-1
 
 Once the connector is running, it will process events from the `events` topic and publish the result to the `data` topic.
 
-For the full set of source configuration options, see xref:cfgCassandraSource.adoc[{cdc_pulsar} settings].
-For the full set of Cassandra authentication options, see xref:cfgCassandraAuth.adoc[Cassandra Authentication settings].
-For the full set of Cassandra SSL settings, see xref:cfgCassandraSSL.adoc[Cassandra SSL/TLS settings].
-For advanced configuration of the Cassandra driver in the {cdc_pulsar}, see xref:cfgCassandraJavaDriverSettings.adoc[Pass {cdc_pulsar} settings directly to the DataStax Java driver].
+For the full set of source configuration options, see xref:install.adoc#datastax-cassandra-source-connector-for-apache-pulsar-settings[{cdc_pulsar} settings].
+For the full set of Cassandra authentication options, see xref:install.adoc#cassandra-authentication-settings[Cassandra Authentication settings].
+For the full set of Cassandra SSL settings, see xref:install.adoc#cassandra-ssltls-settings[Cassandra SSL/TLS settings].
+For advanced configuration of the Cassandra driver in the {cdc_pulsar}, see xref:install.adoc#pass-cdc-for-cassandra-settings-directly-to-the-datastax-java-driver[Pass {cdc_pulsar} settings directly to the DataStax Java driver].
 
 == Enabling and disabling CDC on a table
 
@@ -184,13 +184,13 @@ ALTER TABLE foo WITH cdc=false;
 
 When CDC is enabled on a table, updates to that table are sent by the change agent to the {cdc_pulsar} which further processes the event and then sends it to the data topic when it can be processed by other connectors (for example, Elasticsearch).
 
-include::cfgCassandraSource.adoc[]
+include::partial$cfgCassandraSource.adoc[]
 
-include::cfgCassandraAuth.adoc[]
+include::partial$cfgCassandraAuth.adoc[]
 
-include::cfgCassandraSSL.adoc[]
+include::partial$cfgCassandraSSL.adoc[]
 
-include::cfgCassandraJavaDriverSettings.adoc[]
+include::partial$cfgCassandraJavaDriverSettings.adoc[]
 
 == Scaling up your configuration
 
