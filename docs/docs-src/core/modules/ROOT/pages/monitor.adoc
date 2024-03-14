@@ -2,7 +2,7 @@
 
 == Change Agent Metrics
 
-The change agent is a JVM agent running in Apache Cassandra® nodes and provides a dedicated MBean type=`CdcAgent` with the following metrics:
+The change agent is a JVM agent running in Apache Cassandra(R) nodes and provides a dedicated MBean type=`CdcAgent` with the following metrics:
 
 [cols="2,1,3"]
 |===
@@ -116,7 +116,7 @@ A description of the last seen error is displayed in the `error` field.
 
 |===
 
-Here an example of those user-defined metrics aggregated by Apache Pulsar™ when processing 2000 mutations:
+Here an example of those user-defined metrics aggregated by Apache Pulsar(TM) when processing 2000 mutations:
 
 [source,bash]
 ----
