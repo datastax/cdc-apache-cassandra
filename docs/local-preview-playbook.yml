@@ -7,7 +7,7 @@ git:
 
 site:
   title: DataStax Docs
-  start_page: cdc-cassandra::index.adoc
+  start_page: cdc-for-cassandra::index.adoc
   robots: disallow
 
 content:
