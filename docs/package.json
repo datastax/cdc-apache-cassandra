@@ -1,18 +1,25 @@
 {
-  "name": "cdcrep-docs",
-  "scripts": {
-    "build:prod:cdc-cassandra": "npm run build:publish:cdc-cassandra",
-    "build:dev:cdc-cassandra": "npm run build:local:cdc-cassandra",
-    "build:publish:cdc-cassandra": "antora --stacktrace --fetch --clean playbooks/site-publish-cdc-cassandra.yaml",
-    "build:local:cdc-cassandra": "antora --stacktrace --fetch --clean playbooks/site-local-cdc-cassandra.yaml"
-  },
+  "private": true,
+  "name": "cdc-apache-cassandra",
+  "description": "The content source for DataStax CDC for Apache Cassandra documentation.",
+  "author": "DataStax Inc.",
+  "homepage": "https://docs.datastax.com",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/riptano/cdc-apache-cassandra.git"
+    "url": "https://github.com/datastax/cdc-apache-cassandra"
+  },
+  "scripts": {
+    "build:local": "env FORCE_SHOW_EDIT_PAGE_LINK=true antora --clean --stacktrace local-preview-playbook.yml",
+    "tailwindcss": "tailwindcss build -c ./build/site/_/js/tailwind.config.js -i ./build/site/_/css/site.css -o ./build/site/_/css/site.css --minify"
   },
   "dependencies": {
-    "@antora/cli": "~3.1",
-    "@antora/site-generator": "~3.1",
-    "@asciidoctor/tabs": "^1.0.0-beta.5"
+    "@antora/collector-extension": "^1.0.0-alpha.3",
+    "@asciidoctor/tabs": "^1.0.0-beta.6",
+    "antora": "~3.1",
+    "asciidoctor-external-callout": "~1.2.1",
+    "asciidoctor-kroki": "~0.18.1",
+    "csv-parser": "^3.0.0",
+    "npm-run-all": "^4.1.5",
+    "tailwindcss": "^3.3.5"
   }
 }
