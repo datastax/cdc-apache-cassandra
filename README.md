@@ -8,7 +8,7 @@
 The DataStax CDC for Apache Cassandra requires:
 
 * DataStax Change Agent for Apache Cassandra, which is an event producer deployed as a JVM agent on each Cassandra data node.
-* DataStax Source Connector for Apache Pulsar, which is source connector deployed in your streaming platform.
+* DataStax Source Connector for Apache Pulsar, which is a source connector deployed in your streaming platform.
 
 ![Cassandra-source-connector](docs/docs-src/core/modules/ROOT/assets/images/cassandra-source-connector.png)
 
