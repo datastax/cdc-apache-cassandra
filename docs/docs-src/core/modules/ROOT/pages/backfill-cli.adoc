@@ -236,7 +236,7 @@ When running the backfill CLI as a Pulsar-admin extension, all `--pulsar-*` para
 The `--dsbulk-log-dir` is only available when running the backfill CLI as a standalone Java application.
 
 The `--export-dsbulk-option` parameter passes extra parameters to DSBulk.
-The relevant DSBulk settings configure the CSV connector and can be found https://github.com/datastax/dsbulk/blob/1.10.x/manual/settings.md#connector.csv[here^].
+The relevant DSBulk settings configure the CSV connector and can be found https://github.com/datastax/dsbulk/blob/1.10.x/manual/settings.md#connector.csv[here].
 Shortened option names are not supported.
 
 In both the Pulsar-admin extension and the standalone Java application, C* related configurations are exclusively passed as command line arguments.

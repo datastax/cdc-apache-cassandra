@@ -2,7 +2,7 @@
 
 Capture schema changes in your C* tables and pass them to Apache Pulsar(R) with DataStax Change Data Capture (CDC). This doc will guide you through installing, configuring, and using CDC with C* or DSE in a VM-based deployment.
 
-This installation requires the following. Latest version artifacts are available https://github.com/datastax/cdc-apache-cassandra/releases/latest[here^]. Use image:https://img.shields.io/github/v/release/datastax/cdc-apache-cassandra?color=green&display_name=tag[link="https://github.com/datastax/cdc-apache-cassandra/releases/latest"^] for the latest version.
+This installation requires the following. Latest version artifacts are available https://github.com/datastax/cdc-apache-cassandra/releases/latest[here]. Use image:https://img.shields.io/github/v/release/datastax/cdc-apache-cassandra?color=green&display_name=tag[link="https://github.com/datastax/cdc-apache-cassandra/releases/latest"] for the latest version.
 
 * C* or DSE environment
 ** https://downloads.datastax.com/#enterprise[DSE 6.8.16+]
@@ -17,7 +17,7 @@ This installation requires the following. Latest version artifacts are available
 
 == Installing and configuring
 
-. Download the https://pulsar.apache.org/download/[Pulsar tarball] and set up a Pulsar cluster. This example uses Pulsar https://pulsar.apache.org/docs/en/standalone/[standalone mode], but you can also use our helpful https://github.com/datastax/pulsar-ansible[Ansible Scripts^].
+. Download the https://pulsar.apache.org/download/[Pulsar tarball] and set up a Pulsar cluster. This example uses Pulsar https://pulsar.apache.org/docs/en/standalone/[standalone mode], but you can also use our helpful https://github.com/datastax/pulsar-ansible[Ansible Scripts].
 +
 [source,bash]
 ----
@@ -29,7 +29,7 @@ bin/pulsar standalone
 ====
 We recommend using the latest CDC agent version (at least version `1.0.4`+) to support C* collection data types.
 ====
-. Install C*/DSE with your preferred https://docs.datastax.com/en/install/6.8/install/installWhichOne.html[installation method^]. 
+. Install C*/DSE with your preferred https://docs.datastax.com/en/install/6.8/install/installWhichOne.html[installation method]. 
 
 . After installing C*/DSE, but before starting the C*/DSE service, set the `Cassandra-env.sh` configuration:
 +
