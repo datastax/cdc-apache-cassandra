@@ -102,7 +102,7 @@ We recommend active monitoring of the disk space of the C* nodes. If the Pulsar 
 When the disk space of the `cdc_raw` directory reaches your `cdc_total_space_in_mb` Cassandra setting (less than 4GB by default), writes to CDC-enabled tables will fail with a `CDCWriteException`.
 The following warning message is included in Cassandra logs:
 
-[source,language-bash]
+[source,bash]
 ----
 WARN  [CoreThread-5] 2021-10-29 09:12:52,790  NoSpamLogger.java:98 - Rejecting Mutation containing CDC-enabled table. Free up space in /mnt/data/cdc_raw.
 ----

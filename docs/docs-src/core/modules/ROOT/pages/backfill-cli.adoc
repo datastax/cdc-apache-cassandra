@@ -31,7 +31,7 @@ cd cdc-apache-cassandra
 Result::
 +
 --
-[source,bash]
+[source,console]
 ----
 BUILD SUCCESSFUL in 37s
 17 actionable tasks: 15 executed, 2 up-to-date
@@ -175,7 +175,7 @@ Your data topic is now populated with the existing data from the Cassandra table
 .Pulsar consumer subscription output:
 [%collapsible]
 ====
-[source,plain]
+[source,console]
 ----
 ----- got message -----
 2023-04-14T11:47:48,652-0400 [main] INFO  org.apache.pulsar.client.impl.schema.AutoConsumeSchema - Configure topic schema \x00\x00\x00\x00\x00\x00\x00\x00 for topic persistent://public/default/data-ks1.table1 : {"key":{"name":"table1","schema":{"type":"record","name":"table1","namespace":"ks1","doc":"Table ks1.table1","fields":[{"name":"id","type":"string"}]},"type":"AVRO","timestamp":0,"properties":{}},"value":{"name":"table1","schema":{"type":"record","name":"table1","namespace":"ks1","doc":"Table ks1.table1","fields":[{"name":"val","type":["null","string"]}]},"type":"AVRO","timestamp":0,"properties":{}}}
