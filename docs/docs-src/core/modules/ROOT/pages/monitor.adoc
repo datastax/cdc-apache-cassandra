@@ -57,7 +57,7 @@ The change agent is a JVM agent running in Apache Cassandra(R) nodes and provide
 
 The {cdc_cass} framework reports stats for each connector. You can view the stats for a connector like this:
 
-[source,language-bash]
+[source,bash]
 ----
 pulsar-admin source stats --name cassandra-source-1
 

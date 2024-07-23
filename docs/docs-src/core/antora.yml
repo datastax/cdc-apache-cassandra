@@ -1,8 +1,11 @@
-name: cdc-for-cassandra
-title: DataStax CDC for Apache Cassandra
+name: 'cdc-for-cassandra'
+title: 'DataStax CDC for Apache Cassandra'
 version: '2.2.9'
-display_version: '2.2.9'
-start_page: index.adoc
+start_page: 'index.adoc'
+
+nav:
+- modules/ROOT/nav.adoc
+
 asciidoc:
   attributes:
     cdc_cass_first: 'DataStax CDC for Apache Cassandra(R)'
@@ -13,5 +16,3 @@ asciidoc:
     luna_version: '2.10'
     pulsar_version: '2.10'
     version: '2.2.9' # cdc-apache-cassandra latest {version}
-nav:
-- modules/ROOT/nav.adoc

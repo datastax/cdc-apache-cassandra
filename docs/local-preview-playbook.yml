@@ -19,19 +19,20 @@ content:
 
 antora:
   extensions:
+  - '@antora/atlas-extension'
   - '@antora/collector-extension'
-  - lib/tailwind-processor.js
+  - extensions/tailwind-processor.js
   - id: unlisted-pages
     enabled: true
-    require: lib/unlisted-pages-extension.js
+    require: extensions/unlisted-pages-extension.js
     add_to_navigation: false
     unlisted_pages_heading: Orphans
 
 asciidoc:
   extensions:
   - '@asciidoctor/tabs'
-  - lib/remote-include-processor.js
-  - lib/svg-macro.js
+  - extensions/remote-include-processor.js
+  - extensions/svg-macro.js
   - asciidoctor-kroki
   - asciidoctor-external-callout
   attributes:
@@ -55,8 +56,23 @@ asciidoc:
     astra_db: 'Astra DB'
     astra_stream: 'Astra Streaming'
     astra_ui: 'Astra Portal'
+    astra_cli: 'Astra CLI'
+    astra-streaming-examples-repo: 'https://raw.githubusercontent.com/datastax/astra-streaming-examples/master'
+    luna-streaming-examples-repo: 'https://raw.githubusercontent.com/datastaxdevs/luna-streaming-examples/main'
     support_url: 'https://support.datastax.com'
     glossary-url: 'https://docs.datastax.com/en/glossary/docs/index.html#'
+    emoji-tada: "&#127881;"
+    emoji-rocket: "&#128640;"
+    emoji-smile: "&#128512"
+    dse: 'DataStax Enterprise (DSE)'
+    cassandra: 'Apache Cassandra(R)'
+    classic: 'classic'
+    classic_cap: 'Classic'
+    serverless: 'serverless'
+    serverless_cap: 'Serverless'
+    # Antora Atlas
+    primary-site-url: https://docs.datastax.com/en
+    primary-site-manifest-url: https://docs.datastax.com/en/site-manifest.json
 
 urls:
   latest_version_segment_strategy: redirect:from

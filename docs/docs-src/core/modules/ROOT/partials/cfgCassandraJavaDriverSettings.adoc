@@ -3,7 +3,7 @@
 In your {cdc_pulsar} configuration file, you can directly pass settings to the DataStax Java driver by using the `datastax-java-driver` prefix.
 For example:
 
-[source,no-highlight]
+[source,console]
 ----
 datastax-java-driver.basic.request.consistency=ALL
 ----
@@ -48,7 +48,7 @@ For `datastax-java-driver.basic.contact-points`, you must provide the fully qual
 
 By passing in the Java driver's setting, this option gives you more configuration flexibility because you can specify a different port for each host. For example:
 
-[source,no-highlight]
+[source,console]
 ----
 datastax-java-driver.basic.contact-points = 127.0.0.1:9042, 127.0.0.2:9042
 ----

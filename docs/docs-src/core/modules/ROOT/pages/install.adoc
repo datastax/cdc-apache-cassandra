@@ -24,7 +24,7 @@ The following files are available in the tar file:
 
 . Extract the files from the tar with the following command:
 +
-[source,language-bash]
+[source,bash]
 ----
 tar xvf cassandra-source-agents-<version>.tar
 ----
@@ -75,7 +75,7 @@ Without the change agent to process the CDC data, the space used will grow until
 
 Here is an example set of configurations for the `cassandra.yaml` file:
 
-[source,language-bash]
+[source,bash]
 ----
 cdc_enabled: true
 commitlog_sync_period_in_ms: 2000
@@ -107,7 +107,7 @@ The following files are available:
 
 Extract the files from the tar with the following command:
 
-[source,language-bash]
+[source,bash]
 ----
 tar xvf cassandra-source-connectors-<version>.tar
 ----
@@ -136,7 +136,7 @@ You have to specify the following parameters:
 
 Here is an example:
 
-[source,language-bash]
+[source,bash]
 ----
 pulsar-admin source create \
 --name cassandra-source-1 \
@@ -159,7 +159,7 @@ pulsar-admin source create \
 ----
 
 Then check your connector is in the running state with no errors:
-[source,language-bash]
+[source,bash]
 ----
 pulsar-admin source status --name cassandra-source-1
 ----
@@ -175,7 +175,7 @@ For advanced configuration of the Cassandra driver in the {cdc_pulsar}, see xref
 
 Once the change agent is installed and the connector is running, you can enable or disable CDC on table using the following commands:
 
-[source,language-bash]
+[source,bash]
 ----
 CREATE TABLE foo (a int, b text, PRIMARY KEY(a)) WITH cdc=true;
 ALTER TABLE foo WITH cdc=true;
