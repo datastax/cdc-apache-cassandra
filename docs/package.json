@@ -9,7 +9,7 @@
     "url": "https://github.com/datastax/cdc-apache-cassandra"
   },
   "scripts": {
-    "tailwindcss": "tailwindcss build -c ./build/site/_/js/tailwind.config.js -i ./build/site/_/css/site.css -o ./build/site/_/css/site.css --minify",
+    "tailwindcss": "tailwindcss build -c ${npm_config_tailwind_config_path} -i ${npm_config_css_path} -o ${npm_config_css_path} --minify",
     "build:local": "env FORCE_SHOW_EDIT_PAGE_LINK=true antora --clean --fetch --stacktrace local-preview-playbook.yml"
   },
   "dependencies": {
