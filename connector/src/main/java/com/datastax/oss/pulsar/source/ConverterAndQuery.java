@@ -64,11 +64,14 @@ public class ConverterAndQuery {
     /**
      * When requesting a partition, the projection clause contains only static columns.
      * When requesting a wide row, the projection clause contains regular and static columns
+     * When deleting a single row or a partition, the projection contains regular and static columns
      * @param whereClauseLength number of columns in the CQL where clause.
      * @return the projection clause
      */
     public CqlIdentifier[] getProjectionClause(int whereClauseLength) {
-        return primaryKeyClause.length == whereClauseLength
+        // when primary key columns are different from where clause columns and static columns are absent, we still
+        // need to include regular columns in the projection clause (e.g. for DELETE by partition key use cases)
+        return primaryKeyClause.length == whereClauseLength || staticProjectionClause.length == 0
                 ? projectionClause
                 : staticProjectionClause;
     }
