@@ -19,13 +19,7 @@ import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.testcontainers.PulsarContainer;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.pulsar.client.api.Consumer;
-import org.apache.pulsar.client.api.Message;
-import org.apache.pulsar.client.api.PulsarClient;
-import org.apache.pulsar.client.api.Schema;
-import org.apache.pulsar.client.api.SubscriptionInitialPosition;
-import org.apache.pulsar.client.api.SubscriptionMode;
-import org.apache.pulsar.client.api.SubscriptionType;
+import org.apache.pulsar.client.api.*;
 import org.apache.pulsar.client.api.schema.GenericRecord;
 import org.apache.pulsar.client.api.schema.RecordSchemaBuilder;
 import org.apache.pulsar.client.api.schema.SchemaBuilder;
@@ -39,14 +33,11 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.Network;
+import org.testcontainers.images.builder.Transferable;
 
 import java.io.IOException;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -229,10 +220,12 @@ public abstract class PulsarDualNodeTests {
         String pulsarServiceUrl = "pulsar://pulsar:" + pulsarContainer.BROKER_PORT;
         Long testId = Math.abs(AgentTestUtil.random.nextLong());
         String randomDataDir = System.getProperty("buildDir") + "/data-" + testId + "-";
-        try (CassandraContainer<?> cassandraContainer1 = createCassandraContainer(1, pulsarServiceUrl, testNetwork)
-                .withFileSystemBind(randomDataDir + "1", "/var/lib/cassandra");
-             CassandraContainer<?> cassandraContainer2 = createCassandraContainer(2, pulsarServiceUrl, testNetwork)
-                     .withFileSystemBind(randomDataDir + "2", "/var/lib/cassandra")) {
+        try (
+                CassandraContainer<?> cassandraContainer1 = createCassandraContainer(1, pulsarServiceUrl, testNetwork)
+                .withCopyToContainer(Transferable.of(randomDataDir + "1"), "/var/lib/cassandra");
+                CassandraContainer<?> cassandraContainer2 = createCassandraContainer(2, pulsarServiceUrl, testNetwork)
+                     .withCopyToContainer(Transferable.of(randomDataDir + "2"), "/var/lib/cassandra")
+        ) {
             cassandraContainer1.start();
             cassandraContainer2.start();
 
