@@ -289,8 +289,8 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
                 .withCreateContainerCmdModifier(c -> c.withName("cassandra-" + nodeIndex))
                 .withNetwork(network)
                 .withConfigurationOverride(configLocation)
-                .withCopyToContainer(
-                        Transferable.of(String.format(Locale.ROOT, "%s/libs/%s", agentBuildDir, jarFile)),
+                .withFileSystemBind(
+                        String.format(Locale.ROOT, "%s/libs/%s", agentBuildDir, jarFile),
                         String.format(Locale.ROOT, "/%s", jarFile))
                 .withEnv("JVM_EXTRA_OPTS", String.format(Locale.ROOT,
                         "-javaagent:/%s=%s -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" +

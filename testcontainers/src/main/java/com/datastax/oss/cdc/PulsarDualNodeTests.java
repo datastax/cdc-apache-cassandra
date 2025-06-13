@@ -222,9 +222,9 @@ public abstract class PulsarDualNodeTests {
         String randomDataDir = System.getProperty("buildDir") + "/data-" + testId + "-";
         try (
                 CassandraContainer<?> cassandraContainer1 = createCassandraContainer(1, pulsarServiceUrl, testNetwork)
-                .withCopyToContainer(Transferable.of(randomDataDir + "1"), "/var/lib/cassandra");
+                .withFileSystemBind(randomDataDir + "1", "/var/lib/cassandra");
                 CassandraContainer<?> cassandraContainer2 = createCassandraContainer(2, pulsarServiceUrl, testNetwork)
-                     .withCopyToContainer(Transferable.of(randomDataDir + "2"), "/var/lib/cassandra")
+                     .withFileSystemBind(randomDataDir + "2", "/var/lib/cassandra");
         ) {
             cassandraContainer1.start();
             cassandraContainer2.start();
