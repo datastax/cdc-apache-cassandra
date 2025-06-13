@@ -16,7 +16,6 @@
 package com.datastax.oss.cdc;
 
 import org.apache.avro.Schema;
-import org.apache.avro.SchemaFormatter;
 import org.apache.pulsar.client.api.schema.SchemaInfoProvider;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
@@ -36,7 +35,7 @@ public class NativeSchemaWrapper implements org.apache.pulsar.client.api.Schema<
         this.nativeSchema = nativeSchema;
         this.pulsarSchemaType = pulsarSchemaType;
         this.pulsarSchemaInfo = SchemaInfo.builder()
-                .schema(SchemaFormatter.getInstance("json").format(nativeSchema).getBytes(StandardCharsets.UTF_8))
+                .schema(nativeSchema.toString(false).getBytes(StandardCharsets.UTF_8))
                 .properties(new HashMap<>())
                 .type(pulsarSchemaType)
                 .name(nativeSchema.getName())
