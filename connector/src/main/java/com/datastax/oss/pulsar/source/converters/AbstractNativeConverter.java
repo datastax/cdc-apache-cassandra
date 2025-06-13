@@ -22,7 +22,7 @@ import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
-import com.datastax.oss.driver.api.core.type.CqlVectorType;
+import com.datastax.oss.driver.api.core.type.VectorType;
 import com.datastax.oss.driver.api.core.type.DataType;
 import com.datastax.oss.driver.api.core.type.ListType;
 import com.datastax.oss.driver.api.core.type.MapType;
@@ -76,7 +76,7 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
                             log.info("Add collection schema {}={}", field.name(), collectionSchema);
                             break;
                         case ProtocolConstants.DataType.CUSTOM:
-                            if (cm.getType() instanceof CqlVectorType) {
+                            if (cm.getType() instanceof VectorType) {
                                 Schema vectorSchema = dataTypeSchema(ksm, cm.getType());
                                 subSchemas.put(field.name(), vectorSchema);
                                 log.info("Add vector schema {}={}", field.name(), vectorSchema);
@@ -130,7 +130,7 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
             case ProtocolConstants.DataType.MAP:
                 return true;
             case ProtocolConstants.DataType.CUSTOM:
-                return dataType instanceof CqlVectorType;
+                return dataType instanceof VectorType;
         }
         return false;
     }
@@ -200,9 +200,9 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
                 MapType mapType = (MapType) dataType;
                 return org.apache.avro.Schema.createMap(dataTypeSchema(ksm, mapType.getValueType()));
             case ProtocolConstants.DataType.CUSTOM:
-                if (dataType instanceof CqlVectorType) {
-                    CqlVectorType vectorType = (CqlVectorType) dataType;
-                    return org.apache.avro.Schema.createArray(dataTypeSchema(ksm, vectorType.getSubtype()));
+                if (dataType instanceof VectorType) {
+                    VectorType vectorType = (VectorType) dataType;
+                    return org.apache.avro.Schema.createArray(dataTypeSchema(ksm, vectorType.getElementType()));
                 }
             default:
                 throw new UnsupportedOperationException("Ignoring unsupported type=" + dataType.asCql(false, true));
@@ -260,3 +260,4 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
         }
     }
 }
+
