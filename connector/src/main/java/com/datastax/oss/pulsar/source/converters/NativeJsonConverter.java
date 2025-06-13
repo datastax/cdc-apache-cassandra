@@ -63,7 +63,7 @@ import java.util.stream.Collectors;
 public class NativeJsonConverter extends AbstractNativeConverter<byte[]> {
     private static final ObjectMapper mapper = new ObjectMapper();
 
-    private static final JsonNodeFactory jsonNodeFactory = JsonNodeFactory.withExactBigDecimals(true);
+    private static final JsonNodeFactory jsonNodeFactory = new JsonNodeFactory(true);
 
     public NativeJsonConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
         super(ksm, tm, columns);
