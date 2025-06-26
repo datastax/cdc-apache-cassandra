@@ -32,6 +32,7 @@ sourceSets {
 dependencies {
     implementation project(':commons')
     implementation("com.github.ben-manes.caffeine:caffeine:${caffeineVersion}")
+    implementation("org.rocksdb:rocksdbjni:${rocksdbVersion}")
     implementation("io.vavr:vavr:${vavrVersion}")
     implementation "com.datastax.oss:java-driver-core:${ossDriverVersion}"
     implementation "com.datastax.oss:java-driver-query-builder:${ossDriverVersion}"
