@@ -4,6 +4,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
+import com.google.common.annotations.VisibleForTesting;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.TtlDB;
@@ -18,7 +19,7 @@ public class PersistentCache<K> implements MutationCache<K> {
     /**
      * The mutation cache
      */
-    Cache<K, List<String>> mutationCache;
+    private final Cache<K, List<String>> mutationCache;
 
     private final TtlDB rocksDB;
     /**
@@ -42,11 +43,14 @@ public class PersistentCache<K> implements MutationCache<K> {
         this.mutationCache = Caffeine.newBuilder()
                 .expireAfterWrite(expireAfter.getSeconds(), TimeUnit.SECONDS)
                 .maximumSize(maxCapacity)
-                .executor(Runnable::run)
                 .recordStats()
                 .removalListener((K key, List<String> value, RemovalCause cause) -> {
                     try {
-                        rocksDB.delete(this.keySerializer.apply(key));
+                        // If the removal cause is not SIZE, we delete the key from RocksDB
+                        // This is to avoid deleting the key when it is removed due to the size limit
+                        if (cause != RemovalCause.SIZE ) {
+                            rocksDB.delete(this.keySerializer.apply(key));
+                        }
                     } catch (RocksDBException e) {
                         throw new RuntimeException(e);
                     }
