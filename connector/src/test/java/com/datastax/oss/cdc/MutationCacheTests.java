@@ -15,17 +15,22 @@
  */
 package com.datastax.oss.cdc;
 
+import com.datastax.oss.cdc.cache.InMemoryCache;
+import com.datastax.oss.cdc.cache.MutationCache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class MutationCacheTests {
 
     @Test
     public final void testMaxDigests() throws Exception {
-        MutationCache mutationCache = new MutationCache(3, 10, Duration.ofHours(1));
+        MutationCache<String> mutationCache = new InMemoryCache<>(3, 10, Duration.ofHours(1));
         mutationCache.addMutationMd5("mutation1","digest1");
         mutationCache.addMutationMd5("mutation1","digest2");
         mutationCache.addMutationMd5("mutation1","digest3");
@@ -35,20 +40,20 @@ public class MutationCacheTests {
 
     @Test
     public final void testIsProcessed() throws Exception {
-        MutationCache mutationCache = new MutationCache(3, 10, Duration.ofHours(1));
-        assertEquals(false,mutationCache.isMutationProcessed("mutation1","digest1"));
+        MutationCache<String> mutationCache = new InMemoryCache<>(3, 10, Duration.ofHours(1));
+        assertFalse(mutationCache.isMutationProcessed("mutation1", "digest1"));
         mutationCache.addMutationMd5("mutation1","digest1");
-        assertEquals(true, mutationCache.isMutationProcessed("mutation1","digest1"));
+        assertTrue(mutationCache.isMutationProcessed("mutation1", "digest1"));
     }
 
     @Test
     public final void testExpireAfter() throws Exception {
-        MutationCache mutationCache = new MutationCache(3, 10, Duration.ofSeconds(1));
-        assertEquals(false, mutationCache.isMutationProcessed("mutation1","digest1"));
+        MutationCache<String> mutationCache = new InMemoryCache<>(3, 10, Duration.ofSeconds(1));
+        assertFalse(mutationCache.isMutationProcessed("mutation1", "digest1"));
         mutationCache.addMutationMd5("mutation1","digest1");
-        assertEquals(true, mutationCache.isMutationProcessed("mutation1","digest1"));
+        assertTrue(mutationCache.isMutationProcessed("mutation1", "digest1"));
         Thread.sleep(2000);
-        assertEquals(false, mutationCache.isMutationProcessed("mutation1","digest1"));
+        assertFalse(mutationCache.isMutationProcessed("mutation1", "digest1"));
     }
 
 }
