@@ -56,4 +56,32 @@ public class MutationCacheTests {
         assertFalse(mutationCache.isMutationProcessed("mutation1", "digest1"));
     }
 
+    @Test
+    public final void testMaxCapacity() throws Exception {
+        MutationCache<String> mutationCache = new InMemoryCache<>(3, 10, Duration.ofHours(1));
+
+        // Access and modify the private field using reflection
+        Field field = InMemoryCache.class.getDeclaredField("mutationCache");
+        field.setAccessible(true);
+        field.set(mutationCache, Caffeine.newBuilder()
+                .expireAfterWrite(Duration.ofHours(1).getSeconds(), TimeUnit.SECONDS)
+                .maximumSize(10)
+                .recordStats()
+                .executor(Runnable::run)    // https://github.com/ben-manes/caffeine/wiki/Testing
+                .build()
+        );
+
+        for (int i = 0; i <20; i++) {
+            mutationCache.addMutationMd5("mutation" + i, "digest" + i);
+        }
+
+        int count = 0;
+        for (int i = 0; i < 20; i++) {
+            if(mutationCache.getMutationCRCs("mutation" + i) != null) {
+                count++;
+            }
+        }
+        assertEquals(10, count);
+    }
+
 }
