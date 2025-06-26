@@ -66,6 +66,8 @@ public class CassandraSourceConnectorConfig {
     public static final String CACHE_MAX_DIGESTS_CONFIG = "cache.max.digest";
     public static final String CACHE_MAX_CAPACITY_CONFIG = "cache.max.capacity";
     public static final String CACHE_EXPIRE_AFTER_MS_CONFIG = "cache.expire.after.ms";
+    public static final String CACHE_PERSISTENT_DIRECTORY_CONFIG = "cache.persistent.directory";
+
 
     public static final String KEY_CONVERTER_CLASS_CONFIG = "key.converter";
     public static final String VALUE_CONVERTER_CLASS_CONFIG = "value.converter";
@@ -195,6 +197,13 @@ public class CassandraSourceConnectorConfig {
                             ConfigDef.Importance.HIGH,
                             "The maximum number of digest per mutation cache entry, with a default set to 3",
                             "CQL Read cache", 1, ConfigDef.Width.NONE, "CacheMaxDigest")
+                    .define(CACHE_PERSISTENT_DIRECTORY_CONFIG,
+                            ConfigDef.Type.STRING,
+                            null,
+                            ConfigDef.Importance.HIGH,
+                            "The directory where the persistent mutation cache will be stored. Formated as `{cache.persistent.directory}/{source-name}-{instance-id}` " +
+                                    "If set, the connector will use RocksDB to store digests, otherwise it will use an in-memory cache.",
+                            "CQL Read cache", 1, ConfigDef.Width.NONE, "CachePersistentDirectory")
                     .define(CACHE_MAX_CAPACITY_CONFIG,
                             ConfigDef.Type.LONG,
                             "32767",
@@ -661,6 +670,10 @@ public class CassandraSourceConnectorConfig {
         return globalConfig.getLong(CACHE_MAX_DIGESTS_CONFIG);
     }
 
+    public String getCachePersistentDirectory() {
+        return globalConfig.getString(CACHE_PERSISTENT_DIRECTORY_CONFIG);
+    }
+
     public long getCacheMaxCapacity() {
         return globalConfig.getLong(CACHE_MAX_CAPACITY_CONFIG);
     }
@@ -782,6 +795,7 @@ public class CassandraSourceConnectorConfig {
                         + "        " + QUERY_BACKOFF_IN_MS_CONFIG + ": %d%n"
                         + "        " + QUERY_MAX_BACKOFF_IN_SEC_CONFIG + ": %d%n"
                         + "        " + CACHE_MAX_DIGESTS_CONFIG + ": %d%n"
+                        + "        " + CACHE_PERSISTENT_DIRECTORY_CONFIG + ": %s%n"
                         + "        " + CACHE_MAX_CAPACITY_CONFIG + ": %d%n"
                         + "        " + CACHE_EXPIRE_AFTER_MS_CONFIG + ": %d%n"
                         + "        " + CACHE_ONLY_IF_COORDINATOR_MATCH + ": %s%n"
@@ -805,6 +819,7 @@ public class CassandraSourceConnectorConfig {
                 getQueryBackoffInMs(),
                 getQueryMaxBackoffInSec(),
                 getCacheMaxDigests(),
+                getCachePersistentDirectory(),
                 getCacheMaxCapacity(),
                 getCacheExpireAfterMs(),
                 getCacheOnlyIfCoordinatorMatch(),
