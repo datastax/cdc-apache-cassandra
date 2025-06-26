@@ -20,9 +20,11 @@ import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
 import com.datastax.oss.cdc.ConfigUtil;
 import com.datastax.oss.cdc.Constants;
 import com.datastax.oss.cdc.CqlLogicalTypes;
-import com.datastax.oss.cdc.MutationCache;
 import com.datastax.oss.cdc.MutationValue;
 import com.datastax.oss.cdc.Version;
+import com.datastax.oss.cdc.cache.MutationCache;
+import com.datastax.oss.cdc.cache.InMemoryCache;
+import com.datastax.oss.cdc.cache.PersistentCache;
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.Row;
@@ -66,6 +68,7 @@ import org.apache.pulsar.io.core.Source;
 import org.apache.pulsar.io.core.SourceContext;
 import org.apache.pulsar.io.core.annotations.Connector;
 import org.apache.pulsar.io.core.annotations.IOType;
+import org.rocksdb.RocksDBException;
 
 import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.StandardCharsets;
@@ -312,10 +315,8 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                 consumerBuilder.keySharedPolicy(KeySharedPolicy.autoSplitHashRange());
             }
             this.consumer = consumerBuilder.subscribe();
-            this.mutationCache = new MutationCache<>(
-                    this.config.getCacheMaxDigests(),
-                    this.config.getCacheMaxCapacity(),
-                    Duration.ofMillis(this.config.getCacheExpireAfterMs()));
+            this.mutationCache = this.getMutationCache();
+
             log.info("Starting source connector topic={} subscription={} query.executors={}",
                     dirtyTopicName,
                     this.config.getEventsSubscriptionName(),
@@ -323,6 +324,30 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         } catch (Throwable err) {
             log.error("Cannot open the connector:", err);
             throw new RuntimeException(err);
+        }
+    }
+
+    /**
+     * Get the mutation cache implementation.
+     * @return the mutation cache implementation
+     * @throws RocksDBException if the mutation cache cannot be created due to RocksDB issues
+     */
+    private MutationCache<String> getMutationCache() throws RocksDBException {
+        if(this.config.getCachePersistentDirectory() != null){
+            return new PersistentCache<>(
+                    this.config.getCacheMaxDigests(),
+                    this.config.getCacheMaxCapacity(),
+                    Duration.ofMillis(this.config.getCacheExpireAfterMs()),
+                    this.config.getCachePersistentDirectory() + "/" +
+                            this.sourceContext.getSourceName() + "-" + this.sourceContext.getInstanceId(),
+                    String::getBytes
+            );
+        }
+        else {
+            return new InMemoryCache<>(
+                    this.config.getCacheMaxDigests(),
+                    this.config.getCacheMaxCapacity(),
+                    Duration.ofMillis(this.config.getCacheExpireAfterMs()));
         }
     }
 
