@@ -13,10 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.datastax.oss.cdc;
+package com.datastax.oss.cdc.cache;
 
-import com.datastax.oss.cdc.cache.InMemoryCache;
-import com.datastax.oss.cdc.cache.MutationCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import org.junit.jupiter.api.Test;
 
