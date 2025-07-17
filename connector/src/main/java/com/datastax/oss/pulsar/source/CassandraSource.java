@@ -355,6 +355,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             List<ColumnMetadata> columns = tableMetadata.getColumns().values().stream()
                     // include primary keys in the json only output format options
                     // TODO: PERF: Infuse the key values instead of reading from DB https://github.com/datastax/cdc-apache-cassandra/issues/84
+                    // If primary key only table, then add all the columns into the value schema.
                     .filter(c -> config.isJsonOnlyOutputFormat() || isPrimaryKeyOnlyTable || !tableMetadata.getPrimaryKey().contains(c))
                     .filter(c -> !columnPattern.isPresent() || columnPattern.get().matcher(c.getName().asInternal()).matches())
                     .collect(Collectors.toList());

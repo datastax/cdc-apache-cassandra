@@ -167,6 +167,7 @@ public class CassandraClient implements AutoCloseable {
                                            CqlIdentifier[] projection,
                                            CqlIdentifier[] pk,
                                            int pkLength) {
+        // select columns according to projection array length
         Select query = selectFrom(keyspaceName, tableName)
                 .columns(projection.length != 0 ? projection : pk);
         for (int i = 0; i < pkLength; i++)
