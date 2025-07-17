@@ -180,6 +180,11 @@ public abstract class PulsarCassandraSourceTests {
     public void testCompoundPk() throws InterruptedException, IOException {
         testCompoundPk("ks1");
     }
+    
+    @Test
+    public void testOnlyPk() throws InterruptedException, IOException {
+        testOnlyPk("ks1");
+    }
 
     @Test
     public void testSchema() throws InterruptedException, IOException {
@@ -536,6 +541,67 @@ public abstract class PulsarCassandraSourceTests {
         }
     }
 
+    public void testOnlyPk(String ksName) throws InterruptedException, IOException {
+        try {
+            try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName +
+                        " WITH replication = {'class':'SimpleStrategy','replication_factor':'2'};");
+                cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table6 (a text, b int, PRIMARY KEY(a,b)) WITH cdc=true");
+                cqlSession.execute("INSERT INTO " + ksName + ".table6 (a,b) VALUES('1',1)");
+                cqlSession.execute("INSERT INTO " + ksName + ".table6 (a,b) VALUES('2',2)");
+                cqlSession.execute("INSERT INTO " + ksName + ".table6 (a,b) VALUES('3',3)");
+            }
+            deployConnector(ksName, "table6");
+            try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
+                try (Consumer<GenericRecord> consumer = pulsarClient.newConsumer(org.apache.pulsar.client.api.Schema.AUTO_CONSUME())
+                        .topic(String.format(Locale.ROOT, "data-%s.table6", ksName))
+                        .subscriptionName("sub1")
+                        .subscriptionType(SubscriptionType.Key_Shared)
+                        .subscriptionMode(SubscriptionMode.Durable)
+                        .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+                        .subscribe()) {
+                    Message<GenericRecord> msg;
+                    int receivedCount = 1;
+                    while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null &&
+                           receivedCount < 5) {
+                        GenericRecord record = msg.getValue();
+                        assertEquals(this.schemaType, record.getSchemaType());
+                        Object key = getKey(msg);
+                        GenericRecord value = getValue(record);
+                        // assert key fields
+                        assertEquals(Integer.toString(receivedCount) , getAndAssertKeyFieldAsString(key, "a"));
+                        assertEquals(receivedCount,  getAndAssertKeyFieldAsInt(key, "b"));
+                        // assert value fields
+                        assertEquals(Integer.toString(receivedCount), value.getField("a"));
+                        assertEquals(receivedCount, value.getField("b"));
+                        consumer.acknowledge(msg);
+                        receivedCount++;
+                    }
+
+                    // delete a row
+                    try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                        cqlSession.execute("DELETE FROM " + ksName + ".table6 WHERE a = '1' AND b = 1");
+                    }
+                    while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null &&
+                            receivedCount < 6) {
+                        GenericRecord record = msg.getValue();
+                        assertEquals(this.schemaType, record.getSchemaType());
+                        Object key = getKey(msg);
+                        GenericRecord value = getValue(record);
+                        assertEquals("1", getAndAssertKeyFieldAsString(key,"a"));
+                        assertEquals(1, getAndAssertKeyFieldAsInt(key, "b"));
+                        assertNullValue(value);
+                        consumer.acknowledge(msg);
+                        receivedCount++;
+                    }
+                }
+            }
+        } finally {
+            dumpFunctionLogs("cassandra-source-" + ksName + "-table6");
+            undeployConnector(ksName, "table6");
+        }
+    }
+    
     // docker exec -it pulsar cat /pulsar/logs/functions/public/default/cassandra-source-ks1-table3/cassandra-source-ks1-table3-0.log
     public void testSchema(String ksName) throws InterruptedException, IOException {
         try {
