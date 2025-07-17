@@ -70,15 +70,7 @@ import org.apache.pulsar.io.core.annotations.IOType;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -346,16 +338,28 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         setValueConverterAndQuery(tuple._1, tuple._2);
     }
 
+    /**
+     * Check if the table has only primary key columns.
+     * @param tableMetadata the table metadata
+     * @return true if the table has only primary key columns, false otherwise
+     */
+    private boolean isPrimaryKeyOnlyTable(TableMetadata tableMetadata) {
+        // if the table has no columns other than the primary key, we can skip the value converter
+        return tableMetadata.getColumns().size() == tableMetadata.getPrimaryKey().size() &&
+                new HashSet<>(tableMetadata.getPrimaryKey()).containsAll(tableMetadata.getColumns().values());
+    }
+
     synchronized void setValueConverterAndQuery(KeyspaceMetadata ksm, TableMetadata tableMetadata) {
         try {
+            boolean isPrimaryKeyOnlyTable = isPrimaryKeyOnlyTable(tableMetadata);
             List<ColumnMetadata> columns = tableMetadata.getColumns().values().stream()
                     // include primary keys in the json only output format options
                     // TODO: PERF: Infuse the key values instead of reading from DB https://github.com/datastax/cdc-apache-cassandra/issues/84
-                    .filter(c -> config.isJsonOnlyOutputFormat() ? true : !tableMetadata.getPrimaryKey().contains(c))
+                    .filter(c -> config.isJsonOnlyOutputFormat() || isPrimaryKeyOnlyTable || !tableMetadata.getPrimaryKey().contains(c))
                     .filter(c -> !columnPattern.isPresent() || columnPattern.get().matcher(c.getName().asInternal()).matches())
                     .collect(Collectors.toList());
             List<ColumnMetadata> staticColumns = tableMetadata.getColumns().values().stream()
-                    .filter(c -> c.isStatic())
+                    .filter(ColumnMetadata::isStatic)
                     .filter(c -> !tableMetadata.getPrimaryKey().contains(c))
                     .filter(c -> !columnPattern.isPresent() || columnPattern.get().matcher(c.getName().asInternal()).matches())
                     .collect(Collectors.toList());
@@ -379,9 +383,9 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
     /**
      * Build the CQL prepared statement for the specified where clause length.
-     * NOTE: The prepared statement cannot be build from the schema listener thread to avoid a possible deadlock.
+     * NOTE: The prepared statement cannot be built from the schema listener thread to avoid a possible deadlock.
      *
-     * @param valueConverterAndQuery
+     * @param valueConverterAndQuery the converter and query parameters
      * @param whereClauseLength      the number of columns in the where clause
      * @return preparedStatement
      */
@@ -392,7 +396,8 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                         valueConverterAndQuery.tableName,
                         valueConverterAndQuery.getProjectionClause(whereClauseLength),
                         valueConverterAndQuery.primaryKeyClause,
-                        k));
+                        k
+                ));
     }
 
     Class<?> getKeyConverterClass() {
