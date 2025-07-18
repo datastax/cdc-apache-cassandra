@@ -41,6 +41,8 @@ import org.apache.pulsar.client.api.SubscriptionMode;
 import org.apache.pulsar.client.api.SubscriptionType;
 import org.apache.pulsar.client.api.schema.Field;
 import org.apache.pulsar.client.api.schema.GenericRecord;
+import org.apache.pulsar.client.impl.schema.generic.GenericJsonReader;
+import org.apache.pulsar.client.impl.schema.generic.GenericJsonRecord;
 import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.common.schema.SchemaType;
 import org.apache.pulsar.shade.com.fasterxml.jackson.databind.JsonNode;
@@ -69,14 +71,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDate;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -194,6 +189,11 @@ public abstract class PulsarCassandraSourceTests {
     @Test
     public void testBatchInsert() throws InterruptedException, IOException {
         testBatchInsert("batchinsert");
+    }
+
+    @Test
+    public void testTimestampInCollection() throws InterruptedException, IOException {
+        testTimestampInCollection("ks1");
     }
 
     void deployConnector(String ksName, String tableName) throws IOException, InterruptedException {
@@ -989,6 +989,73 @@ public abstract class PulsarCassandraSourceTests {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    public void testTimestampInCollection(String ksName) throws InterruptedException, IOException {
+        try {
+            try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+                cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName +
+                        " WITH replication = {'class':'SimpleStrategy','replication_factor':'2'};");
+                cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table7 (a text, b timestamp, c list<timestamp>, d map<text, timestamp>, e set<timestamp>, PRIMARY KEY(a)) WITH cdc=true");
+                cqlSession.execute("INSERT INTO " + ksName + ".table7 (a,b,c,d,e) VALUES('1', '1990-04-04 08:52:01.581', ['1990-04-04 08:52:01.581', '1990-04-04 08:52:01.581'], {'key113606': '1990-04-04 08:52:01.581'}, {'1990-04-04 08:52:01.581', '1990-04-04 08:52:01.581'})");
+                cqlSession.execute("INSERT INTO " + ksName + ".table7 (a,b,c,d,e) VALUES('2', '1999-11-07 05:30:00.780', ['1999-11-07 05:30:00.780', '1999-11-07 05:30:00.780'], {'key113606': '1999-11-07 05:30:00.780'}, {'1999-11-07 05:30:00.780'})");
+                cqlSession.execute("INSERT INTO " + ksName + ".table7 (a,b,c,d,e) VALUES('3', '2025-07-17 18:02:01.871', ['2025-07-17 18:02:01.871', '2025-07-17 18:02:01.871'], {'key113606': '2025-07-17 18:02:01.871'}, {'2025-07-17 18:02:01.871', '2025-07-17 18:02:01.871', '2025-07-17 18:02:01.871'})");
+            }
+            deployConnector(ksName, "table7");
+            try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
+                try (Consumer<GenericRecord> consumer = pulsarClient.newConsumer(org.apache.pulsar.client.api.Schema.AUTO_CONSUME())
+                        .topic(String.format(Locale.ROOT, "data-%s.table7", ksName))
+                        .subscriptionName("sub1")
+                        .subscriptionType(SubscriptionType.Key_Shared)
+                        .subscriptionMode(SubscriptionMode.Durable)
+                        .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+                        .subscribe()) {
+                    Message<GenericRecord> msg;
+                    int receivedCount = 0;
+                    List<Long> data = Arrays.asList(639219121581L, 941952600780L, 1752775321871L);
+                    while ((msg = consumer.receive(60, TimeUnit.SECONDS)) != null &&
+                            receivedCount < 4) {
+                        GenericRecord record = msg.getValue();
+                        assertEquals(this.schemaType, record.getSchemaType());
+                        Object key = getKey(msg);
+                        GenericRecord value = getValue(record);
+                        // assert key fields
+                        assertEquals(Integer.toString(receivedCount+1) , getAndAssertKeyFieldAsString(key, "a"));
+                        // assert value fields
+                        assertEquals(data.get(receivedCount), value.getField("b"));
+                        if (value.getField("c") instanceof GenericJsonRecord){
+                            JsonNode arrayNode = ((GenericJsonRecord) value.getField("c")).getJsonNode();
+                            assertTrue(arrayNode.isArray());
+                            assertEquals(2, arrayNode.size());
+                            assertEquals(data.get(receivedCount), arrayNode.get(0).asLong());
+                            assertEquals(data.get(receivedCount), arrayNode.get(1).asLong());
+                        }
+                        else {
+                            assertEquals(Arrays.asList(data.get(receivedCount), data.get(receivedCount)), value.getField("c"));
+                        }
+                        if (value instanceof GenericJsonRecord){
+                            JsonNode arrayNode = ((GenericJsonRecord) value.getField("e")).getJsonNode();;
+                            assertTrue(arrayNode.isArray());
+                            assertEquals(1, arrayNode.size());
+                            assertEquals(data.get(receivedCount), arrayNode.get(0).asLong());
+                        }
+                        else {
+                            assertEquals(Collections.singletonList(data.get(receivedCount)), value.getField("e"));
+                        }
+
+                        Map<String, Object> expectedMap = new HashMap<>();
+                        expectedMap.put("key113606", data.get(receivedCount));
+                        assertMapsEqual(expectedMap, value.getField("d"));
+                        consumer.acknowledge(msg);
+                        receivedCount++;
+                    }
+                }
+            }
+        } finally {
+            dumpFunctionLogs("cassandra-source-" + ksName + "-table7");
+            undeployConnector(ksName, "table7");
+        }
+    }
+
     @Test
     public void testReadTimeout() throws InterruptedException, IOException {
         final String ksName = "ksx";
@@ -1215,6 +1282,45 @@ public abstract class PulsarCassandraSourceTests {
         }
 
         throw new RuntimeException("unknown key type " + key.getClass().getName());
+    }
+
+    @SuppressWarnings("unchecked")
+    private void assertMapsEqual(Map<String, Object> expected, Object actual) {
+        if (actual instanceof GenericJsonRecord) {
+            JsonNode node = ((GenericJsonRecord) actual).getJsonNode();
+            assertEquals(expected.size(), node.size(), "Maps have different sizes");
+            for (Map.Entry<String, Object> entry : expected.entrySet()) {
+                assertTrue(node.has(entry.getKey()), "Missing key: " + entry.getKey());
+                assertEquals(
+                        expected.get(entry.getKey()),
+                        node.get(entry.getKey()).asLong(),
+                        "Values differ for key: " + entry.getKey()
+                );
+            }
+        }
+        else if (actual instanceof Map){
+            Map<org.apache.pulsar.shade.org.apache.avro.util.Utf8, Object> actualMap = (Map<org.apache.pulsar.shade.org.apache.avro.util.Utf8, Object>) actual;
+            assertEquals(expected.size(), actualMap.size(), "Maps have different sizes");
+            for (Map.Entry<String, Object> entry : expected.entrySet()) {
+                String expectedKey = entry.getKey();
+                assertTrue(actualMap.keySet().stream()
+                        .map(Utf8::toString)
+                        .anyMatch(str -> str.equals(expectedKey)), "Missing key: " + expectedKey);
+                assertEquals(
+                        expected.get(entry.getKey()),
+                        actualMap.entrySet().stream()
+                                .filter(e -> e.getKey().toString().equals(expectedKey))
+                                .findFirst()
+                                .map(Map.Entry::getValue)
+                                .orElse(null),
+                        "Values differ for key: " + entry.getKey()
+                );
+            }
+        }
+        else {
+            throw new RuntimeException("Unknown type of GenericRecord: " + actual.getClass().getName());
+        }
+
     }
 
     private void assertKeyFieldIsNull(Object key, String fieldName) {
