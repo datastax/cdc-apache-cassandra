@@ -57,12 +57,7 @@ import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -146,7 +141,8 @@ public class NativeAvroConverter extends AbstractNativeConverter<List<Object>> {
                     case ProtocolConstants.DataType.LIST: {
                         ListType listType = (ListType) cm.getType();
                         Schema listSchema = subSchemas.get(fieldName);
-                        List listValue = row.getList(fieldName, CodecRegistry.DEFAULT.codecFor(listType.getElementType()).getJavaType().getRawType());
+                        List<Object> listValue = Objects.requireNonNull(row.getList(fieldName, CodecRegistry.DEFAULT.codecFor(listType.getElementType()).getJavaType().getRawType()))
+                                .stream().map(this::marshalCollectionValue).collect(Collectors.toList());
                         log.debug("field={} listSchema={} listValue={}", fieldName, listSchema, listValue);
                         genericRecordBuilder.put(fieldName, buildArrayValue(listSchema, listValue));
                     }
@@ -154,7 +150,8 @@ public class NativeAvroConverter extends AbstractNativeConverter<List<Object>> {
                     case ProtocolConstants.DataType.SET: {
                         SetType setType = (SetType) cm.getType();
                         Schema setSchema = subSchemas.get(fieldName);
-                        Set setValue = row.getSet(fieldName, CodecRegistry.DEFAULT.codecFor(setType.getElementType()).getJavaType().getRawType());
+                        Set<Object> setValue = Objects.requireNonNull(row.getSet(fieldName, CodecRegistry.DEFAULT.codecFor(setType.getElementType()).getJavaType().getRawType()))
+                                .stream().map(this::marshalCollectionValue).collect(Collectors.toSet());
                         log.debug("field={} setSchema={} setValue={}", fieldName, setSchema, setValue);
                         genericRecordBuilder.put(fieldName, buildArrayValue(setSchema, setValue));
                     }
@@ -162,10 +159,10 @@ public class NativeAvroConverter extends AbstractNativeConverter<List<Object>> {
                     case ProtocolConstants.DataType.MAP: {
                         MapType mapType = (MapType) cm.getType();
                         Schema mapSchema = subSchemas.get(fieldName);
-                        Map<String, Object> mapValue = row.getMap(fieldName,
+                        Map<String, Object> mapValue = Objects.requireNonNull(row.getMap(fieldName,
                                         CodecRegistry.DEFAULT.codecFor(mapType.getKeyType()).getJavaType().getRawType(),
-                                        CodecRegistry.DEFAULT.codecFor(mapType.getValueType()).getJavaType().getRawType())
-                                .entrySet().stream().collect(Collectors.toMap(e -> stringify(mapType.getKeyType(), e.getKey()), Map.Entry::getValue));
+                                        CodecRegistry.DEFAULT.codecFor(mapType.getValueType()).getJavaType().getRawType()))
+                                .entrySet().stream().collect(Collectors.toMap(e -> stringify(mapType.getKeyType(), e.getKey()), this::marshalCollectionValue));
                         log.debug("field={} mapSchema={} mapValue={}", fieldName, mapSchema, mapValue);
                         genericRecordBuilder.put(fieldName, mapValue);
                     }
@@ -174,7 +171,7 @@ public class NativeAvroConverter extends AbstractNativeConverter<List<Object>> {
                         if (cm.getType() instanceof CqlVectorType) {
                             Schema vectorSchema = subSchemas.get(fieldName);
                             CqlVector<?> vector = row.getCqlVector(fieldName);
-                            log.debug("field={} listSchema={} listValue={}", fieldName, vectorSchema, vector);
+                            log.debug("field={} vectorSchema={} vectorValue={}", fieldName, vectorSchema, vector);
                             List<Object> vectorValue = new ArrayList<>();
                             vector.getValues().forEach(vectorValue::add);
                             genericRecordBuilder.put(fieldName, buildArrayValue(vectorSchema, vectorValue));
