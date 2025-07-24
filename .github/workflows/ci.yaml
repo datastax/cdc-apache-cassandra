@@ -19,8 +19,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     name: Build
+    strategy:
+      matrix:
+        jdk: [ '11', '17' ]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ matrix.jdk }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.jdk }}
+          distribution: 'adopt'
+
       - name: Build project
         env:
           DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
@@ -42,9 +52,9 @@ jobs:
         jdk: ['11', '17']
         pulsarImage: ['datastax/lunastreaming:2.10_3.4', 'apachepulsar/pulsar:2.10.3', 'apachepulsar/pulsar:2.11.0']
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.jdk }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.jdk }}
           distribution: 'adopt'
