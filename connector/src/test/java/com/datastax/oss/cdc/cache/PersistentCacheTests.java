@@ -15,20 +15,15 @@
  */
 package com.datastax.oss.cdc.cache;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.RemovalCause;
-import com.google.common.testing.FakeTicker;
 import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.rocksdb.RocksDBException;
 
 import java.io.File;
 import java.time.Duration;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -89,7 +84,9 @@ public class PersistentCacheTests {
         }
 
         for (int i = 0; i < 20; i++) {
-            assertEquals(List.of("digest" + i), mutationCache.getMutationCRCs("mutation" + i));
+            List<String> expected = new java.util.ArrayList<>();
+            expected.add("digest" + i);
+            assertEquals(expected, mutationCache.getMutationCRCs("mutation" + i));
         }
     }
 }
