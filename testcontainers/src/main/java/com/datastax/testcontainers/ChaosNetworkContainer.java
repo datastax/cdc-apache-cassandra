@@ -34,7 +34,7 @@ public class ChaosNetworkContainer<SELF extends ChaosNetworkContainer<SELF>> ext
 
     public ChaosNetworkContainer(String targetContainer, String pause) {
         super(PUMBA_IMAGE);
-        setCommand("--log-level debug netem --tc-image gaiadocker/iproute2 --duration " + pause + " loss --percent 100 " + targetContainer);
+        setCommand("--log-level debug netem --tc-image ghcr.io/alexei-led/pumba-debian-nettools --duration " + pause + " loss --percent 100 " + targetContainer);
         addFileSystemBind("/var/run/docker.sock", "/var/run/docker.sock", BindMode.READ_WRITE);
         setWaitStrategy(Wait.forLogMessage(".*tc container created.*", 1));
         withLogConsumer(o -> {
