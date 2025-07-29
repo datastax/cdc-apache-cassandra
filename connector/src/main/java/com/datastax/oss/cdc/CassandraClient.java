@@ -42,6 +42,7 @@ import com.datastax.oss.driver.api.core.metadata.schema.SchemaChangeListener;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import com.datastax.oss.driver.api.core.servererrors.UnavailableException;
 import com.datastax.oss.driver.api.querybuilder.select.Select;
+import com.datastax.oss.driver.api.querybuilder.select.SelectFrom;
 import com.datastax.oss.driver.internal.core.auth.PlainTextAuthProvider;
 import com.datastax.oss.driver.internal.core.config.typesafe.DefaultDriverConfigLoader;
 import com.datastax.oss.driver.internal.core.config.typesafe.DefaultProgrammaticDriverConfigLoaderBuilder;
@@ -155,8 +156,8 @@ public class CassandraClient implements AutoCloseable {
 
     /**
      * Build a SELECT prepared statement for the first <i>pkLength</i> primary key columns.
-     * @param keyspaceName
-     * @param tableName
+     * @param keyspaceName keyspace name
+     * @param tableName table name
      * @param projection columns
      * @param pk primary key columns
      * @param pkLength primary key length
@@ -166,7 +167,9 @@ public class CassandraClient implements AutoCloseable {
                                            CqlIdentifier[] projection,
                                            CqlIdentifier[] pk,
                                            int pkLength) {
-        Select query = selectFrom(keyspaceName, tableName).columns(projection);
+        // select columns according to projection array length
+        Select query = selectFrom(keyspaceName, tableName)
+                .columns(projection.length != 0 ? projection : pk);
         for (int i = 0; i < pkLength; i++)
             query = query.whereColumn(pk[i]).isEqualTo(bindMarker());
         query.limit(1);
