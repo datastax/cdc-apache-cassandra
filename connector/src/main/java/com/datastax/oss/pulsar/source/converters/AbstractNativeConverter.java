@@ -37,6 +37,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.pulsar.common.schema.SchemaType;
 
 import java.net.InetAddress;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -258,5 +259,36 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
             default:
                 throw new UnsupportedOperationException("Unsupported type="+dataType.getProtocolCode()+" as key in a map");
         }
+    }
+
+    /**
+     * Converts a collection value based on its type.
+     * If the value is an {@link Instant}, it is converted to its epoch millisecond representation.
+     * Otherwise, the value is returned as is.
+     *
+     * @param collectionValue the value to be marshaled; could be an {@link Instant} or any other object
+     * @return the marshaled value; an epoch millisecond representation if the input is an {@link Instant}, or the original value otherwise
+     */
+    Object marshalCollectionValue(Object collectionValue) {
+        if(collectionValue instanceof Instant) {
+            return ((Instant)collectionValue).toEpochMilli();
+        }
+        return collectionValue;
+    }
+
+    /**
+     * Converts a collection value based on its type.
+     * If the value is an {@link Instant}, it is converted to its epoch millisecond representation.
+     * Otherwise, the value is returned as is.
+     *
+     * @param entry the value to be marshaled;
+     * @return the marshaled value; an epoch millisecond representation if the input is an {@link Instant}, or the original value otherwise
+     */
+    Object marshalCollectionValue(Map.Entry<? super Object, ? super Object> entry) {
+        Object collectionValue = entry.getValue();
+        if(collectionValue instanceof Instant) {
+            return ((Instant)collectionValue).toEpochMilli();
+        }
+        return collectionValue;
     }
 }
