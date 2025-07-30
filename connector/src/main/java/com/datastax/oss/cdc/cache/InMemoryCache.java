@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.datastax.oss.cdc;
+package com.datastax.oss.cdc.cache;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -24,19 +24,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Keep MD5 digests to deduplicate Cassandra mutations
- */
-public class MutationCache<K> {
-
+public class InMemoryCache<K> implements MutationCache<K> {
     Cache<K, List<String>> mutationCache;
 
     /**
-     * Max number of cached digest per cached entry.
+     * Max number of cached digests per cached entry.
      */
     long maxDigests;
 
-    public MutationCache(long maxDigests, long maxCapacity, Duration expireAfter) {
+    public InMemoryCache(long maxDigests, long maxCapacity, Duration expireAfter) {
         this.maxDigests = maxDigests;
         mutationCache = Caffeine.newBuilder()
                 .expireAfterWrite(expireAfter.getSeconds(), TimeUnit.SECONDS)

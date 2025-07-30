@@ -187,4 +187,10 @@
 |
 | true
 
+| *cache.persistent.directory*
+| The directory where the persistent mutation cache will be stored. Formated as `{cache.persistent.directory}/{source-name}-{instance-id}` This setting is only used if the cache is persistent. If set, the connector will use RocksDB to store digests, otherwise it will use an in-memory cache.
+| string
+|
+| /data/source-cache
+
 |===
