@@ -3,8 +3,6 @@ package com.datastax.oss.cdc.agent;
 import java.io.File;
 import java.io.IOException;
 
-import static com.datastax.oss.cdc.agent.CommitLogReaderService.ARCHIVE_FOLDER;
-import static com.datastax.oss.cdc.agent.CommitLogReaderService.ERROR_FOLDER;
 
 public class CommitLogReaderInitializerImpl implements CommitLogReaderInitializer {
     @Override
@@ -16,13 +14,13 @@ public class CommitLogReaderInitializerImpl implements CommitLogReaderInitialize
             }
         }
 
-        File archiveDir = new File(relocationDir, ARCHIVE_FOLDER);
+        File archiveDir = new File(relocationDir, CommitLogReaderService.ARCHIVE_FOLDER);
         if (!archiveDir.exists()) {
             if (!archiveDir.mkdir()) {
                 throw new IOException("Failed to create " + archiveDir);
             }
         }
-        File errorDir = new File(relocationDir, ERROR_FOLDER);
+        File errorDir = new File(relocationDir, CommitLogReaderService.ERROR_FOLDER);
         if (!errorDir.exists()) {
             if (!errorDir.mkdir()) {
                 throw new IOException("Failed to create " + errorDir);
