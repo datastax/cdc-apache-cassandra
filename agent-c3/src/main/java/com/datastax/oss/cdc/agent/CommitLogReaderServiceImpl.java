@@ -35,8 +35,9 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
     public CommitLogReaderServiceImpl(AgentConfig config,
                                       MutationSender<CFMetaData> mutationSender,
                                       SegmentOffsetWriter segmentOffsetWriter,
-                                      CommitLogTransfer commitLogTransfer) {
-        super(config, mutationSender, segmentOffsetWriter, commitLogTransfer);
+                                      CommitLogTransfer commitLogTransfer,
+                                      CommitLogReaderInitializer commitLogReaderInitializer) {
+        super(config, mutationSender, segmentOffsetWriter, commitLogTransfer, commitLogReaderInitializer);
         this.tasksExecutor = new JMXEnabledThreadPoolExecutor(
                 config.cdcConcurrentProcessors == -1 ? DatabaseDescriptor.getFlushWriters() : config.cdcConcurrentProcessors,
                 config.cdcConcurrentProcessors == -1 ? DatabaseDescriptor.getFlushWriters() : config.cdcConcurrentProcessors,
