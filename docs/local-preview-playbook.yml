@@ -14,7 +14,7 @@ content:
   branches: main # Sources default to this branch if none are specified.
   sources:
   - url: ..
-    start_path: docs/docs-src/core
+    start_path: docs
     branches: HEAD
 
 antora:
