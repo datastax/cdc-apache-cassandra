@@ -21,7 +21,6 @@ import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.List;
@@ -30,8 +29,6 @@ import java.util.Optional;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.IntBinaryOperator;
-import java.util.function.LongBinaryOperator;
 
 @Slf4j
 public abstract class CommitLogReaderService implements Runnable, AutoCloseable
@@ -72,6 +69,7 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
      * ordered commitlog file queue.
      */
     final PriorityBlockingQueue<File> commitLogQueue;
+    private final CommitLogReaderInitializer commitLogReaderInitializer;
 
     /**
      * Consumes commitlog files in parallel.
@@ -81,11 +79,13 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
     public CommitLogReaderService(AgentConfig config,
                                   MutationSender<?> mutationSender,
                                   SegmentOffsetWriter segmentOffsetWriter,
-                                  CommitLogTransfer commitLogTransfer) {
+                                  CommitLogTransfer commitLogTransfer,
+                                  CommitLogReaderInitializer commitLogReaderInitializer) {
         this.config = config;
         this.mutationSender = mutationSender;
         this.segmentOffsetWriter = segmentOffsetWriter;
         this.commitLogTransfer = commitLogTransfer;
+        this.commitLogReaderInitializer = commitLogReaderInitializer;
         this.commitLogQueue = new PriorityBlockingQueue<>(128, CommitLogUtil::compareCommitLogs);
     }
 
@@ -150,25 +150,7 @@ public abstract class CommitLogReaderService implements Runnable, AutoCloseable
     }
 
     public void initialize() throws Exception {
-        File relocationDir = new File(config.cdcWorkingDir);
-        if (!relocationDir.exists()) {
-            if (!relocationDir.mkdir()) {
-                throw new IOException("Failed to create " + config.cdcWorkingDir);
-            }
-        }
-
-        File archiveDir = new File(relocationDir, ARCHIVE_FOLDER);
-        if (!archiveDir.exists()) {
-            if (!archiveDir.mkdir()) {
-                throw new IOException("Failed to create " + archiveDir);
-            }
-        }
-        File errorDir = new File(relocationDir, ERROR_FOLDER);
-        if (!errorDir.exists()) {
-            if (!errorDir.mkdir()) {
-                throw new IOException("Failed to create " + errorDir);
-            }
-        }
+        commitLogReaderInitializer.initialize(config, this);
     }
 
     /**

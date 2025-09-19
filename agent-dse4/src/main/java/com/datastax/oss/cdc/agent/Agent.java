@@ -66,7 +66,8 @@ public class Agent {
 
         PulsarMutationSender pulsarMutationSender = new PulsarMutationSender(config);
         CommitLogTransfer commitLogTransfer = new BlackHoleCommitLogTransfer(config);
-        CommitLogReaderServiceImpl commitLogReaderService = new CommitLogReaderServiceImpl(config, pulsarMutationSender, segmentOffsetFileWriter, commitLogTransfer);
+        CommitLogReaderInitializer commitLogReaderInitializer = new CommitLogReaderInitializerImpl();
+        CommitLogReaderServiceImpl commitLogReaderService = new CommitLogReaderServiceImpl(config, pulsarMutationSender, segmentOffsetFileWriter, commitLogTransfer, commitLogReaderInitializer);
         CommitLogProcessor commitLogProcessor = new CommitLogProcessor(DatabaseDescriptor.getCDCLogLocation().getAbsolutePath(), config, commitLogTransfer, segmentOffsetFileWriter, commitLogReaderService, true);
 
         commitLogReaderService.initialize();
