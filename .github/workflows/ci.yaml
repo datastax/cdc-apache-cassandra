@@ -37,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module: ['agent', 'agent-c3', 'agent-c4', 'agent-c5','agent-dse4', 'connector']
+        module: ['agent', 'agent-c3', 'agent-c4', 'agent-c5', 'connector']
         jdk: ['11', '17']
         pulsarImage: ['datastax/lunastreaming:2.10_3.4', 'apachepulsar/pulsar:2.10.3', 'apachepulsar/pulsar:2.11.0']
     steps:
