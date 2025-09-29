@@ -7,6 +7,21 @@ plugins {
     id 'docker-compose'
 }
 
+// Cassandra 5.0 requires Java 17+ due to dependencies like Caffeine 3.1.8
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+sourceCompatibility = 17
+targetCompatibility = 17
+
+compileJava {
+    sourceCompatibility = 17
+    targetCompatibility = 17
+}
+
 application {
     mainClass = "$mainClassName"
 }
