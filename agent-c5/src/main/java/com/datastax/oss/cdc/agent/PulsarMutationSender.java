@@ -156,6 +156,9 @@ public class PulsarMutationSender extends AbstractPulsarMutationSender<TableMeta
         if (type instanceof ShortType) {
             return Short.toUnsignedInt((short) value); // AVRO does not support INT16
         }
+        if ((type instanceof TimeUUIDType || type instanceof UUIDType) && value instanceof org.apache.cassandra.utils.TimeUUID) {
+            return ((org.apache.cassandra.utils.TimeUUID) value).asUUID(); // Handle Cassandra 5 TimeUUID type - convert to UUID string for Avro serialization
+        }
         return value;
     }
 }
