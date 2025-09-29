@@ -91,6 +91,7 @@ public class AgentTestUtil {
     public enum Version {
         C3,     // Cassandra 3.11.x
         C4,     // Cassandra 4.x
+        C5,     // Cassandra 5.x
         DSE4    // Datastax Enterprise Server
     }
 }
