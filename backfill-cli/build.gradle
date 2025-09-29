@@ -155,13 +155,19 @@ task e2eTest(type: Test) {
         systemProperty "cassandraFamily", "c4"
         systemProperty "agentBuildDir", project(':agent-c4').buildDir
         environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra4Version
+    } else if (cassandraFamily == "c5") {
+        dependsOn project(':agent-c5').shadowJar
+        systemProperty "cassandraFamily", "c5"
+        systemProperty "agentBuildDir", project(':agent-c5').buildDir
+        environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra5Version
     } else if (cassandraFamily == "dse4") {
         dependsOn project(':agent-dse4').shadowJar
         systemProperty "cassandraFamily", "dse4"
         systemProperty "agentBuildDir", project(':agent-dse4').buildDir
         environment 'CASSANDRA_IMAGE', 'datastax/dse-server:' + dse4Version
+
     } else {
-        throw new GradleException("Unknown Cassandra family. Use -PcassandraFamily=[c3|c4|dse4]")
+        throw new GradleException("Unknown Cassandra family. Use -PcassandraFamily=[c3|c4|c5|dse4]")
     }
 
     systemProperty "connectorBuildDir", project(':connector').buildDir
