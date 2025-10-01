@@ -26,7 +26,6 @@ import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import com.datastax.oss.driver.api.core.type.DataType;
-import com.datastax.oss.driver.api.core.type.DataTypes;
 import com.datastax.oss.driver.api.core.type.ListType;
 import com.datastax.oss.driver.api.core.type.MapType;
 import com.datastax.oss.driver.api.core.type.SetType;
@@ -52,11 +51,7 @@ import org.apache.pulsar.common.schema.SchemaType;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -133,7 +128,8 @@ public class NativeJsonConverter extends AbstractNativeConverter<byte[]> {
                 ListType listType = (ListType) dataType;
                 String path = getSubSchemaPath(record, identifier);
                 org.apache.avro.Schema listSchema = subSchemas.get(path);
-                List listValue = record.getList(identifier, CodecRegistry.DEFAULT.codecFor(listType.getElementType()).getJavaType().getRawType());
+                List<? super Object> listValue = Objects.requireNonNull(record.getList(identifier, CodecRegistry.DEFAULT.codecFor(listType.getElementType()).getJavaType().getRawType()))
+                        .stream().map(this::marshalCollectionValue).collect(Collectors.toList());
                 log.debug("field={} listSchema={} listValue={}", identifier, listSchema, listValue);
                 return createArrayNode(listSchema, listValue);
             }
@@ -141,7 +137,8 @@ public class NativeJsonConverter extends AbstractNativeConverter<byte[]> {
                 SetType setType = (SetType) dataType;
                 String path = getSubSchemaPath(record, identifier);
                 org.apache.avro.Schema setSchema = subSchemas.get(path);
-                Set setValue = record.getSet(identifier, CodecRegistry.DEFAULT.codecFor(setType.getElementType()).getJavaType().getRawType());
+                Set<Object> setValue = Objects.requireNonNull(record.getSet(identifier, CodecRegistry.DEFAULT.codecFor(setType.getElementType()).getJavaType().getRawType()))
+                        .stream().map(this::marshalCollectionValue).collect(Collectors.toSet());
                 log.debug("field={} setSchema={} setValue={}", identifier, setSchema, setValue);
                 return createArrayNode(setSchema, setValue);
             }
@@ -149,13 +146,17 @@ public class NativeJsonConverter extends AbstractNativeConverter<byte[]> {
                 MapType mapType = (MapType) dataType;
                 String path = getSubSchemaPath(record, identifier);
                 org.apache.avro.Schema mapSchema = subSchemas.get(path);
-                Map<String, JsonNode> map = record.getMap(identifier,
+                Map<String, JsonNode> map = Objects.requireNonNull(record.getMap(identifier,
                                 CodecRegistry.DEFAULT.codecFor(mapType.getKeyType()).getJavaType().getRawType(),
-                                CodecRegistry.DEFAULT.codecFor(mapType.getValueType()).getJavaType().getRawType())
-                        .entrySet().stream().collect(Collectors.toMap(e -> stringify(mapType.getKeyType(), e.getKey()), e -> toJson(mapSchema.getValueType(), e.getValue())));
+                                CodecRegistry.DEFAULT.codecFor(mapType.getValueType()).getJavaType().getRawType()))
+                        .entrySet().stream().collect(
+                                Collectors.toMap(
+                                        e -> stringify(mapType.getKeyType(), e.getKey()),
+                                        e -> toJson(mapSchema.getValueType(), marshalCollectionValue(e.getValue())))
+                        );
                 log.debug("field={} mapSchema={} mapValue={}", identifier, mapSchema, map);
                 ObjectNode objectNode = jsonNodeFactory.objectNode();
-                map.forEach((k,v)->objectNode.set(k, v));
+                map.forEach(objectNode::set);
                 return objectNode;
             }
             default:
