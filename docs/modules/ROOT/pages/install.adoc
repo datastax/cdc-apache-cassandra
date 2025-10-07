@@ -34,7 +34,7 @@ tar xvf cassandra-source-agents-<version>.tar
 == Start Cassandra with the Change Agent for Cassandra
 
 All data nodes of your Cassandra or DSE datacenter must run the change agent as a JVM agent to send mutations into the events topic of your streaming software.
-Start your Cassandra or DSE nodes with the appropriate producer binary matching your Cassandra (3.11 or 4.0) or DSE (6.8.16) version and your streaming platform (Luna Streaming 2.8+ or Apache Pulsar 2.8.1+).
+Start your Cassandra or DSE nodes with the appropriate producer binary matching your Cassandra (3.11 or 4.0) or DSE (6.8.16) version and your streaming platform: IBM Elite Support for Apache Pulsar (formerly DataStax Luna Streaming) 2.8+ or Apache Pulsar 2.8.1+.
 
 In CDC agent versions *before 1.0.3*, the CDC agent Pulsar connection parameters were provided as extra JVM options after the `jar` file name in the form of a comma-separated list of `paramName=paramValue`, as below:
 
@@ -101,7 +101,7 @@ The following files are available:
 |===
 | Streaming platform |  NAR file
 
-| Apache Pulsar 2.8 and Luna Streaming 2.8 | pulsar-cassandra-source-<version>.nar
+| Apache Pulsar and IBM Elite Support for Apache Pulsar (formerly DataStax Luna Streaming) 2.8 | pulsar-cassandra-source-<version>.nar
 
 |===
 
@@ -116,7 +116,7 @@ Use the version that matches your streaming platform.
 
 == Deploy {cdc_pulsar}
 
-To deploy the {cdc_pulsar} `NAR` file in your Pulsar cluster, upload it to Luna Streaming or Pulsar using the `pulsar-admin sources create` command.
+To deploy the {cdc_pulsar} `NAR` file in your Pulsar cluster, upload it to your Pulsar cluster using the `pulsar-admin sources create` command.
 You need to deploy {cdc_pulsar} for each CDC-enabled table.
 
 For each CDC-enabled table, the change agent will send events to the events topic.

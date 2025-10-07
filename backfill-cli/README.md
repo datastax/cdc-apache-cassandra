@@ -16,7 +16,7 @@ At a high level, the backfill CLI works as follows:
 ## Requirements
 On the CLI machine side:
  * Java 8 or Java 11 Runtime Environment (JRE)
- * Optional: If running the CLI as a Pulsar Admin Extension, Datastax Luna Streaming 2.10_3.1 or later required. It is enough to download the standalone Luna Streaming Shell found on https://github.com/datastax/pulsar/releases.  
+ * Optional: If running the CLI as a Pulsar Admin Extension, then IBM Elite Support for Apache Pulsar (formerly Datastax Luna Streaming) version 2.10_3.1 or later is required. It is enough to download the standalone Luna Streaming Shell found on https://github.com/datastax/pulsar/releases.
  
 On the Cassandra/Pulsar side:
  * DataStax CDC for Apache Cassandra 2.2.5 or later

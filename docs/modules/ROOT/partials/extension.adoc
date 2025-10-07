@@ -1,4 +1,4 @@
-The Pulsar-admin extension is packaged with the DataStax Luna Streaming distribution in the /cliextensions folder, so you don't need to build from source unless you want to make changes to the code.
+The Pulsar-admin extension is packaged with the IBM Elite Support for Apache Pulsar (formerly DataStax Luna Streaming) distribution in the /cliextensions folder, so you don't need to build from source unless you want to make changes to the code.
 
 . Move the generated NAR archive to the /cliextensions folder of your Pulsar installation (e.g. /pulsar/cliextensions).
 . Modify the client.conf file of your Pulsar installation to include: `customCommandFactories=cassandra-cdc`.

@@ -11,7 +11,7 @@ Developers can also use the backfill CLI to trigger change events for downstream
 == Installation
 
 The CDC backfill CLI is distributed both as a JAR file and as a Pulsar-admin extension NAR file.
-The Pulsar-admin extension is packaged with the DataStax Luna Streaming distribution in the /cliextensions folder, so you don't need to build from source unless you want to make changes to the code.
+The Pulsar-admin extension is packaged with the IBM Elite Support for Apache Pulsar distribution in the `/cliextensions` folder, so you don't need to build from source unless you want to make changes to the code.
 
 Both artifacts are built with Gradle.
 To build the CLI, run the following commands:
