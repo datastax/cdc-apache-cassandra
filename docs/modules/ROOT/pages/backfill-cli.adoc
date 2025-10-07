@@ -52,17 +52,23 @@ Java standalone::
 --
 [source,shell,subs="attributes+"]
 ----
-include::example$java-start.sh[]
+java -jar backfill-cli/build/libs/backfill-cli-{version}-all.jar --data-dir target/export --export-host 127.0.0.1:9042 \
+ --export-username cassandra --export-password cassandra --keyspace ks1 --table table1
 ----
 --
 
 Pulsar-admin extension::
 +
 --
-include::partial$extension.adoc[]
+The Pulsar-admin extension is packaged with the IBM Elite Support for Apache Pulsar (formerly DataStax Luna Streaming) distribution in the /cliextensions folder, so you don't need to build from source unless you want to make changes to the code.
+
+. Move the generated NAR archive to the /cliextensions folder of your Pulsar installation (e.g. /pulsar/cliextensions).
+. Modify the client.conf file of your Pulsar installation to include: `customCommandFactories=cassandra-cdc`.
+. Run the following command (this assumes the https://docs.datastax.com/en/installing/docs/installTARdse.html[default installation] of DSE Cassandra):
 +
 ----
-include::example$extension-start.sh[]
+./bin/pulsar-admin cassandra-cdc backfill --data-dir target/export --export-host 127.0.0.1:9042 \
+ --export-username cassandra --export-password cassandra --keyspace ks1 --table table1
 ----
 --
 ====
