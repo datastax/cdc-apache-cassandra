@@ -25,9 +25,9 @@ Note: Only Cassandra 4.0 and DSE 6.8.16+ support the near realtime CDC allowing 
 
 ## Documentation
 
-All documentation is available online [here](https://docs.datastax.com/en/cdc-for-cassandra/docs/latest/index.html).
+To get started, see [QUICKSTART.md](QUICKSTART.md).
 
-See the [QUICKSTART.md](QUICKSTART.md) page.
+For the complete documentation, see the [CDC for Apache Cassandra documentation](https://docs.datastax.com/en/cdc-for-cassandra/docs/latest/index.html).
 
 ## Demo
 
@@ -36,7 +36,6 @@ Cassandra data replicated to Elasticsearch:
 * Create a Cassandra table with cdc enabled
 * Deploy a Cassandra source and an Elasticsearch sink into Apache Pulsar
 * Writes into Cassandra are replicated to Elasticsearch.
-
 
 [![asciicast](https://asciinema.org/a/kiEYzHQrPWhJR19nZ7tbqrDIX.png)](https://asciinema.org/a/kiEYzHQrPWhJR19nZ7tbqrDIX?speed=2&theme=tango)
 
