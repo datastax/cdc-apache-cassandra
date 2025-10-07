@@ -11,7 +11,7 @@ This installation requires the following. Latest version artifacts are available
 ** DSE - use `agent-dse4-<version>-all.jar`
 ** OSS C* - use `agent-c4-<version>-all.jar`
 * Pulsar
-** DataStax Luna Streaming - use `agent-dse4-<version>-all.jar`
+** IBM Elite Support for Apache Pulsar - use `agent-dse4-<version>-all.jar`
 * Pulsar C* source connector (CSC)
 ** Pulsar Cassandra Source NAR - use `pulsar-cassandra-source-<version>.nar`
 
