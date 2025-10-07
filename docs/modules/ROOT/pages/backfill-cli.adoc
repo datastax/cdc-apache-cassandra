@@ -261,64 +261,78 @@ be exported in subdirectories of the data directory specified here;
 there will be one subdirectory per keyspace inside the data
 directory, then one subdirectory per table inside each keyspace
 directory.
+
 |--help, -h
 |Displays this help message
+
 |--dsbulk-log-dir=PATH, -l
 |The directory where DSBulk should store its logs. The default is a
 'logs' subdirectory in the current working directory. This
 subdirectory will be created if it does not exist. Each DSBulk
 operation will create a subdirectory inside the log directory
 specified here. This command is not available in the Pulsar-admin extension.
+
 |--export-bundle=PATH
-|The path to a secure connect bundle to connect to the Cassandra
-cluster, if that cluster is a DataStax Astra cluster. Options
---export-host and --export-bundle are mutually exclusive.
+|The path to a Secure Connect Bundle (SCB) to connect to an Astra DB database. Options --export-host and --export-bundle are mutually exclusive.
+
 |--export-consistency=CONSISTENCY
 |The consistency level to use when exporting data. The default is
 LOCAL_QUORUM.
+
 |--export-max-concurrent-files=NUM\|AUTO
 |The maximum number of concurrent files to write to. Must be a positive
 number or the special value AUTO. The default is AUTO.
+
 |--export-max-concurrent-queries=NUM\|AUTO
 |The maximum number of concurrent queries to execute. Must be a
 positive number or the special value AUTO. The default is AUTO.
+
 |--export-splits=NUM\|NC
 |The maximum number of token range queries to generate. Use the NC
 syntax to specify a multiple of the number of available cores, e.g.
 8C = 8 times the number of available cores. The default is 8C. This
 is an advanced setting; you should rarely need to modify the default
 value.
+
 |--export-dsbulk-option=OPT=VALUE
 |An extra DSBulk option to use when exporting. Any valid DSBulk option
 can be specified here, and it will be passed as-is to the DSBulk
 process. DSBulk options, including driver options, must be passed as
 '--long.option.name=<value>'. Short options are not supported. For more DSBulk options, see https://docs.datastax.com/en/dsbulk/docs/reference/commonOptions.html[here].
+
 |--export-host=HOST[:PORT]
 |The host name or IP and, optionally, the port of a node from the
 Cassandra cluster. If the port is not specified, it will default to
 9042. This option can be specified multiple times. Options
 --export-host and --export-bundle are mutually exclusive.
+
 |--export-password
 |The password to use to authenticate against the origin cluster.
 Options --export-username and --export-password must be provided
 together, or not at all. Omit the parameter value to be prompted for
 the password interactively.
+
 |--export-protocol-version=VERSION
 |The protocol version to use to connect to the Cassandra cluster, e.g.
 'V4'. If not specified, the driver will negotiate the highest
 version supported by both the client and the server.
+
 |--export-username=STRING
 |The username to use to authenticate against the origin cluster.
 Options --export-username and --export-password must be provided
 together, or not at all.
+
 |--keyspace=<keyspace>, -k
 |The name of the keyspace where the table to be exported exists
+
 |--max-rows-per-second=PATH
 |The maximum number of rows per second to read from the Cassandra
 table. Setting this option to any negative value or zero will
 disable it. The default is -1.
+
 |--table=<table>, -t
 |The name of the table to export data from for cdc back filling
+
 |--version, -v
 |Displays version info.
 |===
