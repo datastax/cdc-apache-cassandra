@@ -3,7 +3,7 @@
 When CDC is enabled on a table, the data topic doesn't contain any data from before CDC was enabled.
 The backfill CLI solves this problem by exporting the table's primary key to a Comma Separated Values (CSV) file, storing the CSV file on disk, and sending the primary key from the CSV file to the event topic.
 The Cassandra Source Connector reads the primary key from the event topic and populates the data topic with historical data.
-The backfill CLI is powered by the https://docs.datastax.com/en/dsbulk/docs/reference/dsbulkCmd.html[DataStax Bulk Loader], a battle-tested data loader tool. This means the CLI takes full advantage of optimizations done in DSBulk when exporting data from table to disk.
+The backfill CLI is powered by the xref:dsbulk:overview:dsbulk-about.adoc[DataStax Bulk Loader], a battle-tested data loader tool. This means the CLI takes full advantage of optimizations done in DSBulk when exporting data from table to disk.
 
 Developers can also use the backfill CLI to trigger change events for downstream applications without having to insert new data.
 
@@ -64,7 +64,7 @@ The Pulsar-admin extension is packaged with the IBM Elite Support for Apache Pul
 
 . Move the generated NAR archive to the /cliextensions folder of your Pulsar installation (e.g. /pulsar/cliextensions).
 . Modify the client.conf file of your Pulsar installation to include: `customCommandFactories=cassandra-cdc`.
-. Run the following command (this assumes the https://docs.datastax.com/en/installing/docs/installTARdse.html[default installation] of DSE Cassandra):
+. Run the following command (this assumes the https://docs.datastax.com/en/dse/6.8/installing/tarball-dse.html[default tarball installation of DSE]):
 +
 [source,shell]
 ----
@@ -80,11 +80,11 @@ This test quickly confirms your CDC backfill is working correctly.
 
 *Prerequisites:*
 
-* A running https://docs.datastax.com/en/installing/docs/installTARdse.html[DSE Cassandra cluster]
+* A running DSE cluster
 * A running Pulsar cluster (https://pulsar.apache.org/docs/getting-started-standalone/[standalone] is fine)
 * Backfill CLI built with Gradle (see <<install>>)
 
-. Start DSE Cassandra from the https://docs.datastax.com/en/installing/docs/installTARdse.html[installation directory].
+. Start DSE:
 +
 [source,bash]
 ----
@@ -299,7 +299,7 @@ value.
 |An extra DSBulk option to use when exporting. Any valid DSBulk option
 can be specified here, and it will be passed as-is to the DSBulk
 process. DSBulk options, including driver options, must be passed as
-'--long.option.name=<value>'. Short options are not supported. For more DSBulk options, see https://docs.datastax.com/en/dsbulk/docs/reference/commonOptions.html[here].
+'--long.option.name=<value>'. Short options are not supported.
 
 |--export-host=HOST[:PORT]
 |The host name or IP and, optionally, the port of a node from the
@@ -381,9 +381,3 @@ These parameters should be passed as command line arguments in the standalone Ja
 |--pulsar-ssl-use-key-store-tls
 |If TLS is enabled, specifies whether to use KeyStore type as TLS configuration parameter.
 |===
-
-== What's next?
-
-* xref:index.adoc[CDC Home]
-* https://docs.datastax.com/en/dsbulk/docs/reference/dsbulkCmd.html[DataStax Bulk Loader]
-* For more on using CDC with Apache Pulsar, including schema management and consumption patterns, see our https://docs.datastax.com/en/streaming/streaming-learning/use-cases-architectures/change-data-capture/index.html[Streaming learning page].

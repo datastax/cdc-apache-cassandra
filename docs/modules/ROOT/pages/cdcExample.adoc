@@ -4,9 +4,8 @@ Capture schema changes in your C* tables and pass them to Apache Pulsar(R) with 
 
 This installation requires the following. Latest version artifacts are available https://github.com/datastax/cdc-apache-cassandra/releases/latest[here]. Use image:https://img.shields.io/github/v/release/datastax/cdc-apache-cassandra?color=green&display_name=tag[link="https://github.com/datastax/cdc-apache-cassandra/releases/latest"] for the latest version.
 
-* C* or DSE environment
-** https://downloads.datastax.com/#enterprise[DSE 6.8.16+]
-** https://cassandra.apache.org/_/download.html[OSS C*]
+* DSE 6.8.16 or later
+* OSS Apache Cassandra(R)
 * CDC Agent
 ** DSE - use `agent-dse4-<version>-all.jar`
 ** OSS C* - use `agent-c4-<version>-all.jar`
@@ -29,7 +28,8 @@ bin/pulsar standalone
 ====
 We recommend using the latest CDC agent version (at least version `1.0.4`+) to support C* collection data types.
 ====
-. Install C*/DSE with your preferred https://docs.datastax.com/en/install/6.8/install/installWhichOne.html[installation method].
+
+. Install C*/DSE.
 
 . After installing C*/DSE, but before starting the C*/DSE service, set the `Cassandra-env.sh` configuration:
 +
@@ -181,7 +181,6 @@ Any captured CDC events from the C* table will be reflected in the command line 
 pulsar-client consume -s mysub -st auto_consume -n 0 persistent://public/default/data-<keyspace>.<table>
 ----
 
-== What's next?
+== See also
 
-For more on monitoring your {cdc_cass} deployment, see xref:monitor.adoc[Monitor {cdc_cass}]. +
-For using CDC with Astra DB, see https://docs.datastax.com/en/astra-streaming/docs/astream-cdc.html[CDC for Astra DB].
+* xref:monitor.adoc[]
