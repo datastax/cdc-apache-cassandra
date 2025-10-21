@@ -39,7 +39,7 @@ jobs:
       matrix:
         jdk: ['11'] # TODO: Enable java 17 tests https://issues.apache.org/jira/browse/CASSANDRA-16895
         pulsarImage: ['datastax/lunastreaming:2.10_3.4', 'apachepulsar/pulsar:2.10.3', 'apachepulsar/pulsar:2.11.0']
-        cassandraFamily: ['c3', 'c4', 'dse4']
+        cassandraFamily: ['c3', 'c4', 'c5', 'dse4']
     steps:
       - uses: actions/checkout@v3
       - name: Set up JDK ${{ matrix.jdk }}
