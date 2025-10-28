@@ -64,7 +64,7 @@ The Pulsar-admin extension is packaged with the IBM Elite Support for Apache Pul
 
 . Move the generated NAR archive to the /cliextensions folder of your Pulsar installation (e.g. /pulsar/cliextensions).
 . Modify the client.conf file of your Pulsar installation to include: `customCommandFactories=cassandra-cdc`.
-. Run the following command (this assumes the https://docs.datastax.com/en/dse/6.8/installing/tarball-dse.html[default tarball installation of DSE]):
+. Run the following command (this assumes the xref:6.9@dse:installing:tarball-dse.adoc[default tarball installation of DSE]):
 +
 [source,shell]
 ----
