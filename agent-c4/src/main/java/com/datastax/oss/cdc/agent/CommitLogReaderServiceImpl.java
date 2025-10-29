@@ -26,7 +26,6 @@ import org.apache.cassandra.schema.TableMetadata;
 import java.io.File;
 import java.util.Optional;
 import java.util.concurrent.*;
-import java.util.function.IntBinaryOperator;
 
 /**
  * Consume a queue of commitlog files to read mutations.
@@ -37,8 +36,9 @@ public class CommitLogReaderServiceImpl extends CommitLogReaderService {
     public CommitLogReaderServiceImpl(AgentConfig config,
                                       MutationSender<TableMetadata> mutationSender,
                                       SegmentOffsetWriter segmentOffsetWriter,
-                                      CommitLogTransfer commitLogTransfer) {
-        super(config, mutationSender, segmentOffsetWriter, commitLogTransfer);
+                                      CommitLogTransfer commitLogTransfer,
+                                      CommitLogReaderInitializer commitLogReaderInitializer) {
+        super(config, mutationSender, segmentOffsetWriter, commitLogTransfer, commitLogReaderInitializer);
         this.tasksExecutor = new JMXEnabledThreadPoolExecutor(
                 config.cdcConcurrentProcessors == -1 ? DatabaseDescriptor.getFlushWriters() : config.cdcConcurrentProcessors,
                 config.cdcConcurrentProcessors == -1 ? DatabaseDescriptor.getFlushWriters() : config.cdcConcurrentProcessors,
