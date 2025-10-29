@@ -22,6 +22,8 @@ include 'agent-c3'
 
 include 'agent-c4'
 
+include 'agent-c5'
+
 if (startParameter.projectProperties.containsKey("dse4")) {
     include 'agent-dse4'
 }
