@@ -10,7 +10,7 @@ The DataStax CDC for Apache Cassandra requires:
 * DataStax Change Agent for Apache Cassandra, which is an event producer deployed as a JVM agent on each Cassandra data node.
 * DataStax Source Connector for Apache Pulsar, which is source connector deployed in your streaming platform.
 
-![Cassandra-source-connector](docs/docs-src/core/modules/ROOT/assets/images/cassandra-source-connector.png)
+![Cassandra-source-connector](./docs/modules/ROOT/assets/images/cassandra-source-connector.png)
 
 Supported streaming platform:
 * Apache Pulsar 2.8.1+
@@ -48,7 +48,7 @@ You can collect Cassandra/DSE and Pulsar metrics into Prometheus, and build a Gr
 * The mutation sent throughput from a Cassandra node
 * The pulsar events and data topic rate in
 
-![CDC Dashboard](docs/docs-src/core/modules/ROOT/assets/images/cdc-dashboard.png)
+![CDC Dashboard](./docs/modules/ROOT/assets/images/cdc-dashboard.png)
 
 ## Limitations
 
