@@ -71,7 +71,7 @@ For each update to the table, an MD5 digest is calculated to de-duplicate the up
 == Supported streaming platforms
 
 * IBM Elite Support for Apache Pulsar (formerly DataStax Luna Streaming) 2.8 and later (current version is {luna_version})
-* Apache Pulsar 2.8.1 and later (current Pulsar version is {pulsar_version})
+* Apache Pulsar 2.8.1 and later
 
 === Connector deployment matrix
 
@@ -158,5 +158,5 @@ To ensure the data sent to all datacenters are delivered to the data topic, make
 
 For example, given a Cassandra cluster with three datacenters (DC1, DC2, and DC3), you would enable CDC and install the change agent in only DC1.
 To ensure all updates in DC2 and DC3 are propagated to the data topic, configure the table's keyspace to replicate data from DC2 and DC3 to DC1.
-For example, `replication = {'class': 'NetworkTopologyStrategy', 'dc1': 3, 'dc2': 3, 'dc3': 3})`.
+For example, `replication = {'class': 'NetworkTopologyStrategy', 'dc1': 3, 'dc2': 3, 'dc3': 3}`.
 The data replicated to DC1 will be processed by the change agent and eventually end up in the data topic.
