@@ -10,11 +10,11 @@ The DataStax CDC for Apache Cassandra requires:
 * DataStax Change Agent for Apache Cassandra, which is an event producer deployed as a JVM agent on each Cassandra data node.
 * DataStax Source Connector for Apache Pulsar, which is source connector deployed in your streaming platform.
 
-![Cassandra-source-connector](docs/docs-src/core/modules/ROOT/assets/images/cassandra-source-connector.png)
+![Cassandra-source-connector](./docs/modules/ROOT/assets/images/cassandra-source-connector.png)
 
 Supported streaming platform:
 * Apache Pulsar 2.8.1+
-* DataStax Luna Streaming 2.8.0.1.1.40+
+* IBM Elite Support for Apache Pulsar (formerly DataStax Luna Streaming) 2.8.0.1.1.40+
 
 Supported Cassandra version:
 * Cassandra 3.11+
@@ -25,9 +25,9 @@ Note: Only Cassandra 4.0 and DSE 6.8.16+ support the near realtime CDC allowing 
 
 ## Documentation
 
-All documentation is available online [here](https://docs.datastax.com/en/cdc-for-cassandra/docs/latest/index.html).
+To get started, see [QUICKSTART.md](QUICKSTART.md).
 
-See the [QUICKSTART.md](QUICKSTART.md) page.
+For the complete documentation, see the [CDC for Apache Cassandra documentation](https://docs.datastax.com/en/cdc-for-cassandra/docs/latest/index.html).
 
 ## Demo
 
@@ -36,7 +36,6 @@ Cassandra data replicated to Elasticsearch:
 * Create a Cassandra table with cdc enabled
 * Deploy a Cassandra source and an Elasticsearch sink into Apache Pulsar
 * Writes into Cassandra are replicated to Elasticsearch.
-
 
 [![asciicast](https://asciinema.org/a/kiEYzHQrPWhJR19nZ7tbqrDIX.png)](https://asciinema.org/a/kiEYzHQrPWhJR19nZ7tbqrDIX?speed=2&theme=tango)
 
@@ -49,7 +48,7 @@ You can collect Cassandra/DSE and Pulsar metrics into Prometheus, and build a Gr
 * The mutation sent throughput from a Cassandra node
 * The pulsar events and data topic rate in
 
-![CDC Dashboard](docs/docs-src/core/modules/ROOT/assets/images/cdc-dashboard.png)
+![CDC Dashboard](./docs/modules/ROOT/assets/images/cdc-dashboard.png)
 
 ## Limitations
 

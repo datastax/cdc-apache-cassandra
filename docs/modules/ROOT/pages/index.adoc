@@ -1,12 +1,11 @@
 = About {cdc_cass}
 
-{cdc_cass_first} is open-source software (OSS) that sends Cassandra mutations
-for tables having Change Data Capture (CDC) enabled to https://www.datastax.com/products/luna-streaming[Luna Streaming] or https://pulsar.apache.org/[Apache Pulsar(TM)], which in turn can write the data to platforms such as Elasticsearch(R) or Snowflake(R).
+{cdc_cass_first} is open-source software (OSS) that sends Cassandra mutations for tables having Change Data Capture (CDC) enabled to https://www.ibm.com/docs/en/supportforpulsar[IBM Elite Support for Apache Pulsar] or your own self-managed https://pulsar.apache.org/[Apache Pulsar(TM)] deployment, which in turn can write the data to platforms such as Elasticsearch(R) or Snowflake(R).
 
 == Key Features
 
 * Supports Apache Cassandra 3.11+, 4.0+, and Datastax Enterprise Server 6.8.16+
-* Supports Luna Streaming 2.8+ and Apache Pulsar 2.8.1+
+* Supports IBM Elite Support for Apache Pulsar (formerly DataStax Luna Streaming) and Apache Pulsar 2.8.1+
 * De-duplicates updates from multiple replicas
 * Propagates Cassandra schema change to the built-in Pulsar schema registry
 * Supports AVRO message format
@@ -63,7 +62,7 @@ For each update to the table, an MD5 digest is calculated to de-duplicate the up
 
 [cols="1,1"]
 |===
-| Cassandra version | Apache Pulsar/Luna Streaming
+| Cassandra version | Apache Pulsar/IBM Elite Support for Apache Pulsar (formerly DataStax Luna Streaming)
 | Cassandra v3.x | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-c3[agent-c3]
 | Cassandra v4.x | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-c4[agent-c4]
 | DSE 6.8.16+ | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-dse4[agent-dse4]
@@ -71,14 +70,14 @@ For each update to the table, an MD5 digest is calculated to de-duplicate the up
 
 == Supported streaming platforms
 
-* Luna Streaming 2.8 and later (current Luna Streaming version is {luna_version})
-* Apache Pulsar 2.8.1 and later (current Pulsar version is {pulsar_version})
+* IBM Elite Support for Apache Pulsar (formerly DataStax Luna Streaming) 2.8 and later (current version is {luna_version})
+* Apache Pulsar 2.8.1 and later
 
 === Connector deployment matrix
 
 [cols="1"]
 |===
-| Apache Pulsar/Luna Streaming
+| Apache Pulsar/IBM Elite Support for Apache Pulsar (formerly DataStax Luna Streaming)
 | https://github.com/datastax/cdc-apache-cassandra/tree/master/connector[connector]
 |===
 
@@ -159,10 +158,5 @@ To ensure the data sent to all datacenters are delivered to the data topic, make
 
 For example, given a Cassandra cluster with three datacenters (DC1, DC2, and DC3), you would enable CDC and install the change agent in only DC1.
 To ensure all updates in DC2 and DC3 are propagated to the data topic, configure the table's keyspace to replicate data from DC2 and DC3 to DC1.
-For example, `replication = {'class': 'NetworkTopologyStrategy', 'dc1': 3, 'dc2': 3, 'dc3': 3})`.
+For example, `replication = {'class': 'NetworkTopologyStrategy', 'dc1': 3, 'dc2': 3, 'dc3': 3}`.
 The data replicated to DC1 will be processed by the change agent and eventually end up in the data topic.
-
-== What's next?
-
-* For more on using CDC with Apache Pulsar, including schema management and consumption patterns, see our https://docs.datastax.com/en/streaming/streaming-learning/use-cases-architectures/change-data-capture/index.html[Streaming learning page].
-* If you've got more questions about {cdc_cass_first}, see xref::faqs.adoc[].

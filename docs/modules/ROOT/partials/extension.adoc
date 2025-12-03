@@ -1,5 +1,0 @@
-The Pulsar-admin extension is packaged with the DataStax Luna Streaming distribution in the /cliextensions folder, so you don't need to build from source unless you want to make changes to the code.
-
-. Move the generated NAR archive to the /cliextensions folder of your Pulsar installation (e.g. /pulsar/cliextensions).
-. Modify the client.conf file of your Pulsar installation to include: `customCommandFactories=cassandra-cdc`.
-. Run the following command (this assumes the https://docs.datastax.com/en/installing/docs/installTARdse.html[default installation] of DSE Cassandra):
