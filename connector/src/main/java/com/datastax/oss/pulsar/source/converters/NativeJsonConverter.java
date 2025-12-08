@@ -34,6 +34,8 @@ import com.datastax.oss.protocol.internal.ProtocolConstants;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.cfg.JsonNodeFeature;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -56,9 +58,12 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class NativeJsonConverter extends AbstractNativeConverter<byte[]> {
-    private static final ObjectMapper mapper = new ObjectMapper();
+    private static final ObjectMapper mapper = JsonMapper
+        .builder()
+        .disable(JsonNodeFeature.STRIP_TRAILING_BIGDECIMAL_ZEROES)
+        .build();
 
-    private static final JsonNodeFactory jsonNodeFactory = JsonNodeFactory.withExactBigDecimals(true);
+    private static final JsonNodeFactory jsonNodeFactory = mapper.getNodeFactory();
 
     public NativeJsonConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
         super(ksm, tm, columns);
