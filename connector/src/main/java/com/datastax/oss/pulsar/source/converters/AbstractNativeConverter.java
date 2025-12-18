@@ -19,6 +19,7 @@ import com.datastax.oss.cdc.CqlLogicalTypes;
 import com.datastax.oss.cdc.NativeSchemaWrapper;
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.data.TupleValue;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
@@ -27,12 +28,14 @@ import com.datastax.oss.driver.api.core.type.DataType;
 import com.datastax.oss.driver.api.core.type.ListType;
 import com.datastax.oss.driver.api.core.type.MapType;
 import com.datastax.oss.driver.api.core.type.SetType;
+import com.datastax.oss.driver.api.core.type.TupleType;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
 import com.datastax.oss.protocol.internal.ProtocolConstants;
 import com.datastax.oss.pulsar.source.Converter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
+import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.pulsar.common.schema.SchemaType;
 
@@ -83,6 +86,11 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
                                 log.info("Add vector schema {}={}", field.name(), vectorSchema);
                             }
                             break;
+                        case ProtocolConstants.DataType.TUPLE:
+                            Schema tupleSchema = dataTypeSchema(ksm, cm.getType());
+                            subSchemas.put(field.name(), tupleSchema);
+                            log.info("Add tuple schema {}={}", field.name(), tupleSchema);
+                            break;
                     }
                 }
             }
@@ -132,6 +140,8 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
                 return true;
             case ProtocolConstants.DataType.CUSTOM:
                 return dataType instanceof CqlVectorType;
+            case ProtocolConstants.DataType.TUPLE:
+                return true;
         }
         return false;
     }
@@ -205,6 +215,9 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
                     CqlVectorType vectorType = (CqlVectorType) dataType;
                     return org.apache.avro.Schema.createArray(dataTypeSchema(ksm, vectorType.getSubtype()));
                 }
+            case ProtocolConstants.DataType.TUPLE:
+                TupleType tupleType = (TupleType) dataType;
+                return buildTupleSchema(ksm, dataType.asCql(false, true), tupleType, false);
             default:
                 throw new UnsupportedOperationException("Ignoring unsupported type=" + dataType.asCql(false, true));
         }
@@ -227,6 +240,26 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
         Schema udtSchema = Schema.createRecord(typeName, "CQL type " + typeName, ksm.getName().asInternal(), false, fieldSchemas);
         subSchemas.put(typeName, udtSchema);
         return udtSchema;
+    }
+
+    Schema buildTupleSchema(KeyspaceMetadata ksm, String typeName, TupleType tupleType, boolean optional){
+        List<Schema.Field> fieldSchemas = new ArrayList<>();
+        int i=0;
+        for(DataType componentType : tupleType.getComponentTypes()){
+            String fieldName = "index_" + i;
+            Schema.Field fieldSchema = fieldSchema(ksm, fieldName, componentType, optional);
+            if (fieldSchema != null) {
+                fieldSchemas.add(fieldSchema);
+                String path = typeName + "." + fieldName;
+                subSchemas.put(path, dataTypeSchema(ksm, componentType));
+            }
+            i++;
+        }
+        Schema tupleSchema = Schema.createRecord("Tuple_" + Integer.toHexString(
+            tupleType.asCql(false, true).hashCode()
+        ), "CQL type " + typeName, ksm.getName().asInternal(), false, fieldSchemas);
+        subSchemas.put(typeName, tupleSchema);
+        return tupleSchema;
     }
 
     String stringify(DataType dataType, Object value) {
@@ -273,6 +306,9 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
         if(collectionValue instanceof Instant) {
             return ((Instant)collectionValue).toEpochMilli();
         }
+        if(collectionValue instanceof TupleValue){
+            return buildTupleValue((TupleValue) collectionValue);
+        }
         return collectionValue;
     }
 
@@ -289,6 +325,22 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
         if(collectionValue instanceof Instant) {
             return ((Instant)collectionValue).toEpochMilli();
         }
+        if(collectionValue instanceof TupleValue){
+            return buildTupleValue((TupleValue) collectionValue);
+        }
         return collectionValue;
+    }
+
+    private GenericRecord buildTupleValue(TupleValue tupleValue) {
+        String typeName = tupleValue.getType().asCql(false, true);
+        Schema tupleSchema = subSchemas.get(typeName);
+        if (tupleSchema == null) {
+            throw new IllegalStateException("Missing tuple schema for " + typeName);
+        }
+        GenericRecord record = new GenericData.Record(tupleSchema);
+        for (int i = 0; i < tupleValue.getType().getComponentTypes().size(); i++) {
+            record.put("index_" + i, marshalCollectionValue(tupleValue.getObject(i)));
+        }
+        return record;
     }
 }
