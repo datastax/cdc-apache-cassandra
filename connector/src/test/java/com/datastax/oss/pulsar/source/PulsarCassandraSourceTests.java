@@ -875,6 +875,7 @@ public abstract class PulsarCassandraSourceTests {
                                 (long) gr.getField(CqlLogicalTypes.CQL_DURATION_NANOSECONDS)));
             }
             return;
+            case "tuple":
             case "udt": {
                 for (Field f : gr.getFields()) {
                     assertField(f.getName(), gr.getField(f.getName()));
@@ -889,12 +890,6 @@ public abstract class PulsarCassandraSourceTests {
                     else {
                         assertNull(gr.getField(f.getName()));
                     }
-                }
-            }
-            return;
-            case "tuple": {
-                for (Field f : gr.getFields()) {
-                    assertField(f.getName(), gr.getField(f.getName()));
                 }
             }
             return;

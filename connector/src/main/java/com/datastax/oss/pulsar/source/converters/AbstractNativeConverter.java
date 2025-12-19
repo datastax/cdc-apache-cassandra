@@ -217,7 +217,7 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
                 }
             case ProtocolConstants.DataType.TUPLE:
                 TupleType tupleType = (TupleType) dataType;
-                return buildTupleSchema(ksm, dataType.asCql(false, true), tupleType, false);
+                return buildTupleSchema(ksm, dataType.asCql(false, true), tupleType, true);
             default:
                 throw new UnsupportedOperationException("Ignoring unsupported type=" + dataType.asCql(false, true));
         }
