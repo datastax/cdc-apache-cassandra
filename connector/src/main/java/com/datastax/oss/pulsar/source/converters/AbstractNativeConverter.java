@@ -331,7 +331,7 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
         return collectionValue;
     }
 
-    private GenericRecord buildTupleValue(TupleValue tupleValue) {
+    GenericRecord buildTupleValue(TupleValue tupleValue) {
         String typeName = tupleValue.getType().asCql(false, true);
         Schema tupleSchema = subSchemas.get(typeName);
         if (tupleSchema == null) {

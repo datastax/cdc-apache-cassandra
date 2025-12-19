@@ -21,6 +21,7 @@ import com.datastax.oss.driver.api.core.cql.ColumnDefinition;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.data.CqlDuration;
 import com.datastax.oss.driver.api.core.data.CqlVector;
+import com.datastax.oss.driver.api.core.data.TupleValue;
 import com.datastax.oss.driver.api.core.data.UdtValue;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
@@ -176,6 +177,11 @@ public class NativeAvroConverter extends AbstractNativeConverter<List<Object>> {
                             vector.getValues().forEach(vectorValue::add);
                             genericRecordBuilder.put(fieldName, buildArrayValue(vectorSchema, vectorValue));
                         }
+                    }
+                    break;
+                    case ProtocolConstants.DataType.TUPLE:{
+                        TupleValue tupleValue = row.getTupleValue(cm.getName());
+                        genericRecordBuilder.put(fieldName, buildTupleValue(tupleValue));
                     }
                     break;
                     default:
