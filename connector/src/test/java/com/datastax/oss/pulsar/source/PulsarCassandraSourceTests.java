@@ -22,7 +22,10 @@ import com.datastax.oss.driver.api.core.cql.BatchStatementBuilder;
 import com.datastax.oss.driver.api.core.cql.BatchType;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.data.CqlDuration;
+import com.datastax.oss.driver.api.core.data.TupleValue;
 import com.datastax.oss.driver.api.core.data.UdtValue;
+import com.datastax.oss.driver.api.core.type.DataTypes;
+import com.datastax.oss.driver.api.core.type.TupleType;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
 import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableSet;
 import com.datastax.oss.driver.shaded.guava.common.collect.Lists;
@@ -648,16 +651,17 @@ public abstract class PulsarCassandraSourceTests {
                 // force udt values to be null by populating 1 item, using zudt.newValue() without explicitly setting
                 // any field to non-null value will cause the udt column itself to be null in the C* table
                 UdtValue zudtOptionalValues = zudt.newValue(dataSpecMap.get("text").cqlValue);
-
+                TupleType tupleType = DataTypes.tupleOf(DataTypes.INT, DataTypes.TEXT);
+                TupleValue tupleValue = tupleType.newValue(dataSpecMap.get("int").cqlValue, dataSpecMap.get("text").cqlValue);
                 cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table3 (" +
                         "xtext text, xascii ascii, xboolean boolean, xblob blob, xtimestamp timestamp, xtime time, xdate date, xuuid uuid, xtimeuuid timeuuid, xtinyint tinyint, xsmallint smallint, xint int, xbigint bigint, xvarint varint, xdecimal decimal, xdouble double, xfloat float, xinet4 inet, xinet6 inet, " +
-                        "ytext text, yascii ascii, yboolean boolean, yblob blob, ytimestamp timestamp, ytime time, ydate date, yuuid uuid, ytimeuuid timeuuid, ytinyint tinyint, ysmallint smallint, yint int, ybigint bigint, yvarint varint, ydecimal decimal, ydouble double, yfloat float, yinet4 inet, yinet6 inet, yduration duration, yudt zudt, yudtoptional zudt, ylist list<text>, yset set<int>, ymap map<text, double>, ylistofmap list<frozen<map<text,double>>>, ysetofudt set<frozen<zudt>>," +
+                        "ytext text, yascii ascii, yboolean boolean, yblob blob, ytimestamp timestamp, ytime time, ydate date, yuuid uuid, ytimeuuid timeuuid, ytinyint tinyint, ysmallint smallint, yint int, ybigint bigint, yvarint varint, ydecimal decimal, ydouble double, yfloat float, yinet4 inet, yinet6 inet, yduration duration, yudt zudt, yudtoptional zudt, ylist list<text>, yset set<int>, ymap map<text, double>, ytuple frozen<tuple<int, text>>, ylistofmap list<frozen<map<text,double>>>, ysetofudt set<frozen<zudt>>," +
                         "primary key (xtext, xascii, xboolean, xblob, xtimestamp, xtime, xdate, xuuid, xtimeuuid, xtinyint, xsmallint, xint, xbigint, xvarint, xdecimal, xdouble, xfloat, xinet4, xinet6)) " +
                         "WITH CLUSTERING ORDER BY (xascii ASC, xboolean DESC, xblob ASC, xtimestamp DESC, xtime DESC, xdate ASC, xuuid DESC, xtimeuuid ASC, xtinyint DESC, xsmallint ASC, xint DESC, xbigint ASC, xvarint DESC, xdecimal ASC, xdouble DESC, xfloat ASC, xinet4 ASC, xinet6 DESC) AND cdc=true");
                 cqlSession.execute("INSERT INTO " + ksName + ".table3 (" +
                                 "xtext, xascii, xboolean, xblob, xtimestamp, xtime, xdate, xuuid, xtimeuuid, xtinyint, xsmallint, xint, xbigint, xvarint, xdecimal, xdouble, xfloat, xinet4, xinet6, " +
-                                "ytext, yascii, yboolean, yblob, ytimestamp, ytime, ydate, yuuid, ytimeuuid, ytinyint, ysmallint, yint, ybigint, yvarint, ydecimal, ydouble, yfloat, yinet4, yinet6, yduration, yudt, yudtoptional, ylist, yset, ymap, ylistofmap, ysetofudt" +
-                                ") VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?,?, ?,?,?,?,?)",
+                                "ytext, yascii, yboolean, yblob, ytimestamp, ytime, ydate, yuuid, ytimeuuid, ytinyint, ysmallint, yint, ybigint, yvarint, ydecimal, ydouble, yfloat, yinet4, yinet6, yduration, yudt, yudtoptional, ylist, yset, ymap, ytuple, ylistofmap, ysetofudt" +
+                                ") VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?,?, ?,?,?,?,?,?)",
                         dataSpecMap.get("text").cqlValue,
                         dataSpecMap.get("ascii").cqlValue,
                         dataSpecMap.get("boolean").cqlValue,
@@ -705,6 +709,7 @@ public abstract class PulsarCassandraSourceTests {
                         dataSpecMap.get("list").cqlValue,
                         dataSpecMap.get("set").cqlValue,
                         dataSpecMap.get("map").cqlValue,
+                        tupleValue,
                         dataSpecMap.get("listofmap").cqlValue,
                         ImmutableSet.of(zudtValue, zudtValue)
                 );
@@ -809,8 +814,17 @@ public abstract class PulsarCassandraSourceTests {
     }
 
     void assertField(String fieldName, Object value) {
+        if (fieldName.startsWith("index_")) {
+            int idx = Integer.parseInt(fieldName.substring("index_".length()));
+            if (idx == 0) {
+                Assert.assertEquals(dataSpecMap.get("int").avroValue, value);
+            } else if (idx == 1) {
+                Assert.assertEquals(dataSpecMap.get("text").avroValue, value);
+            }
+            return;
+        }
         String vKey = fieldName.substring(1);
-        if (!vKey.equals("udt") && !vKey.equals("udtoptional") && ! vKey.equals("setofudt")) {
+        if (!vKey.equals("udt") && !vKey.equals("udtoptional") && ! vKey.equals("setofudt") && !vKey.equals("tuple")) {
             Assert.assertTrue("Unknown field " + vKey, dataSpecMap.containsKey(vKey));
         }
         if (value instanceof GenericRecord) {
@@ -861,7 +875,7 @@ public abstract class PulsarCassandraSourceTests {
                                 (long) gr.getField(CqlLogicalTypes.CQL_DURATION_NANOSECONDS)));
             }
             return;
-            case "udt": {
+            case "udt", "tuple": {
                 for (Field f : gr.getFields()) {
                     assertField(f.getName(), gr.getField(f.getName()));
                 }
