@@ -179,7 +179,7 @@ public class NativeAvroConverter extends AbstractNativeConverter<List<Object>> {
                         }
                     }
                     break;
-                    case ProtocolConstants.DataType.TUPLE:{
+                    case ProtocolConstants.DataType.TUPLE: {
                         TupleValue tupleValue = row.getTupleValue(cm.getName());
                         genericRecordBuilder.put(fieldName, buildTupleValue(tupleValue));
                     }

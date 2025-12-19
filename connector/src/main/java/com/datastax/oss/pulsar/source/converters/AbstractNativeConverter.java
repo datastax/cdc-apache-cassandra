@@ -242,10 +242,10 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
         return udtSchema;
     }
 
-    Schema buildTupleSchema(KeyspaceMetadata ksm, String typeName, TupleType tupleType, boolean optional){
+    Schema buildTupleSchema(KeyspaceMetadata ksm, String typeName, TupleType tupleType, boolean optional) {
         List<Schema.Field> fieldSchemas = new ArrayList<>();
-        int i=0;
-        for(DataType componentType : tupleType.getComponentTypes()){
+        int i = 0;
+        for(DataType componentType : tupleType.getComponentTypes()) {
             String fieldName = "index_" + i;
             Schema.Field fieldSchema = fieldSchema(ksm, fieldName, componentType, optional);
             if (fieldSchema != null) {
@@ -306,7 +306,7 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
         if(collectionValue instanceof Instant) {
             return ((Instant)collectionValue).toEpochMilli();
         }
-        if(collectionValue instanceof TupleValue){
+        if(collectionValue instanceof TupleValue) {
             return buildTupleValue((TupleValue) collectionValue);
         }
         return collectionValue;
@@ -325,7 +325,7 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
         if(collectionValue instanceof Instant) {
             return ((Instant)collectionValue).toEpochMilli();
         }
-        if(collectionValue instanceof TupleValue){
+        if(collectionValue instanceof TupleValue) {
             return buildTupleValue((TupleValue) collectionValue);
         }
         return collectionValue;
