@@ -13,6 +13,7 @@ task versionTxt()  {
 
 compileJava {
     dependsOn versionTxt
+    options.compilerArgs = ['-Xlint:none']
 }
 
 compileTestJava {
@@ -45,6 +46,16 @@ dependencies {
     compileOnly("${pulsarGroup}:pulsar-io-common:${pulsarVersion}")
     compileOnly("${pulsarGroup}:pulsar-io-core:${pulsarVersion}")
     implementation(platform("com.fasterxml.jackson:jackson-bom:${jacksonBomVersion}"))
+
+    configurations.all {
+        resolutionStrategy {
+            force "io.netty:netty-handler:${nettyVersion}"
+            force "io.netty:netty-transport-native-epoll:${nettyVersion}"
+            force "io.netty:netty-transport-native-unix-common:${nettyVersion}"
+            force "io.netty:netty-codec-haproxy:${nettyVersion}"
+            force "io.netty:netty-tcnative-boringssl-static:${nettyTcNativeVersion}"
+        }
+    }
 
     constraints {
         implementation("ch.qos.logback:logback-classic:${logbackVersion}")
