@@ -171,7 +171,8 @@ public class NativeAvroConverter extends AbstractNativeConverter<List<Object>> {
                     case ProtocolConstants.DataType.CUSTOM: {
                         if (cm.getType() instanceof VectorType) {
                             Schema vectorSchema = subSchemas.get(fieldName);
-                            CqlVector<?> vector = row.getVector(fieldName);
+                            VectorType vectorType = (VectorType) cm.getType();
+                            CqlVector<?> vector = row.getVector(fieldName, CodecRegistry.DEFAULT.codecFor(vectorType.getElementType()).getJavaType().getRawType());
                             log.debug("field={} vectorSchema={} vectorValue={}", fieldName, vectorSchema, vector);
                             List<Object> vectorValue = new ArrayList<>();
                             vector.forEach(vectorValue::add);
@@ -310,7 +311,7 @@ public class NativeAvroConverter extends AbstractNativeConverter<List<Object>> {
                     case ProtocolConstants.DataType.CUSTOM: {
                             if (udtValue.getType(field) instanceof VectorType) {
                                 VectorType vectorType = (VectorType) udtValue.getType(field);
-                                CqlVector<?> vector = udtValue.getVector(field);
+                                CqlVector<?> vector = udtValue.getVector(field, CodecRegistry.DEFAULT.codecFor(vectorType.getElementType()).getJavaType().getRawType());
                                 String path = typeName + "." + field.toString();
                                 Schema elementSchema = subSchemas.get(path);
                                 List<Object> vectorValue = new ArrayList<>();
