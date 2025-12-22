@@ -245,7 +245,7 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
     Schema buildTupleSchema(KeyspaceMetadata ksm, String typeName, TupleType tupleType, boolean optional) {
         List<Schema.Field> fieldSchemas = new ArrayList<>();
         int i = 0;
-        for(DataType componentType : tupleType.getComponentTypes()) {
+        for (DataType componentType : tupleType.getComponentTypes()) {
             String fieldName = "index_" + i;
             Schema.Field fieldSchema = fieldSchema(ksm, fieldName, componentType, optional);
             if (fieldSchema != null) {
@@ -256,7 +256,7 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
             i++;
         }
         Schema tupleSchema = Schema.createRecord("Tuple_" + Integer.toHexString(
-            tupleType.asCql(false, true).hashCode()
+                tupleType.asCql(false, true).hashCode()
         ), "CQL type " + typeName, ksm.getName().asInternal(), false, fieldSchemas);
         subSchemas.put(typeName, tupleSchema);
         return tupleSchema;
@@ -303,10 +303,10 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
      * @return the marshaled value; an epoch millisecond representation if the input is an {@link Instant}, or the original value otherwise
      */
     Object marshalCollectionValue(Object collectionValue) {
-        if(collectionValue instanceof Instant) {
-            return ((Instant)collectionValue).toEpochMilli();
+        if (collectionValue instanceof Instant) {
+            return ((Instant) collectionValue).toEpochMilli();
         }
-        if(collectionValue instanceof TupleValue) {
+        if (collectionValue instanceof TupleValue) {
             return buildTupleValue((TupleValue) collectionValue);
         }
         return collectionValue;
@@ -322,10 +322,10 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
      */
     Object marshalCollectionValue(Map.Entry<? super Object, ? super Object> entry) {
         Object collectionValue = entry.getValue();
-        if(collectionValue instanceof Instant) {
-            return ((Instant)collectionValue).toEpochMilli();
+        if (collectionValue instanceof Instant) {
+            return ((Instant) collectionValue).toEpochMilli();
         }
-        if(collectionValue instanceof TupleValue) {
+        if (collectionValue instanceof TupleValue) {
             return buildTupleValue((TupleValue) collectionValue);
         }
         return collectionValue;
