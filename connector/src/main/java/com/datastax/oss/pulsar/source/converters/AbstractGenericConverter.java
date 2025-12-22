@@ -18,11 +18,13 @@ package com.datastax.oss.pulsar.source.converters;
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.cql.ColumnDefinition;
 import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.data.TupleValue;
 import com.datastax.oss.driver.api.core.data.UdtValue;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import com.datastax.oss.driver.api.core.type.DataType;
+import com.datastax.oss.driver.api.core.type.TupleType;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
 import com.datastax.oss.protocol.internal.ProtocolConstants;
 import com.datastax.oss.pulsar.source.Converter;
@@ -184,6 +186,15 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
                     fieldSchemaBuilder.optional().defaultValue(null);
             }
             break;
+            case ProtocolConstants.DataType.TUPLE: {
+                TupleType tupleType = (TupleType) dataType;
+                FieldSchemaBuilder fieldSchemaBuilder = recordSchemaBuilder
+                        .field(fieldName, buildTupleSchema(ksm, dataType.asCql(false, true), schemaType, tupleType, optional))
+                        .type(schemaType);
+                if (optional)
+                    fieldSchemaBuilder.optional().defaultValue(null);
+            }
+            break;
             default:
                 log.debug("Ignoring unsupported type fields name={} type={}", fieldName, dataType.asCql(false, true));
         }
@@ -204,6 +215,19 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
         return genericSchema;
     }
 
+    GenericSchema<GenericRecord> buildTupleSchema(KeyspaceMetadata ksm, String typeName, SchemaType schemaType, TupleType tupleType, boolean optional) {
+        String recordName = "Tuple_" + Integer.toHexString(typeName.hashCode());
+        RecordSchemaBuilder tupleSchemaBuilder = SchemaBuilder.record(recordName);
+        int i = 0;
+        for (DataType componentType : tupleType.getComponentTypes()) {
+            String fieldName = "index_" + i++;
+            addFieldSchema(tupleSchemaBuilder, ksm, fieldName, componentType, schemaType, optional);
+        }
+        SchemaInfo schemaInfo = tupleSchemaBuilder.build(schemaType);
+        GenericSchema<GenericRecord> genericSchema = Schema.generic(schemaInfo);
+        udtSchemas.put(typeName, genericSchema);
+        return genericSchema;
+    }
     @Override
     public Schema<GenericRecord> getSchema() {
         return this.schema;
@@ -261,6 +285,9 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
                         break;
                     case ProtocolConstants.DataType.UDT:
                         genericRecordBuilder.set(cm.getName().toString(), buildUDTValue(row.getUdtValue(cm.getName())));
+                        break;
+                    case ProtocolConstants.DataType.TUPLE:
+                        genericRecordBuilder.set(cm.getName().toString(), buildTupleValue(row.getTupleValue(cm.getName())));
                         break;
                     default:
                         log.debug("Ignoring unsupported column name={} type={}", cm.getName(), cm.getType().asCql(false, true));
@@ -331,6 +358,17 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
                         log.debug("Ignoring unsupported type field name={} type={}", field, dataType.asCql(false, true));
                 }
             }
+        }
+        return genericRecordBuilder.build();
+    }
+
+    GenericRecord buildTupleValue(TupleValue tupleValue) {
+        String typeName = tupleValue.getType().asCql(false, true);
+        GenericSchema<?> genericSchema = udtSchemas.get(typeName);
+        assert genericSchema != null : "Generic schema not found for Tuple=" + typeName;
+        GenericRecordBuilder genericRecordBuilder = genericSchema.newRecordBuilder();
+        for (int i = 0; i < tupleValue.getType().getComponentTypes().size(); i++) {
+            genericRecordBuilder.set("index_" + i, tupleValue.getObject(i));
         }
         return genericRecordBuilder.build();
     }

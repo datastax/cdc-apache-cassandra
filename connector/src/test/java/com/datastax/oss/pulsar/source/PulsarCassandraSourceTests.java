@@ -651,13 +651,15 @@ public abstract class PulsarCassandraSourceTests {
                 // force udt values to be null by populating 1 item, using zudt.newValue() without explicitly setting
                 // any field to non-null value will cause the udt column itself to be null in the C* table
                 UdtValue zudtOptionalValues = zudt.newValue(dataSpecMap.get("text").cqlValue);
-                TupleType tupleType = DataTypes.tupleOf(DataTypes.TEXT, DataTypes.TEXT, DataTypes.BIGINT, DataTypes.DOUBLE, DataTypes.TEXT);
-                TupleValue tupleValue = tupleType.newValue(dataSpecMap.get("text").cqlValue, dataSpecMap.get("text").cqlValue, dataSpecMap.get("bigint").cqlValue, dataSpecMap.get("double").cqlValue, dataSpecMap.get("text").cqlValue);
+                TupleType tupleTypeForMap = DataTypes.tupleOf(DataTypes.TEXT, DataTypes.TEXT, DataTypes.BIGINT, DataTypes.DOUBLE, DataTypes.TEXT);
+                TupleValue tupleValueForMap = tupleTypeForMap.newValue(dataSpecMap.get("text").cqlValue, dataSpecMap.get("text").cqlValue, dataSpecMap.get("bigint").cqlValue, dataSpecMap.get("double").cqlValue, dataSpecMap.get("text").cqlValue);
                 Map<String, TupleValue> mapOfTuple = new HashMap<>();
-                mapOfTuple.put("a", tupleValue);
+                mapOfTuple.put("a", tupleValueForMap);
+                TupleType tupleType = DataTypes.tupleOf(DataTypes.INT, DataTypes.TEXT);
+                TupleValue tupleValue = tupleType.newValue(dataSpecMap.get("int").cqlValue, dataSpecMap.get("text").cqlValue);
                 cqlSession.execute("CREATE TABLE IF NOT EXISTS " + ksName + ".table3 (" +
                         "xtext text, xascii ascii, xboolean boolean, xblob blob, xtimestamp timestamp, xtime time, xdate date, xuuid uuid, xtimeuuid timeuuid, xtinyint tinyint, xsmallint smallint, xint int, xbigint bigint, xvarint varint, xdecimal decimal, xdouble double, xfloat float, xinet4 inet, xinet6 inet, " +
-                        "ytext text, yascii ascii, yboolean boolean, yblob blob, ytimestamp timestamp, ytime time, ydate date, yuuid uuid, ytimeuuid timeuuid, ytinyint tinyint, ysmallint smallint, yint int, ybigint bigint, yvarint varint, ydecimal decimal, ydouble double, yfloat float, yinet4 inet, yinet6 inet, yduration duration, yudt zudt, yudtoptional zudt, ylist list<text>, yset set<int>, ymap map<text, double>, ytuple frozen<tuple<text, text, bigint, double, text>>, ymapoftuple map<text, frozen<tuple<text, text, bigint, double, text>>>, ylistofmap list<frozen<map<text,double>>>, ysetofudt set<frozen<zudt>>," +
+                        "ytext text, yascii ascii, yboolean boolean, yblob blob, ytimestamp timestamp, ytime time, ydate date, yuuid uuid, ytimeuuid timeuuid, ytinyint tinyint, ysmallint smallint, yint int, ybigint bigint, yvarint varint, ydecimal decimal, ydouble double, yfloat float, yinet4 inet, yinet6 inet, yduration duration, yudt zudt, yudtoptional zudt, ylist list<text>, yset set<int>, ymap map<text, double>, ytuple frozen<tuple<int, text>>, ymapoftuple map<text, frozen<tuple<text, text, bigint, double, text>>>, ylistofmap list<frozen<map<text,double>>>, ysetofudt set<frozen<zudt>>," +
                         "primary key (xtext, xascii, xboolean, xblob, xtimestamp, xtime, xdate, xuuid, xtimeuuid, xtinyint, xsmallint, xint, xbigint, xvarint, xdecimal, xdouble, xfloat, xinet4, xinet6)) " +
                         "WITH CLUSTERING ORDER BY (xascii ASC, xboolean DESC, xblob ASC, xtimestamp DESC, xtime DESC, xdate ASC, xuuid DESC, xtimeuuid ASC, xtinyint DESC, xsmallint ASC, xint DESC, xbigint ASC, xvarint DESC, xdecimal ASC, xdouble DESC, xfloat ASC, xinet4 ASC, xinet6 DESC) AND cdc=true");
                 cqlSession.execute("INSERT INTO " + ksName + ".table3 (" +
@@ -825,14 +827,8 @@ public abstract class PulsarCassandraSourceTests {
         if (fieldName.startsWith("index_")) {
             int idx = Integer.parseInt(fieldName.substring("index_".length()));
             if (idx == 0) {
-                Assert.assertEquals(dataSpecMap.get("text").avroValue, value);
+                Assert.assertEquals(dataSpecMap.get("int").avroValue, value);
             } else if (idx == 1) {
-                Assert.assertEquals(dataSpecMap.get("text").avroValue, value);
-            } else if (idx == 2) {
-                Assert.assertEquals(dataSpecMap.get("bigint").avroValue, value);
-            } else if (idx == 3) {
-                Assert.assertEquals(dataSpecMap.get("double").avroValue, value);
-            } else if (idx == 4) {
                 Assert.assertEquals(dataSpecMap.get("text").avroValue, value);
             }
             return;
@@ -1036,8 +1032,23 @@ public abstract class PulsarCassandraSourceTests {
                 }
             }
             return;
+            case "mapoftuple": {
+                for (Iterator<Map.Entry<String, JsonNode>> it = node.fields(); it.hasNext(); ) {
+                    Map.Entry<String, JsonNode> f = it.next();
+                    assertJsonTupleRecord(f.getValue());
+                }
+            }
+            return;
         }
         Assert.assertTrue("Unexpected field="+field, false);
+    }
+
+    void assertJsonTupleRecord(JsonNode value) {
+        Assert.assertEquals(dataSpecMap.get("text").jsonValue(), value.get("index_0").asText());
+        Assert.assertEquals(dataSpecMap.get("text").jsonValue(), value.get("index_1").asText());
+        Assert.assertEquals(dataSpecMap.get("bigint").jsonValue(), value.get("index_2").asLong());
+        Assert.assertEquals(dataSpecMap.get("double").jsonValue(), value.get("index_3").asDouble());
+        Assert.assertEquals(dataSpecMap.get("text").jsonValue(), value.get("index_4").asText());
     }
 
     public void testBatchInsert(String ksName) throws InterruptedException, IOException {
