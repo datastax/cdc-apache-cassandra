@@ -140,6 +140,8 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
                 return true;
             case ProtocolConstants.DataType.CUSTOM:
                 return dataType instanceof VectorType;
+            case ProtocolConstants.DataType.TUPLE:
+                return true;
         }
         return false;
     }
