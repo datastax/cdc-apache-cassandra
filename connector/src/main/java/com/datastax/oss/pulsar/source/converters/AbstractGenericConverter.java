@@ -100,6 +100,7 @@ public abstract class AbstractGenericConverter implements Converter<GenericRecor
             case ProtocolConstants.DataType.FLOAT:
             case ProtocolConstants.DataType.INET:
             case ProtocolConstants.DataType.UDT:
+            case ProtocolConstants.DataType.TUPLE:
                 return true;
         }
         return false;
