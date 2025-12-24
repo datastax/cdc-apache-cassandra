@@ -47,8 +47,8 @@ dependencies {
         exclude group: 'io.netty'
     }
 
-    testImplementation "com.datastax.oss:java-driver-core:${ossDriverVersion}"
-    testImplementation "com.datastax.oss:java-driver-query-builder:${ossDriverVersion}"
+    testImplementation "org.apache.cassandra:java-driver-core:${ossDriverVersion}"
+    testImplementation "org.apache.cassandra:java-driver-query-builder:${ossDriverVersion}"
 
     testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
     testImplementation project(':testcontainers')

@@ -340,6 +340,7 @@ public class NativeJsonConverter extends AbstractNativeConverter<byte[]> {
     }
 
 
+    @Override
     public boolean isSupportedCqlType(DataType dataType) {
         switch (dataType.getProtocolCode()) {
             case ProtocolConstants.DataType.ASCII:

@@ -26,7 +26,7 @@ import com.datastax.oss.driver.api.core.data.UdtValue;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
-import com.datastax.oss.driver.api.core.type.CqlVectorType;
+import com.datastax.oss.driver.api.core.type.VectorType;
 import com.datastax.oss.driver.api.core.type.DataType;
 import com.datastax.oss.driver.api.core.type.ListType;
 import com.datastax.oss.driver.api.core.type.MapType;
@@ -169,12 +169,13 @@ public class NativeAvroConverter extends AbstractNativeConverter<List<Object>> {
                     }
                     break;
                     case ProtocolConstants.DataType.CUSTOM: {
-                        if (cm.getType() instanceof CqlVectorType) {
+                        if (cm.getType() instanceof VectorType) {
                             Schema vectorSchema = subSchemas.get(fieldName);
-                            CqlVector<?> vector = row.getCqlVector(fieldName);
+                            VectorType vectorType = (VectorType) cm.getType();
+                            CqlVector<?> vector = row.getVector(fieldName, CodecRegistry.DEFAULT.codecFor(vectorType.getElementType()).getJavaType().getRawType());
                             log.debug("field={} vectorSchema={} vectorValue={}", fieldName, vectorSchema, vector);
                             List<Object> vectorValue = new ArrayList<>();
-                            vector.getValues().forEach(vectorValue::add);
+                            vector.forEach(vectorValue::add);
                             genericRecordBuilder.put(fieldName, buildArrayValue(vectorSchema, vectorValue));
                         }
                     }
@@ -305,6 +306,19 @@ public class NativeAvroConverter extends AbstractNativeConverter<List<Object>> {
                             Schema valueSchema = subSchemas.get(path);
                             log.debug("path={} valueSchema={} mapType={} mapValue={}", path, valueSchema, mapType, mapValue);
                             genericRecord.put(field.toString(), mapValue);
+                        }
+                        break;
+                    case ProtocolConstants.DataType.CUSTOM: {
+                            if (udtValue.getType(field) instanceof VectorType) {
+                                VectorType vectorType = (VectorType) udtValue.getType(field);
+                                CqlVector<?> vector = udtValue.getVector(field, CodecRegistry.DEFAULT.codecFor(vectorType.getElementType()).getJavaType().getRawType());
+                                String path = typeName + "." + field.toString();
+                                Schema elementSchema = subSchemas.get(path);
+                                List<Object> vectorValue = new ArrayList<>();
+                                vector.forEach(vectorValue::add);
+                                log.debug("path={} elementSchema={} vectorType={} vectorValue={}", path, elementSchema, vectorType, vectorValue);
+                                genericRecord.put(field.toString(), buildArrayValue(elementSchema, vectorValue));
+                            }
                         }
                         break;
                     default:
