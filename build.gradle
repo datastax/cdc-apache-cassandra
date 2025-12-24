@@ -50,14 +50,6 @@ allprojects {
     apply plugin: 'com.gorylenko.gradle-git-properties'
     apply plugin: 'com.github.jk1.dependency-license-report'
 
-    // Configure Java toolchain to use Java 11 for compilation
-    // This ensures consistent bytecode generation regardless of the JDK used to run Gradle
-    java {
-        toolchain {
-            languageVersion = JavaLanguageVersion.of(11)
-        }
-    }
-
     sourceCompatibility = 1.8
     targetCompatibility = 1.8
     compileJava.options.encoding = 'UTF-8'
@@ -70,8 +62,8 @@ allprojects {
         testImplementation "org.projectlombok:lombok:${lombokVersion}"
         testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
 
-        testImplementation "org.junit.jupiter:junit-jupiter-api:${junitJupiterVersion}"
-        testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitJupiterVersion}"
+        testImplementation 'org.junit.jupiter:junit-jupiter-api:5.1.1'
+        testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.1.1'
     }
 
     // use JUnit 5 platform
