@@ -14,6 +14,19 @@ This installation requires the following. Latest version artifacts are available
 * Pulsar C* source connector (CSC)
 ** Pulsar Cassandra Source NAR - use `pulsar-cassandra-source-<version>.nar`
 
+== Architecture overview
+
+The CDC pipeline consists of three stages that work together to capture and process changes and publishes change events to the events topic in Pulsar.
+
+* The CDC agent running in Pulsar creates events topics using the format: `events-<keyspace>.<table>`.
+When configuring the source connector, the `events.topic` parameter must match exactly what the CDC agent publishes to.
+For example, if your keyspace is `ks1` and table is `table1`, the `events.topic` parameter is `persistent://public/default/events-ks1.table1`.
+
+* The Cassandra Source Connector consumes change events from the events topic (`events-<keyspace>.<table>`), fetches the full row data from Cassandra for each change event, performs de-duplication to handle events from multiple replicas, and publishes processed data to the data topic as `data-<keyspace>.<table>`.
+
+* Downstream consumers consume from the data topic for further processing.
+Consumers include sink connectors, analytics systems, or other applications.
+
 == Installing and configuring
 
 . Download the https://pulsar.apache.org/download/[Pulsar tarball] and set up a Pulsar cluster. This example uses Pulsar https://pulsar.apache.org/docs/en/standalone/[standalone mode], but you can also use our helpful https://github.com/datastax/pulsar-ansible[Ansible Scripts].
@@ -78,7 +91,14 @@ INFO  [main] 2022-04-11 18:47:06,433  Agent.java:92 - CDC agent started
 
 == Deploy Pulsar Connector
 
-. Deploy the Pulsar Cassandra Source Connector (CSC) for each CDC-enabled C* table. In the below example, we're configuring the source connector with parameters passed in `--source-config`.
+. Deploy the Pulsar Cassandra Source Connector (CSC) for each CDC-enabled C* table. The connector consumes from the **events topic** (where the CDC agent publishes) and writes to the **data topic** (where downstream consumers read from).
++
+[IMPORTANT]
+====
+The `events.topic` parameter in the source connector configuration must match exactly the topic name that the CDC agent publishes to.
+
+ The agent creates topics using the format `events-**KEYSPACE**.**TABLE**` when using the default `events-` prefix. For example, for keyspace `ks1` and table `table1`, the events topic is `events-ks1.table1`.
+====
 +
 The `outputFormat` source configuration controls the format of messages on the data topic.
 +
@@ -172,14 +192,39 @@ pulsar-admin source list ["<csc_connector_name>"]
 
 == Verify end-to-end operation
 
-Now that Pulsar, C*/DSE, CDC, and the CSC connector are installed and verified to be operational, we can monitor the Pulsar data topic for the CDC-enabled C* table. +
+Now that Pulsar, C*/DSE, CDC, and the CSC connector are installed and verified to be operational, you can verify the end-to-end message flow.
 
-Any captured CDC events from the C* table will be reflected in the command line output of the following command:
+. To verify that the CDC agent in Pulsar is publishing to the events topic, confirm that the events topic exists and has messages:
++
+[source,bash]
+----
+pulsar-admin topics stats persistent://public/default/events-<keyspace>.<table>
+----
++
+Optionally, view raw CDC events from the events topic:
++
+[source,bash]
+----
+pulsar-client consume -s test-sub-events -st Earliest -n 10 persistent://public/default/events-<keyspace>.<table>
+----
+. To verify that the Cassandra Source Connector is processing events and publishing to the data topic, check the connector and data topic status:
++
+[source,bash]
+----
+# Check connector status
+pulsar-admin source status --name <csc_connector_name>
 
+# Check data topic stats
+pulsar-admin topics stats persistent://public/default/data-<keyspace>.<table>
+----
+. Consume processed data from the data topic:
++
 [source,bash]
 ----
 pulsar-client consume -s mysub -st auto_consume -n 0 persistent://public/default/data-<keyspace>.<table>
 ----
++
+Any captured CDC events from your database table should be reflected in the command line output of the data topic consumer.
 
 == See also
 
