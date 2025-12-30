@@ -96,6 +96,10 @@ subprojects {
         testAgent {
             transitive = false
         }
+        all {
+            exclude group: "io.netty", module: "netty-transport-native-unix-common"
+        }
+
     }
 
     license {
