@@ -93,9 +93,11 @@ INFO  [main] 2022-04-11 18:47:06,433  Agent.java:92 - CDC agent started
 
 . Deploy the Pulsar Cassandra Source Connector (CSC) for each CDC-enabled C* table. The connector consumes from the **events topic** (where the CDC agent publishes) and writes to the **data topic** (where downstream consumers read from).
 +
-[NOTE]
+[IMPORTANT]
 ====
-**Important**: The `events.topic` parameter in the source connector configuration must match exactly the topic name that the CDC agent publishes to. The agent creates topics using the format `events-<keyspace>.<table>` (with the default `events-` prefix). For example, for keyspace `ks1` and table `table1`, the events topic is `events-ks1.table1`.
+The `events.topic` parameter in the source connector configuration must match exactly the topic name that the CDC agent publishes to.
+
+ The agent creates topics using the format `events-**KEYSPACE**.**TABLE**` when using the default `events-` prefix. For example, for keyspace `ks1` and table `table1`, the events topic is `events-ks1.table1`.
 ====
 +
 The `outputFormat` source configuration controls the format of messages on the data topic.
@@ -192,21 +194,20 @@ pulsar-admin source list ["<csc_connector_name>"]
 
 Now that Pulsar, C*/DSE, CDC, and the CSC connector are installed and verified to be operational, you can verify the end-to-end message flow.
 
-. To verify that the CDC agent in Pulsar is publishing to the events topic, confirm the events topic exists and has messages.
+. To verify that the CDC agent in Pulsar is publishing to the events topic, confirm that the events topic exists and has messages:
 +
 [source,bash]
 ----
 pulsar-admin topics stats persistent://public/default/events-<keyspace>.<table>
 ----
 +
-Optionally, view raw CDC events from the events topic.
+Optionally, view raw CDC events from the events topic:
 +
 [source,bash]
 ----
 pulsar-client consume -s test-sub-events -st Earliest -n 10 persistent://public/default/events-<keyspace>.<table>
 ----
-+
-. To verify that the Cassandra Source Connector is processing events and publishing to the data topic, check the connector and data topic status.
+. To verify that the Cassandra Source Connector is processing events and publishing to the data topic, check the connector and data topic status:
 +
 [source,bash]
 ----
@@ -216,15 +217,14 @@ pulsar-admin source status --name <csc_connector_name>
 # Check data topic stats
 pulsar-admin topics stats persistent://public/default/data-<keyspace>.<table>
 ----
-+
-. Consume processed data from the data topic.
+. Consume processed data from the data topic:
 +
 [source,bash]
 ----
 pulsar-client consume -s mysub -st auto_consume -n 0 persistent://public/default/data-<keyspace>.<table>
 ----
 +
-Any captured CDC events from the C* table should be reflected in the command line output of the data topic consumer.
+Any captured CDC events from your database table should be reflected in the command line output of the data topic consumer.
 
 == See also
 
