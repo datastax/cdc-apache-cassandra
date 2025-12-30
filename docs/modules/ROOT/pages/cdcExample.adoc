@@ -128,28 +128,6 @@ $ pulsar-admin source create \
     "outputFormat": "key-value-avro"
   }
 ----
-+
-Example: For keyspace `ks1` and table `table1`:
-+
-[source,bash]
-----
-$ pulsar-admin source create \
-  --name cassandra-source-ks1-table1 \
-  --archive /path/to/pulsar-cassandra-source-<version>.nar \
-  --tenant public \
-  --namespace default \
-  --destination-topic-name persistent://public/default/data-ks1.table1 \
-  --parallelism 1 \
-  --source-config {
-  	"events.topic": "persistent://public/default/events-ks1.table1",
-  	"keyspace": "ks1",
-  	"table": "table1",
-  	"contactPoints": "localhost",
-  	"port": "9042",
-  	"loadBalancing.localDc": "DC1",
-    "outputFormat": "key-value-avro"
-  }
-----
 --
 +
 Key-value-json::
@@ -174,28 +152,6 @@ $ pulsar-admin source create \
     "outputFormat": "key-value-json"
   }
 ----
-+
-Example: For keyspace `ks1` and table `table1`:
-+
-[source,bash]
-----
-$ pulsar-admin source create \
-  --name cassandra-source-ks1-table1 \
-  --archive /path/to/pulsar-cassandra-source-<version>.nar \
-  --tenant public \
-  --namespace default \
-  --destination-topic-name persistent://public/default/data-ks1.table1 \
-  --parallelism 1 \
-  --source-config {
-  	"events.topic": "persistent://public/default/events-ks1.table1",
-  	"keyspace": "ks1",
-  	"table": "table1",
-  	"contactPoints": "localhost",
-  	"port": "9042",
-  	"loadBalancing.localDc": "DC1",
-    "outputFormat": "key-value-json"
-  }
-----
 --
 +
 JSON::
@@ -217,28 +173,6 @@ $ pulsar-admin source create \
   	"contactPoints": "<C*_contact_point_list>",
   	"port": "9042",
   	"loadBalancing.localDc": "<C*_DC_name>",
-    "outputFormat": "json"
-  }
-----
-+
-Example: For keyspace `ks1` and table `table1`:
-+
-[source,bash]
-----
-$ pulsar-admin source create \
-  --name cassandra-source-ks1-table1 \
-  --archive /path/to/pulsar-cassandra-source-<version>.nar \
-  --tenant public \
-  --namespace default \
-  --destination-topic-name persistent://public/default/data-ks1.table1 \
-  --parallelism 1 \
-  --source-config {
-  	"events.topic": "persistent://public/default/events-ks1.table1",
-  	"keyspace": "ks1",
-  	"table": "table1",
-  	"contactPoints": "localhost",
-  	"port": "9042",
-  	"loadBalancing.localDc": "DC1",
     "outputFormat": "json"
   }
 ----
