@@ -123,7 +123,7 @@ pulsar-admin source create \
 --destination-topic-name public/default/data-ks1.table1 \
 --parallelism 1 \
 --source-config '{
-    "events.topic": "persistent://public/default/events-cdc-ks1.table1",
+    "events.topic": "persistent://public/default/events-ks1.table1",
     "keyspace": "ks1",
     "table": "table1",
     "contactPoints": "localhost",
