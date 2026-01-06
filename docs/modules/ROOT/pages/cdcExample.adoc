@@ -1,18 +1,23 @@
 = Change Data Capture with DataStax Enterprise
+:navtitle: Quickstart for CDC with DSE
 
-Capture schema changes in your C* tables and pass them to Apache Pulsar(R) with DataStax Change Data Capture (CDC). This doc will guide you through installing, configuring, and using CDC with C* or DSE in a VM-based deployment.
+You can capture schema changes in your tables and pass them to Apache Pulsar(R) with DataStax Change Data Capture (CDC).
+This guide explains how to install, configure, and use CDC with Apache Cassandra(R) or DataStax Enterprise (DSE) in a VM-based deployment.
 
-This installation requires the following. Latest version artifacts are available https://github.com/datastax/cdc-apache-cassandra/releases/latest[here]. Use image:https://img.shields.io/github/v/release/datastax/cdc-apache-cassandra?color=green&display_name=tag[link="https://github.com/datastax/cdc-apache-cassandra/releases/latest"] for the latest version.
+== Prerequisites
+
+This installation requires the following:
 
 * DSE 6.8.16 or later
 * OSS Apache Cassandra(R)
 * CDC Agent
 ** DSE - use `agent-dse4-<version>-all.jar`
-** OSS C* - use `agent-c4-<version>-all.jar`
+** OSS Cassandra - use `agent-c4-<version>-all.jar`
 * Pulsar
 ** IBM Elite Support for Apache Pulsar - use `agent-dse4-<version>-all.jar`
-* Pulsar C* source connector (CSC)
+* Pulsar Cassandra source connector (CSC)
 ** Pulsar Cassandra Source NAR - use `pulsar-cassandra-source-<version>.nar`
+* {company} CDC for Cassandra connector image:https://img.shields.io/github/v/release/datastax/cdc-apache-cassandra?color=green&display_name=tag[link="https://github.com/datastax/cdc-apache-cassandra/releases/latest"]
 
 == Architecture overview
 
@@ -39,12 +44,12 @@ bin/pulsar standalone
 +
 [NOTE]
 ====
-We recommend using the latest CDC agent version (at least version `1.0.4`+) to support C* collection data types.
+We recommend using the latest CDC agent version (at least version `1.0.4`+) to support Cassandra collection data types.
 ====
 
-. Install C*/DSE.
+. Install Cassandra/DSE.
 
-. After installing C*/DSE, but before starting the C*/DSE service, set the `Cassandra-env.sh` configuration:
+. After installing Cassandra/DSE, but before starting the Cassandra/DSE service, set the `Cassandra-env.sh` configuration:
 +
 [source,bash]
 ----
@@ -61,7 +66,7 @@ export CDC_TLS_TRUST_CERTS_FILE_PATH=”</path/to/trusted/cert/file>”
 JVM_OPTS="$JVM_OPTS -javaagent:/home/automaton/cdc104/agent-dse4-<version>-all.jar"
 ----
 +
-For CDC agent versions *after 1.0.3*, the CDC agent Pulsar connection parameters are provided as system environment variables (see *DSE CDC* in the example above).
+For CDC agent versions *after 1.0.3*, the CDC agent Pulsar connection parameters are provided as system environment variables (see *DSE CDCassandra in the example above).
 +
 For CDC agent versions *before 1.0.3*, the CDC agent Pulsar connection parameters are also provided as extra JVM options, as below:
 +
@@ -80,7 +85,7 @@ commitlog_sync_period_in_ms:2000
 cdc_total_space_in_mb:4096
 ----
 
-. Start C*/DSE and verify your logs are similar to the C* `system.log` file below. `CDC agent started` indicates your CDC agent has started properly.
+. Start Cassandra/DSE and verify your logs are similar to the Cassandra `system.log` file below. `CDC agent started` indicates your CDC agent has started properly.
 +
 [source,bash]
 ----
@@ -91,7 +96,7 @@ INFO  [main] 2022-04-11 18:47:06,433  Agent.java:92 - CDC agent started
 
 == Deploy Pulsar Connector
 
-. Deploy the Pulsar Cassandra Source Connector (CSC) for each CDC-enabled C* table. The connector consumes from the **events topic** (where the CDC agent publishes) and writes to the **data topic** (where downstream consumers read from).
+. Deploy the Pulsar Cassandra Source Connector (CSC) for each CDC-enabled Cassandra table. The connector consumes from the **events topiCassandra* (where the CDC agent publishes) and writes to the **data topiCassandra* (where downstream consumers read from).
 +
 [IMPORTANT]
 ====
@@ -122,11 +127,11 @@ $ pulsar-admin source create \
   --parallelism 1 \
   --source-config {
   	"events.topic": "persistent://public/default/events-<keyspace>.<table>",
-  	"keyspace": "<C*_keyspace>",
-  	"table": "<C*_table>",
-  	"contactPoints": "<C*_contact_point_list>",
+  	"keyspace": "<Cassandra_keyspace>",
+  	"table": "<Cassandra_table>",
+  	"contactPoints": "<Cassandra_contact_point_list>",
   	"port": "9042",
-  	"loadBalancing.localDc": "<C*_DC_name>",
+  	"loadBalancing.localDc": "<Cassandra_DC_name>",
     "outputFormat": "key-value-avro"
   }
 ----
@@ -146,11 +151,11 @@ $ pulsar-admin source create \
   --parallelism 1 \
   --source-config {
   	"events.topic": "persistent://public/default/events-<keyspace>.<table>",
-  	"keyspace": "<C*_keyspace>",
-  	"table": "<C*_table>",
-  	"contactPoints": "<C*_contact_point_list>",
+  	"keyspace": "<Cassandra_keyspace>",
+  	"table": "<Cassandra_table>",
+  	"contactPoints": "<Cassandra_contact_point_list>",
   	"port": "9042",
-  	"loadBalancing.localDc": "<C*_DC_name>",
+  	"loadBalancing.localDc": "<Cassandra_DC_name>",
     "outputFormat": "key-value-json"
   }
 ----
@@ -170,11 +175,11 @@ $ pulsar-admin source create \
   --parallelism 1 \
   --source-config {
   	"events.topic": "persistent://public/default/events-<keyspace>.<table>",
-  	"keyspace": "<C*_keyspace>",
-  	"table": "<C*_table>",
-  	"contactPoints": "<C*_contact_point_list>",
+  	"keyspace": "<Cassandra_keyspace>",
+  	"table": "<Cassandra_table>",
+  	"contactPoints": "<Cassandra_contact_point_list>",
   	"port": "9042",
-  	"loadBalancing.localDc": "<C*_DC_name>",
+  	"loadBalancing.localDc": "<Cassandra_DC_name>",
     "outputFormat": "json"
   }
 ----
@@ -192,7 +197,7 @@ pulsar-admin source list ["<csc_connector_name>"]
 
 == Verify end-to-end operation
 
-Now that Pulsar, C*/DSE, CDC, and the CSC connector are installed and verified to be operational, you can verify the end-to-end message flow.
+Now that Pulsar, Cassandra/DSE, CDC, and the CSC connector are installed and verified to be operational, you can verify the end-to-end message flow.
 
 . To verify that the CDC agent in Pulsar is publishing to the events topic, confirm that the events topic exists and has messages:
 +

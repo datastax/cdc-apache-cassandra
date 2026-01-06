@@ -1,4 +1,29 @@
-= Installing {cdc_cass} for VM deployment
+= Install and configure {cdc_cass}
+
+This guide explains how to install and configure {cdc_cass_first} for the first time on your Cassandra or DSE cluster and Pulsar cluster.
+
+[TIP]
+====
+For a shorter version of this guide, see xref:ROOT:cdcExample.adoc[].
+====
+
+== Prerequisites
+
+Minimum requirements are as follows:
+
+* Cassandra version 3.11+ or 4.0+, DSE 6.8.16+ for near real-time event streaming CDC
+* Cassandra version 3.0 to 3.10 for batch CDC
+* IBM Elite Support for Apache Pulsar (formerly DataStax Luna Streaming) or Apache Pulsar 2.8.1+
+* Additional memory and CPU available on all Cassandra nodes
+
+[NOTE]
+====
+Cassandra has supported batch CDC since Cassandra 3.0, but for near real-time event streaming, Cassandra 3.11+ or DSE 6.8.16+ are required.
+====
+
+Depending on the workloads of the CDC enabled Cassandra tables, you may need to increase the CPU and memory specification of the Cassandra nodes.
+
+== Install {cdc_cass} for VM deployment
 
 . Download the `cassandra-source-agents` tar file from the https://github.com/datastax/cdc-apache-cassandra/releases[{cdc_cass} GitHub repository].
 The following files are available in the tar file:
@@ -41,14 +66,14 @@ In CDC agent versions *after 1.0.3*, the CDC agent Pulsar connection parameters 
 export CDC_PULSAR_SERVICE_URL="pulsar://<pulsar_server_ip>:6650"
 ----
 
-And to enable CDC for your C* deployment:
+And to enable CDC for your Cassandra deployment:
 
 [source,bash]
 ----
 JVM_OPTS="$JVM_OPTS -javaagent:/home/automaton/cdc104/agent-dse4-pulsar-1.0.5-all.jar"
 ----
 
-The CDC parameter mappings between JVM and C* environment variables are provided in xref:stringMappings.adoc[CDC Environment Parameter Strings]. +
+The CDC parameter mappings between JVM and Cassandra environment variables are provided in xref:stringMappings.adoc[CDC Environment Parameter Strings]. +
 For the full set of JVM configuration options, see xref:install.adoc#agentParams[].
 
 == `Cassandra.yaml`

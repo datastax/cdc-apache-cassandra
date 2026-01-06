@@ -12,7 +12,7 @@
 
 == Architecture
 
-Other than the prerequisite C* and Pulsar clusters, {cdc_cass} has two components:
+Other than the prerequisite Cassandra and Pulsar clusters, {cdc_cass} has two components:
 
 * DataStax Change Agent for Apache Cassandra, which is an event producer deployed as a JVM agent on each Cassandra data node
 * {cdc_pulsar}, which is a source connector deployed in your Pulsar cluster
@@ -23,7 +23,7 @@ image::cdc-for-cassandra-overview.png[]
 
 Since version 3.0, Cassandra has included a change data capture (CDC) feature.
 The CDC feature can be enabled on the table level by setting the table property `cdc=true`, after which any commit log containing data for a CDC-enabled table will be moved to the CDC directory specified in `cassandra.yaml` on discard/flush (default: `cdc_raw`).
-Since Cassandra 4.0 (and back ported in C* 3.11+), the C* CDC feature has been improved such that commit logs can be synced to the `cdc_raw` directory periodically (by default, 10 seconds). This improvement makes the C* CDC feature near real-time.
+Since Cassandra 4.0 (and back ported in Cassandra 3.11+), the Cassandra CDC feature has been improved such that commit logs can be synced to the `cdc_raw` directory periodically (by default, 10 seconds). This improvement makes the Cassandra CDC feature near real-time.
 
 When CDC is enabled:
 
@@ -118,7 +118,7 @@ The following CQL data types are encoded as AVRO logical types:
 
 [NOTE]
 ====
-If using the `key-value-json` output format, the supported C* types are the same as AVRO. The output is an exact schema with logical types, but with a JSON schema type.
+If using the `key-value-json` output format, the supported Cassandra types are the same as AVRO. The output is an exact schema with logical types, but with a JSON schema type.
 ====
 
 Cassandra static columns are supported:

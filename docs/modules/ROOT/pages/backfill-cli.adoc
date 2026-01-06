@@ -246,7 +246,7 @@ The `--export-dsbulk-option` parameter passes extra parameters to DSBulk.
 The relevant DSBulk settings configure the CSV connector and can be found https://github.com/datastax/dsbulk/blob/1.10.x/manual/settings.md#connector.csv[here].
 Shortened option names are not supported.
 
-In both the Pulsar-admin extension and the standalone Java application, C* related configurations are exclusively passed as command line arguments.
+In both the Pulsar-admin extension and the standalone Java application, Cassandra related configurations are exclusively passed as command line arguments.
 
 .CDC backfill CLI parameters
 [cols=2*,options="header"]

@@ -1,6 +1,6 @@
 = {cdc_cass} FAQs
 
-If you are new to {cdc_cass_first}, these frequently asked questions are for you.
+The following are frequently asked questions about {cdc_cass_first} and its features.
 
 == What is {cdc_cass}?
 
@@ -9,31 +9,44 @@ The {cdc_cass} is a an open-source product from DataStax.
 With {cdc_cass}, updates to data in Apache Cassandra are put into a Pulsar topic, which in turn can write the data to external targets such as Elasticsearch, Snowflake, and other platforms.
 The {csc_pulsar_first} component is simple, with a 1:1 correspondence between the Cassandra table and a single Pulsar topic.
 
+== Is {cdc_cass} an open-source project? Where can I find the repository?
+
+Yes, {cdc_cass} is open source using the Apache 2.0 license. You can find the source code on the https://github.com/datastax/cdc-apache-cassandra[{cdc_cass} GitHub repository].
+
+== What does {cdc_cass} provide that I cannot get with open-source Apache Pulsar?
+
+In effect, the {cdc_cass} implements the reverse of Apache Pulsar or DataStax Cassandra Sink Connector.
+With those sink connectors, data is taken from a Pulsar topic and put into Cassandra.
+With {cdc_cass}, updates to a Cassandra table are converted into events and put into a data topic.
+From there, the data can be published to external platforms like Elasticsearch, Snowflake, and other platforms.
+
+== How do I install {cdc_cass}?
+
+Follow the xref:install.adoc[installation instructions].
+
 == What are the requirements for {cdc_pulsar}?
 
-Minimum requirements are:
+See the xref:ROOT:install.adoc[installation instructions].
 
-* Cassandra version 3.11+ or 4.0+, DSE 6.8.16+ for near real-time event streaming CDC
-* Cassandra version 3.0 to 3.10 for batch CDC
-* IBM Elite Support for Apache Pulsar (formerly DataStax Luna Streaming) or Apache Pulsar 2.8.1+
-* Additional memory and CPU available on all Cassandra nodes
+== I have multiple Cassandra datacenters. How do I configure {cdc_cass}?
 
-[NOTE]
-====
-Cassandra has supported batch CDC since Cassandra 3.0, but for near real-time event streaming, Cassandra 3.11+ or DSE 6.8.16+ are required.
-====
+In a multi-datacenter Cassandra configuration, enable CDC and install the change agent in only one datacenter.
+To ensure the data sent to all datacenters are delivered to the data topic, make sure to configure replication to the datacenter that has CDC enabled on the table.
 
-Depending on the workloads of the CDC enabled C* tables, you may need to increase the CPU and memory specification of the C* nodes.
+For example, given a Cassandra cluster with three datacenters (DC1, DC2, and DC3), you would enable CDC and install the change agent in only DC1.
+To ensure all updates in DC2 and DC3 are propagated to the data topic, configure the table's keyspace to replicate data from DC2 and DC3 to DC1.
+For example, `replication = {'class': 'NetworkTopologyStrategy', 'dc1': 3, 'dc2': 3, 'dc3': 3})`.
+The data replicated to DC1 will be processed by the change agent and eventually end up in the data topic.
 
-== What is the impact of the C* CDC solution on the existing C* cluster?
+== What is the impact of the Cassandra CDC solution on the existing Cassandra cluster?
 
-For each CDC-enabled C* table, C* needs extra processing cycles and storage to process the CDC commit logs. The impact for dealing with a single CDC-enabled table is small, but when there are a large number of C* tables with CDC enabled, the impact within C* increases. The performance impact occurs within C* itself, not the C* CDC solution with Pulsar.
+For each CDC-enabled Cassandra table, Cassandra needs extra processing cycles and storage to process the CDC commit logs. The impact for dealing with a single CDC-enabled table is small, but when there are a large number of Cassandra tables with CDC enabled, the impact within Cassandra increases. The performance impact occurs within Cassandra itself, not the Cassandra CDC solution with Pulsar.
 
-The CDC agent is started as a JVM agent of the C* process and it will share the same hardware resource of the same C* node. However, the only job that the CDC agent does is to scan the CDC commit log directory on a regular basis and send messages to the Pulsar cluster. This is a lightweight process when launched on a single thread, but the CDC agent can be launched with multiple threads. The more threads that are launched, the more resources will be consumed.
+The CDC agent is started as a JVM agent of the Cassandra process and it will share the same hardware resource of the same Cassandra node. However, the only job that the CDC agent does is to scan the CDC commit log directory on a regular basis and send messages to the Pulsar cluster. This is a lightweight process when launched on a single thread, but the CDC agent can be launched with multiple threads. The more threads that are launched, the more resources will be consumed.
 
-For each C* write operation (one detected change-event), the Pulsar CSC connector performs a primary key-based C* read to get the most complete, up-to-date information of that particular C* row. 
+For each Cassandra write operation (one detected change-event), the Pulsar CSC connector performs a primary key-based Cassandra read to get the most complete, up-to-date information of that particular Cassandra row. 
 
-In a worst-case scenario, where a CDC-enabled C* has 100% write workload, the CDC solution would double the workload by adding the same amount of read workload to C* table. Since the C* read is primary key-based, it will be efficient.
+In a worst-case scenario, where a CDC-enabled Cassandra has 100% write workload, the CDC solution would double the workload by adding the same amount of read workload to Cassandra table. Since the Cassandra read is primary key-based, it will be efficient.
 
 == What are the {cdc_cass} limitations?
 
@@ -88,11 +101,11 @@ It stores the number of milliseconds since January 1, 1970, 00:00:00 GMT as an I
 
 == What happens if the Apache Pulsar service is unavailable?
 
-If the Pulsar cluster is down, the CDC agent on each C* node will periodically try to send the mutations, and will keep the CDC commitlog segments on disk until the data sending is successful.
+If the Pulsar cluster is down, the CDC agent on each Cassandra node will periodically try to send the mutations, and will keep the CDC commitlog segments on disk until the data sending is successful.
 
 The CDC agent keeps track of the CDC commitlog segment offsets, so the CDC agent knows where to resume sending the mutation messages when the Pulsar cluster is back online.
 
-We recommend active monitoring of the disk space of the C* nodes. If the Pulsar cluster is down, the change agent will continue trying to send messages and the CDC commitlog files will accumulate on the C* node. If the maximum CDC directory disk space is reached, future C* writes to the CDC-enabled table will fail.
+We recommend active monitoring of the disk space of the Cassandra nodes. If the Pulsar cluster is down, the change agent will continue trying to send messages and the CDC commitlog files will accumulate on the Cassandra node. If the maximum CDC directory disk space is reached, future Cassandra writes to the CDC-enabled table will fail.
 
 When the disk space of the `cdc_raw` directory reaches your `cdc_total_space_in_mb` Cassandra setting (less than 4GB by default), writes to CDC-enabled tables will fail with a `CDCWriteException`.
 The following warning message is included in Cassandra logs:
@@ -109,36 +122,6 @@ Increasing the write throughput may involve tuning the change agent configuratio
 
 As a last resort, if losing data is acceptable in your CDC pipeline, remove `commitlog` files from the `cdc_raw` directory.
 Restarting the node is not needed in this case.
-
-== I have multiple Cassandra datacenters. How do I configure {cdc_cass}?
-
-In a multi-datacenter Cassandra configuration, enable CDC and install the change agent in only one datacenter.
-To ensure the data sent to all datacenters are delivered to the data topic, make sure to configure replication to the datacenter that has CDC enabled on the table.
-
-For example, given a Cassandra cluster with three datacenters (DC1, DC2, and DC3), you would enable CDC and install the change agent in only DC1.
-To ensure all updates in DC2 and DC3 are propagated to the data topic, configure the table's keyspace to replicate data from DC2 and DC3 to DC1.
-For example, `replication = {'class': 'NetworkTopologyStrategy', 'dc1': 3, 'dc2': 3, 'dc3': 3})`.
-The data replicated to DC1 will be processed by the change agent and eventually end up in the data topic.
-
-== Is {cdc_cass} an open-source project?
-
-Yes, {cdc_cass} is open source using the Apache 2.0 license. You can find the source code on the GitHub repository https://github.com/datastax/cdc-apache-cassandra[datastax/cdc-apache-cassandra].
-
-== What does {cdc_cass} provide that I cannot get with open-source Apache Pulsar?
-
-In effect, the {cdc_cass} implements the reverse of Apache Pulsar or DataStax Cassandra Sink Connector.
-With those sink connectors, data is taken from a Pulsar topic and put into Cassandra.
-With {cdc_cass}, updates to a Cassandra table are converted into events and put into a data topic.
-From there, the data can be published to external platforms like Elasticsearch, Snowflake, and other platforms.
-
-== Where is the {cdc_cass} public GitHub repository?
-
-The source for this FAQs document is co-located with the {cdc_cass} repository code.
-You can access the repository https://github.com/datastax/cdc-apache-cassandra[here].
-
-== How do I install {cdc_cass}?
-
-Follow the xref:install.adoc[install] instructions.
 
 == What is Prometheus?
 

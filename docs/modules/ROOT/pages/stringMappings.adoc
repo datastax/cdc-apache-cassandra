@@ -14,7 +14,7 @@ In CDC versions *after 1.0.3*, the CDC agent Pulsar connection parameters are al
 export CDC_PULSAR_SERVICE_URL="pulsar://<pulsar_server_ip>:6650"
 ----
 
-This document lists the CDC Change Agent parameter mappings between the JVM option strings and C* strings. 
+This document lists the CDC Change Agent parameter mappings between the JVM option strings and Cassandra strings. 
 
 == Change Agent Parameter Mappings
 

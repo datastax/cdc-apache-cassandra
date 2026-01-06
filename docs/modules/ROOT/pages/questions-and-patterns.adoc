@@ -81,9 +81,7 @@ Finally, the third area focuses on managing the broker backlog size and throughp
 .I want to filter table data by column
 [%collapsible]
 ====
-Transformation functions are a great way to manipulate messages on CDC data (with no code required!) Put them inline to watch the data topic and write to a different topic. Call the topic something memorable like "filtered-data" topic.
-
-Learn more about transformation functions xref:streaming-learning:functions:index.adoc[here].
+xref:luna-streaming:operations:functions.adoc[Transformation functions] are a great way to manipulate messages on CDC data (with no code required!) Put them inline to watch the data topic and write to a different topic. Call the topic something memorable like "filtered-data" topic.
 ====
 
 .Multi-region CDC using the {cass-short} sink

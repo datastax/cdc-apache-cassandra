@@ -78,7 +78,7 @@ And a JSON representation of the AVRO Record for the message payload:
 
 == `DELETE` Event
 
-When deleting a row, the Cassandra source connector will publish a tombstone message into the clean topic with a message key matching the C* primary key and a null payload. The null payload acts as a message tombstone, and the downstream Pulsar connectors like the Elasticsearch sink should delete the corresponding row (or document in the case of Elasticsearch).
+When deleting a row, the Cassandra source connector will publish a tombstone message into the clean topic with a message key matching the Cassandra primary key and a null payload. The null payload acts as a message tombstone, and the downstream Pulsar connectors like the Elasticsearch sink should delete the corresponding row (or document in the case of Elasticsearch).
 
 If using the `json` output format, the Pulsar message will pass an empty JSON instead of a null payload, because Pulsar doesn't support nulls in message values. The downstream connectors will still delete the corresponding row. 
 
