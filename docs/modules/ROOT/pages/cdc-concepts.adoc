@@ -13,13 +13,13 @@ Source connectors in Apache Pulsar are responsible for ingesting data from exter
 
 Pulsar offers extensible APIs where developers can use a defined interface to develop their own connector. The interface takes much of the boilerplate burdens away from a developer and gets them right to the purpose of the connector. Creating a connector means adding in the know-how to work with data from the source and adapt it to produce a compliant message with the Pulsar client.
 
-As you'll learn in the next section, among the processes needed to capture change data, the xref:cdc-for-cassandra:ROOT:index.adoc[{company} CDC for Apache Cassandra(R) connector] is a critical source connector. This is one of many available source connectors for Pulsar, but is specifically designed to work with Cassandra and its CDC features.
+As you'll learn in the next section, among the processes needed to capture change data, the **{csc_pulsar_first}** ({csc_pulsar}) is critical. This is one of many available source connectors for Pulsar, but is specifically designed to work with Cassandra and its CDC features.
 
 To run a source connector, you provide configuration about what data will be selected, how to connect with the upstream system, and the destination topic for the new message. The source connector takes care of producing the message. Pulsar source connectors run as Pulsar functions within the cluster, so many of the features of functions apply (like the number of instances to run and how to configure the function instance running environment). Metrics and logs for a source connector are automatically made a part of the cluster.
 
 === Monitoring source connectors
 
-Monitoring a source connector includes two areas: health and performance. Every connector in Pulsar emits basic metrics about its health, including stats like the number of records received from the source, and the number of messages written to the destination topic. Connectors also emit debugging metrics like the number of exceptions thrown by the source. Performance metrics include health metrics as well as specific knowledge about the source. Refer to the https://pulsar.apache.org/docs/reference-metrics/#connectors[connectors area of Pulsar metrics] for a complete list and explanation of metrics.
+Monitoring a source connector includes two areas: health and performance. Every connector in Pulsar emits basic metrics about its health, including stats like the number of records received from the source, and the number of messages written to the destination topic. Connectors also emit debugging metrics like the number of exceptions thrown by the source. Performance metrics include health metrics as well as specific knowledge about the source. Refer to the https://pulsar.apache.org/docs/reference-metrics/#connectors[Pulsar connectors metrics documentation] for a complete list and explanation of metrics.
 
 === Source connector logs
 
@@ -43,25 +43,25 @@ In the context of CDC there are a few schema configurations of note. All of thes
 
 - *schema-compatibility-strategy*: this setting instructs the Pulsar broker how to handle new schemas introduced to existing topics by producers. This is relevant to CDC when a table's design is changed. For example, if a new column is added, the registered schema is changed to include that new value. The chosen schema-compatibility-strategy decides if the namespace will allow this. If schema validations are enabled, this option decides what strategy is used. Pulsar's default strategy is "FULL" which means existing optional table columns can be modified. Learn more about the different types of strategies in the https://pulsar.apache.org/docs/next/schema-understand/#schema-compatibility-check-strategy[Pulsar docs].
 
-- *allow-auto-update-schema*: given the compatibility strategy, this setting is a flag that determines if an update to the schema is generally allowed. CDC sets this to ‘true' so changes in a table's design can automatically propagate to the topic.
+- *allow-auto-update-schema*: given the compatibility strategy, this setting is a flag that determines if an update to the schema is generally allowed. CDC sets this to `true` so changes in a table's design can automatically propagate to the topic.
 
 - *schema-autoupdate-strategy*: when auto update is enabled (set to true) this setting directs the Broker how to ensure consumers of a topic are able to process messages. If a consumer attempts to connect with a schema that does not match the current schema, this strategy will decide if it is allowed to receive messages. CDC sets this to 'BACKWARDTRANSITIVE', which means if optional table columns have been added or a column has been removed, the old schema is allowed.
 
 - *schema-validation-enforce*: this flag limits how producers and consumers are allowed to be configured. When enabled (true) producer and consumer clients must have a schema set before sending the message. When disabled (set to false) Pulsar will allow producers and consumers without a set schema to send or receive messages. CDC disables this option (set to false), so producers and consumers do not have to know the message schema ahead of time.
 
-== Cassandra CDC agent and connector for Apache Pulsar
+== The {cdc_agent_first} and {csc_pulsar_first}
 
-The Cassandra CDC agent is a process running on each node in a Cassandra cluster that watches for data changes on tables that have enabled the CDC feature. Using Cassandra's https://cassandra.apache.org/doc/4.0/cassandra/configuration/cass_yaml_file.html#commitlog_sync[commitlog_sync option], the agent periodically syncs a separate log in a special "cdc_raw" directory. Each log entry is a CDC event. The CDC agent creates a new event message containing the row coordinates of the changed data and produces the message to a downstream Pulsar cluster.
+The {cdc_agent} is a process running on each node in a Cassandra cluster that watches for data changes on tables that have enabled the CDC feature. Using Cassandra's https://cassandra.apache.org/doc/4.0/cassandra/configuration/cass_yaml_file.html#commitlog_sync[commitlog_sync option], the agent periodically syncs a separate log in a special "cdc_raw" directory. Each log entry is a CDC event. The {cdc_agent} creates a new event message containing the row coordinates of the changed data and produces the message to a downstream Pulsar cluster.
 
-Each table that has CDC enabled also has a corresponding xref:cdc-for-cassandra:ROOT:index.adoc[{company} CDC for Cassandra connector] in Pulsar. This is unlike the CDC agent where the process runs on each Cassandra node, keeping a log of all table changes. Each table-specific Cassandra CDC connector subscribes to the events topic the agent is producing messages to. When the connector "sees" a message for its table, it uses the row coordinates within the message to retrieve the mutated data from Cassandra and create a new message with the specifics. That new message is written to a data topic where others can subscribe and receive CDC messages.
+In Pulsar, each table that has CDC enabled also has a corresponding {company} {csc_pulsar}. This is unlike the {cdc_agent} where the process runs on each Cassandra node, keeping a log of all table changes. Each table-specific Cassandra source connector subscribes to the events topic the agent is producing messages to. When the connector "sees" a message for its table, it uses the row coordinates within the message to retrieve the mutated data from Cassandra and create a new message with the specifics. That new message is written to a data topic where others can subscribe and receive CDC messages.
 
 === Event deduplication
 
-A particular advantage in the {company} CDC for Cassandra connector is its deduplication feature. You might have read about Pulsar's built in https://pulsar.apache.org/docs/2.11.x/concepts-messaging/#message-deduplication[deduplication capabilities] - this is *not* utilized in the message flow because CDC needs a finer grain control to detect duplicates. As the CDC agent discovers a new commit log, an authentic identifier is created using the MD5 hash algorithm. That key identifier is added to the event message.
+A particular advantage in the {company} {csc_pulsar} is its deduplication feature. You might have read about Pulsar's built in https://pulsar.apache.org/docs/2.11.x/concepts-messaging/#message-deduplication[deduplication capabilities] - this is *not* utilized in the message flow because CDC needs a finer grain control to detect duplicates. As the {cdc_agent} discovers a new commit log, an authentic identifier is created using the MD5 hash algorithm. That key identifier is added to the event message.
 
-When message consumers, like the Cassandra CDC connector, connect to the event topic, they establish a subscription type. Pulsar has 4 types of subcriptions: exclusive, shared, failover, and key_shared. In a typical CDC flow, the Cassandra CDC connector will have multiple instances running in parallel. When multiple consumers are a part of a key_shared subscription, Pulsar will deliver a duplicate hash key to the same consumer no matter how many times it's sent.
+When message consumers, like the {company} {csc_pulsar}, connect to the event topic, they establish a subscription type. Pulsar has 4 types of subscriptions: exclusive, shared, failover, and key_shared. In a typical CDC flow, the Cassandra source connector will have multiple instances running in parallel. When multiple consumers are a part of a key_shared subscription, Pulsar will deliver a duplicate hash key to the same consumer no matter how many times it's sent.
 
-When a Cassandra cluster has multiple hosts (with multiple commit logs), and they all use the same mutation to calculate the same hash key, the same consumer will always receive it. Each Cassandra CDC connector keeps a cache of hashes it has seen and ensures duplicates are dropped before producing the data message.
+When a Cassandra cluster has multiple hosts (with multiple commit logs), and they all use the same mutation to calculate the same hash key, the same consumer will always receive it. Each Cassandra source connector keeps a cache of hashes it has seen and ensures duplicates are dropped before producing the data message.
 
 Learn more about Pulsar's key_shared subscription type in the https://pulsar.apache.org/docs/2.11.x/concepts-messaging/#key_shared[Pulsar documentation].
 
@@ -73,8 +73,9 @@ Now that you understand the different resources used in this CDC pattern, let's 
 .. Create a namespace (or use the "default").
 .. Create a topic for event messages.
 .. Create a topic for data messages.
-. Start the CDC source connector in Pulsar by setting the destination topic (aka the data topic), the event topic, and Cassandra connection info (along with other settings).
-. Configure the Cassandra change agent with a working directory and the Pulsar service URL (along with other settings) in the Cassandra node (restart is required).
+. Start the Cassandra source connector in Pulsar by setting the destination topic (also known as the data topic), the event topic, and Cassandra connection info, along with other settings.
+. Configure the Cassandra change agent with a working directory, Pulsar service URL, and other settings in the Cassandra node.
+A restart is required.
 . Create a Cassandra table and enable CDC.
 . Insert a row of data into the table.
 .. The change agent will detect a mutation to the table and write a log.
@@ -87,9 +88,9 @@ This section describes how table schema changes are handled in the Apache Cassan
 
 === Message schema translation
 
-The message schema is of particular importance in completing the CDC pattern. Initially, it is set to match the Cassandra table's schema as closely as possible, but some data types are not known in Pulsar (or more accurately, not known in Avro). To overcome this, there are adaptations performed when the xref:cdc-for-cassandra:ROOT:index.adoc[{company} CDC for Cassandra connector] builds the Pulsar message. Some types are not compatible and not able to be adapted. In this case, those columns of data are dropped while creating the Pulsar message.
+The message schema is of particular importance in completing the CDC pattern. Initially, it is set to match the Cassandra table's schema as closely as possible, but some data types are not known in Pulsar (or more accurately, not known in Avro). To overcome this, there are adaptations performed when the {company} {csc_pulsar} builds the Pulsar message. Some types are not compatible and not able to be adapted. In this case, those columns of data are dropped while creating the Pulsar message.
 
-To better understand how exactly the CDC agent constructs the event message, here is the pseudo code of how the schema is created:
+To better understand how exactly the {cdc_agent} constructs the event message, here is the pseudo code of how the schema is created:
 
 [source,java]
 ----

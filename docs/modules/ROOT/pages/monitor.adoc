@@ -147,6 +147,6 @@ pulsar_source_user_metric__sum{tenant="public",namespace="public/default",name="
 == Monitoring and Alerting resources
 
 * The change agent exposes metrics with xref:planning:ROOT:metrics-alerts.adoc[JMX], a technology within Java that provides tools for managing and monitoring applications.
-* xref:opscenter:overview:opscenter-about.adoc[DSE Ops Center] can collect these exposed metrics for visualization and alerts, and pass them on to xref:monitoring:ROOT:ops-use-metrics-collector.adoc[DSE Metrics Collector] for additional integration with Prometheus and Grafana.
+* xref:opscenter:overview:opscenter-about.adoc[DSE Ops Center] can collect these exposed metrics for visualization and alerts, and pass them on to xref:monitoring:ROOT:ops-use-metrics-collector.adoc[DSE Metrics Collector] for additional integration with https://prometheus.io/docs/introduction/overview/[Prometheus] and https://grafana.com/[Grafana].
 * The https://github.com/datastax/metric-collector-for-apache-cassandra[Metrics Collector for Apache Cassandra] with Prometheus and Grafana dashboards provides the same functionality as DSE Metrics Collector, built on the well-supported collectd agent.
 * Other monitoring tools like https://github.com/prometheus/jmx_exporter[JMX Exporter] by Prometheus are available, but may require additional tuning.

@@ -7,11 +7,12 @@ The following are frequently asked questions about {cdc_cass_first} and its feat
 The {cdc_cass} is a an open-source product from DataStax.
 
 With {cdc_cass}, updates to data in Apache Cassandra are put into a Pulsar topic, which in turn can write the data to external targets such as Elasticsearch, Snowflake, and other platforms.
-The {csc_pulsar_first} component is simple, with a 1:1 correspondence between the Cassandra table and a single Pulsar topic.
+The {csc_pulsar_first} component has a one-to-one correspondence between a Cassandra table and a single Pulsar topic.
 
 == Is {cdc_cass} an open-source project? Where can I find the repository?
 
-Yes, {cdc_cass} is open source using the Apache 2.0 license. You can find the source code on the https://github.com/datastax/cdc-apache-cassandra[{cdc_cass} GitHub repository].
+Yes, {cdc_cass} is open source software under the Apache 2.0 license.
+You can find the source code on the https://github.com/datastax/cdc-apache-cassandra[{company} {cdc_cass} GitHub repository].
 
 == What does {cdc_cass} provide that I cannot get with open-source Apache Pulsar?
 
@@ -24,88 +25,42 @@ From there, the data can be published to external platforms like Elasticsearch, 
 
 Follow the xref:install.adoc[installation instructions].
 
-== What are the requirements for {cdc_pulsar}?
+== What are the requirements for {cdc_cass}?
 
 See the xref:ROOT:install.adoc[installation instructions].
 
 == I have multiple Cassandra datacenters. How do I configure {cdc_cass}?
 
-In a multi-datacenter Cassandra configuration, enable CDC and install the change agent in only one datacenter.
-To ensure the data sent to all datacenters are delivered to the data topic, make sure to configure replication to the datacenter that has CDC enabled on the table.
-
-For example, given a Cassandra cluster with three datacenters (DC1, DC2, and DC3), you would enable CDC and install the change agent in only DC1.
-To ensure all updates in DC2 and DC3 are propagated to the data topic, configure the table's keyspace to replicate data from DC2 and DC3 to DC1.
-For example, `replication = {'class': 'NetworkTopologyStrategy', 'dc1': 3, 'dc2': 3, 'dc3': 3})`.
-The data replicated to DC1 will be processed by the change agent and eventually end up in the data topic.
+See xref:ROOT:index.adoc#multiple-cassandra-datacenters[Deploy multiple Cassandra datacenters].
 
 == What is the impact of the Cassandra CDC solution on the existing Cassandra cluster?
 
-For each CDC-enabled Cassandra table, Cassandra needs extra processing cycles and storage to process the CDC commit logs. The impact for dealing with a single CDC-enabled table is small, but when there are a large number of Cassandra tables with CDC enabled, the impact within Cassandra increases. The performance impact occurs within Cassandra itself, not the Cassandra CDC solution with Pulsar.
+For each CDC-enabled Cassandra table, Cassandra needs extra processing cycles and storage to process the CDC commit logs.
+The impact for dealing with a single CDC-enabled table is small, but when there are a large number of Cassandra tables with CDC enabled, the impact within Cassandra increases.
+The performance impact occurs within Cassandra itself, not the Cassandra CDC solution with Pulsar.
 
-The CDC agent is started as a JVM agent of the Cassandra process and it will share the same hardware resource of the same Cassandra node. However, the only job that the CDC agent does is to scan the CDC commit log directory on a regular basis and send messages to the Pulsar cluster. This is a lightweight process when launched on a single thread, but the CDC agent can be launched with multiple threads. The more threads that are launched, the more resources will be consumed.
+The {cdc_agent} is started as a JVM agent of the Cassandra process and it will share the same hardware resource of the same Cassandra node.
+However, the only job that the {cdc_agent} does is to scan the CDC commit log directory on a regular basis and send messages to the Pulsar cluster.
+This is a lightweight process when launched on a single thread, but the {cdc_agent} can be launched with multiple threads.
+The more threads that are launched, the more resources will be consumed.
 
-For each Cassandra write operation (one detected change-event), the Pulsar CSC connector performs a primary key-based Cassandra read to get the most complete, up-to-date information of that particular Cassandra row. 
+For each Cassandra write operation (one detected change-event), the Pulsar CSC connector performs a primary key-based Cassandra read to get the most complete, up-to-date information of that particular Cassandra row.
 
-In a worst-case scenario, where a CDC-enabled Cassandra has 100% write workload, the CDC solution would double the workload by adding the same amount of read workload to Cassandra table. Since the Cassandra read is primary key-based, it will be efficient.
+In a worst-case scenario, where a CDC-enabled Cassandra has 100% write workload, the CDC solution would double the workload by adding the same amount of read workload to Cassandra table.
+Since the Cassandra read is primary key-based, it will be efficient.
 
 == What are the {cdc_cass} limitations?
 
-{cdc_cass} has the following limitations:
-
-* Does not manage table truncates.
-* Does not sync data available before starting the CDC agent.
-* Does not replay logged batches.
-* Does not manage time-to-live.
-* Does not support range deletes.
-* CQL column names must not match a Pulsar primitive type name (ex: INT32) below
-
-.Pulsar primitive types
-[cols=2*, options=header]
-[%autowidth]
-|===
-|*Primitive type*
-|*Description*
-
-|BOOLEAN	
-|A binary value
-
-|INT8	
-|A 8-bit signed integer
-
-|INT16	
-|A 16-bit signed integer
-
-|INT32	
-|A 32-bit signed integer
-
-|INT64	
-|A 64-bit signed integer
-
-|FLOAT	
-|A single precision (32-bit) IEEE 754 floating-point number
-
-|DOUBLE	
-|A double-precision (64-bit) IEEE 754 floating-point number
-
-|BYTES	
-|A sequence of 8-bit unsigned bytes
-
-|STRING	
-|A Unicode character sequence
-
-|TIMESTAMP (DATE, TIME)	
-|A logic type represents a specific instant in time with millisecond precision. +
-It stores the number of milliseconds since January 1, 1970, 00:00:00 GMT as an INT64 value
-
-|===
+See xref:ROOT:index.adoc#limitations[{cdc_cass} limitations].
 
 == What happens if the Apache Pulsar service is unavailable?
 
-If the Pulsar cluster is down, the CDC agent on each Cassandra node will periodically try to send the mutations, and will keep the CDC commitlog segments on disk until the data sending is successful.
+If the Pulsar cluster is down, the {cdc_agent} on each Cassandra node will periodically try to send the mutations, and will keep the CDC commitlog segments on disk until the data sending is successful.
 
-The CDC agent keeps track of the CDC commitlog segment offsets, so the CDC agent knows where to resume sending the mutation messages when the Pulsar cluster is back online.
+The {cdc_agent} keeps track of the CDC commitlog segment offsets, so the {cdc_agent} knows where to resume sending the mutation messages when the Pulsar cluster is back online.
 
-We recommend active monitoring of the disk space of the Cassandra nodes. If the Pulsar cluster is down, the change agent will continue trying to send messages and the CDC commitlog files will accumulate on the Cassandra node. If the maximum CDC directory disk space is reached, future Cassandra writes to the CDC-enabled table will fail.
+We recommend active monitoring of the disk space of the Cassandra nodes.
+If the Pulsar cluster is down, the change agent will continue trying to send messages and the CDC commitlog files will accumulate on the Cassandra node. If the maximum CDC directory disk space is reached, future Cassandra writes to the CDC-enabled table will fail.
 
 When the disk space of the `cdc_raw` directory reaches your `cdc_total_space_in_mb` Cassandra setting (less than 4GB by default), writes to CDC-enabled tables will fail with a `CDCWriteException`.
 The following warning message is included in Cassandra logs:
@@ -118,18 +73,14 @@ WARN  [CoreThread-5] 2021-10-29 09:12:52,790  NoSpamLogger.java:98 - Rejecting M
 To avoid or recover from this situation, increase the `cdc_total_space_in_mb` and restart the node.
 To prevent hitting this new limit, increase the write throughput to your Apache Pulsar cluster, or decrease the write throughput to your node.
 
-Increasing the write throughput may involve tuning the change agent configuration (the number of allocated threads, the batching delay, the number of inflight messages), the Pulsar cluster configuration (the number of partitions of your topics), or the {cdc_pulsar} configuration (query executors, batching and cache settings, connector parallelism).
+Increasing the write throughput can involve tuning one or more of the following:
+
+* Change agent configuration: The number of allocated threads, the batching delay, the number of inflight messages
+* Pulsar cluster configuration: The number of partitions of your topics
+* {csc_pulsar} configuration: The query executors, batching and cache settings, connector parallelism
 
 As a last resort, if losing data is acceptable in your CDC pipeline, remove `commitlog` files from the `cdc_raw` directory.
 Restarting the node is not needed in this case.
-
-== What is Prometheus?
-
-https://prometheus.io/docs/introduction/overview/[Prometheus] is an open-source tool to collect metrics on a running app, providing real-time monitoring and alerts.
-
-== What is Grafana?
-
-https://grafana.com/[Grafana] is a visualization tool that helps you make sense of metrics and related data coming from your apps via Prometheus.
 
 == How do I know if CDC is enabled on a table?
 
@@ -172,57 +123,106 @@ From this status, you can enable CDC on the table by running the following CQL q
 ALTER TABLE keyspace_name.table_name WITH cdc = {'enabled': true};
 ----
 
-== How do I know if the Cassandra agent is running?
+== How do I know if the {cdc_agent} is running?
 
-You can check the status of the Cassandra agent by running the following CQL query:
+You can check the status of the {cdc_agent} by running the following CQL query:
 
-`SELECT * FROM system_distributed.cdc_local WHERE keyspace_name = 'cdc' AND table_name = 'raw_cdc';`
+[source,cql]
+----
+SELECT * FROM system_distributed.cdc_local WHERE keyspace_name = 'cdc' AND table_name = 'raw_cdc';
+----
 
-The `status` column will be `running` if the agent is running. If the `status` column is `null` then the agent is not running. If the `status` column is `stopped` then the agent is not running.
+There are three possible statuses:
 
-If the `status` column is `stopped` then you can start the agent by running the following CQL query:
+Running::
+If the `status` column is `running`, then the agent is running.
++
+From this status, you can stop the agent by running the following CQL query:
++
+[source,cql]
+----
+ALTER TABLE cdc.raw_cdc WITH cdc = {'enabled': false};
+----
 
-`ALTER TABLE cdc.raw_cdc WITH cdc = {'enabled': true};`
+Stopped::
+If the `status` column is `stopped` then the agent isn't running.
++
+From this status, you can start the agent by running the following CQL query:
++
+[source,cql]
+----
+ALTER TABLE cdc.raw_cdc WITH cdc = {'enabled': true};
+----
 
-If the `status` column is `null` then you can start the agent by running the following CQL query:
+Null::
+If the `status` column is `null`, then the agent isn't running.
++
+From this status, you can start the agent by running the following CQL query:
++
+[source,cql]
+----
+ALTER TABLE cdc.raw_cdc WITH cdc = {'enabled': true};
+----
 
-`ALTER TABLE cdc.raw_cdc WITH cdc = {'enabled': true};`
+== What happens to unacknowledged event messages the {cdc_agent} can't deliver?
 
-If the `status` column is `running` then you can stop the agent by running the following CQL query:
+Unacknowledged messages mean the {cdc_agent} was not able to produce the event message in Pulsar.
+If this is the case the table row mutation will fail which the Cassandra client will then see an exception.
+So data will get committed to Cassandra and no event will be created.
 
-`ALTER TABLE cdc.raw_cdc WITH cdc = {'enabled': false};`
+Another scenario might be the Pulsar broker is too busy to process messages and a backlog has been created.
+In this case, Pulsar's backlog policies take effect and event messages are handled accordingly.
+The data will be committed to Cassandra but there might be some additional latency to the event message creation.
 
-== What happens to unacknowledged event messages the Cassandra agent can't deliver?
+The design of CDC in Cassandra assumed that when table changes are synchronized to the `raw_cdc` log, another process will be draining that log.
+There is a max log size setting that will disable writes to the table when the set threshold is reached.
+If a connection to the Pulsar cluster is needed for the log to be drained, and it's not responsive, the log will being to fill, which can impact a table's write availability.
 
-Unacknowledged messages mean the CDC agent was not able to produce the event message in Pulsar. If this is the case the table row mutation will fail which the Cassandra client will then see an exception. So data will get committed to Cassandra and no event will be created.
+For more, see the xref:cdc-for-cassandra:ROOT:install.adoc#scaling-up-your-configuration[Scaling up your CDC configuration].
 
-Another scenario might be the Pulsar broker is too busy to process messages and a backlog has been created. In this case, Pulsar's backlog policies take effect and event messages are handled accordingly. The data will be committed to Cassandra but there might be some additional latency to the event message creation.
+== Does the {csc_pulsar_first} use a dead-letter topic?
 
-The design of CDC in Cassandra assumed that when table changes are synchronized to the `raw_cdc` log, another process will be draining that log. There is a max log size setting that will disable writes to the table when the set threshold is reached. If a connection to the Pulsar cluster is needed for the log to be drained, and it's not responsive, the log will being to fill, which can impact a table's write availability.
+A dead letter topic is used when a message cannot be delivered to a consumer.
+Possible causes include the following:
 
-For more, see the xref:cdc-for-cassandra:ROOT:install.adoc#scaling-up-your-configuration[Scaling up your configuration] section in the official documentation.
+* The message acknowledgment time expired with no consumer acknowledged receipt of the message
+* A consumer negatively acknowledged the message
+* A retry letter topic is in use and retries were exhausted
 
-== Does the {company} CDC for Cassandra connector use a dead-letter topic?
-
-A dead letter topic is used when a message cannot be delivered to a consumer. Maybe the message acknowledgment time expired (no consumer acknowledged receipt of the message), or a consumer negatively acknowledged the message, or a retry letter topic is in use and retries were exhausted.
-
-The xref:cdc-for-cassandra:ROOT:index.adoc[{company} CDC for Cassandra connector] creates a consumer to receive new event messages from the CDC agent, but does not configure a dead letter topic. It is assumed that parallel instances, broker compute, and function worker compute will be sized to handle the workload.
+The {csc_pulsar} creates a consumer to receive new event messages from the {cdc_agent}, but does not configure a dead letter topic.
+It is assumed that parallel instances, broker compute, and function worker compute will be sized to handle the workload.
 
 == How do I scale CDC to handle my production loads?
 
-There are 3 areas of scalability to focus on. First are the hosts in the Cassandra cluster. The CDC agent is running on each host in its own JVM. If you are administering your own Cassandra cluster, then you can tune the JVM compute properties to handle the appropriate workload. If you are using Cassandra in a serverless environment, then the JVM is already set to handle significant load.
+There are 3 areas of scalability to focus on:
 
-The second area of focus is the number of xref:cdc-for-cassandra:ROOT:index.adoc[{company} CDC for Cassandra connector] instances that are running. This is initially set when the Cassandra CDC connector is created, and it can be updated throughout the life of the running connector. Depending on your Pulsar configuration, an instance can represent a process thread on the broker or a function worker. If using Kubernetes, this could be a pod. Each represents different scaling strategies like increasing compute, adding more workers, and more K8s nodes.
+Hosts in the Cassandra cluster::
+The {cdc_agent} is running on each host in its own JVM.
+If you are administering your own Cassandra cluster, then you can tune the JVM compute properties to handle the appropriate workload.
+If you are using Cassandra in a serverless environment, then the JVM is already set to handle significant load.
 
-Finally, the third area focuses on managing the broker backlog size and throughput tolerances. There are potentially a large amount of messages being created, so you must ensure the Pulsar cluster is sized correctly. Our Luna Streaming xref:luna-streaming:install-upgrade:production-cluster-sizing.adoc[] can help you understand this better.
+Number of {csc_pulsar} instances that are running::
+This is initially set when the Cassandra source connector is created, and it can be updated throughout the life of the running connector.
+Depending on your Pulsar configuration, an instance can represent a process thread on the broker or a function worker.
+If using Kubernetes, this could be a pod.
+Each represents different scaling strategies like increasing compute, adding more workers, and more K8s nodes.
+
+Broker backlog size and throughput tolerances::
+There are potentially a large amount of messages being created, so you must ensure the Pulsar cluster is sized correctly.
+For more information, see xref:luna-streaming:install-upgrade:production-cluster-sizing.adoc[].
 
 == How do I filter table data by column?
 
-xref:luna-streaming:operations:functions.adoc[Transformation functions] are a great way to manipulate messages on CDC data (with no code required!) Put them inline to watch the data topic and write to a different topic. Call the topic something memorable like "filtered-data" topic.
+xref:luna-streaming:operations:functions.adoc[Transformation functions] are a great way to manipulate messages on CDC data (with no code required).
+Put them inline to watch the data topic and write to a different topic.
+Name the topic something memorable, like `filtered-data` topic.
 
+[#how-do-i-configure-multi-region-cdc-using-the-cassandra-sink]
 == How do I configure multi-region CDC using the Cassandra sink?
 
-One of the requirements of CDC is that both the Cassandra and Pulsar clusters need to be in the same cloud region (or on-premise data center). If you are using geo-replication, you need the change data to be replicated across multiple clusters. The most manageable way to handle this is to use Pulsar's Cassandra sink to "watch" the CDC data topic and write the change to a different Cassandra table (in another Org).
+One of the requirements of CDC is that both the Cassandra and Pulsar clusters need to be in the same cloud region or on-premise data center.
+If you are using geo-replication, you need the change data to be replicated across multiple clusters.
+The most manageable way to handle this is to use Pulsar's Cassandra sink to "watch" the CDC data topic and write the change to a different Cassandra table in another organization.
 
 The Cassandra sink requires the following provisions:
 
@@ -234,4 +234,7 @@ The Cassandra sink requires the following provisions:
 
 == How do I migrate table data using CDC?
 
-Migrating data between tables solves quite a few different challenges. The basic approach is to use a Cassandra sink to watch the Cassandra source and write to another table while mapping columns appropriately. As the original table is phased out, the number of messages will decrease to none, while consumers are watching the new table's CDC data topic. Refer to the "Multi-region CDC" question above for more detail.
+Migrating data between tables solves quite a few different challenges.
+The basic approach is to use a Cassandra sink to watch the Cassandra source and write to another table while mapping columns appropriately.
+As the original table is phased out, the number of messages will decrease to none, while consumers are watching the new table's CDC data topic.
+For more information, see <<how-do-i-configure-multi-region-cdc-using-the-cassandra-sink>>.

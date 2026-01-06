@@ -56,7 +56,7 @@ Then insert a row:
 INSERT INTO ks1.tbl1 (key, c1) VALUES (`3`, `bob3`)
 ----
 
-When an `INSERT` statement is executed, the CDC agent catches the mutation from the commitlog files and sends a message into the dirty topic. The deployed source connector then reads the full row from the Cassandra datacenter, and publishes a message into the clean topic with all regular columns encoded as an AVRO record in the message payload.
+When an `INSERT` statement is executed, the {cdc_agent} catches the mutation from the commitlog files and sends a message into the dirty topic. The deployed source connector then reads the full row from the Cassandra datacenter, and publishes a message into the clean topic with all regular columns encoded as an AVRO record in the message payload.
 
 Here is a JSON representation of the AVRO Record for the message key:
 

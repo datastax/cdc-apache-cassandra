@@ -14,8 +14,8 @@
 
 Other than the prerequisite Cassandra and Pulsar clusters, {cdc_cass} has two components:
 
-* DataStax Change Agent for Apache Cassandra, which is an event producer deployed as a JVM agent on each Cassandra data node
-* {cdc_pulsar}, which is a source connector deployed in your Pulsar cluster
+* {cdc_agent_first}, which is an event producer deployed as a JVM agent on each Cassandra data node
+* {csc_pulsar_first}, which is a source connector deployed in your Pulsar cluster
 
 The following diagram describes the general architecture.
 
@@ -28,13 +28,13 @@ Since Cassandra 4.0 (and back ported in Cassandra 3.11+), the Cassandra CDC feat
 When CDC is enabled:
 
 . The change agent running on each node reads the Cassandra `commitlog` files in the `cdc_raw` directory and emits a message for each Cassandra mutation on a CDC-enabled table to a per-table events topic.
-. The {cdc_pulsar} agent processes these events and fetches the mutated Cassandra row.
+. The {cdc_agent} processes these events and fetches the mutated Cassandra row.
 . The Cassandra Source Connector writes the row into the data topic with necessary processing tasks that make sure the most recent state of the Cassandra table is replicated into the data topic correctly (no duplication, right order, etc.)
 . Once the change agent processes all mutations in the commit log, it deletes the file from the `cdc_raw` directory.
 
-{cdc_pulsar} is tolerant of failures when processing the commit logs in the `cdc_raw` directory.
+{cdc_agent} is tolerant of failures when processing the commit logs in the `cdc_raw` directory.
 It maintains a processing offset for each commit log.
-If the change agent restarts, {cdc_pulsar} picks up where it left off using the recorded offset value.
+If the {cdc_agent} restarts, it picks up where it left off using the recorded offset value.
 
 The following table describes what is published to the data topic for each update to a CDC-enabled Cassandra table.
 
@@ -55,7 +55,7 @@ For example, with the Pulsar Elasticsearch connector, you need to set `nullValue
 
 The change agent runs on all Cassandra data nodes.
 This means that the agent processes the original write plus its replicas.
-To minimize the number of duplicate events that end up in the data topic, the {cdc_pulsar} maintains an in-memory de-duplication cache.
+To minimize the number of duplicate events that end up in the data topic, the {cdc_agent} maintains an in-memory de-duplication cache.
 For each update to the table, an MD5 digest is calculated to de-duplicate the updates from the replicas.
 
 === Change Agent deployment matrix
@@ -129,29 +129,74 @@ Cassandra static columns are supported:
 For data types that are not supported, columns using those data types are omitted from the events sent to the data topic.
 If a row update contains both supported and unsupported data types, the event will include only columns with supported data types.
 
+[#limitations]
 == Limitations
 
 {cdc_cass} has the following limitations:
 
-* Does not manage table truncates. The `TRUNCATE [TABLE]` command should not be used.
-* Does not sync data available before starting the CDC agent.
-* Does not replay logged batches.
-* Does not manage time-to-live.
-* Does not support range deletes.
-* CQL column names must not match a Pulsar primitive type name (ex: INT32).
+* Doesn't manage table truncates.
+Don't use the `TRUNCATE **TABLE_NAME**` command.
 
-== Deployment
+* Doesn't sync data available before starting the {cdc_agent}.
 
-=== Schema updates on topics
+* Doesn't replay logged batches.
+
+* Doesn't manage time-to-live (TTL).
+
+* Doesn't support range deletes.
+
+* CQL column names cannot match Pulsar primitive type names, such as the following:
++
+.Pulsar primitive types
+[cols=2]
+|===
+|Primitive type |Description
+
+|BOOLEAN
+|A binary value
+
+|INT8
+|A 8-bit signed integer
+
+|INT16
+|A 16-bit signed integer
+
+|INT32
+|A 32-bit signed integer
+
+|INT64
+|A 64-bit signed integer
+
+|FLOAT
+|A single precision (32-bit) IEEE 754 floating-point number
+
+|DOUBLE
+|A double-precision (64-bit) IEEE 754 floating-point number
+
+|BYTES
+|A sequence of 8-bit unsigned bytes
+
+|STRING
+|A Unicode character sequence
+
+|TIMESTAMP (DATE, TIME)
+|A logic type represents a specific instant in time with millisecond precision.
+
+It stores the number of milliseconds since January 1, 1970, 00:00:00 GMT as an INT64 value
+
+|===
+
+== Manage schema updates on topics
 
 Schema registry updates on a Pulsar topic are controlled by the `is-allow-auto-update-schema` option.
 
 * `true` allows the broker to register a new schema for a topic and connect the producer if the schema is not registered.
 * `false` rejects the producer's connection to the broker if the schema is not registered.
 
-To ensure the {cdc_pulsar} can automatically update the schema on the Pulsar topic, set the option to `true`. For more, see https://pulsar.apache.org/docs/en/schema-manage/[Schema Auto-Update].
+To ensure the {csc_pulsar} can automatically update the schema on the Pulsar topic, set the option to `true`. For more, see https://pulsar.apache.org/docs/en/schema-manage/[Schema Auto-Update].
 
-=== Multiple Cassandra datacenters
+[#multiple-cassandra-datacenters]
+== Deploy on multiple Cassandra datacenters
 
 In a multi-datacenter Cassandra configuration, enable CDC and install the change agent in only one datacenter.
 To ensure the data sent to all datacenters are delivered to the data topic, make sure to configure replication to the datacenter that has CDC enabled on the table.

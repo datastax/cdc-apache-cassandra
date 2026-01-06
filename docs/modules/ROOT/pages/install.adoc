@@ -52,14 +52,14 @@ tar xvf cassandra-source-agents-<version>.tar
 All data nodes of your Cassandra or DSE datacenter must run the change agent as a JVM agent to send mutations into the events topic of your streaming software.
 Start your Cassandra or DSE nodes with the appropriate producer binary matching your Cassandra (3.11 or 4.0) or DSE (6.8.16) version and your streaming platform: IBM Elite Support for Apache Pulsar (formerly DataStax Luna Streaming) 2.8+ or Apache Pulsar 2.8.1+.
 
-In CDC agent versions *before 1.0.3*, the CDC agent Pulsar connection parameters were provided as extra JVM options after the `jar` file name in the form of a comma-separated list of `paramName=paramValue`, as below:
+In {cdc_agent} versions *before 1.0.3*, the {cdc_agent} Pulsar connection parameters were provided as extra JVM options after the `jar` file name in the form of a comma-separated list of `paramName=paramValue`, as below:
 
 [source,bash]
 ----
 export JVM_EXTRA_OPTS="-javaagent:/path/to/agent-c4-<version>-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
 ----
 
-In CDC agent versions *after 1.0.3*, the CDC agent Pulsar connection parameters are also provided as system environment parameters in `cassandra-env.sh`. The same JVM option above is now appended to `cassandra-env.sh` as below:
+In {cdc_agent} versions *after 1.0.3*, the {cdc_agent} Pulsar connection parameters are also provided as system environment parameters in `cassandra-env.sh`. The same JVM option above is now appended to `cassandra-env.sh` as below:
 
 [source,bash]
 ----
@@ -103,7 +103,7 @@ cdc_total_space_in_mb: 50000
 
 include::partial$agentParams.adoc[]
 
-== Download {cdc_pulsar}
+== Download the {csc_pulsar_first}
 
 Download the `cassandra-source-connectors` tar file from the https://github.com/datastax/cdc-apache-cassandra/releases[{cdc_cass} GitHub repository].
 
@@ -116,10 +116,10 @@ Extract the files from the tar, specifying the version that matches your streami
 tar xvf cassandra-source-connectors-<version>.tar
 ----
 
-== Deploy {cdc_pulsar}
+== Deploy the {csc_pulsar}
 
-To deploy the {cdc_pulsar} `NAR` file in your Pulsar cluster, upload it to your Pulsar cluster using the `pulsar-admin sources create` command.
-You need to deploy {cdc_pulsar} for each CDC-enabled table.
+To deploy the {csc_pulsar} `NAR` file in your Pulsar cluster, upload it to your Pulsar cluster using the `pulsar-admin sources create` command.
+You need to deploy {csc_pulsar} for each CDC-enabled table.
 
 For each CDC-enabled table, the change agent will send events to the events topic.
 The topic name is determined by the `topicPrefix` setting in the agent (default is `events-`).
@@ -128,7 +128,7 @@ The `<keyspace_name>.<table_name>` is appended to the prefix to build the topic 
 You have to specify the following parameters:
 
 * Connector name. You have one connector per CDC-enabled Cassandra table, make sure to use a unique name.
-* Previously downloaded {cdc_pulsar} `NAR` file.
+* Previously downloaded {csc_pulsar} `NAR` file.
 * Pulsar `tenant` and `namespace` where the connector will run.
 * Destination `topic` for Cassandra data (`data` topic).
 * Number of instances (parallelism) of the connector. For high-volume tables, you might need to run multiple connector instances to prevent a growing backlog on the events topic.
@@ -168,10 +168,10 @@ pulsar-admin source status --name cassandra-source-1
 
 Once the connector is running, it will process events from the `events` topic and publish the result to the `data` topic.
 
-For the full set of source configuration options, see xref:install.adoc#datastax-cassandra-source-connector-for-apache-pulsar-settings[{cdc_pulsar} settings].
+For the full set of source configuration options, see xref:install.adoc#datastax-cassandra-source-connector-for-apache-pulsar-settings[{csc_pulsar} settings].
 For the full set of Cassandra authentication options, see xref:install.adoc#cassandra-authentication-settings[Cassandra Authentication settings].
 For the full set of Cassandra SSL settings, see xref:install.adoc#cassandra-ssltls-settings[Cassandra SSL/TLS settings].
-For advanced configuration of the Cassandra driver in the {cdc_pulsar}, see xref:install.adoc#pass-cdc-for-cassandra-settings-directly-to-the-datastax-java-driver[Pass {cdc_pulsar} settings directly to the DataStax Java driver].
+For advanced configuration of the Cassandra driver in the {csc_pulsar}, see xref:install.adoc#pass-cdc-for-cassandra-settings-directly-to-the-datastax-java-driver[Pass {csc_pulsar} settings directly to the DataStax Java driver].
 
 == Enabling and disabling CDC on a table
 
@@ -184,7 +184,7 @@ ALTER TABLE foo WITH cdc=true;
 ALTER TABLE foo WITH cdc=false;
 ----
 
-When CDC is enabled on a table, updates to that table are sent by the change agent to the {cdc_pulsar} which further processes the event and then sends it to the data topic when it can be processed by other connectors (for example, Elasticsearch).
+When CDC is enabled on a table, updates to that table are sent by the change agent to the {csc_pulsar} which further processes the event and then sends it to the data topic when it can be processed by other connectors (for example, Elasticsearch).
 
 include::partial$cfgCassandraSource.adoc[]
 
@@ -192,9 +192,9 @@ include::partial$cfgCassandraAuth.adoc[]
 
 include::partial$cfgCassandraSSL.adoc[]
 
-== Pass {cdc_pulsar} settings directly to the DataStax Java driver
+== Pass {csc_pulsar} settings directly to the DataStax Java driver
 
-In your {cdc_pulsar} configuration file, you can directly pass settings to the DataStax Java driver by using the `datastax-java-driver` prefix.
+In your {csc_pulsar} configuration file, you can directly pass settings to the DataStax Java driver by using the `datastax-java-driver` prefix.
 For example:
 
 [source,console]
@@ -202,12 +202,12 @@ For example:
 datastax-java-driver.basic.request.consistency=ALL
 ----
 
-== Mapping {cdc_pulsar} settings to Java driver properties
+== Mapping {csc_pulsar} settings to Java driver properties
 
-The following table identifies functionally equivalent {cdc_pulsar} and DataStax Java driver settings.
+The following table identifies settings that are functionally equivalent between the {csc_pulsar} and the DataStax Java driver.
 
-NOTE: If you define both in your configuration, the {cdc_pulsar} setting take precedence over the `datastax-java-driver.property-name`.
-If you do not provide either in your configuration, {cdc_pulsar} defaults are in effect.
+NOTE: If you define both in your configuration, the {csc_pulsar} setting take precedence over the `datastax-java-driver.property-name`.
+If you do not provide either in your configuration, {csc_pulsar} defaults are applied.
 
 For information about the Java properties, refer to the https://docs.datastax.com/en/developer/java-driver/4.3/manual/core/configuration/reference/index.html[DataStax Java driver documentation].
 
@@ -236,8 +236,8 @@ For information about the Java properties, refer to the https://docs.datastax.co
 | `datastax-java-driver.advanced.metrics.session.cql-requests.highest-latency`
 |===
 
-There is a difference between the {cdc_pulsar}'s `contactPoints` setting and the Java driver's `datastax-java-driver.basic.contact-points`.
-For {cdc_pulsar}'s `contactPoints`, the value of the port is appended to every host provided by this setting.
+There is a difference between the {csc_pulsar}'s `contactPoints` setting and the Java driver's `datastax-java-driver.basic.contact-points`.
+For {csc_pulsar}'s `contactPoints`, the value of the port is appended to every host provided by this setting.
 For `datastax-java-driver.basic.contact-points`, you must provide the fully qualified contact points (`host:port`).
 
 By passing in the Java driver's setting, this option gives you more configuration flexibility because you can specify a different port for each host. For example:

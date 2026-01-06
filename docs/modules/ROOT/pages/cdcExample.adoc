@@ -10,21 +10,22 @@ This installation requires the following:
 
 * DSE 6.8.16 or later
 * OSS Apache Cassandra(R)
-* CDC Agent
+* {cdc_agent_first}
 ** DSE - use `agent-dse4-<version>-all.jar`
 ** OSS Cassandra - use `agent-c4-<version>-all.jar`
 * Pulsar
 ** IBM Elite Support for Apache Pulsar - use `agent-dse4-<version>-all.jar`
-* Pulsar Cassandra source connector (CSC)
+* Pulsar Cassandra source connector ({csc_pulsar_first})
 ** Pulsar Cassandra Source NAR - use `pulsar-cassandra-source-<version>.nar`
-* {company} CDC for Cassandra connector image:https://img.shields.io/github/v/release/datastax/cdc-apache-cassandra?color=green&display_name=tag[link="https://github.com/datastax/cdc-apache-cassandra/releases/latest"]
+
+The latest versions of the {cdc_agent} and {csc_pulsar} are available from the https://github.com/datastax/cdc-apache-cassandra/releases/latest[{company} {cdc_cass} repository].
 
 == Architecture overview
 
 The CDC pipeline consists of three stages that work together to capture and process changes and publishes change events to the events topic in Pulsar.
 
-* The CDC agent running in Pulsar creates events topics using the format: `events-<keyspace>.<table>`.
-When configuring the source connector, the `events.topic` parameter must match exactly what the CDC agent publishes to.
+* The {cdc_agent} running in Pulsar creates events topics using the format: `events-<keyspace>.<table>`.
+When configuring the source connector, the `events.topic` parameter must match exactly what the {cdc_agent} publishes to.
 For example, if your keyspace is `ks1` and table is `table1`, the `events.topic` parameter is `persistent://public/default/events-ks1.table1`.
 
 * The Cassandra Source Connector consumes change events from the events topic (`events-<keyspace>.<table>`), fetches the full row data from Cassandra for each change event, performs de-duplication to handle events from multiple replicas, and publishes processed data to the data topic as `data-<keyspace>.<table>`.
@@ -44,7 +45,7 @@ bin/pulsar standalone
 +
 [NOTE]
 ====
-We recommend using the latest CDC agent version (at least version `1.0.4`+) to support Cassandra collection data types.
+We recommend using the latest {cdc_agent} version (at least version `1.0.4`+) to support Cassandra collection data types.
 ====
 
 . Install Cassandra/DSE.
@@ -66,9 +67,9 @@ export CDC_TLS_TRUST_CERTS_FILE_PATH=”</path/to/trusted/cert/file>”
 JVM_OPTS="$JVM_OPTS -javaagent:/home/automaton/cdc104/agent-dse4-<version>-all.jar"
 ----
 +
-For CDC agent versions *after 1.0.3*, the CDC agent Pulsar connection parameters are provided as system environment variables (see *DSE CDCassandra in the example above).
+For {cdc_agent} versions *after 1.0.3*, the {cdc_agent} Pulsar connection parameters are provided as system environment variables (see *DSE CDCassandra in the example above).
 +
-For CDC agent versions *before 1.0.3*, the CDC agent Pulsar connection parameters are also provided as extra JVM options, as below:
+For {cdc_agent} versions *before 1.0.3*, the {cdc_agent} Pulsar connection parameters are also provided as extra JVM options, as below:
 +
 [source,bash]
 ----
@@ -85,22 +86,22 @@ commitlog_sync_period_in_ms:2000
 cdc_total_space_in_mb:4096
 ----
 
-. Start Cassandra/DSE and verify your logs are similar to the Cassandra `system.log` file below. `CDC agent started` indicates your CDC agent has started properly.
+. Start Cassandra/DSE and verify your logs are similar to the Cassandra `system.log` file below. `{cdc_agent} started` indicates your {cdc_agent} has started properly.
 +
 [source,bash]
 ----
-INFO  [main] 2022-04-11 18:47:06,302  Agent.java:60 - Starting CDC agent, cdc_raw_directory=/var/lib/cassandra/cdc_raw
+INFO  [main] 2022-04-11 18:47:06,302  Agent.java:60 - Starting {cdc_agent}, cdc_raw_directory=/var/lib/cassandra/cdc_raw
 INFO  [main] 2022-04-11 18:47:06,331  AgentConfig.java:526 - maxInflightMessagesPerTask=16384, sslEnabledProtocols=TLSv1.2,TLSv1.1,TLSv1, cdcWorkingDir=/usr/share/dse/data/cdc, pulsarMaxPendingMessagesAcrossPartitions=50000, pulsarMaxPendingMessages=1000, sslTruststorePath=null, cdcPollIntervalMs=60000, pulsarAuthParams=null, sslHostnameVerificationEnable=false, errorCommitLogReprocessEnabled=false, sslTruststorePassword=null, tlsTrustCertsFilePath=null, sslKeystorePath=null, sslKeystorePassword=null, sslAllowInsecureConnection=false, cdcConcurrentProcessors=-1, pulsarServiceUrl=pulsar://10.101.32.213:6650, pulsarKeyBasedBatcher=false, sslTruststoreType=JKS, pulsarBatchDelayInMs=-1, topicPrefix=events-, sslCipherSuites=null, pulsarAuthPluginClassName=null, sslProvider=null, useKeyStoreTls=false
-INFO  [main] 2022-04-11 18:47:06,433  Agent.java:92 - CDC agent started
+INFO  [main] 2022-04-11 18:47:06,433  Agent.java:92 - {cdc_agent} started
 ----
 
 == Deploy Pulsar Connector
 
-. Deploy the Pulsar Cassandra Source Connector (CSC) for each CDC-enabled Cassandra table. The connector consumes from the **events topiCassandra* (where the CDC agent publishes) and writes to the **data topiCassandra* (where downstream consumers read from).
+. Deploy the Pulsar Cassandra Source Connector (CSC) for each CDC-enabled Cassandra table. The connector consumes from the **events topiCassandra* (where the {cdc_agent} publishes) and writes to the **data topiCassandra* (where downstream consumers read from).
 +
 [IMPORTANT]
 ====
-The `events.topic` parameter in the source connector configuration must match exactly the topic name that the CDC agent publishes to.
+The `events.topic` parameter in the source connector configuration must match exactly the topic name that the {cdc_agent} publishes to.
 
  The agent creates topics using the format `events-**KEYSPACE**.**TABLE**` when using the default `events-` prefix. For example, for keyspace `ks1` and table `table1`, the events topic is `events-ks1.table1`.
 ====
@@ -199,7 +200,7 @@ pulsar-admin source list ["<csc_connector_name>"]
 
 Now that Pulsar, Cassandra/DSE, CDC, and the CSC connector are installed and verified to be operational, you can verify the end-to-end message flow.
 
-. To verify that the CDC agent in Pulsar is publishing to the events topic, confirm that the events topic exists and has messages:
+. To verify that the {cdc_agent} in Pulsar is publishing to the events topic, confirm that the events topic exists and has messages:
 +
 [source,bash]
 ----
