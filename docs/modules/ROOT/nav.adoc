@@ -6,9 +6,7 @@
 * xref:ROOT:cdcExample.adoc[]
 
 .Develop
-* xref:ROOT:index-cdc.adoc[]
-* xref:ROOT:table-schema-evolution.adoc[]
-* xref:ROOT:consuming-change-data.adoc[]
+* xref:ROOT:cdc-concepts.adoc[]
 * xref:ROOT:monitor.adoc[]
 
 .Reference
