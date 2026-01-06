@@ -26,7 +26,7 @@ Creating a connector means adding in the know-how to work with data from the sou
 As explained later in this guide, among the processes needed to capture change data, the **{csc_pulsar_first}** ({csc_pulsar}) is critical.
 This is one of many available source connectors for Pulsar, but is specifically designed to work with Cassandra and its CDC features.
 
-To run a source connector, you provide configuration about what data will be selected, how to connect with the upstream system, and the destination topic for the new message.
+To run a source connector, you provide configuration about what data is selected, how to connect with the upstream system, and the destination topic for the new message.
 The source connector takes care of producing the message.
 Pulsar source connectors run as Pulsar functions within the cluster, so many of the features of functions apply, such as the number of instances to run and how to configure the function instance running environment.
 Metrics and logs for a source connector are automatically made a part of the cluster.
@@ -59,7 +59,7 @@ The schema registry enforces schema compatibility rules, such as requiring a pro
 Schemas follow a primitive or complex type.
 Primitive schemas are simple data types like bool, int, string, and float.
 Because Pulsar is written in Java, that is where the primitives are based.
-When a different client runtime is used, a conversion may need to be done.
+When a different client runtime is used, a conversion might need to occur.
 Refer to the https://pulsar.apache.org/docs/schema-understand/#primitive-type[Pulsar primitive types table] for a full reference.
 
 Complex schemas introduce a more structured way of messaging.
@@ -82,7 +82,7 @@ schema-compatibility-strategy::
 This setting instructs the Pulsar broker how to handle new schemas introduced to existing topics by producers.
 This is relevant to CDC when a table's design is changed.
 For example, if a new column is added, the registered schema is changed to include that new value.
-The chosen schema-compatibility-strategy decides if the namespace will allow this.
+The chosen schema-compatibility-strategy decides if the namespace allows this.
 If schema validations are enabled, this option decides what strategy is used.
 Pulsar's default strategy is "FULL" which means existing optional table columns can be modified.
 Learn more about the different types of strategies in the https://pulsar.apache.org/docs/next/schema-understand/#schema-compatibility-check-strategy[Pulsar docs].
@@ -93,14 +93,14 @@ CDC sets this to `true` so changes in a table's design can automatically propaga
 
 schema-autoupdate-strategy::
 When auto update is enabled (set to `true`) this setting directs the Broker how to ensure consumers of a topic are able to process messages.
-If a consumer attempts to connect with a schema that does not match the current schema, this strategy will decide if it is allowed to receive messages.
+If a consumer attempts to connect with a schema that doesn't match the current schema, this strategy decides if it is allowed to receive messages.
 CDC sets this to 'BACKWARDTRANSITIVE', which means if optional table columns have been added or a column has been removed, the old schema is allowed.
 
 schema-validation-enforce::
 This flag limits how producers and consumers are allowed to be configured.
 When enabled (`true`) producer and consumer clients must have a schema set before sending the message.
-When disabled (`false`) Pulsar will allow producers and consumers without a set schema to send or receive messages.
-CDC disables (`false`) this option, so producers and consumers do not have to know the message schema ahead of time.
+When disabled (`false`) Pulsar allows producers and consumers without a set schema to send or receive messages.
+CDC disables (`false`) this option, so producers and consumers don't have to know the message schema ahead of time.
 
 == The {cdc_agent_first} and {csc_pulsar_first}
 
@@ -124,10 +124,10 @@ That key identifier is added to the event message.
 
 When message consumers, like the {company} {csc_pulsar}, connect to the event topic, they establish a subscription type.
 Pulsar has four types of subscriptions: Exclusive, shared, failover, and key_shared.
-In a typical CDC flow, the Cassandra source connector will have multiple instances running in parallel.
-When multiple consumers are a part of a key_shared subscription, Pulsar will deliver a duplicate hash key to the same consumer no matter how many times it's sent.
+In a typical CDC flow, the Cassandra source connector has multiple instances running in parallel.
+When multiple consumers are a part of a key_shared subscription, Pulsar delivers a duplicate hash key to the same consumer no matter how many times it's sent.
 
-When a Cassandra cluster has multiple hosts (with multiple commit logs), and they all use the same mutation to calculate the same hash key, then the same consumer will always receive it.
+When a Cassandra cluster has multiple hosts (with multiple commit logs), and they all use the same mutation to calculate the same hash key, then the same consumer always receives it.
 Each Cassandra source connector keeps a cache of hashes it has seen and ensures duplicates are dropped before producing the data message.
 
 Learn more about Pulsar's key_shared subscription type in the https://pulsar.apache.org/docs/2.11.x/concepts-messaging/#key_shared[Pulsar documentation].
@@ -164,9 +164,9 @@ This section describes how table schema changes are handled in the Apache Cassan
 === Message schema translation
 
 The message schema is of particular importance in completing the CDC pattern.
-Initially, it is set to match the Cassandra table's schema as closely as possible, but some data types are not known in Pulsar (or more accurately, not known in Avro).
+Initially, it is set to match the Cassandra table's schema as closely as possible, but some data types aren't known in Pulsar (or more accurately, not known in Avro).
 To overcome this, there are adaptations performed when the {company} {csc_pulsar} builds the Pulsar message.
-Some types are not compatible and not able to be adapted. In this case, those columns of data are dropped while creating the Pulsar message.
+Some types aren't compatible and cannot be adapted. In this case, those columns of data are dropped while creating the Pulsar message.
 
 To better understand how exactly the {cdc_agent} constructs the event message, here is the pseudo code of how the schema is created:
 
@@ -189,9 +189,8 @@ The MutationValue is an extended Avro record that has direction on what changed 
 CDC sets the initial topic schema on the first change it detects.
 Once the initial topic schema has been set, an ideal path has been established to create change data events in Pulsar.
 
-Inevitably, table design will change.
-Columns are added, updated, or even removed.
-When these changes occur, the components that are part of the CDC flow need to be adapted to keep the ideal path of event data.
+Inevitably, table designs change: Columns are added, updated, or removed.
+When these changes occur, the components that are part of the CDC flow must adapt to preserve the ideal path of event data.
 This can become quite a complex set of decisions and as such, there are specific changes a CDC flow can tolerate before the flow needs to be recreated entirely.
 
 Here is a summary of how the data message schema is created:
@@ -204,7 +203,7 @@ Here is a summary of how the data message schema is created:
 === Add a table column
 
 This is the easiest of scenarios for table design change.
-Assuming the new column's data type is compatible with the source connector, a new schema will replace the existing and message compatibility will be kept.
+Assuming the new column's data type is compatible with the source connector, a new schema replaces the existing and message compatibility is retained.
 Note that because the schema auto-update compatibility strategy is set to `BACKWARD_TRANSITIVE`, the new column must be optional, which is the default of any non-primary-key column.
 
 For example:
@@ -217,18 +216,18 @@ ALTER TABLE [keyspace_name.] table_name ADD some-column text;
 === Update a table column
 
 Altering a table column includes renaming a column or changing a column's type.
-Assuming the new column's data type is compatible with the source connector, a new schema will replace the existing schema and message compatibility will be kept.
-Once a table has been created, a table's primary key(s) can not be modified.
+Assuming the new column's data type is compatible with the source connector, a new schema replaces the existing schema and message compatibility is retained.
+Once a table has been created, a table's primary key(s) cannot be modified.
 This fits well with the CDC pattern.
 
-While technically updating columns is possible when CDC is enabled, it is not recommended.
+While technically updating columns is possible when CDC is enabled, it isn't recommended.
 Instead, changes to a Cassandra table should be additive only. If you are familiar with data migrations, this concept is the same.
 
 To change the name or type of table column, add a new column.
-The resulting event messages will have a reference to both columns, and you can handle this migration downstream.
+The resulting event messages have a reference to both columns, and you can handle this migration downstream.
 
 Note that this recommendation assumes a schema compatibility strategy of `BACKWARD_TRANSITIVE`.
-If you are using a different schema compatibility strategy, table updates will be handled differently.
+If you are using a different schema compatibility strategy, table updates are handled differently.
 
 === Remove a table column
 
@@ -249,9 +248,9 @@ This section describes how to consume change data with Apache Pulsar(TM).
 === Pulsar clients
 
 Each client handles message consumption a little differently but there is one overall pattern to follow.
-As covered in the previous sections, a CDC message will arrive as an Avro GenericRecord of type KeyValue.
-Typically, the first step will be to separate the key and value portions of the message.
-You will find the Cassandra table's key fields in the key of the record and the change data in the value portion of the record.
+As covered in the previous sections, a CDC message arrives as an Avro GenericRecord of type KeyValue.
+Typically, the first step is to separate the key and value portions of the message.
+You can find the Cassandra table's key fields in the key of the record and the change data in the value portion of the record.
 Both of which are Avro records themselves.
 From there you'll want to deserialize the Avro record and extract the interesting info.
 
@@ -270,7 +269,7 @@ You can use these examples to consume CDC data topics in your own Cassandra/Puls
 
 It is very common to have a function consuming the CDC data.
 Functions usually perform additional processing on the data and pass it to another topic.
-Similar to a client consumer, it will need to deserialize the message data.
+Similar to a client consumer, it needs to deserialize the message data.
 
 The following example functions consume messages from the CDC data topic.
 

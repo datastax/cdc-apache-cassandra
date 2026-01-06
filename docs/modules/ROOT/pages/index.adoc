@@ -22,7 +22,7 @@ The following diagram describes the general architecture.
 image::cdc-for-cassandra-overview.png[]
 
 Since version 3.0, Cassandra has included a change data capture (CDC) feature.
-The CDC feature can be enabled on the table level by setting the table property `cdc=true`, after which any commit log containing data for a CDC-enabled table will be moved to the CDC directory specified in `cassandra.yaml` on discard/flush (default: `cdc_raw`).
+The CDC feature can be enabled on the table level by setting the table property `cdc=true`, after which any commit log containing data for a CDC-enabled table is moved to the CDC directory specified in `cassandra.yaml` on discard/flush (default: `cdc_raw`).
 Since Cassandra 4.0 (and back ported in Cassandra 3.11+), the Cassandra CDC feature has been improved such that commit logs can be synced to the `cdc_raw` directory periodically (by default, 10 seconds). This improvement makes the Cassandra CDC feature near real-time.
 
 When CDC is enabled:
@@ -126,8 +126,8 @@ Cassandra static columns are supported:
 * On row-level updates, static columns are included in the message value.
 * On partition-level updates, the clustering keys are null in the message key, and the message value only has static columns on `insert`/`update` operations.
 
-For data types that are not supported, columns using those data types are omitted from the events sent to the data topic.
-If a row update contains both supported and unsupported data types, the event will include only columns with supported data types.
+For data types that aren't supported, columns using those data types are omitted from the events sent to the data topic.
+If a row update contains both supported and unsupported data types, the event includes only columns with supported data types.
 
 [#limitations]
 == Limitations
@@ -190,8 +190,8 @@ It stores the number of milliseconds since January 1, 1970, 00:00:00 GMT as an I
 
 Schema registry updates on a Pulsar topic are controlled by the `is-allow-auto-update-schema` option.
 
-* `true` allows the broker to register a new schema for a topic and connect the producer if the schema is not registered.
-* `false` rejects the producer's connection to the broker if the schema is not registered.
+* `true` allows the broker to register a new schema for a topic and connect the producer if the schema isn't registered.
+* `false` rejects the producer's connection to the broker if the schema isn't registered.
 
 To ensure the {csc_pulsar} can automatically update the schema on the Pulsar topic, set the option to `true`. For more, see https://pulsar.apache.org/docs/en/schema-manage/[Schema Auto-Update].
 
@@ -204,4 +204,4 @@ To ensure the data sent to all datacenters are delivered to the data topic, make
 For example, given a Cassandra cluster with three datacenters (DC1, DC2, and DC3), you would enable CDC and install the change agent in only DC1.
 To ensure all updates in DC2 and DC3 are propagated to the data topic, configure the table's keyspace to replicate data from DC2 and DC3 to DC1.
 For example, `replication = {'class': 'NetworkTopologyStrategy', 'dc1': 3, 'dc2': 3, 'dc3': 3}`.
-The data replicated to DC1 will be processed by the change agent and eventually end up in the data topic.
+The data replicated to DC1 is processed by the change agent and eventually end up in the data topic.

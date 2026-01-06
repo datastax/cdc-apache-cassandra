@@ -127,7 +127,7 @@ This document lists the CDC Change Agent parameter mappings between the JVM opti
 
 
 | *sslAllowInsecureConnection*
-| Allows insecure connections to servers whose certificate has not been signed by an approved CA. You should always disable `sslAllowInsecureConnection` in production environments.
+| Allows insecure connections to servers whose certificate hasn't been signed by an approved CA. You should always disable `sslAllowInsecureConnection` in production environments.
 | SSL_ALLOW_INSECURE_CONNECTION
 
 

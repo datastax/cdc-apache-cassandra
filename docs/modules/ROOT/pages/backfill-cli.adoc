@@ -14,29 +14,24 @@ The CDC backfill CLI is distributed both as a JAR file and as a Pulsar-admin ext
 The Pulsar-admin extension is packaged with the IBM Elite Support for Apache Pulsar distribution in the `/cliextensions` folder, so you don't need to build from source unless you want to make changes to the code.
 
 Both artifacts are built with Gradle.
+
 To build the CLI, run the following commands:
-[tabs]
-====
-Gradle::
-+
---
+
 [source,bash]
 ----
 git clone git@github.com:datastax/cdc-apache-cassandra.git
 cd cdc-apache-cassandra
 ./gradlew backfill-cli:assemble
 ----
---
-+
-Result::
-+
---
+
+.Results
+[%collapsible]
+====
 [source,console]
 ----
 BUILD SUCCESSFUL in 37s
 17 actionable tasks: 15 executed, 2 up-to-date
 ----
---
 ====
 
 Gradle generates two main artifacts:
@@ -45,8 +40,9 @@ Gradle generates two main artifacts:
 * A NAR archive that wraps the CLI as a Pulsar-admin Extension: backfill-cli/build/libs/pulsar-cassandra-admin-{version}-nar.nar
 
 Once the artifacts are generated, you can run the backfill CLI tool as either a standalone Java application or as a Pulsar-admin extension.
+
 [tabs]
-====
+======
 Java standalone::
 +
 --
@@ -55,6 +51,7 @@ Java standalone::
 java -jar backfill-cli/build/libs/backfill-cli-{version}-all.jar --data-dir target/export --export-host 127.0.0.1:9042 \
  --export-username cassandra --export-password cassandra --keyspace ks1 --table table1
 ----
+
 --
 
 Pulsar-admin extension::
@@ -63,7 +60,9 @@ Pulsar-admin extension::
 The Pulsar-admin extension is packaged with the IBM Elite Support for Apache Pulsar (formerly DataStax Luna Streaming) distribution in the /cliextensions folder, so you don't need to build from source unless you want to make changes to the code.
 
 . Move the generated NAR archive to the /cliextensions folder of your Pulsar installation (e.g. /pulsar/cliextensions).
+
 . Modify the client.conf file of your Pulsar installation to include: `customCommandFactories=cassandra-cdc`.
+
 . Run the following command (this assumes the xref:6.9@dse:installing:tarball-dse.adoc[default tarball installation of DSE]):
 +
 [source,shell]
@@ -71,31 +70,39 @@ The Pulsar-admin extension is packaged with the IBM Elite Support for Apache Pul
 -data-dir target/export --export-host 127.0.0.1:9042 \
  --export-username cassandra --export-password cassandra --keyspace ks1 --table table1
 ----
+
 --
-====
+======
 
 == Test
 
 This test quickly confirms your CDC backfill is working correctly.
 
-*Prerequisites:*
-
+. Make sure you have the following prerequisites:
++
 * A running DSE cluster
 * A running Pulsar cluster (https://pulsar.apache.org/docs/getting-started-standalone/[standalone] is fine)
 * Backfill CLI built with Gradle (see <<install>>)
 
-. Start DSE:
+. Start DSE if it isn't already running:
 +
 [source,bash]
 ----
 ./bin/dse cassandra -f
 ----
-+
+
 . Confirm that a Cassandra node is running:
 +
 [source,bash]
 ----
 ./bin/dse-6.8.33 nodetool status
+----
++
+.Results
+[%collapsible]
+====
+[source,console]
+----
 Datacenter: Cassandra
 =====================
 Status=Up/Down
@@ -103,30 +110,57 @@ Status=Up/Down
 --  Address    Load       Owns (effective)  Host ID                               Token                                    Rack
 UN  127.0.0.1  169.82 KiB  100.0%            d4a8181f-b248-431f-a218-47651a30ef4d  -5094113265891965089                     rack1
 ----
+====
 
-. Create a CDC-enabled table and add values to the table with CQL shell:
+. Use `cqlsh` to create a CDC-enabled table, and then add data to the table:
++
+.. Start `cqlsh`:
 +
 [source,cql]
 ----
 ./bin/dse-6.8.33 cqlsh
+----
++
+.Results
+[%collapsible]
+====
+[source,console]
+----
 Connected to Test Cluster at 127.0.0.1:9042.
 [cqlsh 6.8.0 | DSE 6.8.33 | CQL spec 3.4.5 | DSE protocol v2]
-cqlsh> create CREATE KEYSPACE  ks1 WITH REPLICATION = {'class' : 'SimpleStrategy', 'replication_factor' : 1};
+----
+====
+
+.. Create a keyspace:
++
+[source,cql]
+----
 cqlsh> CREATE KEYSPACE  ks1 WITH REPLICATION = {'class' : 'SimpleStrategy', 'replication_factor' : 1};
-AlreadyExists: Keyspace 'ks1' already exists
+----
+
+.. Create a CDC-enabled table:
++
+[source,cql]
+----
 cqlsh> CREATE TABLE ks1.table1 (id text primary key, val text) with cdc=true;
+----
+
+.. Insert some data into the table:
++
+[source,cql]
+----
 cqlsh> INSERT INTO ks1.table1 (id,val) VALUES ('1', 'val1');
 cqlsh> INSERT INTO ks1.table1 (id,val) VALUES ('2', 'val2');
 cqlsh> INSERT INTO ks1.table1 (id,val) VALUES ('3', 'val3');
 ----
-+
-. Start Pulsar standalone.
+
+. Start Pulsar standalone:
 +
 [source,bash]
 ----
 ./bin/pulsar standalone
 ----
-+
+
 . Create a Cassandra source connector in Pulsar:
 +
 [source,bash]
@@ -146,10 +180,8 @@ lunastreaming-2.10.3.1 ./bin/pulsar-admin sources create \
         "port": "9042",
     "loadBalancing.localDc": "Cassandra"
   }'
-
-Created successfully
 ----
-+
+
 . Create a consumer subscription on the CDC data topic:
 +
 [source,bash]
@@ -157,29 +189,31 @@ Created successfully
 ./bin/pulsar-client consume -s subsc -n 0 -st auto_consume -p Earliest persistent://public/default/data-ks1.table1
 ----
 +
-. Now everything is set up: you have a Cassandra table with pre-existing data, a Pulsar topic with a CDC connector, and a Pulsar consumer subscription.
-+
-*The moment of truth!*
-Run the backfill CLI to hydrate the data topic with the existing data in the Cassandra table:
+At this point, everything is set up for the test: A Cassandra table with pre-existing data, a Pulsar topic with a CDC connector, and a Pulsar consumer subscription.
+
+. Run the backfill CLI to hydrate the data topic with the existing data in the Cassandra table:
 +
 [source,bash]
 ----
-./bin/pulsar-admin cassandra-cdc backfill --data-dir target/export --export-host 127.0.0.1:9042
- --export-username cassandra --export-password cassandra --keyspace ks1 --table table1
+./bin/pulsar-admin cassandra-cdc backfill \
+--data-dir target/export --export-host 127.0.0.1:9042 \
+--export-username cassandra --export-password cassandra \
+--keyspace ks1 --table table1
 ----
 +
-. You will get a lot of output in the console, but the last line should look like this:
+A lot of output is generated.
+Make sure the last line of the output is similar to the following:
 +
 [source,bash]
 ----
 2023-04-14T11:38:53,421-0400 [main] INFO  com.datastax.oss.cdc.backfill.importer.PulsarImporter - Pulsar Importer Summary: Import status=STATUS_OK, Read mutations from disk=3, Sent mutations=3, Failed mutations=0
 ----
 +
-Success!
 Your data topic is now populated with the existing data from the Cassandra table.
-. Check your Pulsar subscription as well to ensure Pulsar received the change events.
+
+. Check your Pulsar subscription to ensure Pulsar received the change events:
 +
-.Pulsar consumer subscription output:
+.Pulsar consumer subscription output
 [%collapsible]
 ====
 [source,console]
@@ -234,9 +268,9 @@ key:[AjE=], properties:[writetime=1681487267246000], content:{key={id=1}, value=
 ----
 ====
 
-Now that you've confirmed the backfill CLI is working, run it manually when you want to backfill data on a CDC-enabled table, or when you need to create events for existing data or upstream applications.
+Now that you have tested the Backfill CLI, you can run it manually when you want to backfill data on a CDC-enabled table, or when you need to create events for existing data or upstream applications.
 
-== Parameters reference
+== Backfill CLI parameters
 
 When running the backfill CLI as a Pulsar-admin extension, all `--pulsar-*` parameters are loaded from the `client.conf` file.
 
@@ -244,7 +278,7 @@ The `--dsbulk-log-dir` is only available when running the backfill CLI as a stan
 
 The `--export-dsbulk-option` parameter passes extra parameters to DSBulk.
 The relevant DSBulk settings configure the CSV connector and can be found https://github.com/datastax/dsbulk/blob/1.10.x/manual/settings.md#connector.csv[here].
-Shortened option names are not supported.
+Shortened option names aren't supported.
 
 In both the Pulsar-admin extension and the standalone Java application, Cassandra related configurations are exclusively passed as command line arguments.
 
@@ -255,11 +289,10 @@ In both the Pulsar-admin extension and the standalone Java application, Cassandr
 |Description
 
 |--data-dir=PATH
-|The directory where data will be exported to and imported from. The
+|The directory where data is exported to and imported from. The
 default is a 'data' subdirectory in the current working directory.
-The data directory will be created if it does not exist. Tables will
-be exported in subdirectories of the data directory specified here;
-there will be one subdirectory per keyspace inside the data
+The data directory is created if it doesn't exist. Tables are exported in subdirectories of the data directory specified here;
+there is one subdirectory per keyspace inside the data
 directory, then one subdirectory per table inside each keyspace
 directory.
 
@@ -269,9 +302,9 @@ directory.
 |--dsbulk-log-dir=PATH, -l
 |The directory where DSBulk should store its logs. The default is a
 'logs' subdirectory in the current working directory. This
-subdirectory will be created if it does not exist. Each DSBulk
-operation will create a subdirectory inside the log directory
-specified here. This command is not available in the Pulsar-admin extension.
+subdirectory is created if it doesn't exist. Each DSBulk
+operation creates a subdirectory inside the log directory
+specified here. This command isn't available in the Pulsar-admin extension.
 
 |--export-bundle=PATH
 |The path to a Secure Connect Bundle (SCB) to connect to an Astra DB database. Options --export-host and --export-bundle are mutually exclusive.
@@ -297,13 +330,13 @@ value.
 
 |--export-dsbulk-option=OPT=VALUE
 |An extra DSBulk option to use when exporting. Any valid DSBulk option
-can be specified here, and it will be passed as-is to the DSBulk
+can be specified here, and it is passed as-is to the DSBulk
 process. DSBulk options, including driver options, must be passed as
-'--long.option.name=<value>'. Short options are not supported.
+'--long.option.name=<value>'. Short options aren't supported.
 
 |--export-host=HOST[:PORT]
 |The host name or IP and, optionally, the port of a node from the
-Cassandra cluster. If the port is not specified, it will default to
+Cassandra cluster. If the port isn't specified, it defaults to
 9042. This option can be specified multiple times. Options
 --export-host and --export-bundle are mutually exclusive.
 
@@ -315,7 +348,7 @@ the password interactively.
 
 |--export-protocol-version=VERSION
 |The protocol version to use to connect to the Cassandra cluster, e.g.
-'V4'. If not specified, the driver will negotiate the highest
+'V4'. If not specified, the driver negotiates the highest
 version supported by both the client and the server.
 
 |--export-username=STRING
@@ -328,8 +361,8 @@ together, or not at all.
 
 |--max-rows-per-second=PATH
 |The maximum number of rows per second to read from the Cassandra
-table. Setting this option to any negative value or zero will
-disable it. The default is -1.
+table. Setting this option to any negative value or zero
+disables it. The default is -1.
 
 |--table=<table>, -t
 |The name of the table to export data from for cdc back filling
@@ -344,40 +377,56 @@ Pulsar connectivity parameters are auto-populated from the `client.conf` file av
 These parameters should be passed as command line arguments in the standalone Java application.
 
 .Pulsar connectivity parameters
-[cols=2*,options="header"]
+[cols=2]
 |===
-|Parameter
-|Description
+|Parameter |Description
+
 |--events-topic-prefix=<topicPrefix>
 |The event topic name prefix. The `<keyspace_name>.<table_name>` is appended to that prefix to build the topic name.
+
 |--pulsar-auth-params=<pulsarAuthParams>
 |The Pulsar authentication parameters.
+
 |--pulsar-auth-plugin-class-name=<pulsarAuthPluginClassName>
 |The Pulsar authentication plugin class name.
+
 |--pulsar-url=<pulsarServiceUrl>
 |The Pulsar broker service URL.
+
 |--pulsar-ssl-provider=<sslProvider>
 |The SSL/TLS provider to use.
+
 |--pulsar-ssl-truststore-path=<sslTruststorePath>
 |The path to the SSL/TLS truststore file.
+
 |--pulsar-ssl-truststore-password=<sslTruststorePassword>
 |The password for the SSL/TLS truststore.
+
 |--pulsar-ssl-truststore-type=<sslTruststoreType>
 |The type of the SSL/TLS truststore.
+
 |--pulsar-ssl-keystore-path=<sslKeystorePath>
 |The path to the SSL/TLS keystore file.
+
 |--pulsar-ssl-keystore-password=<sslKeystorePassword>
 |The password for the SSL/TLS keystore.
+
 |--pulsar-ssl-cipher-suites=<sslCipherSuites>
 |Defines one or more cipher suites to use for negotiating the SSL/TLS connection.
+
 |--pulsar-ssl-enabled-protocols=<sslEnabledProtocols>
 |Enabled SSL/TLS protocols
+
 |--pulsar-ssl-allow-insecure-connections
-|Allows insecure connections to servers whose certificate has not been signed by an approved CA. You should always disable `sslAllowInsecureConnection` in production environments.
+|Allows insecure connections to servers whose certificate hasn't been signed by an approved CA.
+Always disable `sslAllowInsecureConnection` in production environments.
+
 |--pulsar-ssl-enable-hostname-verification
 |Enable the server hostname verification.
+
 |--pulsar-ssl-tls-trust-certs-path=<tlsTrustCertsFilePath>
 |The path to the trusted TLS certificate file.
+
 |--pulsar-ssl-use-key-store-tls
 |If TLS is enabled, specifies whether to use KeyStore type as TLS configuration parameter.
 |===
