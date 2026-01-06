@@ -59,7 +59,7 @@ If the Pulsar cluster is down, the {cdc_agent} on each Cassandra node will perio
 
 The {cdc_agent} keeps track of the CDC commitlog segment offsets, so the {cdc_agent} knows where to resume sending the mutation messages when the Pulsar cluster is back online.
 
-We recommend active monitoring of the disk space of the Cassandra nodes.
+{company} recommends active monitoring of the disk space of the Cassandra nodes.
 If the Pulsar cluster is down, the change agent will continue trying to send messages and the CDC commitlog files will accumulate on the Cassandra node. If the maximum CDC directory disk space is reached, future Cassandra writes to the CDC-enabled table will fail.
 
 When the disk space of the `cdc_raw` directory reaches your `cdc_total_space_in_mb` Cassandra setting (less than 4GB by default), writes to CDC-enabled tables will fail with a `CDCWriteException`.

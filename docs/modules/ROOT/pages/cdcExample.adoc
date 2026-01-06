@@ -45,7 +45,7 @@ bin/pulsar standalone
 +
 [NOTE]
 ====
-We recommend using the latest {cdc_agent} version (at least version `1.0.4`+) to support Cassandra collection data types.
+{company} recommends using the {cdc_agent} version 1.0.4 or later to support Cassandra collection data types.
 ====
 
 . Install Cassandra/DSE.
