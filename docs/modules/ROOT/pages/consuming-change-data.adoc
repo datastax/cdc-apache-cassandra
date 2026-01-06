@@ -1,0 +1,38 @@
+= Consuming change data with {pulsar-reg}
+:navtitle: Consuming change data
+:description: This article describes how to consume change data with {pulsar-reg}.
+:csharp: C#
+
+[NOTE]
+====
+This article is a continuation of the xref:change-data-capture/index.adoc[] article. Please read that article first to understand the fundamentals of what resources are being used.
+====
+
+== {pulsar-short} clients
+
+Each client handles message consumption a little differently but there is one overall pattern to follow.  As we learned in the previous sections, a CDC message will arrive as an Avro GenericRecord of type KeyValue. Typically, the first step will be to separate the key and value portions of the message. You will find the {cass-short} table's key fields in the key of the record and the change data in the value portion of the record. Both of which are Avro records themselves. From there you'll want to deserialize the Avro record and extract the interesting info.
+
+Below are example implementations for each runtime consuming messages from the CDC data topic.
+
+While these examples are in the `astra-streaming-examples` repository, they are not {product}-specific.
+You can use these examples to consume CDC data topics in your own {cass-short}/{pulsar-short} clusters.
+
+* svg:common::icons/logos/csharp.svg[role="icon text-xl",name="C#"] https://github.com/datastax/astra-streaming-examples/blob/master/csharp/astra-cdc/Program.cs[{csharp} CDC project example]
+* svg:common::icons/logos/go.svg[role="icon text-xl",name="Go"] https://github.com/datastax/astra-streaming-examples/blob/master/go/astra-cdc/main/main.go[Golang CDC project example]
+* svg:common::icons/logos/java.svg[role="icon text-xl",name="Java"] https://github.com/datastax/astra-streaming-examples/blob/master/java/astra-cdc/javaexamples/consumers/CDCConsumer.java[Java CDC consumer example]
+* svg:common::icons/logos/nodejs.svg[role="icon text-xl",name="Node.js"] https://github.com/datastax/astra-streaming-examples/blob/master/nodejs/astra-cdc/consumer.js[Node.js CDC consumer example]
+* svg:common::icons/logos/python.svg[role="icon text-xl",name="Python"] https://github.com/datastax/astra-streaming-examples/blob/master/python/astra-cdc/cdc_consumer.py[Python CDC consumer example]
+
+== {pulsar-short} functions
+
+It is very common to have a function consuming the CDC data. Functions usually perform additional processing on the data and pass it to another topic. Similar to a client consumer, it will need to deserialize the message data. Below are examples of different functions consuming messages from the CDC data topic.
+
+While these examples are in the `astra-streaming-examples` repository, they are not {product}-specific. You can use these examples to consume CDC data topics in your own {cass-short}/{pulsar-short} clusters.
+
+* svg:common::icons/logos/go.svg[role="icon text-xl",name="Go"] https://github.com/datastax/astra-streaming-examples/blob/master/go/astra-cdc/main/main.go[Golang CDC project example]
+* svg:common::icons/logos/java.svg[role="icon text-xl",name="Java"] https://github.com/datastax/astra-streaming-examples/blob/master/java/astra-cdc/javaexamples/functions/CDCFunction.java[Java CDC function example]
+* svg:common::icons/logos/python.svg[role="icon text-xl",name="Python"] https://github.com/datastax/astra-streaming-examples/blob/master/python/cdc-in-pulsar-function/deschemaer.py[Python CDC function example]
+
+== See also
+
+* xref:use-cases-architectures:change-data-capture/questions-and-patterns.adoc[]

@@ -1,0 +1,107 @@
+= CDC questions and patterns with {cass-reg} and {pulsar-reg}
+:navtitle: Questions and patterns
+:description: This article describes how table schema changes are handled in the {cass-reg} Connector for {pulsar-reg}.
+
+We have collected common questions and patterns from our customers that are using CDC. We hope this will help you in your journey of getting the most out of this feature. Please also refer to the xref:cdc-for-cassandra:ROOT:faqs.adoc[CDC for {cass-short} FAQs] in the official documentation for more information.
+
+.How do I know if CDC is enabled on a table?
+[%collapsible]
+====
+You can check the CDC status of a table by running the following CQL query:
+
+`SELECT * FROM system_distributed.cdc_local WHERE keyspace_name = 'keyspace_name' AND table_name = 'table_name';`
+
+If the CDC status is `enabled`, then CDC is enabled on the table. If the CDC status is `disabled` then CDC is disabled on the table. If the CDC status is `null` then CDC is not enabled on the table.
+
+If the CDC status is `null`, then you can enable CDC on the table by running the following CQL query:
+
+`ALTER TABLE keyspace_name.table_name WITH cdc = {'enabled': true};`
+
+If the CDC status is `enabled`, then you can disable CDC on the table by running the following CQL query:
+
+`ALTER TABLE keyspace_name.table_name WITH cdc = {'enabled': false};`
+
+If the CDC status is `disabled`, then you can enable CDC on the table by running the following CQL query:
+
+`ALTER TABLE keyspace_name.table_name WITH cdc = {'enabled': true};`
+====
+
+.How do I know if the {cass-short} agent is running?
+[%collapsible]
+====
+You can check the status of the {cass-short} agent by running the following CQL query:
+
+`SELECT * FROM system_distributed.cdc_local WHERE keyspace_name = 'cdc' AND table_name = 'raw_cdc';`
+
+The `status` column will be `running` if the agent is running. If the `status` column is `null` then the agent is not running. If the `status` column is `stopped` then the agent is not running.
+
+If the `status` column is `stopped` then you can start the agent by running the following CQL query:
+
+`ALTER TABLE cdc.raw_cdc WITH cdc = {'enabled': true};`
+
+If the `status` column is `null` then you can start the agent by running the following CQL query:
+
+`ALTER TABLE cdc.raw_cdc WITH cdc = {'enabled': true};`
+
+If the `status` column is `running` then you can stop the agent by running the following CQL query:
+
+`ALTER TABLE cdc.raw_cdc WITH cdc = {'enabled': false};`
+====
+
+.What happens to unacknowledged event messages the {cass-short} agent can’t deliver?
+[%collapsible]
+====
+Unacknowledged messages mean the CDC agent was not able to produce the event message in {pulsar-short}. If this is the case the table row mutation will fail which the {cass-short} client will then see an exception. So data will get committed to {cass-short} and no event will be created.
+
+Another scenario might be the {pulsar-short} broker is too busy to process messages and a backlog has been created. In this case, {pulsar-short}'s backlog policies take effect and event messages are handled accordingly. The data will be committed to {cass-short} but there might be some additional latency to the event message creation.
+
+The design of CDC in {cass-short} assumed that when table changes are sync’d to the raw_cdc log, another process will be draining that log. There is a max log size setting that will disable writes to the table when the set threshold is reached. If a connection to the {pulsar-short} cluster is needed for the log to be drained, and it’s not responsive, the log will being to fill, which can impact a table’s write availability.
+
+For more, see the xref:cdc-for-cassandra:ROOT:install.adoc#scaling-up-your-configuration[Scaling up your configuration] section in the official documentation.
+====
+
+.Does the {company} CDC for {cass-short} connector use a dead-letter topic?
+[%collapsible]
+====
+A dead letter topic is used when a message cannot be delivered to a consumer. Maybe the message acknowledgment time expired (no consumer acknowledged receipt of the message), or a consumer negatively acknowledged the message, or a retry letter topic is in use and retries were exhausted.
+
+The xref:cdc-for-cassandra:ROOT:index.adoc[{company} CDC for {cass-short} connector] creates a consumer to receive new event messages from the CDC agent, but does not configure a dead letter topic. It is assumed that parallel instances, broker compute, and function worker compute will be sized to handle the workload.
+====
+
+.How do I scale CDC to handle my production loads?
+[%collapsible]
+====
+There are 3 areas of scalability to focus on. First are the hosts in the {cass-short} cluster. The CDC agent is running on each host in its own JVM. If you are administering your own {cass-short} cluster, then you can tune the JVM compute properties to handle the appropriate workload. If you are using {cass-short} in a serverless environment, then the JVM is already set to handle significant load.
+
+The second area of focus is the number of xref:cdc-for-cassandra:ROOT:index.adoc[{company} CDC for {cass-short} connector] instances that are running. This is initially set when the {cass-short} CDC connector is created, and it can be updated throughout the life of the running connector. Depending on your {pulsar-short} configuration, an instance can represent a process thread on the broker or a function worker. If using Kubernetes, this could be a pod. Each represents different scaling strategies like increasing compute, adding more workers, and more K8s nodes.
+
+Finally, the third area focuses on managing the broker backlog size and throughput tolerances. There are potentially a large amount of messages being created, so you must ensure the {pulsar-short} cluster is sized correctly. Our Luna Streaming xref:luna-streaming:install-upgrade:production-cluster-sizing.adoc[] can help you understand this better.
+====
+
+.I want to filter table data by column
+[%collapsible]
+====
+Transformation functions are a great way to manipulate messages on CDC data (with no code required!) Put them inline to watch the data topic and write to a different topic. Call the topic something memorable like "filtered-data" topic.
+
+Learn more about transformation functions xref:streaming-learning:functions:index.adoc[here].
+====
+
+.Multi-region CDC using the {cass-short} sink
+[%collapsible]
+====
+One of the requirements of CDC is that both the {cass-short} and {pulsar-short} clusters need to be in the same cloud region (or on-premise data center). If you are using geo-replication, you need the change data to be replicated across multiple clusters. The most manageable way to handle this is to use {pulsar-short}’s {cass-short} sink to "watch" the CDC data topic and write the change to a different {cass-short} table (in another Org).
+
+The {cass-short} sink requires the following provisions:
+
+- Use the CDC data topic as its source of messages
+- Provide a secure bundle (creds) to another {cass-short} cluster
+- Map message values to a specific table in the other cluster
+- Use {pulsar-short}’s delivery guarantee to ensure success
+- Use {pulsar-short}’s connector health metrics to monitor failures
+====
+
+.Migrating table data using CDC
+[%collapsible]
+====
+Migrating data between tables solves quite a few different challenges. The basic approach is to use a {cass-short} sink to watch the {cass-short} source and write to another table while mapping columns appropriately. As the original table is phased out, the number of messages will decrease to none, while consumers are watching the new table's CDC data topic. Refer to the "Multi-region CDC" question above for more detail.
+====
