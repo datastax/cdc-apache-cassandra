@@ -35,4 +35,4 @@ While these examples are in the `astra-streaming-examples` repository, they are 
 
 == See also
 
-* xref:use-cases-architectures:change-data-capture/questions-and-patterns.adoc[]
+* xref:ROOT:faqs.adoc[]

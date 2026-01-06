@@ -9,7 +9,6 @@
 * xref:ROOT:index-cdc.adoc[]
 * xref:ROOT:table-schema-evolution.adoc[]
 * xref:ROOT:consuming-change-data.adoc[]
-* xref:ROOT:questions-and-patterns.adoc[]
 * xref:ROOT:monitor.adoc[]
 
 .Reference
