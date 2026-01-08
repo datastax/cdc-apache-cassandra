@@ -1,8 +1,18 @@
-* xref:index.adoc[]
-* xref:install.adoc[]
-* xref:monitor.adoc[]
-* xref:backfill-cli.adoc[]
-* xref:faqs.adoc[]
-* xref:cdc-cassandra-events.adoc[]
-* xref:stringMappings.adoc[]
-* xref:cdcExample.adoc[]
+.Get started
+* xref:ROOT:index.adoc[]
+
+.Deploy
+* xref:ROOT:install.adoc[]
+* xref:ROOT:cdcExample.adoc[]
+
+.Develop
+* xref:ROOT:cdc-concepts.adoc[]
+* xref:ROOT:monitor.adoc[]
+
+.Reference
+* xref:ROOT:backfill-cli.adoc[]
+* xref:ROOT:cdc-cassandra-events.adoc[]
+* xref:ROOT:stringMappings.adoc[]
+
+.Frequently asked questions
+* xref:ROOT:faqs.adoc[]

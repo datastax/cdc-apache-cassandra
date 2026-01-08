@@ -56,7 +56,7 @@ Then insert a row:
 INSERT INTO ks1.tbl1 (key, c1) VALUES (`3`, `bob3`)
 ----
 
-When an `INSERT` statement is executed, the CDC agent catches the mutation from the commitlog files and sends a message into the dirty topic. The deployed source connector then reads the full row from the Cassandra datacenter, and publishes a message into the clean topic with all regular columns encoded as an AVRO record in the message payload.
+When an `INSERT` statement is executed, the {cdc_agent} catches the mutation from the commitlog files and sends a message into the dirty topic. The deployed source connector then reads the full row from the Cassandra datacenter, and publishes a message into the clean topic with all regular columns encoded as an AVRO record in the message payload.
 
 Here is a JSON representation of the AVRO Record for the message key:
 
@@ -78,9 +78,9 @@ And a JSON representation of the AVRO Record for the message payload:
 
 == `DELETE` Event
 
-When deleting a row, the Cassandra source connector will publish a tombstone message into the clean topic with a message key matching the C* primary key and a null payload. The null payload acts as a message tombstone, and the downstream Pulsar connectors like the Elasticsearch sink should delete the corresponding row (or document in the case of Elasticsearch).
+When deleting a row, the Cassandra source connector publishes a tombstone message into the clean topic with a message key matching the Cassandra primary key and a null payload. The null payload acts as a message tombstone, and the downstream Pulsar connectors like the Elasticsearch sink should delete the corresponding row (or document in the case of Elasticsearch).
 
-If using the `json` output format, the Pulsar message will pass an empty JSON instead of a null payload, because Pulsar doesn't support nulls in message values. The downstream connectors will still delete the corresponding row. 
+If using the `json` output format, the Pulsar message passes an empty JSON instead of a null payload, because Pulsar doesn't support nulls in message values. The downstream connectors still delete the corresponding row.
 
 === Check Source Connector status
 

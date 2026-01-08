@@ -1,20 +1,20 @@
 = CDC Change Agent Parameter Mappings
 
-In CDC versions *before 1.0.3*, the CDC agent Pulsar connection parameters were provided as extra JVM options after the `.jar` file name in the form of a comma-separated list of `paramName=paramValue`, as below:
+In CDC versions *before 1.0.3*, the {cdc_agent} Pulsar connection parameters were provided as extra JVM options after the `.jar` file name in the form of a comma-separated list of `paramName=paramValue`, as below:
 
 [source,bash]
 ----
 export JVM_EXTRA_OPTS="-javaagent:/path/to/agent-c4-luna-<version>-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
 ----
 
-In CDC versions *after 1.0.3*, the CDC agent Pulsar connection parameters are also provided as system environment parameters in `cassandra-env.sh`. The JVM option above is now appended to `cassandra-env.sh` as below:
+In CDC versions *after 1.0.3*, the {cdc_agent} Pulsar connection parameters are also provided as system environment parameters in `cassandra-env.sh`. The JVM option above is now appended to `cassandra-env.sh` as below:
 
 [source,bash]
 ----
 export CDC_PULSAR_SERVICE_URL="pulsar://<pulsar_server_ip>:6650"
 ----
 
-This document lists the CDC Change Agent parameter mappings between the JVM option strings and C* strings. 
+This document lists the CDC Change Agent parameter mappings between the JVM option strings and Cassandra strings. 
 
 == Change Agent Parameter Mappings
 
@@ -127,7 +127,7 @@ This document lists the CDC Change Agent parameter mappings between the JVM opti
 
 
 | *sslAllowInsecureConnection*
-| Allows insecure connections to servers whose certificate has not been signed by an approved CA. You should always disable `sslAllowInsecureConnection` in production environments.
+| Allows insecure connections to servers whose certificate hasn't been signed by an approved CA. You should always disable `sslAllowInsecureConnection` in production environments.
 | SSL_ALLOW_INSECURE_CONNECTION
 
 
