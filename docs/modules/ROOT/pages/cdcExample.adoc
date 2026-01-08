@@ -90,14 +90,14 @@ cdc_total_space_in_mb:4096
 +
 [source,bash]
 ----
-INFO  [main] 2022-04-11 18:47:06,302  Agent.java:60 - Starting {cdc_agent}, cdc_raw_directory=/var/lib/cassandra/cdc_raw
+INFO  [main] 2022-04-11 18:47:06,302  Agent.java:60 - Starting CDC agent, cdc_raw_directory=/var/lib/cassandra/cdc_raw
 INFO  [main] 2022-04-11 18:47:06,331  AgentConfig.java:526 - maxInflightMessagesPerTask=16384, sslEnabledProtocols=TLSv1.2,TLSv1.1,TLSv1, cdcWorkingDir=/usr/share/dse/data/cdc, pulsarMaxPendingMessagesAcrossPartitions=50000, pulsarMaxPendingMessages=1000, sslTruststorePath=null, cdcPollIntervalMs=60000, pulsarAuthParams=null, sslHostnameVerificationEnable=false, errorCommitLogReprocessEnabled=false, sslTruststorePassword=null, tlsTrustCertsFilePath=null, sslKeystorePath=null, sslKeystorePassword=null, sslAllowInsecureConnection=false, cdcConcurrentProcessors=-1, pulsarServiceUrl=pulsar://10.101.32.213:6650, pulsarKeyBasedBatcher=false, sslTruststoreType=JKS, pulsarBatchDelayInMs=-1, topicPrefix=events-, sslCipherSuites=null, pulsarAuthPluginClassName=null, sslProvider=null, useKeyStoreTls=false
-INFO  [main] 2022-04-11 18:47:06,433  Agent.java:92 - {cdc_agent} started
+INFO  [main] 2022-04-11 18:47:06,433  Agent.java:92 - CDC agent started
 ----
 
 == Deploy Pulsar Connector
 
-. Deploy the Pulsar Cassandra Source Connector (CSC) for each CDC-enabled Cassandra table. The connector consumes from the **events topiCassandra* (where the {cdc_agent} publishes) and writes to the **data topiCassandra* (where downstream consumers read from).
+. Deploy the Pulsar Cassandra Source Connector (CSC) for each CDC-enabled Cassandra table. The connector consumes from the **events topic** (where the {cdc_agent} publishes) and writes to the **data topic** (where downstream consumers read from).
 +
 [IMPORTANT]
 ====
