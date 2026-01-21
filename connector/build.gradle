@@ -39,7 +39,6 @@ dependencies {
     implementation("org.apache.kafka:connect-api:${kafkaVersion}")
     implementation("com.google.guava:guava:${guavaVersion}")
     implementation("com.datastax.oss:messaging-connectors-commons-core:${messagingConnectorsCommonsVersion}")
-    implementation("${pulsarGroup}:pulsar-client:${pulsarClientVersion}")
     implementation("org.apache.avro:avro:${avroVersion}")
 
     compileOnly("${pulsarGroup}:pulsar-client-original:${pulsarVersion}")
@@ -54,6 +53,8 @@ dependencies {
             force "io.netty:netty-transport-native-unix-common:${nettyVersion}"
             force "io.netty:netty-codec-haproxy:${nettyVersion}"
             force "io.netty:netty-tcnative-boringssl-static:${nettyTcNativeVersion}"
+            // Override the version of lz4-java to fix vulnerability
+            // Also this project is migrated to at.yawk.lz4
             dependencySubstitution {
                 substitute module('org.lz4:lz4-java') using module("at.yawk.lz4:lz4-java:${lz4javaVersion}")
             }
@@ -85,9 +86,9 @@ dependencies {
 
     testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
     testImplementation project(':testcontainers')
-    testImplementation("${pulsarGroup}:pulsar-client") {
+    implementation("${pulsarGroup}:pulsar-client") {
         version {
-            strictly("${pulsarVersion}")
+            strictly("${pulsarClientVersion}")
         }
     }
 
