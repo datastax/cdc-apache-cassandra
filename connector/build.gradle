@@ -40,7 +40,9 @@ dependencies {
     implementation("com.google.guava:guava:${guavaVersion}")
     implementation("com.datastax.oss:messaging-connectors-commons-core:${messagingConnectorsCommonsVersion}")
     implementation("org.apache.avro:avro:${avroVersion}")
-
+    // Override the version of jackson-core that gets pulled transitively
+    // TODO: Review while upgrading avro as latest version (2.14.3) was coming from org.apache.avro:avro:1.11.4
+    implementation("com.fasterxml.jackson.core:jackson-core:${jacksonCoreVersion}")
     compileOnly("${pulsarGroup}:pulsar-client-original:${pulsarVersion}")
     compileOnly("${pulsarGroup}:pulsar-io-common:${pulsarVersion}")
     compileOnly("${pulsarGroup}:pulsar-io-core:${pulsarVersion}")
