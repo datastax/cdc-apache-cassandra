@@ -54,6 +54,9 @@ dependencies {
             force "io.netty:netty-transport-native-unix-common:${nettyVersion}"
             force "io.netty:netty-codec-haproxy:${nettyVersion}"
             force "io.netty:netty-tcnative-boringssl-static:${nettyTcNativeVersion}"
+            dependencySubstitution {
+                substitute module('org.lz4:lz4-java') using module("at.yawk.lz4:lz4-java:${lz4javaVersion}")
+            }
         }
     }
 
