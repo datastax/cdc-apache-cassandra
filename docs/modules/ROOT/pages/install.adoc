@@ -1,6 +1,6 @@
 = Install and configure {cdc_cass}
 
-This guide explains how to install and configure {cdc_cass_first} for the first time on your Cassandra or DSE cluster and Pulsar cluster.
+This guide explains how to install and configure {cdc_cass_first} for the first time on your {cass} or {dse-short} cluster and Pulsar cluster.
 
 [TIP]
 ====
@@ -9,19 +9,20 @@ For a shorter version of this guide, see xref:ROOT:cdcExample.adoc[].
 
 == Prerequisites
 
-Minimum requirements are as follows:
+The minimum requirements are as follows:
 
-* Cassandra version 3.11+ or 4.0+, DSE 6.8.16+ for near real-time event streaming CDC
-* Cassandra version 3.0 to 3.10 for batch CDC
-* IBM Elite Support for Apache Pulsar (formerly DataStax Luna Streaming) or Apache Pulsar 2.8.1+
-* Additional memory and CPU available on all Cassandra nodes
+* Near real-time event streaming CDC requires {cass-short} version 3.11 or later, {cass-short} 4.0 or later, or {dse-short} 6.8.16 or later.
+* Batch CDC only requires {cass-short} version 3.0 to 3.10.
+* IBM Elite Support for Apache Pulsar (formerly {company} Luna Streaming) or Apache Pulsar 2.8.1 or later.
+* Additional memory and CPU available on all {cass-short} nodes.
 
 [NOTE]
 ====
-Cassandra has supported batch CDC since Cassandra 3.0, but for near real-time event streaming, Cassandra 3.11+ or DSE 6.8.16+ are required.
+{cass-short} has supported batch CDC since {cass-short} 3.0.
+However, for near real-time event streaming, you must run at least {cass-short} 3.11 or {dse-short} 6.8.16.
 ====
 
-Depending on the workloads of the CDC enabled Cassandra tables, you might need to increase the CPU and memory specification of the Cassandra nodes.
+Depending on the workloads of the CDC enabled {cass-short} tables, you might need to increase the CPU and memory specification of the {cass-short} nodes.
 
 == Install {cdc_cass} for VM deployment
 
@@ -30,56 +31,58 @@ The following files are available in the tar file:
 +
 [cols="1,1"]
 |===
-| Cassandra type | JAR file
+| {cass-short} type | JAR file
 
-| Apache Cassandra 3.x | agent-c3-<version>-all.jar
-| Apache Cassandra 4.x | agent-c4-<version>-all.jar
-| DSE 6.8.16+ | agent-dse4-<version>-all.jar
+| {cass} 3.x | `agent-c3-**VERSION**-all.jar`
+| {cass} 4.x | `agent-c4-**VERSION**-all.jar`
+| {dse-short} 6.8.16 or later | `agent-dse4-**VERSION**-all.jar`
 
 |===
 
 . Extract the files from the tar with the following command:
 +
-[source,bash]
+[source,bash,subs="+quotes"]
 ----
-tar xvf cassandra-source-agents-<version>.tar
+tar xvf cassandra-source-agents-**VERSION**.tar
 ----
 
-. Use the file that matches your Cassandra type and streaming platform.
+. Use the file that matches your {cass-short} type and streaming platform.
 
-== Start Cassandra with the Change Agent for Cassandra
+== Start {cass-short} with the {cdc-agent}
 
-All data nodes of your Cassandra or DSE datacenter must run the change agent as a JVM agent to send mutations into the events topic of your streaming software.
-Start your Cassandra or DSE nodes with the appropriate producer binary matching your Cassandra (3.11 or 4.0) or DSE (6.8.16) version and your streaming platform: IBM Elite Support for Apache Pulsar (formerly DataStax Luna Streaming) 2.8+ or Apache Pulsar 2.8.1+.
+All data nodes of your {cass-short} or {dse-short} datacenter must run the change agent as a JVM agent to send mutations into the events topic of your streaming software.
+Start your {cass-short} or {dse-short} nodes with the appropriate producer binary matching your {cass-short} (3.11 or 4.0) or {dse-short} (6.8.16) version and your streaming platform: IBM Elite Support for Apache Pulsar (formerly {company} Luna Streaming) 2.8+ or Apache Pulsar 2.8.1+.
 
 In {cdc_agent} versions *before 1.0.3*, the {cdc_agent} Pulsar connection parameters were provided as extra JVM options after the `jar` file name in the form of a comma-separated list of `paramName=paramValue`, as below:
 
-[source,bash]
+[source,bash,subs="+quotes"]
 ----
-export JVM_EXTRA_OPTS="-javaagent:/path/to/agent-c4-<version>-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
+export JVM_EXTRA_OPTS="-javaagent:/path/to/agent-c4-**VERSION**-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
 ----
 
 In {cdc_agent} versions *after 1.0.3*, the {cdc_agent} Pulsar connection parameters are also provided as system environment parameters in `cassandra-env.sh`. The same JVM option above is now appended to `cassandra-env.sh` as below:
 
-[source,bash]
+[source,bash,subs="+quotes"]
 ----
-export CDC_PULSAR_SERVICE_URL="pulsar://<pulsar_server_ip>:6650"
+export CDC_PULSAR_SERVICE_URL="pulsar://**PULSAR_SERVER_IP**:6650"
 ----
 
-And to enable CDC for your Cassandra deployment:
+And to enable CDC for your {cass-short} deployment:
 
 [source,bash]
 ----
 JVM_OPTS="$JVM_OPTS -javaagent:/home/automaton/cdc104/agent-dse4-pulsar-1.0.5-all.jar"
 ----
 
-The CDC parameter mappings between JVM and Cassandra environment variables are provided in xref:stringMappings.adoc[CDC Environment Parameter Strings]. +
+The CDC parameter mappings between JVM and {cass-short} environment variables are provided in xref:stringMappings.adoc[CDC Environment Parameter Strings].
+
 For the full set of JVM configuration options, see xref:install.adoc#agentParams[].
 
-== `Cassandra.yaml`
-In addition to configuring the change agent, enable CDC on the Cassandra node by setting `cdc_enabled` to `true` in the `cassandra.yaml` file.
+== cassandra.yaml
 
-For Cassandra 4.X and DSE 6.8.16+, you can configure the commit log sync period.
+In addition to configuring the change agent, enable CDC on the {cass-short} node by setting `cdc_enabled` to `true` in the `cassandra.yaml` file.
+
+For {cass-short} 4.x and {dse-short} 6.8.16 and later, you can configure the commit log sync period.
 This parameter controls how often the commit logs are made available for CDC processing.
 The default is 10 seconds.
 To reduce the latency from when the table is updated to when the event is available in the data topic, decrease the period, such as 2 seconds.
@@ -107,13 +110,13 @@ include::ROOT:partial$agentParams.adoc[]
 
 Download the `cassandra-source-connectors` tar file from the https://github.com/datastax/cdc-apache-cassandra/releases[{cdc_cass} GitHub repository].
 
-For Apache Pulsar and IBM Elite Support for Apache Pulsar (formerly DataStax Luna Streaming) 2.8, the `pulsar-cassandra-source-<version>.nar` file is available.
+For Apache Pulsar and IBM Elite Support for Apache Pulsar (formerly {company} Luna Streaming) 2.8, the `pulsar-cassandra-source-<version>.nar` file is available.
 
 Extract the files from the tar, specifying the version that matches your streaming platform:
 
-[source,bash]
+[source,bash,subs="+quotes"]
 ----
-tar xvf cassandra-source-connectors-<version>.tar
+tar xvf cassandra-source-connectors-**VERSION**.tar
 ----
 
 == Deploy the {csc_pulsar}
@@ -127,22 +130,22 @@ The `<keyspace_name>.<table_name>` is appended to the prefix to build the topic 
 
 You have to specify the following parameters:
 
-* Connector name. You have one connector per CDC-enabled Cassandra table, make sure to use a unique name.
+* Connector name. You have one connector per CDC-enabled {cass-short} table, make sure to use a unique name.
 * Previously downloaded {csc_pulsar} `NAR` file.
 * Pulsar `tenant` and `namespace` where the connector will run.
-* Destination `topic` for Cassandra data (`data` topic).
+* Destination `topic` for {cass-short} data (`data` topic).
 * Number of instances (parallelism) of the connector. For high-volume tables, you might need to run multiple connector instances to prevent a growing backlog on the events topic.
 * Name of the `events` topic the connector will read from.
 * Keyspace and table associated with the events topics.
-* Connection information (such as contact points and DC information) for Cassandra.
+* Connection information (such as contact points and DC information) for {cass-short}.
 
 Here is an example:
 
-[source,bash]
+[source,bash,subs="+quotes"]
 ----
 pulsar-admin source create \
 --name cassandra-source-1 \
---archive /path/to/pulsar-cassandra-source-<version>.nar \
+--archive /path/to/pulsar-cassandra-source-**VERSION**.nar \
 --tenant public \
 --namespace default \
 --destination-topic-name public/default/data-ks1.table1 \
@@ -155,8 +158,8 @@ pulsar-admin source create \
     "port": 9042,
     "loadBalancing.localDc": "DC1",
     "auth.provider": "PLAIN",
-    "auth.username": "<username>",
-    "auth.password": "<password>"
+    "auth.username": "**USERNAME**",
+    "auth.password": "**PASSWORD**"
 }'
 ----
 
@@ -168,10 +171,12 @@ pulsar-admin source status --name cassandra-source-1
 
 Once the connector is running, it processes events from the `events` topic, and then publishes the result to the `data` topic.
 
-For the full set of source configuration options, see xref:install.adoc#datastax-cassandra-source-connector-for-apache-pulsar-settings[{csc_pulsar} settings].
-For the full set of Cassandra authentication options, see xref:install.adoc#cassandra-authentication-settings[Cassandra Authentication settings].
-For the full set of Cassandra SSL settings, see xref:install.adoc#cassandra-ssltls-settings[Cassandra SSL/TLS settings].
-For advanced configuration of the Cassandra driver in the {csc_pulsar}, see xref:install.adoc#pass-cdc-for-cassandra-settings-directly-to-the-datastax-java-driver[Pass {csc_pulsar} settings directly to the DataStax Java driver].
+For mre information and options, see the following:
+
+* xref:install.adoc#datastax-cassandra-source-connector-for-apache-pulsar-settings[{csc_pulsar} settings]
+* xref:install.adoc#cassandra-authentication-settings[{cass-short} Authentication settings]
+* xref:install.adoc#cassandra-ssltls-settings[{cass-short} SSL/TLS settings]
+* xref:install.adoc#pass-cdc-for-cassandra-settings-directly-to-the-datastax-java-driver[Pass {csc_pulsar} settings directly to the {company} Java driver]
 
 == Enabling and disabling CDC on a table
 
@@ -192,9 +197,9 @@ include::partial$cfgCassandraAuth.adoc[]
 
 include::partial$cfgCassandraSSL.adoc[]
 
-== Pass {csc_pulsar} settings directly to the DataStax Java driver
+== Pass {csc_pulsar} settings directly to the {company} Java driver
 
-In your {csc_pulsar} configuration file, you can directly pass settings to the DataStax Java driver by using the `datastax-java-driver` prefix.
+In your {csc_pulsar} configuration file, you can directly pass settings to the {company} Java driver by using the `datastax-java-driver` prefix.
 For example:
 
 [source,console]
@@ -204,12 +209,12 @@ datastax-java-driver.basic.request.consistency=ALL
 
 == Mapping {csc_pulsar} settings to Java driver properties
 
-The following table identifies settings that are functionally equivalent between the {csc_pulsar} and the DataStax Java driver.
+The following table identifies settings that are functionally equivalent between the {csc_pulsar} and the {company} Java driver.
 
 NOTE: If you define both in your configuration, the {csc_pulsar} setting take precedence over the `datastax-java-driver.property-name`.
 If you don't provide either in your configuration, {csc_pulsar} defaults are applied.
 
-For information about the Java properties, refer to the https://docs.datastax.com/en/developer/java-driver/4.3/manual/core/configuration/reference/index.html[DataStax Java driver documentation].
+For information about the Java properties, refer to the https://docs.datastax.com/en/developer/java-driver/4.3/manual/core/configuration/reference/index.html[{company} Java driver documentation].
 
 |===
 | {csc_pulsar_first} | Using datastax-java-driver prefix
@@ -262,7 +267,7 @@ If you are using partitioned topics, change `events.subscription.type` to `Failo
 
 To further improve the throughput, you can adjust the `pulsarBatchDelayInMs` in the change agent to batch messages in the change agent before sending them to Pulsar.
 
-To improve performance on individual connector instances as they read data from Cassandra, you can adjust the `batch.size` and the `query.executors`.
+To improve performance on individual connector instances as they read data from {cass-short}, you can adjust the `batch.size` and the `query.executors`.
 Increasing these values from their defaults increases parallelism within the connector instances.
 
 The de-duplication cache is configurable, including the cache size with `cache.max.capacity`, the entry retention duration `cache.expire.after.ms` and the number of MD5 digest per primary key entry with `cache.max.digest`.

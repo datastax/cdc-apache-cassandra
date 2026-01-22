@@ -1,22 +1,22 @@
-= Change Data Capture with DataStax Enterprise
-:navtitle: Quickstart for CDC with DSE
+= Change Data Capture with {dse}
+:navtitle: Quickstart for CDC with {dse-short}
 
-You can capture schema changes in your tables and pass them to Apache Pulsar(R) with DataStax Change Data Capture (CDC).
-This guide explains how to install, configure, and use CDC with Apache Cassandra(R) or DataStax Enterprise (DSE) in a VM-based deployment.
+You can capture schema changes in your tables and pass them to Apache Pulsar(R) with {company} Change Data Capture (CDC).
+This guide explains how to install, configure, and use CDC with {cass-reg} or {dse} in a VM-based deployment.
 
 == Prerequisites
 
 This installation requires the following:
 
-* DSE 6.8.16 or later
-* OSS Apache Cassandra(R)
+* {dse-short} 6.8.16 or later
+* OSS {cass-reg}
 * {cdc_agent_first}
-** DSE - use `agent-dse4-<version>-all.jar`
-** OSS Cassandra - use `agent-c4-<version>-all.jar`
+** {dse-short} - use `agent-dse4-**VERSION**-all.jar`
+** OSS {cass-short} - use `agent-c4-**VERSION**-all.jar`
 * Pulsar
-** IBM Elite Support for Apache Pulsar - use `agent-dse4-<version>-all.jar`
-* Pulsar Cassandra source connector ({csc_pulsar_first})
-** Pulsar Cassandra Source NAR - use `pulsar-cassandra-source-<version>.nar`
+** IBM Elite Support for Apache Pulsar - use `agent-dse4-**VERSION**-all.jar`
+* Pulsar {cass-short} source connector ({csc_pulsar_first})
+** Pulsar {cass-short} Source NAR - use `pulsar-cassandra-source-**VERSION**.nar`
 
 The latest versions of the {cdc_agent} and {csc_pulsar} are available from the https://github.com/datastax/cdc-apache-cassandra/releases/latest[{company} {cdc_cass} repository].
 
@@ -24,11 +24,11 @@ The latest versions of the {cdc_agent} and {csc_pulsar} are available from the h
 
 The CDC pipeline consists of three stages that work together to capture and process changes and publishes change events to the events topic in Pulsar.
 
-* The {cdc_agent} running in Pulsar creates events topics using the format: `events-<keyspace>.<table>`.
+* The {cdc_agent} running in Pulsar creates events topics using the format: `events-**KEYSPACE_NAME**.**TABLE_NAME**`.
 When configuring the source connector, the `events.topic` parameter must match exactly what the {cdc_agent} publishes to.
 For example, if your keyspace is `ks1` and table is `table1`, the `events.topic` parameter is `persistent://public/default/events-ks1.table1`.
 
-* The Cassandra Source Connector consumes change events from the events topic (`events-<keyspace>.<table>`), fetches the full row data from Cassandra for each change event, performs de-duplication to handle events from multiple replicas, and publishes processed data to the data topic as `data-<keyspace>.<table>`.
+* The {cass-short} source connector consumes change events from the events topic (`events-**KEYSPACE_NAME**.**TABLE_NAME**`), fetches the full row data from {cass-short} for each change event, performs de-duplication to handle events from multiple replicas, and publishes processed data to the data topic as `data-**KEYSPACE_NAME**.**TABLE_NAME**`.
 
 * Downstream consumers consume from the data topic for further processing.
 Consumers include sink connectors, analytics systems, or other applications.
@@ -45,12 +45,12 @@ bin/pulsar standalone
 +
 [NOTE]
 ====
-{company} recommends using the {cdc_agent} version 1.0.4 or later to support Cassandra collection data types.
+{company} recommends using the {cdc_agent} version 1.0.4 or later to support {cass-short} collection data types.
 ====
 
-. Install Cassandra/DSE.
+. Install {cass-short} or {dse-short}.
 
-. After installing Cassandra/DSE, but before starting the Cassandra/DSE service, set the `Cassandra-env.sh` configuration:
+. After installing {cass-short} or {dse-short}, but before starting the {cass-short} or {dse-short} service, set the `Cassandra-env.sh` configuration:
 +
 [source,bash]
 ----
@@ -61,15 +61,16 @@ export CDC_PULSAR_AUTH_PLUGIN_CLASS_NAME="org.apache.pulsar.client.impl.auth.Aut
 export CDC_PULSAR_AUTH_PARAMS="file://</path/to/token/file>"
 
 # needed when Pulsar TLS encryption is enabled
-export CDC_TLS_TRUST_CERTS_FILE_PATH=”</path/to/trusted/cert/file>”
+export CDC_TLS_TRUST_CERTS_FILE_PATH="</path/to/trusted/cert/file>"
 
 # DSE CDC
 JVM_OPTS="$JVM_OPTS -javaagent:/home/automaton/cdc104/agent-dse4-<version>-all.jar"
 ----
 +
-For {cdc_agent} versions *after 1.0.3*, the {cdc_agent} Pulsar connection parameters are provided as system environment variables (see *DSE CDCassandra in the example above).
-+
-For {cdc_agent} versions *before 1.0.3*, the {cdc_agent} Pulsar connection parameters are also provided as extra JVM options, as below:
+* **For {cdc_agent} versions after 1.0.3**: The {cdc_agent} Pulsar connection parameters are provided as system environment variables.
+See `DSE CDC` in the preceding example.
+* **For {cdc_agent} versions before 1.0.3**: The {cdc_agent} Pulsar connection parameters are also provided as extra JVM options.
+For example:
 +
 [source,bash]
 ----
@@ -86,7 +87,7 @@ commitlog_sync_period_in_ms:2000
 cdc_total_space_in_mb:4096
 ----
 
-. Start Cassandra/DSE and verify your logs are similar to the Cassandra `system.log` file below. `{cdc_agent} started` indicates your {cdc_agent} has started properly.
+. Start {cass-short} or {dse-short} and verify your logs are similar to the {cass-short} `system.log` file below. `{cdc_agent} started` indicates your {cdc_agent} has started properly.
 +
 [source,bash]
 ----
@@ -97,7 +98,7 @@ INFO  [main] 2022-04-11 18:47:06,433  Agent.java:92 - CDC agent started
 
 == Deploy Pulsar Connector
 
-. Deploy the Pulsar Cassandra Source Connector (CSC) for each CDC-enabled Cassandra table. The connector consumes from the **events topic** (where the {cdc_agent} publishes) and writes to the **data topic** (where downstream consumers read from).
+. Deploy the Pulsar {cass-short} Source Connector (CSC) for each CDC-enabled {cass-short} table. The connector consumes from the **events topic** (where the {cdc_agent} publishes) and writes to the **data topic** (where downstream consumers read from).
 +
 [IMPORTANT]
 ====
@@ -117,70 +118,70 @@ The `outputFormat` source configuration controls the format of messages on the d
 Key-value-avro::
 +
 --
-[source,bash]
+[source,bash,subs="+quotes"]
 ----
-$ pulsar-admin source create \
-  --name <csc_connector_name> \
-  --archive /path/to/pulsar-cassandra-source-<version>.nar \
+pulsar-admin source create \
+  --name **CSC_CONNECTOR_NAME** \
+  --archive /path/to/pulsar-cassandra-source-**VERSION**.nar \
   --tenant public \
   --namespace default \
-  --destination-topic-name persistent://public/default/data-<keyspace>.<table> \
+  --destination-topic-name persistent://public/default/data-**KEYSPACE_NAME**.**TABLE_NAME** \
   --parallelism 1 \
   --source-config {
-  	"events.topic": "persistent://public/default/events-<keyspace>.<table>",
-  	"keyspace": "<Cassandra_keyspace>",
-  	"table": "<Cassandra_table>",
-  	"contactPoints": "<Cassandra_contact_point_list>",
-  	"port": "9042",
-  	"loadBalancing.localDc": "<Cassandra_DC_name>",
+    "events.topic": "persistent://public/default/events-**KEYSPACE_NAME**.**TABLE_NAME**",
+    "keyspace": "**CASSANDRA_KEYSPACE**",
+    "table": "**CASSANDRA_TABLE**",
+    "contactPoints": "**CASSANDRA_CONTACT_POINT_LIST**",
+    "port": "9042",
+    "loadBalancing.localDc": "**CASSANDRA_DC_NAME**",
     "outputFormat": "key-value-avro"
   }
 ----
 --
-+
+
 Key-value-json::
 +
 --
-[source,bash]
+[source,bash,subs="+quotes"]
 ----
-$ pulsar-admin source create \
-  --name <csc_connector_name> \
-  --archive /path/to/pulsar-cassandra-source-<version>.nar \
+pulsar-admin source create \
+  --name **CSC_CONNECTOR_NAME** \
+  --archive /path/to/pulsar-cassandra-source-**VERSION**.nar \
   --tenant public \
   --namespace default \
-  --destination-topic-name persistent://public/default/data-<keyspace>.<table> \
+  --destination-topic-name persistent://public/default/data-**KEYSPACE_NAME**.**TABLE_NAME** \
   --parallelism 1 \
   --source-config {
-  	"events.topic": "persistent://public/default/events-<keyspace>.<table>",
-  	"keyspace": "<Cassandra_keyspace>",
-  	"table": "<Cassandra_table>",
-  	"contactPoints": "<Cassandra_contact_point_list>",
-  	"port": "9042",
-  	"loadBalancing.localDc": "<Cassandra_DC_name>",
+    "events.topic": "persistent://public/default/events-**KEYSPACE_NAME**.**TABLE_NAME**",
+    "keyspace": "**CASSANDRA_KEYSPACE**",
+    "table": "**CASSANDRA_TABLE**",
+    "contactPoints": "**CASSANDRA_CONTACT_POINT_LIST**",
+    "port": "9042",
+    "loadBalancing.localDc": "**CASSANDRA_DC_NAME**",
     "outputFormat": "key-value-json"
   }
 ----
 --
-+
+
 JSON::
 +
 --
-[source,bash]
+[source,bash,subs="+quotes"]
 ----
-$ pulsar-admin source create \
-  --name <csc_connector_name> \
-  --archive /path/to/pulsar-cassandra-source-<version>.nar \
+pulsar-admin source create \
+  --name **CSC_CONNECTOR_NAME** \
+  --archive /path/to/pulsar-cassandra-source-**VERSION**.nar \
   --tenant public \
   --namespace default \
-  --destination-topic-name persistent://public/default/data-<keyspace>.<table> \
+  --destination-topic-name persistent://public/default/data-**KEYSPACE_NAME**.**TABLE_NAME** \
   --parallelism 1 \
   --source-config {
-  	"events.topic": "persistent://public/default/events-<keyspace>.<table>",
-  	"keyspace": "<Cassandra_keyspace>",
-  	"table": "<Cassandra_table>",
-  	"contactPoints": "<Cassandra_contact_point_list>",
-  	"port": "9042",
-  	"loadBalancing.localDc": "<Cassandra_DC_name>",
+    "events.topic": "persistent://public/default/events-**KEYSPACE_NAME**.**TABLE_NAME**",
+    "keyspace": "**CASSANDRA_KEYSPACE**",
+    "table": "**CASSANDRA_TABLE**",
+    "contactPoints": "**CASSANDRA_CONTACT_POINT_LIST**",
+    "port": "9042",
+    "loadBalancing.localDc": "**CASSANDRA_DC_NAME**",
     "outputFormat": "json"
   }
 ----
@@ -189,45 +190,47 @@ $ pulsar-admin source create \
 
 . Verify the CSC connector is deployed.
 +
-[source,bash]
+[source,bash,subs="+quotes"]
 ----
-pulsar-admin source list ["<csc_connector_name>"]
+pulsar-admin source list ["**CSC_CONNECTOR_NAME**"]
 ----
 
-. Check the CSC connector log file at `<$PULSAR_HOME>/logs/functions/public/default/<csc_connector_name>` for errors.
+. Check the CSC connector log file at `$PULSAR_HOME/logs/functions/public/default/**CSC_CONNECTOR_NAME**` for errors.
 
 == Verify end-to-end operation
 
-Now that Pulsar, Cassandra/DSE, CDC, and the CSC connector are installed and verified to be operational, you can verify the end-to-end message flow.
+Now that Pulsar, your database service, CDC, and the CSC connector are installed and verified to be operational, you can verify the end-to-end message flow.
 
 . To verify that the {cdc_agent} in Pulsar is publishing to the events topic, confirm that the events topic exists and has messages:
 +
-[source,bash]
+[source,bash,subs="+quotes"]
 ----
-pulsar-admin topics stats persistent://public/default/events-<keyspace>.<table>
+pulsar-admin topics stats persistent://public/default/events-**KEYSPACE_NAME**.**TABLE_NAME**
 ----
 +
 Optionally, view raw CDC events from the events topic:
 +
-[source,bash]
+[source,bash,subs="+quotes"]
 ----
-pulsar-client consume -s test-sub-events -st Earliest -n 10 persistent://public/default/events-<keyspace>.<table>
+pulsar-client consume -s test-sub-events -st Earliest -n 10 persistent://public/default/events-**KEYSPACE_NAME**.**TABLE_NAME**
 ----
-. To verify that the Cassandra Source Connector is processing events and publishing to the data topic, check the connector and data topic status:
+
+. To verify that the {cass-short} Source Connector is processing events and publishing to the data topic, check the connector and data topic status:
 +
-[source,bash]
+[source,bash,subs="+quotes"]
 ----
 # Check connector status
-pulsar-admin source status --name <csc_connector_name>
+pulsar-admin source status --name **CSC_CONNECTOR_NAME**
 
 # Check data topic stats
-pulsar-admin topics stats persistent://public/default/data-<keyspace>.<table>
+pulsar-admin topics stats persistent://public/default/data-**KEYSPACE_NAME**.**TABLE_NAME**
 ----
+
 . Consume processed data from the data topic:
 +
-[source,bash]
+[source,bash,subs="+quotes"]
 ----
-pulsar-client consume -s mysub -st auto_consume -n 0 persistent://public/default/data-<keyspace>.<table>
+pulsar-client consume -s mysub -st auto_consume -n 0 persistent://public/default/data-**KEYSPACE_NAME**.**TABLE_NAME**
 ----
 +
 Any captured CDC events from your database table should be reflected in the command line output of the data topic consumer.

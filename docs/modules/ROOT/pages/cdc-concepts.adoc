@@ -1,6 +1,6 @@
-= About Change Data Capture (CDC) workflows with Apache Cassandra(R) and Apache Pulsar(TM)
+= About Change Data Capture (CDC) workflows with {cass-reg} and Apache Pulsar(TM)
 :navtitle: About CDC workflows and components
-:description: Capture changes in a Cassandra database and publish them to Apache Pulsar(TM) as events.
+:description: Capture changes in a {cass-short} database and publish them to Apache Pulsar(TM) as events.
 :csharp: C#
 
 Change Data Capture (CDC) is a design pattern used in software development to capture and propagate changes made to data in a system.
@@ -24,7 +24,7 @@ The interface takes much of the boilerplate burdens away from a developer and ge
 Creating a connector means adding in the know-how to work with data from the source and adapt it to produce a compliant message with the Pulsar client.
 
 As explained later in this guide, among the processes needed to capture change data, the **{csc_pulsar_first}** ({csc_pulsar}) is critical.
-This is one of many available source connectors for Pulsar, but is specifically designed to work with Cassandra and its CDC features.
+This is one of many available source connectors for Pulsar, but is specifically designed to work with {cass-short} and its CDC features.
 
 To run a source connector, you provide configuration about what data is selected, how to connect with the upstream system, and the destination topic for the new message.
 The source connector takes care of producing the message.
@@ -104,15 +104,15 @@ CDC disables (`false`) this option, so producers and consumers don't have to kno
 
 == The {cdc_agent_first} and {csc_pulsar_first}
 
-The {cdc_agent} is a process running on each node in a Cassandra cluster that watches for data changes on tables that have enabled the CDC feature.
-Using Cassandra's https://cassandra.apache.org/doc/4.0/cassandra/configuration/cass_yaml_file.html#commitlog_sync[commitlog_sync option], the agent periodically syncs a separate log in a special "cdc_raw" directory.
+The {cdc_agent} is a process running on each node in a {cass-short} cluster that watches for data changes on tables that have enabled the CDC feature.
+Using {cass-short}'s https://cassandra.apache.org/doc/4.0/cassandra/configuration/cass_yaml_file.html#commitlog_sync[commitlog_sync option], the agent periodically syncs a separate log in a special "cdc_raw" directory.
 Each log entry is a CDC event.
 The {cdc_agent} creates a new event message containing the row coordinates of the changed data and produces the message to a downstream Pulsar cluster.
 
 In Pulsar, each table that has CDC enabled also has a corresponding {company} {csc_pulsar}.
-This is unlike the {cdc_agent} where the process runs on each Cassandra node, keeping a log of all table changes.
-Each table-specific Cassandra source connector subscribes to the events topic the agent is producing messages to.
-When the connector "sees" a message for its table, it uses the row coordinates within the message to retrieve the mutated data from Cassandra and create a new message with the specifics.
+This is unlike the {cdc_agent} where the process runs on each {cass-short} node, keeping a log of all table changes.
+Each table-specific {cass-short} source connector subscribes to the events topic the agent is producing messages to.
+When the connector "sees" a message for its table, it uses the row coordinates within the message to retrieve the mutated data from {cass-short} and create a new message with the specifics.
 That new message is written to a data topic where others can subscribe and receive CDC messages.
 
 === Event deduplication
@@ -124,11 +124,11 @@ That key identifier is added to the event message.
 
 When message consumers, like the {company} {csc_pulsar}, connect to the event topic, they establish a subscription type.
 Pulsar has four types of subscriptions: Exclusive, shared, failover, and key_shared.
-In a typical CDC flow, the Cassandra source connector has multiple instances running in parallel.
+In a typical CDC flow, the {cass-short} source connector has multiple instances running in parallel.
 When multiple consumers are a part of a key_shared subscription, Pulsar delivers a duplicate hash key to the same consumer no matter how many times it's sent.
 
-When a Cassandra cluster has multiple hosts (with multiple commit logs), and they all use the same mutation to calculate the same hash key, then the same consumer always receives it.
-Each Cassandra source connector keeps a cache of hashes it has seen and ensures duplicates are dropped before producing the data message.
+When a {cass-short} cluster has multiple hosts (with multiple commit logs), and they all use the same mutation to calculate the same hash key, then the same consumer always receives it.
+Each {cass-short} source connector keeps a cache of hashes it has seen and ensures duplicates are dropped before producing the data message.
 
 Learn more about Pulsar's key_shared subscription type in the https://pulsar.apache.org/docs/2.11.x/concepts-messaging/#key_shared[Pulsar documentation].
 
@@ -142,12 +142,12 @@ Now that you understand the different components used in the CDC pattern, the fo
 .. Create a topic for event messages.
 .. Create a topic for data messages.
 
-. Start the Cassandra source connector in Pulsar by setting the destination topic (the data messages topic), the event topic, and Cassandra connection info, along with other settings.
+. Start the {cass-short} source connector in Pulsar by setting the destination topic (the data messages topic), the event topic, and {cass-short} connection info, along with other settings.
 
-. Configure the Cassandra change agent with a working directory, Pulsar service URL, and other settings in the Cassandra node.
+. Configure the {cass-short} change agent with a working directory, Pulsar service URL, and other settings in the {cass-short} node.
 A restart is required.
 
-. Create a Cassandra table and enable CDC.
+. Create a {cass-short} table and enable CDC.
 
 . Insert a row of data into the table to produce messages.
 +
@@ -157,14 +157,14 @@ From here the following sequence occurs:
 .. The log is converted to an event message, and then it is written to the events topic.
 .. The source connector completes the flow by producing a final change message to the data topic.
 
-== Cassandra table schema evolution with CDC
+== {cass-short} table schema evolution with CDC
 
-This section describes how table schema changes are handled in the Apache Cassandra(R) Connector for Apache Pulsar(TM).
+This section describes how table schema changes are handled in the {cass-reg} Connector for Apache Pulsar(TM).
 
 === Message schema translation
 
 The message schema is of particular importance in completing the CDC pattern.
-Initially, it is set to match the Cassandra table's schema as closely as possible, but some data types aren't known in Pulsar (or more accurately, not known in Avro).
+Initially, it is set to match the {cass-short} table's schema as closely as possible, but some data types aren't known in Pulsar (or more accurately, not known in Avro).
 To overcome this, there are adaptations performed when the {company} {csc_pulsar} builds the Pulsar message.
 Some types aren't compatible and cannot be adapted. In this case, those columns of data are dropped while creating the Pulsar message.
 
@@ -196,7 +196,7 @@ This can become quite a complex set of decisions and as such, there are specific
 Here is a summary of how the data message schema is created:
 
 . Receive GenericRecord event message of type KeyValue.
-. Use a Cassandra client to query for row data.
+. Use a {cass-short} client to query for row data.
 . Convert data as GenericRecord of type KeyValue and return.
 . The connector interface produces a new message to the destination topic.
 
@@ -221,7 +221,7 @@ Once a table has been created, a table's primary key(s) cannot be modified.
 This fits well with the CDC pattern.
 
 While technically updating columns is possible when CDC is enabled, it isn't recommended.
-Instead, changes to a Cassandra table should be additive only. If you are familiar with data migrations, this concept is the same.
+Instead, changes to a {cass-short} table should be additive only. If you are familiar with data migrations, this concept is the same.
 
 To change the name or type of table column, add a new column.
 The resulting event messages have a reference to both columns, and you can handle this migration downstream.
@@ -250,14 +250,14 @@ This section describes how to consume change data with Apache Pulsar(TM).
 Each client handles message consumption a little differently but there is one overall pattern to follow.
 As covered in the previous sections, a CDC message arrives as an Avro GenericRecord of type KeyValue.
 Typically, the first step is to separate the key and value portions of the message.
-You can find the Cassandra table's key fields in the key of the record and the change data in the value portion of the record.
+You can find the {cass-short} table's key fields in the key of the record and the change data in the value portion of the record.
 Both of which are Avro records themselves.
 From there you'll want to deserialize the Avro record and extract the interesting info.
 
 The following example projects demonstrate implementations for each runtime consuming messages from a CDC data topic.
 
 These examples are stored in the `astra-streaming-examples` repository, but they aren't specific to Astra Streaming.
-You can use these examples to consume CDC data topics in your own Cassandra/Pulsar clusters.
+You can use these examples to consume CDC data topics in your own {cass-short}/Pulsar clusters.
 
 * svg:common::icons/logos/csharp.svg[role="icon text-xl",name="C#"] https://github.com/datastax/astra-streaming-examples/blob/master/csharp/astra-cdc/Program.cs[{csharp} CDC project example]
 * svg:common::icons/logos/go.svg[role="icon text-xl",name="Go"] https://github.com/datastax/astra-streaming-examples/blob/master/go/astra-cdc/main/main.go[Golang CDC project example]
@@ -274,7 +274,7 @@ Similar to a client consumer, it needs to deserialize the message data.
 The following example functions consume messages from the CDC data topic.
 
 These examples are stored in the `astra-streaming-examples` repository, but they aren't specific to Astra Streaming.
-You can use these examples for functions for your own Cassandra/Pulsar clusters.
+You can use these examples for functions for your own {cass-short}/Pulsar clusters.
 
 * svg:common::icons/logos/go.svg[role="icon text-xl",name="Go"] https://github.com/datastax/astra-streaming-examples/blob/master/go/astra-cdc/main/main.go[Golang CDC project example]
 * svg:common::icons/logos/java.svg[role="icon text-xl",name="Java"] https://github.com/datastax/astra-streaming-examples/blob/master/java/astra-cdc/javaexamples/functions/CDCFunction.java[Java CDC function example]

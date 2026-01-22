@@ -2,7 +2,7 @@
 
 == Change Agent Metrics
 
-The change agent is a JVM agent running in Apache Cassandra(R) nodes and provides a dedicated MBean type=`CdcAgent` with the following metrics:
+The change agent is a JVM agent running in {cass-reg} nodes and provides a dedicated MBean type=`CdcAgent` with the following metrics:
 
 [cols="2,1,3"]
 |===
@@ -10,7 +10,7 @@ The change agent is a JVM agent running in Apache Cassandra(R) nodes and provide
 
 |SentMutations
 |Counter
-|Number of Cassandra mutations successfully sent to the streaming platform.
+|Number of {cass-short} mutations successfully sent to the streaming platform.
 
 |SentErrors
 |Counter
@@ -112,7 +112,7 @@ A description of the last seen error is displayed in the `error` field.
 |The number of threads available to execute the CQL queries.
 
 |replication_latency
-|The replication latency in milliseconds (the {cdc_cass} processing time minus the Cassandra mutation writetime).
+|The replication latency in milliseconds (the {cdc_cass} processing time minus the {cass-short} mutation writetime).
 
 |===
 
@@ -147,6 +147,6 @@ pulsar_source_user_metric__sum{tenant="public",namespace="public/default",name="
 == Monitoring and Alerting resources
 
 * The change agent exposes metrics with xref:planning:ROOT:metrics-alerts.adoc[JMX], a technology within Java that provides tools for managing and monitoring applications.
-* xref:opscenter:overview:opscenter-about.adoc[DSE Ops Center] can collect these exposed metrics for visualization and alerts, and pass them on to xref:monitoring:ROOT:ops-use-metrics-collector.adoc[DSE Metrics Collector] for additional integration with https://prometheus.io/docs/introduction/overview/[Prometheus] and https://grafana.com/[Grafana].
-* The https://github.com/datastax/metric-collector-for-apache-cassandra[Metrics Collector for Apache Cassandra] with Prometheus and Grafana dashboards provides the same functionality as DSE Metrics Collector, built on the well-supported collectd agent.
+* xref:opscenter:overview:opscenter-about.adoc[OpsCenter] can collect these exposed metrics for visualization and alerts, and pass them on to xref:monitoring:ROOT:ops-use-metrics-collector.adoc[{dse-short} Metrics Collector] for additional integration with https://prometheus.io/docs/introduction/overview/[Prometheus] and https://grafana.com/[Grafana].
+* The https://github.com/datastax/metric-collector-for-apache-cassandra[Metrics Collector for {cass}] with Prometheus and Grafana dashboards provides the same functionality as {dse-short} Metrics Collector, built on the well-supported collectd agent.
 * Other monitoring tools like https://github.com/prometheus/jmx_exporter[JMX Exporter] by Prometheus are available, but they might require additional tuning.
