@@ -48,7 +48,7 @@ tar xvf cassandra-source-agents-**VERSION**.tar
 
 . Use the file that matches your {cass-short} type and streaming platform.
 
-== Start {cass-short} with the {cdc-agent}
+== Start {cass-short} with the {cdc_agent}
 
 All data nodes of your {cass-short} or {dse-short} datacenter must run the change agent as a JVM agent to send mutations into the events topic of your streaming software.
 Start your {cass-short} or {dse-short} nodes with the appropriate producer binary matching your {cass-short} (3.11 or 4.0) or {dse-short} (6.8.16) version and your streaming platform: IBM Elite Support for Apache Pulsar (formerly {company} Luna Streaming) 2.8+ or Apache Pulsar 2.8.1+.
