@@ -9,5 +9,7 @@ compileTestJava {
 dependencies {
     implementation("org.apache.avro:avro:${avroVersion}")
     implementation("${pulsarGroup}:pulsar-client:${pulsarVersion}")
+    // Override the version 3.19.6 which gets pulled from pulsar-client transitively
+    implementation("com.google.protobuf:protobuf-java:${protobufJavaVersion}")
     compileOnly("org.slf4j:slf4j-api:${slf4jVersion}")
 }
