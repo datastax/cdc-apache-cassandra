@@ -1,9 +1,9 @@
 = CDC Backfill CLI
 
 When CDC is enabled on a table, the data topic doesn't contain any data from before CDC was enabled.
-The backfill CLI solves this problem by exporting the table's primary key to a Comma Separated Values (CSV) file, storing the CSV file on disk, and sending the primary key from the CSV file to the event topic.
-The Cassandra Source Connector reads the primary key from the event topic and populates the data topic with historical data.
-The backfill CLI is powered by the xref:dsbulk:overview:dsbulk-about.adoc[DataStax Bulk Loader], a battle-tested data loader tool. This means the CLI takes full advantage of optimizations done in DSBulk when exporting data from table to disk.
+The backfill CLI solves this problem by exporting the table's primary key to a CSV file, storing the CSV file on disk, and sending the primary key from the CSV file to the event topic.
+The {cass-short} source connector reads the primary key from the event topic and populates the data topic with historical data.
+The backfill CLI is powered by the xref:dsbulk:overview:dsbulk-about.adoc[{company} Bulk Loader], a battle-tested data loader tool. This means the CLI takes full advantage of optimizations done in DSBulk when exporting data from table to disk.
 
 Developers can also use the backfill CLI to trigger change events for downstream applications without having to insert new data.
 
@@ -57,13 +57,13 @@ java -jar backfill-cli/build/libs/backfill-cli-{version}-all.jar --data-dir targ
 Pulsar-admin extension::
 +
 --
-The Pulsar-admin extension is packaged with the IBM Elite Support for Apache Pulsar (formerly DataStax Luna Streaming) distribution in the /cliextensions folder, so you don't need to build from source unless you want to make changes to the code.
+The Pulsar-admin extension is packaged with the IBM Elite Support for Apache Pulsar (formerly {company} Luna Streaming) distribution in the /cliextensions folder, so you don't need to build from source unless you want to make changes to the code.
 
 . Move the generated NAR archive to the /cliextensions folder of your Pulsar installation (e.g. /pulsar/cliextensions).
 
 . Modify the client.conf file of your Pulsar installation to include: `customCommandFactories=cassandra-cdc`.
 
-. Run the following command (this assumes the xref:6.9@dse:installing:tarball-dse.adoc[default tarball installation of DSE]):
+. Run the following command (this assumes the xref:6.9@dse:installing:tarball-dse.adoc[default tarball installation of {dse-short}]):
 +
 [source,shell]
 ----
@@ -80,18 +80,18 @@ This test quickly confirms your CDC backfill is working correctly.
 
 . Make sure you have the following prerequisites:
 +
-* A running DSE cluster
+* A running {dse-short} cluster
 * A running Pulsar cluster (https://pulsar.apache.org/docs/getting-started-standalone/[standalone] is fine)
 * Backfill CLI built with Gradle (see <<install>>)
 
-. Start DSE if it isn't already running:
+. Start {dse-short} if it isn't already running:
 +
 [source,bash]
 ----
 ./bin/dse cassandra -f
 ----
 
-. Confirm that a Cassandra node is running:
+. Confirm that a {cass-short} node is running:
 +
 [source,bash]
 ----
@@ -161,7 +161,7 @@ cqlsh> INSERT INTO ks1.table1 (id,val) VALUES ('3', 'val3');
 ./bin/pulsar standalone
 ----
 
-. Create a Cassandra source connector in Pulsar:
+. Create a {cass-short} source connector in Pulsar:
 +
 [source,bash]
 ----
@@ -189,9 +189,9 @@ lunastreaming-2.10.3.1 ./bin/pulsar-admin sources create \
 ./bin/pulsar-client consume -s subsc -n 0 -st auto_consume -p Earliest persistent://public/default/data-ks1.table1
 ----
 +
-At this point, everything is set up for the test: A Cassandra table with pre-existing data, a Pulsar topic with a CDC connector, and a Pulsar consumer subscription.
+At this point, everything is set up for the test: A {cass-short} table with pre-existing data, a Pulsar topic with a CDC connector, and a Pulsar consumer subscription.
 
-. Run the backfill CLI to hydrate the data topic with the existing data in the Cassandra table:
+. Run the backfill CLI to hydrate the data topic with the existing data in the {cass-short} table:
 +
 [source,bash]
 ----
@@ -209,7 +209,7 @@ Make sure the last line of the output is similar to the following:
 2023-04-14T11:38:53,421-0400 [main] INFO  com.datastax.oss.cdc.backfill.importer.PulsarImporter - Pulsar Importer Summary: Import status=STATUS_OK, Read mutations from disk=3, Sent mutations=3, Failed mutations=0
 ----
 +
-Your data topic is now populated with the existing data from the Cassandra table.
+Your data topic is now populated with the existing data from the {cass-short} table.
 
 . Check your Pulsar subscription to ensure Pulsar received the change events:
 +
@@ -280,7 +280,7 @@ The `--export-dsbulk-option` parameter passes extra parameters to DSBulk.
 The relevant DSBulk settings configure the CSV connector and can be found https://github.com/datastax/dsbulk/blob/1.10.x/manual/settings.md#connector.csv[here].
 Shortened option names aren't supported.
 
-In both the Pulsar-admin extension and the standalone Java application, Cassandra related configurations are exclusively passed as command line arguments.
+In both the Pulsar-admin extension and the standalone Java application, {cass-short} related configurations are exclusively passed as command line arguments.
 
 .CDC backfill CLI parameters
 [cols=2*,options="header"]
@@ -336,7 +336,7 @@ process. DSBulk options, including driver options, must be passed as
 
 |--export-host=HOST[:PORT]
 |The host name or IP and, optionally, the port of a node from the
-Cassandra cluster. If the port isn't specified, it defaults to
+{cass-short} cluster. If the port isn't specified, it defaults to
 9042. This option can be specified multiple times. Options
 --export-host and --export-bundle are mutually exclusive.
 
@@ -347,7 +347,7 @@ together, or not at all. Omit the parameter value to be prompted for
 the password interactively.
 
 |--export-protocol-version=VERSION
-|The protocol version to use to connect to the Cassandra cluster, e.g.
+|The protocol version to use to connect to the {cass-short} cluster, e.g.
 'V4'. If not specified, the driver negotiates the highest
 version supported by both the client and the server.
 
@@ -360,7 +360,7 @@ together, or not at all.
 |The name of the keyspace where the table to be exported exists
 
 |--max-rows-per-second=PATH
-|The maximum number of rows per second to read from the Cassandra
+|The maximum number of rows per second to read from the {cass-short}
 table. Setting this option to any negative value or zero
 disables it. The default is -1.
 
