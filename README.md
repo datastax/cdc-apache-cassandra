@@ -75,9 +75,9 @@ Cassandra supported CQL3 data types (with the associated AVRO type or logical-ty
 * User Defined Types (record)
 * tuple (record)
 * Collection types:
-** list (array)
-** set (array)
-** map (map)
+  * list (array)
+  * set (array)
+  * map (map)
 
 ## Build from the sources
 

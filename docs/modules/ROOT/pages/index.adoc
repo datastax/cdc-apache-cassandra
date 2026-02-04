@@ -112,6 +112,7 @@ The following CQL data types are encoded as AVRO logical types:
 * timestamp (timestamp-millis)
 * timeuuid (uuid)
 * tinyint (int)
+* tuple (record)
 * User Defined Types (record)
 * uuid (uuid)
 * varint (cql_varint)
