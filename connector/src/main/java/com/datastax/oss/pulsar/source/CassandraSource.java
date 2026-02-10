@@ -810,7 +810,10 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
         @Override
         public Optional<Long> getEventTime() {
-            return Optional.of(Long.parseLong(msg.getProperty(Constants.WRITETIME)));
+            if(msg.hasProperty(Constants.WRITETIME) && msg.getProperty(Constants.WRITETIME) != null){
+                return Optional.of(Long.parseLong(msg.getProperty(Constants.WRITETIME)));
+            }
+            return Optional.empty();
         }
     }
 
