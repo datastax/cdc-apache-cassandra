@@ -45,7 +45,10 @@ dependencies {
     implementation project(':agent')
 
     implementation("org.apache.avro:avro:${avroVersion}")
-
+    implementation("commons-io:commons-io:${commonsIOVersion}") // Override transitive dependency version to fix vulnerability
+    implementation("io.airlift:aircompressor:${airCompressorVersion}") // Override transitive dependency version to fix vulnerability
+    implementation("org.asynchttpclient:async-http-client:${httpClientVersion}") // Override transitive dependency version to fix vulnerability
+    implementation("org.yaml:snakeyaml:${snakeYamlVersion}") // Override transitive dependency version to fix vulnerability
     implementation("${pulsarGroup}:pulsar-client:${pulsarVersion}")
 
     compileOnly("org.apache.cassandra:cassandra-all:${cassandra4Version}")
