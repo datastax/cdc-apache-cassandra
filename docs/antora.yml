@@ -16,7 +16,7 @@ asciidoc:
     cdc_agent_first: 'DataStax Change Agent for Apache Cassandra(R)'
     cdc_agent: 'Change Agent for Cassandra'
     luna_version: '3.1'
-    version: '2.3.4' # cdc-apache-cassandra latest {version}
+    version: '2.3.6' # cdc-apache-cassandra latest {version}
     dse: 'DataStax Enterprise (DSE)'
     dse-short: 'DSE'
     cass-reg: 'Apache Cassandra(R)'
