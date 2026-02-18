@@ -25,6 +25,9 @@ include 'agent-c4'
 if (startParameter.projectProperties.containsKey("dse4")) {
     include 'agent-dse4'
 }
+if (startParameter.projectProperties.containsKey("hcd")) {
+    include 'agent-hcd'
+}
 include 'agent-distribution'
 
 include 'connector'
