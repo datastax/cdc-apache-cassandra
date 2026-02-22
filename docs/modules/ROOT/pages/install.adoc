@@ -1,6 +1,6 @@
-= Install and configure {cdc_cass}
+= Install and configure {product-short}
 
-This guide explains how to install and configure {cdc_cass_first} for the first time on your {cass} or {dse-short} cluster and Pulsar cluster.
+This guide explains how to install and configure {product} for the first time on your {cass-reg} or {dse} cluster and {pulsar-reg} cluster.
 
 [TIP]
 ====
@@ -11,9 +11,9 @@ For a shorter version of this guide, see xref:ROOT:cdcExample.adoc[].
 
 The minimum requirements are as follows:
 
-* Near real-time event streaming CDC requires {cass-short} version 3.11 or later, {cass-short} 4.0 or later, or {dse-short} 6.8.16 or later.
+* Near real-time event streaming CDC requires {cass-short} version 3.11 or later, {cass-short} version 4.0 or later, or {dse-short} version 6.8.16 or later.
 * Batch CDC only requires {cass-short} version 3.0 to 3.10.
-* IBM Elite Support for Apache Pulsar (formerly {company} Luna Streaming) or Apache Pulsar 2.8.1 or later.
+* IBM Elite Support for {pulsar} (formerly {company} Luna Streaming) or self-managed {pulsar} version 2.8.1 or later.
 * Additional memory and CPU available on all {cass-short} nodes.
 
 [NOTE]
@@ -24,9 +24,9 @@ However, for near real-time event streaming, you must run at least {cass-short} 
 
 Depending on the workloads of the CDC enabled {cass-short} tables, you might need to increase the CPU and memory specification of the {cass-short} nodes.
 
-== Install {cdc_cass} for VM deployment
+== Install {product-short} for VM deployment
 
-. Download the `cassandra-source-agents` tar file from the https://github.com/datastax/cdc-apache-cassandra/releases[{cdc_cass} GitHub repository].
+. Download the `cassandra-source-agents` tar file from the {product-repo}/releases[{product-short} GitHub repository].
 The following files are available in the tar file:
 +
 [cols="1,1"]
@@ -51,16 +51,16 @@ tar xvf cassandra-source-agents-**VERSION**.tar
 == Start {cass-short} with the {cdc_agent}
 
 All data nodes of your {cass-short} or {dse-short} datacenter must run the change agent as a JVM agent to send mutations into the events topic of your streaming software.
-Start your {cass-short} or {dse-short} nodes with the appropriate producer binary matching your {cass-short} (3.11 or 4.0) or {dse-short} (6.8.16) version and your streaming platform: IBM Elite Support for Apache Pulsar (formerly {company} Luna Streaming) 2.8+ or Apache Pulsar 2.8.1+.
+Start your {cass-short} or {dse-short} nodes with the appropriate producer binary matching your {cass-short} (3.11 or 4.0) or {dse-short} (6.8.16) version and your streaming platform: IBM Elite Support for {pulsar} (formerly {company} Luna Streaming) version 2.8 or later, or self-managed {pulsar} version 2.8.1 or later.
 
-In {cdc_agent} versions *before 1.0.3*, the {cdc_agent} Pulsar connection parameters were provided as extra JVM options after the `jar` file name in the form of a comma-separated list of `paramName=paramValue`, as below:
+In {cdc_agent} versions _before 1.0.3_, the {cdc_agent} {pulsar-short} connection parameters were provided as extra JVM options after the `jar` file name in the form of a comma-separated list of `paramName=paramValue`, as below:
 
 [source,bash,subs="+quotes"]
 ----
 export JVM_EXTRA_OPTS="-javaagent:/path/to/agent-c4-**VERSION**-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
 ----
 
-In {cdc_agent} versions *after 1.0.3*, the {cdc_agent} Pulsar connection parameters are also provided as system environment parameters in `cassandra-env.sh`. The same JVM option above is now appended to `cassandra-env.sh` as below:
+In {cdc_agent} versions _after 1.0.3_, the {cdc_agent} {pulsar-short} connection parameters are also provided as system environment parameters in `cassandra-env.sh`. The same JVM option above is now appended to `cassandra-env.sh` as below:
 
 [source,bash,subs="+quotes"]
 ----
@@ -108,9 +108,9 @@ include::ROOT:partial$agentParams.adoc[]
 
 == Download the {csc_pulsar_first}
 
-Download the `cassandra-source-connectors` tar file from the https://github.com/datastax/cdc-apache-cassandra/releases[{cdc_cass} GitHub repository].
+Download the `cassandra-source-connectors` tar file from the {product-repo}/releases[{product-short} GitHub repository].
 
-For Apache Pulsar and IBM Elite Support for Apache Pulsar (formerly {company} Luna Streaming) 2.8, the `pulsar-cassandra-source-<version>.nar` file is available.
+For self-managed {pulsar} and IBM Elite Support for {pulsar} (formerly {company} Luna Streaming) 2.8, the `pulsar-cassandra-source-<version>.nar` file is available.
 
 Extract the files from the tar, specifying the version that matches your streaming platform:
 
@@ -121,7 +121,7 @@ tar xvf cassandra-source-connectors-**VERSION**.tar
 
 == Deploy the {csc_pulsar}
 
-To deploy the {csc_pulsar} `NAR` file in your Pulsar cluster, upload it to your Pulsar cluster using the `pulsar-admin sources create` command.
+To deploy the {csc_pulsar} `NAR` file in your {pulsar-short} cluster, upload it to your {pulsar-short} cluster using the `pulsar-admin sources create` command.
 You need to deploy {csc_pulsar} for each CDC-enabled table.
 
 For each CDC-enabled table, the change agent sends events to the events topic.
@@ -132,7 +132,7 @@ You have to specify the following parameters:
 
 * Connector name. You have one connector per CDC-enabled {cass-short} table, make sure to use a unique name.
 * Previously downloaded {csc_pulsar} `NAR` file.
-* Pulsar `tenant` and `namespace` where the connector will run.
+* {pulsar-short} `tenant` and `namespace` where the connector will run.
 * Destination `topic` for {cass-short} data (`data` topic).
 * Number of instances (parallelism) of the connector. For high-volume tables, you might need to run multiple connector instances to prevent a growing backlog on the events topic.
 * Name of the `events` topic the connector will read from.
@@ -217,7 +217,7 @@ If you don't provide either in your configuration, {csc_pulsar} defaults are app
 For information about the Java properties, refer to the https://docs.datastax.com/en/developer/java-driver/4.3/manual/core/configuration/reference/index.html[{company} Java driver documentation].
 
 |===
-| {csc_pulsar_first} | Using datastax-java-driver prefix
+| {csc_pulsar} | Using `datastax-java-driver` prefix
 
 | `contactPoints`
 | `datastax-java-driver.basic.contact-points`
@@ -259,13 +259,13 @@ For more information, refer to the https://docs.datastax.com/en/developer/java-d
 == Scaling up your configuration
 
 If your connector isn't keeping up and the messages in the events topic are growing, increase the number of connector instances using the `parallelism` parameter.
-Pulsar ensures in-order processing using Key_Shared subscriptions.
+{pulsar-short} ensures in-order processing using Key_Shared subscriptions.
 
-If the volume of data in the events topic is very high, https://pulsar.apache.org/docs/en/admin-api-topics/#manage-partitioned-topics[partition] the events topic to distribute the load across multiple Pulsar brokers.
-Do this before starting the change agent because Pulsar auto-creates non-partitioned topics by default.
+If the volume of data in the events topic is very high, https://pulsar.apache.org/docs/en/admin-api-topics/#manage-partitioned-topics[partition] the events topic to distribute the load across multiple {pulsar-short} brokers.
+Do this before starting the change agent because {pulsar-short} auto-creates non-partitioned topics by default.
 If you are using partitioned topics, change `events.subscription.type` to `Failover` to ensure in-order delivery when running multiple connector instances.
 
-To further improve the throughput, you can adjust the `pulsarBatchDelayInMs` in the change agent to batch messages in the change agent before sending them to Pulsar.
+To further improve the throughput, you can adjust the `pulsarBatchDelayInMs` in the change agent to batch messages in the change agent before sending them to {pulsar-short}.
 
 To improve performance on individual connector instances as they read data from {cass-short}, you can adjust the `batch.size` and the `query.executors`.
 Increasing these values from their defaults increases parallelism within the connector instances.

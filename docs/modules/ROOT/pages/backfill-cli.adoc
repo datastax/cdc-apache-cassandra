@@ -3,15 +3,15 @@
 When CDC is enabled on a table, the data topic doesn't contain any data from before CDC was enabled.
 The backfill CLI solves this problem by exporting the table's primary key to a CSV file, storing the CSV file on disk, and sending the primary key from the CSV file to the event topic.
 The {cass-short} source connector reads the primary key from the event topic and populates the data topic with historical data.
-The backfill CLI is powered by the xref:dsbulk:overview:dsbulk-about.adoc[{company} Bulk Loader], a battle-tested data loader tool. This means the CLI takes full advantage of optimizations done in DSBulk when exporting data from table to disk.
+The backfill CLI is powered by the xref:dsbulk:overview:dsbulk-about.adoc[{dsbulk}], a battle-tested data loader tool. This means the CLI takes full advantage of optimizations done in {dsbulk-short} when exporting data from table to disk.
 
 Developers can also use the backfill CLI to trigger change events for downstream applications without having to insert new data.
 
 [#install]
 == Installation
 
-The CDC backfill CLI is distributed both as a JAR file and as a Pulsar-admin extension NAR file.
-The Pulsar-admin extension is packaged with the IBM Elite Support for Apache Pulsar distribution in the `/cliextensions` folder, so you don't need to build from source unless you want to make changes to the code.
+The CDC backfill CLI is distributed both as a JAR file and as a `pulsar-admin` extension NAR file.
+The `pulsar-admin` extension is packaged with the IBM Elite Support for {pulsar} distribution in the `/cliextensions` folder, so you don't need to build from source unless you want to make changes to the code.
 
 Both artifacts are built with Gradle.
 
@@ -36,17 +36,17 @@ BUILD SUCCESSFUL in 37s
 
 Gradle generates two main artifacts:
 
-* An uber JAR file containing the CLI and all its dependencies: backfill-cli/build/libs/backfill-cli-{version}-all.jar
-* A NAR archive that wraps the CLI as a Pulsar-admin Extension: backfill-cli/build/libs/pulsar-cassandra-admin-{version}-nar.nar
+* An uber JAR file containing the CLI and all its dependencies: `backfill-cli/build/libs/backfill-cli-{version}-all.jar`
+* A NAR archive that wraps the CLI as a `pulsar-admin` Extension: `backfill-cli/build/libs/pulsar-cassandra-admin-{version}-nar.nar`
 
-Once the artifacts are generated, you can run the backfill CLI tool as either a standalone Java application or as a Pulsar-admin extension.
+Once the artifacts are generated, you can run the backfill CLI tool as either a standalone Java application or as a `pulsar-admin` extension.
 
 [tabs]
 ======
 Java standalone::
 +
 --
-[source,shell]
+[source,shell,subs="+attributes"]
 ----
 java -jar backfill-cli/build/libs/backfill-cli-{version}-all.jar --data-dir target/export --export-host 127.0.0.1:9042 \
  --export-username cassandra --export-password cassandra --keyspace ks1 --table table1
@@ -54,14 +54,14 @@ java -jar backfill-cli/build/libs/backfill-cli-{version}-all.jar --data-dir targ
 
 --
 
-Pulsar-admin extension::
+`pulsar-admin` extension::
 +
 --
-The Pulsar-admin extension is packaged with the IBM Elite Support for Apache Pulsar (formerly {company} Luna Streaming) distribution in the /cliextensions folder, so you don't need to build from source unless you want to make changes to the code.
+The `pulsar-admin` extension is packaged with the IBM Elite Support for {pulsar} (formerly {company} Luna Streaming) distribution in the /cliextensions folder, so you don't need to build from source unless you want to make changes to the code.
 
-. Move the generated NAR archive to the /cliextensions folder of your Pulsar installation (e.g. /pulsar/cliextensions).
+. Move the generated NAR archive to the /cliextensions folder of your {pulsar-short} installation (e.g. /pulsar/cliextensions).
 
-. Modify the client.conf file of your Pulsar installation to include: `customCommandFactories=cassandra-cdc`.
+. Modify the client.conf file of your {pulsar-short} installation to include: `customCommandFactories=cassandra-cdc`.
 
 . Run the following command (this assumes the xref:6.9@dse:installing:tarball-dse.adoc[default tarball installation of {dse-short}]):
 +
@@ -81,7 +81,7 @@ This test quickly confirms your CDC backfill is working correctly.
 . Make sure you have the following prerequisites:
 +
 * A running {dse-short} cluster
-* A running Pulsar cluster (https://pulsar.apache.org/docs/getting-started-standalone/[standalone] is fine)
+* A running {pulsar-short} cluster (https://pulsar.apache.org/docs/getting-started-standalone/[standalone] is fine)
 * Backfill CLI built with Gradle (see <<install>>)
 
 . Start {dse-short} if it isn't already running:
@@ -154,14 +154,14 @@ cqlsh> INSERT INTO ks1.table1 (id,val) VALUES ('2', 'val2');
 cqlsh> INSERT INTO ks1.table1 (id,val) VALUES ('3', 'val3');
 ----
 
-. Start Pulsar standalone:
+. Start {pulsar-short} standalone:
 +
 [source,bash]
 ----
 ./bin/pulsar standalone
 ----
 
-. Create a {cass-short} source connector in Pulsar:
+. Create a {cass-short} source connector in {pulsar-short}:
 +
 [source,bash]
 ----
@@ -189,7 +189,7 @@ lunastreaming-2.10.3.1 ./bin/pulsar-admin sources create \
 ./bin/pulsar-client consume -s subsc -n 0 -st auto_consume -p Earliest persistent://public/default/data-ks1.table1
 ----
 +
-At this point, everything is set up for the test: A {cass-short} table with pre-existing data, a Pulsar topic with a CDC connector, and a Pulsar consumer subscription.
+At this point, everything is set up for the test: A {cass-short} table with pre-existing data, a {pulsar-short} topic with a CDC connector, and a {pulsar-short} consumer subscription.
 
 . Run the backfill CLI to hydrate the data topic with the existing data in the {cass-short} table:
 +
@@ -211,9 +211,9 @@ Make sure the last line of the output is similar to the following:
 +
 Your data topic is now populated with the existing data from the {cass-short} table.
 
-. Check your Pulsar subscription to ensure Pulsar received the change events:
+. Check your {pulsar-short} subscription to ensure {pulsar-short} received the change events:
 +
-.Pulsar consumer subscription output
+.{pulsar-short} consumer subscription output
 [%collapsible]
 ====
 [source,console]
@@ -272,15 +272,15 @@ Now that you have tested the Backfill CLI, you can run it manually when you want
 
 == Backfill CLI parameters
 
-When running the backfill CLI as a Pulsar-admin extension, all `--pulsar-*` parameters are loaded from the `client.conf` file.
+When running the backfill CLI as a `pulsar-admin` extension, all `--pulsar-*` parameters are loaded from the `client.conf` file.
 
 The `--dsbulk-log-dir` is only available when running the backfill CLI as a standalone Java application.
 
-The `--export-dsbulk-option` parameter passes extra parameters to DSBulk.
-The relevant DSBulk settings configure the CSV connector and can be found https://github.com/datastax/dsbulk/blob/1.10.x/manual/settings.md#connector.csv[here].
+The `--export-dsbulk-option` parameter passes extra parameters to {dsbulk-short}.
+The relevant {dsbulk-short} settings configure the CSV connector and can be found in the {dsbulk-repo}/blob/1.10.x/manual/settings.md#connector.csv[{dsbulk-short} repository].
 Shortened option names aren't supported.
 
-In both the Pulsar-admin extension and the standalone Java application, {cass-short} related configurations are exclusively passed as command line arguments.
+In both the `pulsar-admin` extension and the standalone Java application, {cass-short} related configurations are exclusively passed as command line arguments.
 
 .CDC backfill CLI parameters
 [cols=2*,options="header"]
@@ -300,14 +300,14 @@ directory.
 |Displays this help message
 
 |--dsbulk-log-dir=PATH, -l
-|The directory where DSBulk should store its logs. The default is a
+|The directory where {dsbulk-short} should store its logs. The default is a
 'logs' subdirectory in the current working directory. This
-subdirectory is created if it doesn't exist. Each DSBulk
+subdirectory is created if it doesn't exist. Each {dsbulk-short}
 operation creates a subdirectory inside the log directory
-specified here. This command isn't available in the Pulsar-admin extension.
+specified here. This command isn't available in the `pulsar-admin` extension.
 
 |--export-bundle=PATH
-|The path to a Secure Connect Bundle (SCB) to connect to an Astra DB database. Options --export-host and --export-bundle are mutually exclusive.
+|The path to a {scb} to connect to an {astra-db} database. Options --export-host and --export-bundle are mutually exclusive.
 
 |--export-consistency=CONSISTENCY
 |The consistency level to use when exporting data. The default is
@@ -329,9 +329,9 @@ is an advanced setting; you should rarely need to modify the default
 value.
 
 |--export-dsbulk-option=OPT=VALUE
-|An extra DSBulk option to use when exporting. Any valid DSBulk option
-can be specified here, and it is passed as-is to the DSBulk
-process. DSBulk options, including driver options, must be passed as
+|An extra {dsbulk-short} option to use when exporting. Any valid {dsbulk-short} option
+can be specified here, and it is passed as-is to the {dsbulk-short}
+process. {dsbulk-short} options, including driver options, must be passed as
 '--long.option.name=<value>'. Short options aren't supported.
 
 |--export-host=HOST[:PORT]
@@ -371,12 +371,12 @@ disables it. The default is -1.
 |Displays version info.
 |===
 
-== Pulsar connectivity parameters
+== {pulsar-short} connectivity parameters
 
-Pulsar connectivity parameters are auto-populated from the `client.conf` file available to the CLI when used as a Pulsar-admin extension.
+{pulsar-short} connectivity parameters are auto-populated from the `client.conf` file available to the CLI when used as a `pulsar-admin` extension.
 These parameters should be passed as command line arguments in the standalone Java application.
 
-.Pulsar connectivity parameters
+.{pulsar-short} connectivity parameters
 [cols=2]
 |===
 |Parameter |Description
@@ -385,13 +385,13 @@ These parameters should be passed as command line arguments in the standalone Ja
 |The event topic name prefix. The `<keyspace_name>.<table_name>` is appended to that prefix to build the topic name.
 
 |--pulsar-auth-params=<pulsarAuthParams>
-|The Pulsar authentication parameters.
+|The {pulsar-short} authentication parameters.
 
 |--pulsar-auth-plugin-class-name=<pulsarAuthPluginClassName>
-|The Pulsar authentication plugin class name.
+|The {pulsar-short} authentication plugin class name.
 
 |--pulsar-url=<pulsarServiceUrl>
-|The Pulsar broker service URL.
+|The {pulsar-short} broker service URL.
 
 |--pulsar-ssl-provider=<sslProvider>
 |The SSL/TLS provider to use.

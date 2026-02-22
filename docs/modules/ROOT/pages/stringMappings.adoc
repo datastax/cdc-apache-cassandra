@@ -1,17 +1,17 @@
 = CDC Change Agent Parameter Mappings
 
-In CDC versions *before 1.0.3*, the {cdc_agent} Pulsar connection parameters were provided as extra JVM options after the `.jar` file name in the form of a comma-separated list of `paramName=paramValue`, as below:
+In CDC versions *before 1.0.3*, the {cdc_agent} {pulsar-short} connection parameters were provided as extra JVM options after the `.jar` file name in the form of a comma-separated list of `paramName=paramValue`, as below:
 
 [source,bash]
 ----
 export JVM_EXTRA_OPTS="-javaagent:/path/to/agent-c4-luna-<version>-all.jar=pulsarServiceUrl=pulsar://pulsar:6650"
 ----
 
-In CDC versions *after 1.0.3*, the {cdc_agent} Pulsar connection parameters are also provided as system environment parameters in `cassandra-env.sh`. The JVM option above is now appended to `cassandra-env.sh` as below:
+In CDC versions *after 1.0.3*, the {cdc_agent} {pulsar-short} connection parameters are also provided as system environment parameters in `cassandra-env.sh`. The JVM option above is now appended to `cassandra-env.sh` as below:
 
-[source,bash]
+[source,bash,subs="+quotes"]
 ----
-export CDC_PULSAR_SERVICE_URL="pulsar://<pulsar_server_ip>:6650"
+export CDC_PULSAR_SERVICE_URL="pulsar://**PULSAR_SERVER_IP**:6650"
 ----
 
 This document lists the CDC Change Agent parameter mappings between the JVM option strings and {cass-short} strings.
@@ -52,37 +52,37 @@ This document lists the CDC Change Agent parameter mappings between the JVM opti
 
 
 | *pulsarServiceUrl*
-| The Pulsar broker service URL.
+| The {pulsar-short} broker service URL.
 | PULSAR_SERVICE_URL
 
 
 | *pulsarBatchDelayInMs*
-| Pulsar batching delay in milliseconds. Pulsar batching is enabled when this value is greater than zero.
+| {pulsar-short} batching delay in milliseconds. {pulsar-short} batching is enabled when this value is greater than zero.
 | PULSAR_BATCH_DELAY_IN_MS
 
 
 | *pulsarKeyBasedBatcher*
-| When true, use the Pulsar KEY_BASED BatchBuilder.
+| When true, use the {pulsar-short} KEY_BASED BatchBuilder.
 | PULSAR_KEY_BASED_BATCHER
 
 
 | *pulsarMaxPendingMessages*
-| The Pulsar maximum size of a queue holding pending messages.
+| The {pulsar-short} maximum size of a queue holding pending messages.
 | PULSAR_MAX_PENDING_MESSAGES
 
 
 | *pulsarMaxPendingMessagesAcrossPartitions*
-| The Pulsar maximum number of pending messages across partitions.
+| The {pulsar-short} maximum number of pending messages across partitions.
 | PULSAR_MAX_PENDING_MESSAGES_ACROSS_PARTITIONS
 
 
 | *pulsarAuthPluginClassName*
-| The Pulsar authentication plugin class name.
+| The {pulsar-short} authentication plugin class name.
 | PULSAR_AUTH_PLUGIN_CLASS_NAME
 
 
 | *pulsarAuthParams*
-| The Pulsar authentication parameters.
+| The {pulsar-short} authentication parameters.
 | PULSAR_AUTH_PARAMS
 
 

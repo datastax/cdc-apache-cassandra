@@ -1,21 +1,21 @@
-= About {cdc_cass}
+= About {product-short}
 
-{cdc_cass_first} is open-source software (OSS) that sends {cass-short} mutations for tables having Change Data Capture (CDC) enabled to https://www.ibm.com/docs/en/supportforpulsar[IBM Elite Support for Apache Pulsar] or your own self-managed https://pulsar.apache.org/[Apache Pulsar(TM)] deployment, which in turn can write the data to platforms such as Elasticsearch(R) or Snowflake(R).
+{product} is open-source software (OSS) that sends {cass-short} mutations for tables having Change Data Capture (CDC) enabled to https://www.ibm.com/docs/en/supportforpulsar[IBM Elite Support for {pulsar}] or your own self-managed https://pulsar.apache.org/[{pulsar-reg})] deployment, which in turn can write the data to platforms such as Elasticsearch(R) or Snowflake(R).
 
 == Key Features
 
-* Supports {cass} 3.11 or later, {cass} 4.0 or later, and {dse} 6.8.16 or later
-* Supports IBM Elite Support for Apache Pulsar (formerly {company} Luna Streaming) and Apache Pulsar 2.8.1 or later
+* Supports {cass} version 3.11 or later, {cass} version 4.0 or later, and {dse} version 6.8.16 or later
+* Supports IBM Elite Support for {pulsar} (formerly {company} Luna Streaming) and self-managed {pulsar} version 2.8.1 or later
 * De-duplicates updates from multiple replicas
-* Propagates {cass-short} schema change to the built-in Pulsar schema registry
+* Propagates {cass-short} schema change to the built-in {pulsar-short} schema registry
 * Supports AVRO message format
 
 == Architecture
 
-Other than the prerequisite {cass-short} and Pulsar clusters, {cdc_cass} has two components:
+Other than the prerequisite {cass-short} and {pulsar-short} clusters, {product-short} has two components:
 
 * {cdc_agent_first}, which is an event producer deployed as a JVM agent on each {cass-short} data node
-* {csc_pulsar_first}, which is a source connector deployed in your Pulsar cluster
+* {csc_pulsar_first}, which is a source connector deployed in your {pulsar-short} cluster
 
 The following diagram describes the general architecture.
 
@@ -48,10 +48,10 @@ The following table describes what is published to the data topic for each updat
 
 The {csc_pulsar} updates the schema registry to dynamically reflect the {cass-short} table schema.
 You can then deploy various sink connectors to replicate data into the backends of your choice.
-For more, see https://pulsar.apache.org/docs/en/io-connectors/#sink-connector[Pulsar built-in sink connectors].
+For more, see https://pulsar.apache.org/docs/en/io-connectors/#sink-connector[{pulsar-short} built-in sink connectors].
 
 Sink connectors processing messages from the data topic should interpret an event with a null value as a delete.
-For example, with the Pulsar Elasticsearch connector, you need to set `nullValueAction` to `DELETE`.
+For example, with the {pulsar-short} Elasticsearch connector, you need to set `nullValueAction` to `DELETE`.
 
 The change agent runs on all {cass-short} data nodes.
 This means that the agent processes the original write plus its replicas.
@@ -62,23 +62,23 @@ For each update to the table, an MD5 digest is calculated to de-duplicate the up
 
 [cols="1,1"]
 |===
-| {cass-short} version | Apache Pulsar/IBM Elite Support for Apache Pulsar (formerly {company} Luna Streaming)
-| {cass-short} 3.x | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-c3[agent-c3]
-| {cass-short} 4.x | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-c4[agent-c4]
-| {dse-short} 6.8.16 or later | https://github.com/datastax/cdc-apache-cassandra/tree/master/agent-dse4[agent-dse4]
+| {cass-short} version | Self-managed {pulsar} or IBM Elite Support for {pular} (formerly {company} Luna Streaming) agent
+| {cass-short} 3.x | {product-repo}/tree/master/agent-c3[agent-c3]
+| {cass-short} 4.x | {product-repo}/tree/master/agent-c4[agent-c4]
+| {dse-short} 6.8.16 or later | {product-repo}/tree/master/agent-dse4[agent-dse4]
 |===
 
 == Supported streaming platforms
 
-* IBM Elite Support for Apache Pulsar (formerly {company} Luna Streaming) 2.8 and later (current version is {luna_version})
-* Apache Pulsar 2.8.1 and later
+* IBM Elite Support for {pulsar} (formerly {company} Luna Streaming) 2.8 and later (current version is {luna_version})
+* Self-managed {pulsar} version 2.8.1 and later
 
 === Connector deployment matrix
 
 [cols="1"]
 |===
-| Apache Pulsar/IBM Elite Support for Apache Pulsar (formerly {company} Luna Streaming)
-| https://github.com/datastax/cdc-apache-cassandra/tree/master/connector[connector]
+| Self-managed {pulsar} or IBM Elite Support for {pulsar} (formerly {company} Luna Streaming)
+| {product-repo}/tree/master/connector[connector]
 |===
 
 [#supported-databases]
@@ -133,7 +133,7 @@ If a row update contains both supported and unsupported data types, the event in
 [#limitations]
 == Limitations
 
-{cdc_cass} has the following limitations:
+{product-short} has the following limitations:
 
 * Doesn't manage table truncates.
 Don't use the `TRUNCATE **TABLE_NAME**` command.
@@ -146,9 +146,9 @@ Don't use the `TRUNCATE **TABLE_NAME**` command.
 
 * Doesn't support range deletes.
 
-* CQL column names cannot match Pulsar primitive type names, such as the following:
+* CQL column names cannot match {pulsar-short} primitive type names, such as the following:
 +
-.Pulsar primitive types
+.{pulsar-short} primitive types
 [cols=2]
 |===
 |Primitive type |Description
@@ -189,12 +189,12 @@ It stores the number of milliseconds since January 1, 1970, 00:00:00 GMT as an I
 
 == Manage schema updates on topics
 
-Schema registry updates on a Pulsar topic are controlled by the `is-allow-auto-update-schema` option.
+Schema registry updates on a {pulsar-short} topic are controlled by the `is-allow-auto-update-schema` option.
 
 * `true` allows the broker to register a new schema for a topic and connect the producer if the schema isn't registered.
 * `false` rejects the producer's connection to the broker if the schema isn't registered.
 
-To ensure the {csc_pulsar} can automatically update the schema on the Pulsar topic, set the option to `true`. For more, see https://pulsar.apache.org/docs/en/schema-manage/[Schema Auto-Update].
+To ensure the {csc_pulsar} can automatically update the schema on the {pulsar-short} topic, set the option to `true`. For more, see https://pulsar.apache.org/docs/en/schema-manage/[Schema Auto-Update].
 
 [#multiple-cassandra-datacenters]
 == Deploy on multiple {cass-short} datacenters
