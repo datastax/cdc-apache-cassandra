@@ -62,7 +62,7 @@ For each update to the table, an MD5 digest is calculated to de-duplicate the up
 
 [cols="1,1"]
 |===
-| {cass-short} version | Self-managed {pulsar} or IBM Elite Support for {pular} (formerly {company} Luna Streaming) agent
+| {cass-short} version | Self-managed {pulsar} or IBM Elite Support for {pulsar} (formerly {company} Luna Streaming) agent
 | {cass-short} 3.x | {product-repo}/tree/master/agent-c3[agent-c3]
 | {cass-short} 4.x | {product-repo}/tree/master/agent-c4[agent-c4]
 | {dse-short} 6.8.16 or later | {product-repo}/tree/master/agent-dse4[agent-dse4]
