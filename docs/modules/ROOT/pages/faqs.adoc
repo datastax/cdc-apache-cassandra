@@ -221,7 +221,7 @@ Name the topic something memorable, like `filtered-data` topic.
 [#how-do-i-configure-multi-region-cdc-using-the-cassandra-sink]
 == How do I configure multi-region CDC using the {cass-short} sink?
 
-One of the requirements for CDC is that both the {cass-short} and {pulsar-short} clusters must be in the same cloud region or on-premise data center.
+One of the requirements for CDC is that both the {cass-short} and {pulsar-short} clusters must be in the same cloud region or on-premise datacenter.
 If you are using geo-replication, you need the change data to be replicated across multiple clusters.
 The most manageable way to handle this is to use the {pulsar-short} {cass-short} sink to "watch" the CDC data topic and write the change to a different {cass-short} table in another organization.
 

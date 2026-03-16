@@ -222,9 +222,6 @@ asciidoc:
     cr-short: 'CR'
     crd: 'custom resource definition (CRD)'
     crd-short: 'CRD'
-    # Custom attributes only used in ragstack-ai
-    astra_db: 'Astra DB'
-    astra_ui: 'Astra Portal'
     # Antora Atlas
     primary-site-url: https://docs.datastax.com/en
     primary-site-manifest-url: https://docs.datastax.com/en/site-manifest.json
