@@ -87,7 +87,7 @@ commitlog_sync_period_in_ms:2000
 cdc_total_space_in_mb:4096
 ----
 
-. Start {cass-short} or {dse-short} and verify your logs are similar to the {cass-short} `system.log` file below. `{cdc_agent} started` indicates your {cdc_agent} has started properly.
+. Start {cass-short} or {dse-short} and verify your logs are similar to the {cass-short} `system.log` file below. `CDC agent started` indicates your {cdc_agent} has started properly.
 +
 [source,bash]
 ----
