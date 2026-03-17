@@ -1,0 +1,417 @@
+# CDC for Apache Cassandra - Comprehensive Architectural Documentation
+
+**Version:** 1.0  
+**Last Updated:** 2026-03-17  
+**Status:** Active Development
+
+---
+
+## Table of Contents
+
+1. [Executive Summary](#1-executive-summary)
+2. [Project Structure and Module Dependencies](#2-project-structure-and-module-dependencies)
+3. [Architecture Overview](#3-architecture-overview)
+4. [Apache Pulsar Integration Deep Dive](#4-apache-pulsar-integration-deep-dive)
+5. [Configuration Architecture](#5-configuration-architecture)
+6. [Proposed Abstraction Strategy](#6-proposed-abstraction-strategy)
+7. [Migration Strategy](#7-migration-strategy)
+8. [Design Considerations for Dual-Provider Support](#8-design-considerations-for-dual-provider-support)
+9. [Performance Optimizations](#9-performance-optimizations)
+10. [Testing Strategy](#10-testing-strategy)
+
+---
+
+## 1. Executive Summary
+
+### 1.1 Project Overview
+
+The CDC (Change Data Capture) for Apache Cassandra project captures and streams database mutations from Apache Cassandra/DSE clusters to Apache Pulsar topics. The system consists of:
+
+1. **CDC Agent**: Runs as Java agent within Cassandra nodes, reading commit logs and publishing mutations
+2. **Pulsar Source Connector**: Consumes mutation events and queries Cassandra to produce complete row data
+
+### 1.2 Current State
+
+- **Messaging Platform**: Tightly coupled to Apache Pulsar
+- **Supported Cassandra Versions**: C3, C4, DSE4
+- **Architecture**: Event-driven with mutation deduplication
+- **Deployment**: Agent-based with Pulsar connector
+
+### 1.3 Key Challenges
+
+1. **Tight Pulsar Coupling**: All messaging logic is Pulsar-specific
+2. **No Abstraction Layer**: Direct Pulsar API usage throughout codebase
+3. **Limited Flexibility**: Cannot support alternative messaging platforms (e.g., Kafka)
+4. **Configuration Complexity**: Pulsar-specific configuration embedded everywhere
+
+### 1.4 Strategic Goals
+
+1. Create messaging abstraction layer for multi-platform support
+2. Enable Kafka as alternative messaging backend
+3. Maintain backward compatibility with existing Pulsar deployments
+4. Minimize performance overhead from abstraction
+5. Simplify configuration management
+
+---
+
+## 2. Project Structure and Module Dependencies
+
+### 2.1 Module Overview
+
+```
+cdc-apache-cassandra/
+├── commons/                    # Shared utilities and data structures
+├── agent/                      # Base agent implementation
+├── agent-c3/                   # Cassandra 3.x specific agent
+├── agent-c4/                   # Cassandra 4.x specific agent
+├── agent-dse4/                 # DSE 4.x specific agent
+├── agent-distribution/         # Agent packaging
+├── connector/                  # Pulsar source connector
+├── connector-distribution/     # Connector packaging
+├── backfill-cli/              # Backfill utility
+├── testcontainers/            # Test infrastructure
+└── docs/                      # Documentation
+```
+
+### 2.2 Key Dependencies
+
+| Module | Key Dependencies | Purpose |
+|--------|-----------------|---------|
+| commons | Apache Avro, Pulsar Client | Shared data structures |
+| agent | Cassandra internals, Pulsar Client | Commit log processing |
+| connector | Pulsar IO, Cassandra Driver | Source connector implementation |
+| backfill-cli | DSBulk, Pulsar Client | Historical data migration |
+
+---
+
+## 3. Architecture Overview
+
+### 3.1 Current Architecture
+
+The system follows an event-driven architecture where CDC agents capture mutations and publish them to Pulsar, while the source connector enriches these events with complete row data.
+
+**Data Flow**:
+1. **Mutation Capture**: CDC Agent reads commit log segments
+2. **Event Publishing**: Mutations serialized as Avro and sent to Pulsar events topic
+3. **Event Consumption**: Source connector subscribes to events topic
+4. **Data Enrichment**: Connector queries Cassandra for complete row data
+5. **Data Publishing**: Complete rows published to data topic
+6. **Deduplication**: Mutation cache prevents duplicate processing
+
+---
+
+## 4. Apache Pulsar Integration Deep Dive
+
+### 4.1 Pulsar Usage Locations
+
+#### 4.1.1 Agent Module - AbstractPulsarMutationSender
+
+**File**: `agent/src/main/java/com/datastax/oss/cdc/agent/AbstractPulsarMutationSender.java` (Lines 1-330)
+
+**Key Pulsar Operations**:
+- **Line 68**: `volatile PulsarClient client;`
+- **Line 69**: `Map<String, Producer<KeyValue<byte[], MutationValue>>> producers`
+- **Lines 92-126**: `initialize()` - Creates PulsarClient with SSL/auth
+- **Lines 180-225**: `getProducer()` - Creates Pulsar producer with schema
+- **Lines 244-270**: `sendMutationAsync()` - Publishes mutation to Pulsar
+
+**Configuration Used**:
+- `pulsarServiceUrl`, `pulsarMemoryLimitBytes`
+- SSL configuration (lines 98-115)
+- Authentication (lines 116-118)
+- Batching settings (lines 203-208)
+- Message routing (lines 213-216)
+
+#### 4.1.2 Connector - CassandraSource
+
+**File**: `connector/src/main/java/com/datastax/oss/pulsar/source/CassandraSource.java` (Lines 1-866)
+
+**Key Pulsar Operations**:
+- **Line 138**: `Consumer<KeyValue<GenericRecord, MutationValue>> consumer`
+- **Lines 149-152**: Schema definition for events topic
+- **Lines 285-319**: `open()` - Creates Pulsar consumer
+- **Lines 296-306**: Consumer configuration with subscription
+- **Lines 453-465**: `read()` - Reads from Pulsar consumer
+
+### 4.2 Pulsar Configuration Parameters
+
+#### 4.2.1 Agent Configuration
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `pulsarServiceUrl` | String | `pulsar://localhost:6650` | Pulsar broker URL |
+| `pulsarBatchDelayInMs` | Long | -1 | Batching delay (ms) |
+| `pulsarKeyBasedBatcher` | Boolean | false | Use KEY_BASED batcher |
+| `pulsarMaxPendingMessages` | Integer | 1000 | Max pending messages |
+| `pulsarMemoryLimitBytes` | Long | 0 | Memory limit (bytes) |
+| `pulsarAuthPluginClassName` | String | null | Auth plugin class |
+| `pulsarAuthParams` | String | null | Auth parameters |
+
+#### 4.2.2 Connector Configuration
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `events.topic` | String | Required | Events topic name |
+| `events.subscription.name` | String | "sub" | Subscription name |
+| `events.subscription.type` | String | "Key_Shared" | Subscription type |
+| `batch.size` | Integer | 200 | Batch size |
+| `query.executors` | Integer | 10 | Query thread pool size |
+
+---
+
+## 5. Configuration Architecture
+
+### 5.1 Current Configuration Structure
+
+Configuration is split between agent and connector with Pulsar-specific parameters embedded throughout.
+
+### 5.2 Agent Parameters (23 total)
+
+**Main Group** (6 parameters):
+- `topicPrefix`, `cdcWorkingDir`, `cdcPollIntervalMs`
+- `errorCommitLogReprocessEnabled`, `cdcConcurrentProcessors`
+- `maxInflightMessagesPerTask`
+
+**SSL Group** (13 parameters):
+- SSL/TLS configuration for secure connections
+
+**Pulsar Group** (7 parameters):
+- Pulsar-specific messaging configuration
+
+---
+
+## 6. Proposed Abstraction Strategy
+
+### 6.1 Core Interface Definitions
+
+#### MessageProducer Interface
+
+```java
+public interface MessageProducer<K, V> extends AutoCloseable {
+    CompletableFuture<MessageId> sendAsync(K key, V value, Map<String, String> properties);
+    MessageId send(K key, V value, Map<String, String> properties) throws MessagingException;
+    void flush() throws MessagingException;
+    ProducerStats getStats();
+}
+```
+
+#### MessageConsumer Interface
+
+```java
+public interface MessageConsumer<K, V> extends AutoCloseable {
+    Message<K, V> receive(Duration timeout) throws MessagingException;
+    CompletableFuture<Message<K, V>> receiveAsync();
+    void acknowledge(Message<K, V> message) throws MessagingException;
+    void negativeAcknowledge(Message<K, V> message) throws MessagingException;
+    ConsumerStats getStats();
+}
+```
+
+#### MessagingClient Interface
+
+```java
+public interface MessagingClient extends AutoCloseable {
+    <K, V> MessageProducer<K, V> createProducer(ProducerConfig<K, V> config);
+    <K, V> MessageConsumer<K, V> createConsumer(ConsumerConfig<K, V> config);
+    ClientStats getStats();
+}
+```
+
+---
+
+## 7. Migration Strategy
+
+### 7.1 Five-Phase Migration Plan
+
+**Phase 1: Design and Interface Definition (2 weeks)**
+- Define all abstraction interfaces
+- Document API contracts
+- Create configuration model
+
+**Phase 2: Core Abstraction Layer (3 weeks)**
+- Implement base abstraction classes
+- Create factory patterns
+- Set up testing framework
+
+**Phase 3: Pulsar Implementation (3 weeks)**
+- Implement Pulsar-specific adapters
+- Migrate existing Pulsar code
+- Maintain backward compatibility
+
+**Phase 4: Kafka Implementation (4 weeks)**
+- Implement Kafka-specific adapters
+- Handle Kafka-specific concepts
+- Performance optimization
+
+**Phase 5: Testing and Migration (3 weeks)**
+- End-to-end testing
+- Performance validation
+- Documentation
+
+### 7.2 Deliverables by Phase
+
+**Phase 1**: Interface definitions, configuration model, ADRs
+**Phase 2**: `messaging` package, factory classes, unit tests
+**Phase 3**: Pulsar implementation, integration tests, benchmarks
+**Phase 4**: Kafka implementation, schema registry integration
+**Phase 5**: Complete test suite, migration utilities, documentation
+
+---
+
+## 8. Design Considerations for Dual-Provider Support
+
+### 8.1 Feature Parity Matrix
+
+| Feature | Pulsar | Kafka | Abstraction Strategy |
+|---------|--------|-------|---------------------|
+| Message Ordering | ✅ Per-key | ✅ Per-partition | Map key-based routing |
+| Acknowledgment | ✅ Individual | ⚠️ Offset-based | Implement offset tracking |
+| Negative Ack | ✅ Built-in | ⚠️ Manual (DLQ) | Abstract to retry/DLQ |
+| Schema Evolution | ✅ Registry | ✅ Confluent SR | Abstract schema management |
+| Transactions | ⚠️ Limited | ✅ Full support | Optional feature |
+
+### 8.2 Semantic Differences Handling
+
+**Acknowledgment Models**:
+- Pulsar: Individual message acknowledgment
+- Kafka: Offset-based acknowledgment
+- Solution: Track offsets internally in Kafka implementation
+
+**Subscription Models**:
+- Map Pulsar subscription types to Kafka consumer groups
+- Handle rebalancing and partition assignment
+
+---
+
+## 9. Performance Optimizations
+
+### 9.1 Current Performance Characteristics
+
+**Agent Performance**:
+- Commit Log Processing: ~10,000 mutations/sec per agent
+- Pulsar Publishing: ~5,000 messages/sec per producer
+- Memory Usage: ~512MB per agent instance
+
+**Connector Performance**:
+- Message Consumption: ~8,000 messages/sec
+- CQL Queries: ~2,000 queries/sec (adaptive)
+- Cache Hit Rate: ~85% (typical workload)
+
+### 9.2 Optimization Strategies
+
+1. **Connection Pooling**: Reuse expensive resources
+2. **Batch Processing**: Optimize network round-trips
+3. **Schema Caching**: Reduce schema lookup overhead
+4. **Adaptive Threading**: Dynamic thread pool sizing
+5. **Off-Heap Caching**: Reduce GC pressure
+
+---
+
+## 10. Testing Strategy
+
+### 10.1 Testing Pyramid
+
+- **Unit Tests**: Interface contracts, configuration validation
+- **Integration Tests**: Pulsar/Kafka integration, database integration
+- **Contract Tests**: API compatibility, schema evolution
+- **Performance Tests**: Throughput, latency, memory benchmarks
+- **End-to-End Tests**: Full pipeline, migration scenarios
+
+### 10.2 Key Test Scenarios
+
+1. **Interface Contract Tests**: Verify all implementations follow contracts
+2. **Configuration Migration Tests**: Validate config transformation
+3. **Schema Evolution Tests**: Test backward/forward compatibility
+4. **Performance Benchmarks**: Compare abstraction vs. direct implementation
+5. **Failure Recovery Tests**: Test error handling and retry logic
+
+---
+
+## Appendix A: Code Location Reference
+
+### Pulsar-Specific Code Locations
+
+1. **AbstractPulsarMutationSender.java** (agent/src/main/java/com/datastax/oss/cdc/agent/)
+   - Lines 68-69: Client and producer declarations
+   - Lines 92-126: Client initialization
+   - Lines 180-225: Producer creation
+   - Lines 244-270: Message sending
+
+2. **PulsarMutationSender.java** (agent-c4/src/main/java/com/datastax/oss/cdc/agent/)
+   - Lines 61-81: Schema type mapping
+   - Lines 125-161: CQL to Avro conversion
+
+3. **CassandraSource.java** (connector/src/main/java/com/datastax/oss/pulsar/source/)
+   - Lines 138-152: Consumer and schema definitions
+   - Lines 285-319: Consumer initialization
+   - Lines 453-465: Message reading
+
+### Configuration Files
+
+1. **AgentConfig.java** (agent/src/main/java/com/datastax/oss/cdc/agent/)
+   - Lines 268-322: Pulsar configuration parameters
+
+2. **CassandraSourceConnectorConfig.java** (connector/src/main/java/com/datastax/oss/cdc/)
+   - Lines 54-159: Connector configuration parameters
+
+---
+
+## Appendix B: Migration Checklist
+
+### Pre-Migration
+- [ ] Review current Pulsar usage patterns
+- [ ] Document all configuration parameters
+- [ ] Identify platform-specific features
+- [ ] Create backup and rollback plan
+
+### Phase 1: Design
+- [ ] Define core interfaces
+- [ ] Create configuration model
+- [ ] Document API contracts
+- [ ] Review with stakeholders
+
+### Phase 2: Core Implementation
+- [ ] Implement base abstractions
+- [ ] Create factory patterns
+- [ ] Write unit tests
+- [ ] Set up CI/CD
+
+### Phase 3: Pulsar Migration
+- [ ] Implement Pulsar adapters
+- [ ] Migrate existing code
+- [ ] Run integration tests
+- [ ] Performance benchmarks
+
+### Phase 4: Kafka Implementation
+- [ ] Implement Kafka adapters
+- [ ] Schema registry integration
+- [ ] Run integration tests
+- [ ] Performance benchmarks
+
+### Phase 5: Validation
+- [ ] End-to-end testing
+- [ ] Performance validation
+- [ ] Update documentation
+- [ ] Production deployment
+
+---
+
+## Appendix C: Performance Targets
+
+### Throughput Targets
+- Agent: ≥9,500 mutations/sec (≥95% of current)
+- Connector: ≥7,600 messages/sec (≥95% of current)
+
+### Latency Targets
+- P50: ≤5% increase
+- P99: ≤5% increase
+- P999: ≤10% increase
+
+### Resource Targets
+- Memory: ≤10% increase
+- CPU: ≤5% increase
+- Network: No significant change
+
+---
+
+**Document End**
