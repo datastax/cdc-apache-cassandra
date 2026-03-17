@@ -12,6 +12,8 @@ buildscript {
 
 rootProject.name = 'cassandra-source-connector'
 
+include 'messaging-api'
+
 include 'commons'
 
 include 'testcontainers'
