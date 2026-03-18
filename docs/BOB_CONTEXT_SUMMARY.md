@@ -1,4 +1,229 @@
-## Latest Update: 2026-03-18 - Phase 3 Weeks 2-3 Implementation Complete ✅
+## Latest Update: 2026-03-18 - Phase 4 Week 2 (Days 6-7) Implementation Complete ✅
+
+### Phase 4: Kafka Implementation - Week 2 Agent Support (Days 6-7)
+
+**Status:** Days 6-7 COMPLETE - Agent Kafka support implemented and compiling successfully
+
+**What Was Accomplished:**
+
+#### Days 6-7: Agent Configuration and Kafka Support ✅
+
+1. **AgentConfig Enhanced for Kafka**
+   - Added `messagingProvider` field for runtime provider selection (PULSAR/KAFKA)
+   - Added 7 Kafka-specific configuration parameters:
+     - `kafkaBootstrapServers` - Bootstrap servers (default: localhost:9092)
+     - `kafkaAcks` - Acknowledgment mode (default: all)
+     - `kafkaCompressionType` - Compression type (default: none)
+     - `kafkaBatchSize` - Batch size in bytes (default: 16384)
+     - `kafkaLingerMs` - Batching linger time (default: 0)
+     - `kafkaMaxInFlightRequests` - Max unacknowledged requests (default: 5)
+     - `kafkaSchemaRegistryUrl` - Confluent Schema Registry URL (optional)
+   - Updated Platform enum: ALL, PULSAR, KAFKA
+   - All settings with environment variable support (CDC_* prefix)
+
+2. **AbstractMessagingMutationSender Enhanced**
+   - Added `determineProvider()` method for dynamic provider detection
+   - Modified `buildClientConfig()` to support both Pulsar and Kafka:
+     - Pulsar: Uses pulsarServiceUrl, memory limits, SSL, auth
+     - Kafka: Uses kafkaBootstrapServers, provider properties, SSL
+   - Kafka configuration passed via provider properties map:
+     - acks, compression.type, batch.size, linger.ms
+     - max.in.flight.requests.per.connection
+     - schema.registry.url
+   - Updated producer creation for provider-specific batching
+   - Maintained 100% backward compatibility (defaults to PULSAR)
+
+3. **Dependencies Updated**
+   - `agent/build.gradle` - Added messaging-kafka dependency
+   - `agent-c4/build.gradle` - Added messaging-kafka dependency
+   - `agent-c3/build.gradle` - Added messaging-kafka dependency
+   - `agent-dse4/build.gradle` - Added messaging-kafka dependency (prepared)
+
+4. **Build Verification:**
+   - ✅ `:agent:compileJava` - BUILD SUCCESSFUL
+   - ✅ `:agent-c4:compileJava` - BUILD SUCCESSFUL
+   - `:agent-c3:compileJava` - BUILD SUCCESSFUL
+   - All agent modules compile without errors
+   - Zero code changes required in version-specific agents (C3, C4)
+
+**Key Design Decisions:**
+
+1. **No Separate KafkaMutationSender:** AbstractMessagingMutationSender handles both providers dynamically based on configuration, eliminating code duplication.
+
+2. **Configuration-Driven Provider Selection:** Provider chosen at runtime via `messagingProvider` config parameter, not compile-time.
+
+3. **Unified Interface:** Same MutationSender interface works for both Pulsar and Kafka, no agent code changes needed.
+
+4. **Provider Properties Pattern:** Kafka-specific settings passed as provider properties map, keeping abstraction clean.
+
+5. **Backward Compatibility:** Defaults to PULSAR if `messagingProvider` not specified, ensuring existing deployments continue working.
+
+**Files Modified (5 files, ~130 lines):**
+- `agent/src/main/java/com/datastax/oss/cdc/agent/AgentConfig.java` (+70 lines)
+- `agent/src/main/java/com/datastax/oss/cdc/agent/AbstractMessagingMutationSender.java` (+60 lines)
+- `agent/build.gradle` (+1 line)
+- `agent-c4/build.gradle` (+1 line)
+- `agent-c3/build.gradle` (+1 line)
+
+**Configuration Example:**
+
+```properties
+# Kafka Configuration
+messagingProvider=KAFKA
+kafkaBootstrapServers=localhost:9092
+kafkaAcks=all
+kafkaCompressionType=snappy
+kafkaBatchSize=16384
+kafkaLingerMs=10
+kafkaMaxInFlightRequests=5
+kafkaSchemaRegistryUrl=http://localhost:8081
+
+# Pulsar Configuration (legacy, still supported)
+messagingProvider=PULSAR
+pulsarServiceUrl=pulsar://localhost:6650
+pulsarBatchDelayInMs=10
+pulsarMaxPendingMessages=1000
+```
+
+**Benefits:**
+- Zero code changes for version-specific agents
+- Runtime provider switching via configuration
+- 100% backward compatible with existing Pulsar deployments
+- Consistent mutation sending API regardless of provider
+
+**Next Steps:**
+- Days 8-9: Integration testing with Kafka
+- Day 10: Documentation and examples
+- Week 3: Connector Kafka support
+
+---
+
+## Latest Update: 2026-03-18 - Phase 4 Week 1 Implementation Complete ✅
+
+### Phase 4: Kafka Implementation - Week 1 Deliverables
+
+**Status:** Week 1 FULLY COMPLETE - All core Kafka adapters implemented and compiling successfully
+
+**What Was Accomplished:**
+
+#### Week 1: Core Kafka Adapters (Days 1-5) ✅
+
+1. **messaging-kafka Module Created**
+   - New Gradle module with Kafka client dependencies (3.6.1)
+   - Confluent Schema Registry integration (7.5.3)
+   - Module added to settings.gradle
+   - Build configuration with proper dependencies
+
+2. **Core Kafka Adapter Classes (9 files):**
+   - `KafkaMessagingClient.java` (168 lines) - Main client managing Kafka operations
+     - Extends AbstractMessagingClient
+     - Manages common Kafka properties (no central client like Pulsar)
+     - Creates producers and consumers via KafkaConfigMapper
+     - Thread-safe statistics tracking
+   
+   - `KafkaMessageProducer.java` (147 lines) - Producer implementation
+     - Extends AbstractMessageProducer
+     - Wraps Kafka Producer<byte[], byte[]>
+     - Idempotent producer with exactly-once semantics
+     - Statistics tracking (send latency, errors)
+   
+   - `KafkaMessageConsumer.java` (283 lines) - Consumer implementation
+     - Extends AbstractMessageConsumer
+     - Wraps Kafka Consumer<byte[], byte[]>
+     - Manual offset management via KafkaOffsetTracker
+     - Polling thread for message consumption
+     - Statistics tracking (receive latency, acknowledgments)
+   
+   - `KafkaMessage.java` (138 lines) - Message wrapper
+     - Implements Message<K, V> directly
+     - Wraps Kafka ConsumerRecord<K, V>
+     - Provides access to headers and metadata
+     - Immutable and thread-safe
+   
+   - `KafkaMessageId.java` (89 lines) - MessageId wrapper
+     - Extends BaseMessageId
+     - Encodes topic-partition-offset as byte array
+     - Provides parsing back to components
+   
+   - `KafkaOffsetTracker.java` (156 lines) - Offset management
+     - Manual offset tracking for acknowledgment semantics
+     - Thread-safe concurrent offset storage
+     - Periodic commit with configurable interval
+     - Negative acknowledgment support (seek to offset)
+   
+   - `KafkaConfigMapper.java` (380 lines) - Configuration translation
+     - Maps ClientConfig → Kafka common properties (bootstrap servers, SSL, auth)
+     - Maps ProducerConfig → Kafka producer properties (idempotence, batching, compression)
+     - Maps ConsumerConfig → Kafka consumer properties (subscription, offset management)
+     - Handles all Kafka-specific configuration nuances
+     - SASL authentication mapping (PLAIN, SCRAM, GSSAPI)
+   
+   - `KafkaSchemaProvider.java` (230 lines) - Schema Registry integration
+     - Extends BaseSchemaProvider
+     - Integrates with Confluent Schema Registry
+     - AVRO schema registration and retrieval
+     - Compatibility checking
+   
+   - `KafkaClientProvider.java` (78 lines) - SPI implementation
+     - Implements MessagingClientProvider
+     - Discovered via Java ServiceLoader
+     - Creates KafkaMessagingClient instances
+   
+   - `META-INF/services/com.datastax.oss.cdc.messaging.spi.MessagingClientProvider` - SPI registration
+
+3. **Build Verification:**
+   - ✅ `./gradlew messaging-kafka:compileJava` - BUILD SUCCESSFUL
+   - ✅ `./gradlew messaging-kafka:build` - BUILD SUCCESSFUL
+   - All 9 classes compile without errors
+   - Deprecation warnings suppressed for Schema Registry API
+   - Total Week 1 implementation: 9 classes (~1,600 lines)
+
+**Key Design Features:**
+
+1. **No Central Client:** Unlike Pulsar, Kafka doesn't have a central client object. KafkaMessagingClient manages common properties and creates individual producer/consumer instances.
+
+2. **Manual Offset Management:** KafkaOffsetTracker provides Pulsar-like acknowledgment semantics on top of Kafka's offset-based model.
+
+3. **Idempotent Producers:** Enabled by default for exactly-once semantics with proper configuration (acks=all, retries=MAX, enable.idempotence=true).
+
+4. **Schema Registry Integration:** Confluent Schema Registry for AVRO schema management, similar to Pulsar's schema registry.
+
+5. **Subscription Type Mapping:**
+   - EXCLUSIVE/FAILOVER → CooperativeStickyAssignor
+   - SHARED → RoundRobinAssignor
+   - KEY_SHARED → StickyAssignor
+
+6. **Configuration Mapping:** Comprehensive translation of abstraction configs to Kafka-specific settings with proper type handling.
+
+**Compilation Error Resolution:**
+
+Started with 77 compilation errors, systematically resolved all through:
+- API alignment with messaging-api interfaces
+- Proper generic type handling
+- Optional<> configuration handling
+- Import conflict resolution (Kafka ProducerConfig vs abstraction ProducerConfig)
+- Type safety for wrapper classes
+- Deprecation warning suppression for Schema Registry
+
+**Week 1 Summary:**
+- Day 1: Module setup and KafkaMessagingClient ✅
+- Day 2: KafkaMessageProducer and compilation fixes ✅
+- Day 3: KafkaMessageConsumer and KafkaOffsetTracker ✅
+- Day 4: Message and MessageId wrappers ✅
+- Day 5: Configuration mapper and schema provider ✅
+- **Total: 9 classes, ~1,600 lines of production code, BUILD SUCCESSFUL**
+
+**Next Steps:**
+- Week 2 (Days 6-10): Agent Kafka Support
+  - Day 6-7: Update AgentConfig and create Kafka-aware AbstractMessagingMutationSender
+  - Day 8-9: Update version-specific agents (C3, C4, DSE4) for Kafka
+  - Day 10: Agent integration testing
+- Week 3 (Days 11-15): Connector Kafka Support and Testing
+- Week 4 (Days 16-20): Comprehensive Testing, Optimization, CI/CD
+
+---
+
+## Previous Update: 2026-03-18 - Phase 3 Weeks 2-3 Implementation Complete ✅
 
 ### Phase 3: Pulsar Implementation - Weeks 2-3 Deliverables
 
