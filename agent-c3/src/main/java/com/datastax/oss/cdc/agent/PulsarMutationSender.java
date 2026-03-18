@@ -56,7 +56,7 @@ import java.util.Date;
 import java.util.UUID;
 
 @Slf4j
-public class PulsarMutationSender extends AbstractPulsarMutationSender<CFMetaData> {
+public class PulsarMutationSender extends AbstractMessagingMutationSender<CFMetaData> {
 
     private static final ImmutableMap<String, org.apache.avro.Schema> avroNativeTypes = ImmutableMap.<String, org.apache.avro.Schema>builder()
             .put(UTF8Type.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.STRING))

@@ -45,6 +45,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * @deprecated Use {@link AbstractMessagingMutationSender} instead.
+ * This class is maintained for backward compatibility only.
+ * It will be removed in a future release.
+ */
+@Deprecated
 @Slf4j
 public abstract class AbstractPulsarMutationSender<T> implements MutationSender<T>, AutoCloseable {
 

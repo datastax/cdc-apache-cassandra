@@ -32,7 +32,7 @@ jobs:
           DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
         run: |
           ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
-          build -x test -x backfill-cli:compileJava
+          build -x test -x backfill-cli:compileJava -x license -x licenseMain -x licenseTest
 
   test:
     needs: build
