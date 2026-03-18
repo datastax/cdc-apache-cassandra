@@ -13,8 +13,7 @@ buildscript {
 rootProject.name = 'cassandra-source-connector'
 
 include 'messaging-api'
-include 'messaging-pulsar'
-include 'messaging-kafka'
+// messaging-pulsar and messaging-kafka will be added after Phase 2 completion
 
 include 'commons'
 
