@@ -45,6 +45,7 @@ dependencies {
     implementation project(':agent')
     implementation project(':messaging-api')
     implementation project(':messaging-pulsar')
+    implementation project(':messaging-kafka')
 
     implementation("org.apache.avro:avro:${avroVersion}")
     implementation("commons-io:commons-io:${commonsIOVersion}") // Override transitive dependency version to fix vulnerability

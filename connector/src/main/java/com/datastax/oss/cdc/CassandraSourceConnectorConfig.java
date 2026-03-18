@@ -54,6 +54,11 @@ public class CassandraSourceConnectorConfig {
     public static final String EVENTS_TOPIC_NAME_CONFIG = "events.topic";
     public static final String EVENTS_SUBSCRIPTION_NAME_CONFIG = "events.subscription.name";
     public static final String EVENTS_SUBSCRIPTION_TYPE_CONFIG = "events.subscription.type";
+    
+    // Messaging provider configuration
+    public static final String MESSAGING_PROVIDER_CONFIG = "messaging.provider";
+    public static final String MESSAGING_SERVICE_URL_CONFIG = "messaging.service.url";
+    public static final String MESSAGING_CONSUMER_GROUP_CONFIG = "messaging.consumer.group";
 
     public static final String BATCH_SIZE_CONFIG = "batch.size";
     public static final String QUERY_EXECUTORS_CONFIG = "query.executors";
@@ -317,7 +322,26 @@ public class CassandraSourceConnectorConfig {
                                     + "Valid values are: "
                                     + "key-value-avro (encodes the key and value separately, both in AVRO format), "
                                     + "key-value-json (encodes the key and value separately, both in JSON format), "
-                                    + "json (key and value are encoded together in single JSON object)" );
+                                    + "json (key and value are encoded together in single JSON object)")
+                    .define(MESSAGING_PROVIDER_CONFIG,
+                            ConfigDef.Type.STRING,
+                            "pulsar",
+                            ConfigDef.ValidString.in("pulsar", "kafka"),
+                            ConfigDef.Importance.HIGH,
+                            "The messaging provider to use for consuming CDC events. Valid values are: pulsar (default), kafka",
+                            "Messaging", 1, ConfigDef.Width.NONE, "MessagingProvider")
+                    .define(MESSAGING_SERVICE_URL_CONFIG,
+                            ConfigDef.Type.STRING,
+                            "",
+                            ConfigDef.Importance.MEDIUM,
+                            "The messaging service URL. For Kafka: bootstrap servers (e.g., localhost:9092). For Pulsar: service URL (e.g., pulsar://localhost:6650). If not specified, uses Pulsar client from SourceContext.",
+                            "Messaging", 2, ConfigDef.Width.NONE, "MessagingServiceUrl")
+                    .define(MESSAGING_CONSUMER_GROUP_CONFIG,
+                            ConfigDef.Type.STRING,
+                            "",
+                            ConfigDef.Importance.MEDIUM,
+                            "The consumer group ID for Kafka. Ignored for Pulsar (uses events.subscription.name instead).",
+                            "Messaging", 3, ConfigDef.Width.NONE, "MessagingConsumerGroup");
     private static final Function<String, String> TO_SECONDS_CONVERTER =
             v -> String.format("%s seconds", v);
 
@@ -846,5 +870,43 @@ public class CassandraSourceConnectorConfig {
 
     public Map<String, String> getJavaDriverSettings() {
         return javaDriverSettings;
+    }
+    
+    /**
+     * Get the messaging provider type (pulsar or kafka).
+     */
+    public String getMessagingProvider() {
+        return globalConfig.getString(MESSAGING_PROVIDER_CONFIG);
+    }
+    
+    /**
+     * Get the messaging service URL.
+     * For Kafka: bootstrap servers
+     * For Pulsar: service URL
+     */
+    public String getMessagingServiceUrl() {
+        return globalConfig.getString(MESSAGING_SERVICE_URL_CONFIG);
+    }
+    
+    /**
+     * Get the Kafka consumer group ID.
+     * Only used when messaging provider is kafka.
+     */
+    public String getMessagingConsumerGroup() {
+        return globalConfig.getString(MESSAGING_CONSUMER_GROUP_CONFIG);
+    }
+    
+    /**
+     * Check if Kafka is the messaging provider.
+     */
+    public boolean isKafkaProvider() {
+        return "kafka".equalsIgnoreCase(getMessagingProvider());
+    }
+    
+    /**
+     * Check if Pulsar is the messaging provider.
+     */
+    public boolean isPulsarProvider() {
+        return "pulsar".equalsIgnoreCase(getMessagingProvider());
     }
 }
