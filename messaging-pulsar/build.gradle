@@ -1,0 +1,23 @@
+plugins {
+    id 'java-library'
+}
+
+dependencies {
+    api project(':messaging-api')
+    
+    implementation 'org.apache.pulsar:pulsar-client:3.0.3'
+    implementation 'org.apache.pulsar:pulsar-client-admin:3.0.3'
+    implementation 'org.apache.avro:avro:1.11.4'
+    implementation 'org.slf4j:slf4j-api:1.7.30'
+    
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.mockito:mockito-core:3.12.4'
+    testImplementation 'org.testcontainers:pulsar:1.19.1'
+    testImplementation 'ch.qos.logback:logback-classic:1.5.27'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+// Made with Bob
