@@ -105,7 +105,10 @@ public abstract class AbstractMessagingMutationSender<T> implements MutationSend
             // Create messaging client using factory
             this.messagingClient = MessagingClientFactory.create(clientConfig);
             
-            log.info("Messaging client connected to {}", config.pulsarServiceUrl);
+            MessagingProvider provider = determineProvider(config);
+            String serviceUrl = provider == MessagingProvider.KAFKA ?
+                config.kafkaBootstrapServers : config.pulsarServiceUrl;
+            log.info("Messaging client ({}) connected to {}", provider, serviceUrl);
         } catch (Exception e) {
             log.warn("Cannot connect to messaging system:", e);
             throw new MessagingException("Failed to initialize messaging client", e);
@@ -116,22 +119,73 @@ public abstract class AbstractMessagingMutationSender<T> implements MutationSend
      * Build client configuration from agent config.
      */
     protected ClientConfig buildClientConfig(AgentConfig config) {
+        // Determine provider from config
+        MessagingProvider provider = determineProvider(config);
+        
         ClientConfigBuilder builder = ClientConfigBuilder.builder()
-                .provider(MessagingProvider.PULSAR)
-                .serviceUrl(config.pulsarServiceUrl)
-                .memoryLimitBytes(config.pulsarMemoryLimitBytes);
+                .provider(provider);
 
-        // Add SSL configuration if needed
-        if (config.pulsarServiceUrl.startsWith("pulsar+ssl://")) {
-            builder.sslConfig(buildSslConfig(config));
-        }
+        if (provider == MessagingProvider.PULSAR) {
+            builder.serviceUrl(config.pulsarServiceUrl)
+                   .memoryLimitBytes(config.pulsarMemoryLimitBytes);
 
-        // Add authentication if configured
-        if (config.pulsarAuthPluginClassName != null) {
-            builder.authConfig(buildAuthConfig(config));
+            // Add SSL configuration if needed
+            if (config.pulsarServiceUrl != null && config.pulsarServiceUrl.startsWith("pulsar+ssl://")) {
+                builder.sslConfig(buildSslConfig(config));
+            }
+
+            // Add authentication if configured
+            if (config.pulsarAuthPluginClassName != null) {
+                builder.authConfig(buildAuthConfig(config));
+            }
+        } else if (provider == MessagingProvider.KAFKA) {
+            builder.serviceUrl(config.kafkaBootstrapServers);
+
+            // Add SSL configuration if needed (Kafka uses different URL scheme)
+            if (config.sslKeystorePath != null || config.tlsTrustCertsFilePath != null) {
+                builder.sslConfig(buildSslConfig(config));
+            }
+
+            // Add Kafka-specific provider properties
+            Map<String, Object> providerProps = new HashMap<>();
+            if (config.kafkaAcks != null) {
+                providerProps.put("acks", config.kafkaAcks);
+            }
+            if (config.kafkaCompressionType != null) {
+                providerProps.put("compression.type", config.kafkaCompressionType);
+            }
+            if (config.kafkaBatchSize > 0) {
+                providerProps.put("batch.size", config.kafkaBatchSize);
+            }
+            if (config.kafkaLingerMs >= 0) {
+                providerProps.put("linger.ms", config.kafkaLingerMs);
+            }
+            if (config.kafkaMaxInFlightRequests > 0) {
+                providerProps.put("max.in.flight.requests.per.connection", config.kafkaMaxInFlightRequests);
+            }
+            if (config.kafkaSchemaRegistryUrl != null) {
+                providerProps.put("schema.registry.url", config.kafkaSchemaRegistryUrl);
+            }
+            builder.providerProperties(providerProps);
         }
 
         return builder.build();
+    }
+
+    /**
+     * Determine messaging provider from config.
+     */
+    protected MessagingProvider determineProvider(AgentConfig config) {
+        if (config.messagingProvider != null) {
+            String provider = config.messagingProvider.toUpperCase();
+            if ("KAFKA".equals(provider)) {
+                return MessagingProvider.KAFKA;
+            } else if ("PULSAR".equals(provider)) {
+                return MessagingProvider.PULSAR;
+            }
+        }
+        // Default to PULSAR for backward compatibility
+        return MessagingProvider.PULSAR;
     }
 
     /**
@@ -245,20 +299,27 @@ public abstract class AbstractMessagingMutationSender<T> implements MutationSend
                         .keySchema(keySchema)
                         .valueSchema(valueSchema);
 
-                // Add batch configuration
-                BatchConfig batchConfig = buildBatchConfig(config);
-                if (batchConfig != null) {
-                    producerBuilder.batchConfig(batchConfig);
-                }
+                // Add batch configuration (provider-specific)
+                MessagingProvider provider = determineProvider(config);
+                if (provider == MessagingProvider.PULSAR) {
+                    BatchConfig batchConfig = buildBatchConfig(config);
+                    if (batchConfig != null) {
+                        producerBuilder.batchConfig(batchConfig);
+                    }
 
-                // Add routing configuration
-                RoutingConfig routingConfig = buildRoutingConfig(config, useMurmur3Partitioner);
-                if (routingConfig != null) {
-                    producerBuilder.routingConfig(routingConfig);
-                }
+                    // Add routing configuration
+                    RoutingConfig routingConfig = buildRoutingConfig(config, useMurmur3Partitioner);
+                    if (routingConfig != null) {
+                        producerBuilder.routingConfig(routingConfig);
+                    }
 
-                log.info("Creating producer name={} with batching delay={}ms",
-                        "cdc-producer-" + getHostId() + "-" + tm.key(), config.pulsarBatchDelayInMs);
+                    log.info("Creating Pulsar producer name={} with batching delay={}ms",
+                            "cdc-producer-" + getHostId() + "-" + tm.key(), config.pulsarBatchDelayInMs);
+                } else if (provider == MessagingProvider.KAFKA) {
+                    // Kafka batching is configured via provider properties
+                    log.info("Creating Kafka producer name={} with linger.ms={}ms",
+                            "cdc-producer-" + getHostId() + "-" + tm.key(), config.kafkaLingerMs);
+                }
 
                 return messagingClient.createProducer(producerBuilder.build());
             } catch (Exception e) {
