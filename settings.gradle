@@ -13,6 +13,7 @@ buildscript {
 rootProject.name = 'cassandra-source-connector'
 
 include 'messaging-api'
+include 'messaging-pulsar'
 
 include 'commons'
 

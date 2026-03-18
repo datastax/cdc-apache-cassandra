@@ -55,8 +55,6 @@ dependencies {
     configurations.all {
         resolutionStrategy {
             force "io.netty:netty-handler:${nettyVersion}"
-            force "io.netty:netty-transport-native-epoll:${nettyVersion}"
-            force "io.netty:netty-transport-native-unix-common:${nettyVersion}"
             force "io.netty:netty-codec-haproxy:${nettyVersion}"
             force "io.netty:netty-tcnative-boringssl-static:${nettyTcNativeVersion}"
             // Override the version of lz4-java to fix vulnerability
@@ -64,6 +62,11 @@ dependencies {
             dependencySubstitution {
                 substitute module('org.lz4:lz4-java') using module("at.yawk.lz4:lz4-java:${lz4javaVersion}")
             }
+        }
+        // Exclude native transport libraries from compileClasspath to avoid platform-specific resolution issues
+        if (name == 'compileClasspath') {
+            exclude group: 'io.netty', module: 'netty-transport-native-epoll'
+            exclude group: 'io.netty', module: 'netty-transport-native-unix-common'
         }
     }
 
