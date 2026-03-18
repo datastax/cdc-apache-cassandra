@@ -37,8 +37,10 @@ assemble.dependsOn(shadowJar)
 dependencies {
     implementation project(':commons')
     implementation project(':agent')
-    implementation("org.apache.avro:avro:${avroVersion}")
+    implementation project(':messaging-api')
+    implementation project(':messaging-pulsar')
 
+    implementation("org.apache.avro:avro:${avroVersion}")
     implementation("org.apache.pulsar:pulsar-client:${pulsarVersion}")
 
     compileOnly("org.apache.cassandra:cassandra-all:${cassandra3Version}")
