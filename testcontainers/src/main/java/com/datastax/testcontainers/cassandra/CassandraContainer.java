@@ -263,6 +263,17 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
                 cassandraVersion);
     }
 
+    public static CassandraContainer<?> createCassandraContainerWithAgentKafka(DockerImageName image,
+                                                                               Network network,
+                                                                               int nodeIndex,
+                                                                               String cassandraVersion,
+                                                                               String kafkaBootstrapServers) {
+        return createCassandraContainerWithAgent(image, network, nodeIndex, System.getProperty("buildDir"),
+                String.format("agent-%s", cassandraVersion),
+                String.format("kafkaBootstrapServers=%s", kafkaBootstrapServers),
+                cassandraVersion);
+    }
+
     public static CassandraContainer<?> createCassandraContainerWithAgent(DockerImageName image,
                                                                           Network network,
                                                                           int nodeIndex,
