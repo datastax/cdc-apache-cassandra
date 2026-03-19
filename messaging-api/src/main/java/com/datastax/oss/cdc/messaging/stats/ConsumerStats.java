@@ -72,4 +72,3 @@ public interface ConsumerStats {
     double getAverageProcessingLatencyMs();
 }
 
-// Made with Bob

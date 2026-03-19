@@ -87,4 +87,3 @@ public interface SchemaProvider {
     int[] getVersions(String topic) throws SchemaException;
 }
 
-// Made with Bob

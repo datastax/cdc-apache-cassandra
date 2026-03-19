@@ -47,4 +47,3 @@ public class MessagingException extends Exception {
     }
 }
 
-// Made with Bob

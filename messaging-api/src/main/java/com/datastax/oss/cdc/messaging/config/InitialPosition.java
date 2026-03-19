@@ -31,4 +31,3 @@ public enum InitialPosition {
     LATEST
 }
 
-// Made with Bob

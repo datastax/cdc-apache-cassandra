@@ -64,4 +64,3 @@ public interface ProducerStats {
     double getSendThroughput();
 }
 
-// Made with Bob

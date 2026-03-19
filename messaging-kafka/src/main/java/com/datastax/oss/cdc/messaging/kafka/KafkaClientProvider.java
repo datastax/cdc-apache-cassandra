@@ -47,4 +47,3 @@ public class KafkaClientProvider implements MessagingClientProvider {
     }
 }
 
-// Made with Bob

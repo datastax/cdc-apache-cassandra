@@ -225,4 +225,3 @@ public class KafkaSchemaProvider extends BaseSchemaProvider {
     }
 }
 
-// Made with Bob

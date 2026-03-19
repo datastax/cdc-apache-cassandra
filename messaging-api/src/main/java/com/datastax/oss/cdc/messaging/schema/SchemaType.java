@@ -56,4 +56,3 @@ public enum SchemaType {
     NONE
 }
 
-// Made with Bob
