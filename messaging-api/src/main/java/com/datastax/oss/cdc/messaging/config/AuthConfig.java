@@ -52,4 +52,3 @@ public interface AuthConfig {
     Map<String, String> getProperties();
 }
 
-// Made with Bob

@@ -32,4 +32,3 @@ test {
     useJUnitPlatform()
 }
 
-// Made with Bob

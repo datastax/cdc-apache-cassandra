@@ -134,4 +134,3 @@ public interface MessageConsumer<K, V> extends AutoCloseable {
     void close() throws MessagingException;
 }
 
-// Made with Bob

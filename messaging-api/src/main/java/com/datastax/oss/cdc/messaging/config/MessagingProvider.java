@@ -30,4 +30,3 @@ public enum MessagingProvider {
     KAFKA
 }
 
-// Made with Bob

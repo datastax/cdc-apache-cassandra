@@ -110,4 +110,3 @@ public interface ConsumerConfig<K, V> {
     Map<String, Object> getProviderProperties();
 }
 
-// Made with Bob
