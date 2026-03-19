@@ -45,4 +45,3 @@ public enum SubscriptionType {
     FAILOVER
 }
 
-// Made with Bob

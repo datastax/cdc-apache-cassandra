@@ -256,4 +256,3 @@ public abstract class AbstractMessagingClient implements MessagingClient {
     }
 }
 
-// Made with Bob

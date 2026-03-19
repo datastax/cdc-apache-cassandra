@@ -423,4 +423,3 @@ public final class KafkaConfigMapper {
     }
 }
 
-// Made with Bob

@@ -47,4 +47,3 @@ public class ConnectionException extends MessagingException {
     }
 }
 
-// Made with Bob

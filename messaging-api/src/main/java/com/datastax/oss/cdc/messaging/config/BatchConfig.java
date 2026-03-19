@@ -59,4 +59,3 @@ public interface BatchConfig {
     boolean isKeyBasedBatching();
 }
 
-// Made with Bob

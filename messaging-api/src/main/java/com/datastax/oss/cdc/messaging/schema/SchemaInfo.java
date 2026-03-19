@@ -52,4 +52,3 @@ public interface SchemaInfo {
     long getTimestamp();
 }
 
-// Made with Bob

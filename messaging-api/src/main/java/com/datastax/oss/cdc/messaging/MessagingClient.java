@@ -120,4 +120,3 @@ public interface MessagingClient extends AutoCloseable {
     void close() throws MessagingException;
 }
 
-// Made with Bob

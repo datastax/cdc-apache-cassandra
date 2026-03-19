@@ -283,4 +283,3 @@ public class KafkaMessageConsumer<K, V> extends AbstractMessageConsumer<K, V> {
     }
 }
 
-// Made with Bob

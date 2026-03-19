@@ -74,4 +74,3 @@ public interface MessageId extends Serializable, Comparable<MessageId> {
     int hashCode();
 }
 
-// Made with Bob

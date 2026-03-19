@@ -47,4 +47,3 @@ public class ConsumerException extends MessagingException {
     }
 }
 
-// Made with Bob

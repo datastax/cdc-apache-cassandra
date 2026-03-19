@@ -180,4 +180,3 @@ public class KafkaMessagingClient extends AbstractMessagingClient {
     }
 }
 
-// Made with Bob
