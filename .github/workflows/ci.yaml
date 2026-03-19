@@ -85,3 +85,55 @@ jobs:
           -PtestPulsarImage=$PULSAR_IMAGE \
           -PtestPulsarImageTag=$PULSAR_IMAGE_TAG \
           ${{ matrix.module }}:test
+
+  test-kafka:
+    needs: build
+    name: Test Kafka
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ['agent-c4']
+        jdk: ['11', '17']
+        kafkaImage: ['apache/kafka:4.2.0', 'confluentinc/cp-kafka:7.9.6', 'confluentinc/cp-kafka:8.1.0']
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up JDK ${{ matrix.jdk }}
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ matrix.jdk }}
+          distribution: 'adopt'
+
+      - name: Get project version
+        uses: HardNorth/github-version-generate@v1.4.0
+        with:
+          version-source: file
+          version-file: gradle.properties
+          version-file-extraction-pattern: '(?<=version=).+'
+
+      - name: Cache Docker layers
+        uses: actions/cache@v5
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Test with Gradle (Kafka)
+        env:
+          DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
+          DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
+        run: |
+          set -e
+          PREV_IFS=$IFS
+          IFS=':'
+          read -ra KAFKA_FULL_IMAGE <<< "${{ matrix.kafkaImage }}"
+          IFS=$PREV_IFS
+          KAFKA_IMAGE=${KAFKA_FULL_IMAGE[0]}
+          KAFKA_IMAGE_TAG=${KAFKA_FULL_IMAGE[1]}
+                    
+          ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
+          -PtestKafkaImage=$KAFKA_IMAGE \
+          -PtestKafkaImageTag=$KAFKA_IMAGE_TAG \
+          ${{ matrix.module }}:test
