@@ -77,4 +77,3 @@ public interface SchemaDefinition {
     boolean isCompatibleWith(SchemaDefinition other);
 }
 
-// Made with Bob

@@ -178,4 +178,3 @@ public abstract class KafkaSingleNodeTests {
     }
 }
 
-// Made with Bob

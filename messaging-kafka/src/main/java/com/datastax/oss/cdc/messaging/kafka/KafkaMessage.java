@@ -148,4 +148,3 @@ public class KafkaMessage<K, V> implements Message<K, V> {
     }
 }
 
-// Made with Bob

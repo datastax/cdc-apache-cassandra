@@ -49,4 +49,3 @@ public class KafkaSingleNodeC4Tests extends KafkaSingleNodeTests {
 
 }
 
-// Made with Bob

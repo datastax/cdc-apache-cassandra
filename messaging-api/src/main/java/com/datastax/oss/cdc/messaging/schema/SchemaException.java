@@ -49,4 +49,3 @@ public class SchemaException extends MessagingException {
     }
 }
 
-// Made with Bob

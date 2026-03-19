@@ -267,4 +267,3 @@ public abstract class AbstractMessageConsumer<K, V> implements MessageConsumer<K
     }
 }
 
-// Made with Bob

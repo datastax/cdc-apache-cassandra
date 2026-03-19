@@ -69,4 +69,3 @@ public class PulsarSchemaProvider extends BaseSchemaProvider {
     }
 }
 
-// Made with Bob

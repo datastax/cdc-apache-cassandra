@@ -50,4 +50,3 @@ public enum CompressionType {
     GZIP
 }
 
-// Made with Bob
