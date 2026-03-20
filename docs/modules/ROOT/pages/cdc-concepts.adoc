@@ -255,15 +255,513 @@ Both of which are Avro records themselves.
 From there you'll want to deserialize the Avro record and extract the interesting info.
 
 The following example projects demonstrate implementations for each runtime consuming messages from a CDC data topic.
+Make sure to set the connection details according to your cluster configuration.
 
-These examples are stored in the `astra-streaming-examples` repository, but they aren't specific to {astra-stream}.
-You can use these examples to consume CDC data topics in your own {cass-short}/{pulsar-short} clusters.
+[tabs]
+======
+Go::
++
+--
+.main.go
+[source,go]
+----
+include::ROOT:partial$cdc-example-main.go[]
+----
+--
 
-* svg:common::icons/logos/csharp.svg[role="icon text-xl",name="C#"] {astra-streaming-examples-repo}/blob/master/csharp/astra-cdc/Program.cs[{csharp} CDC project example]
-* svg:common::icons/logos/go.svg[role="icon text-xl",name="Go"] {astra-streaming-examples-repo}/blob/master/go/astra-cdc/main/main.go[Golang CDC project example]
-* svg:common::icons/logos/java.svg[role="icon text-xl",name="Java"] {astra-streaming-examples-repo}/blob/master/java/astra-cdc/javaexamples/consumers/CDCConsumer.java[Java CDC consumer example]
-* svg:common::icons/logos/nodejs.svg[role="icon text-xl",name="Node.js"] {astra-streaming-examples-repo}/blob/master/nodejs/astra-cdc/consumer.js[Node.js CDC consumer example]
-* svg:common::icons/logos/python.svg[role="icon text-xl",name="Python"] {astra-streaming-examples-repo}/blob/master/python/astra-cdc/cdc_consumer.py[Python CDC consumer example]
+Java::
++
+--
+.pom.xml
+[source,xml]
+----
+include::ROOT:partial$cdc-example-pom.xml[]
+----
+
+.CDCConsumer.java
+[source,java]
+----
+package com.datastax.astrastreaming.javaexamples.consumers;
+
+import org.apache.pulsar.client.api.*;
+import java.io.IOException;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.pulsar.client.api.schema.GenericRecord;
+import org.apache.pulsar.common.schema.KeyValue;
+
+public class CDCConsumer {
+
+        private static final String SERVICE_URL = "pulsar+ssl://pulsar-aws-useast2.streaming.datastax.com:6651";
+        private static final String TOPIC_NAME = "njcdcawsuseast2/astracdc/data-6ee78bd3-78af-4ddd-be73-093f38d094bd-ks1.tbl1";
+        private static final String PULSAR_TOKEN = "YOUR PULSAR TOKEN";
+        private static final String SUBSCRIPTION_NAME = "my-subscription";
+
+
+        public static void main(String[] args) throws IOException
+        {
+
+            // Create client object
+            PulsarClient client = PulsarClient.builder()
+                    .serviceUrl(SERVICE_URL)
+                    .authentication(
+                        AuthenticationFactory.token(PULSAR_TOKEN)
+                    )
+                    .build();
+
+            // Create consumer on a topic with a subscription
+            Consumer<GenericRecord> consumer = client.newConsumer(Schema.AUTO_CONSUME())
+                    .topic(TOPIC_NAME)
+                    .subscriptionName(SUBSCRIPTION_NAME)
+                    .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+                    .subscribe();
+
+            boolean receivedMsg = false;
+            // Loop until a message is received
+            do {
+                // Block for up to 1 second for a message
+                Message<GenericRecord> msg = consumer.receive(1, TimeUnit.SECONDS);
+
+                if(msg != null){
+
+                    GenericRecord input = msg.getValue();
+                    //CDC Uses KeyValue Schema
+                    KeyValue<GenericRecord, GenericRecord> keyValue = (KeyValue<GenericRecord, GenericRecord>) input.getNativeObject();
+
+                    GenericRecord keyGenRecord = keyValue.getKey();
+                    displayGenericRecordFields("key",keyGenRecord);
+
+                    GenericRecord valGenRecord = keyValue.getValue();
+                    displayGenericRecordFields("value",valGenRecord);
+
+                    // Acknowledge the message to remove it from the message backlog
+                    consumer.acknowledge(msg);
+
+                    receivedMsg = true;
+                }
+
+            } while (!receivedMsg);
+
+            //Close the consumer
+            consumer.close();
+
+            // Close the client
+            client.close();
+
+        }
+
+        private static void displayGenericRecordFields(String recordName,GenericRecord genericRecord) {
+            System.out.printf("---Fields in %s: ", recordName);
+            genericRecord.getFields().stream().forEach((fieldtmp) -> 
+                System.out.printf("%s=%s",fieldtmp.getName(),genericRecord.getField(fieldtmp) ));
+            System.out.println(" ---");
+        }
+
+}
+----
+--
+
+Python::
++
+--
+.requirements.txt
+[source,plaintext]
+----
+avro==1.11.0
+pulsar==2.0.2
+pulsar_client==2.10.0
+----
+
+.cdc_consumer.py
+[source,python]
+----
+import base64
+import io
+import json
+import re
+import time
+from urllib.request import Request, urlopen
+
+import avro.schema
+import pulsar
+from avro.io import BinaryDecoder, DatumReader
+
+import logging
+
+logging.basicConfig(
+    format='%(asctime)s.%(msecs)05d %(levelname)-8s %(message)s',
+    level=logging.INFO,
+    datefmt='%Y-%m-%d %H:%M:%S')
+
+service_url = "pulsar+ssl://pulsar-aws-useast2.streaming.datastax.com:6651"
+admin_url = "https://pulsar-aws-useast2.api.streaming.datastax.com"
+token = "YOUR PULSAR TOKEN"
+topic_name = "njcdcawsuseast2/astracdc/data-6ee78bd3-78af-4ddd-be73-093f38d094bd-ks1.tbl1"
+subscription_name = "my-subscription22"
+
+
+def http_get(url):
+    req = Request(url)
+    req.add_header("Accept", "application/json")
+    req.add_header("Authorization", "Bearer " + token)
+    return urlopen(req).read()
+
+
+def getSchema():
+    schema_url = "%s/admin/v2/schemas/%s/schema" % (admin_url, topic_name)
+    topic_schema = http_get(schema_url).decode("utf-8")
+    # This isn't great
+    # the data part of the json has extra back slashes
+    topic_schema = topic_schema.replace("\\", "")
+    topic_schema = topic_schema.replace('data":"', 'data":')
+    topic_schema = topic_schema.replace('}","properties', '},"properties')
+
+    logging.info("Topic'{}' Schema='{}'".format(topic_name, topic_schema))
+
+    schema_json = json.loads(topic_schema)
+
+    data_schema = schema_json["data"]
+
+    keyschema_json = data_schema["key"]
+    valueschema_json = data_schema["value"]
+
+    # the namespaces start with numbers and AVRO doesn't like it
+    # so strip them out for now
+    key_namespace = keyschema_json["namespace"]
+    key_namespace = re.sub("\d.*_", "", key_namespace)
+    keyschema_json["namespace"] = key_namespace
+
+    value_namespace = valueschema_json["namespace"]
+    value_namespace = re.sub("\d.*_", "", value_namespace)
+    valueschema_json["namespace"] = value_namespace
+
+    keyAvroSchema = avro.schema.Parse(json.dumps(keyschema_json))
+    valueAvroSchema = avro.schema.Parse(json.dumps(valueschema_json))
+
+    return keyAvroSchema, valueAvroSchema
+
+
+keyAvroSchema, valueAvroSchema = getSchema()
+
+keyAvroReader = DatumReader(keyAvroSchema)
+valueAvroReader = DatumReader(valueAvroSchema)
+
+
+
+
+waitingForMsg = True
+while waitingForMsg:
+    try:
+        msg = consumer.receive()
+
+        # The PartitionKey is Base64 Encoded, so it needs to be decoded
+        msgKey = msg.partition_key()
+        msgKey_decoded = base64.b64decode(msgKey)
+
+        messageKey_bytes = io.BytesIO(msgKey_decoded)
+        keydecoder = BinaryDecoder(messageKey_bytes)
+        msgKey = keyAvroReader.read(keydecoder)
+
+        message_bytes = io.BytesIO(msg.data())
+        decoder = BinaryDecoder(message_bytes)
+        msgvalue = valueAvroReader.read(decoder)
+
+        logging.info("Received message key='{}' value='{}'".format(msgKey, msgvalue))
+
+        # logging.info("Received message")
+
+        # Acknowledging the message to remove from message backlog
+        consumer.acknowledge(msg)
+
+        # waitingForMsg = False
+    except:
+        logging.info("Still waiting for a message...")
+
+
+
+client.close()
+----
+--
+
+C#::
++
+--
+.dotnet-pulsar-astracdc.csproj
+[source,xml]
+----
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <RootNamespace>dotnet_pulsar_astracdc</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Pulsar.Client" Version="2.10.3" />
+  </ItemGroup>
+
+</Project>
+----
+
+.Program.cs
+[source,csharp]
+----
+// See https://aka.ms/new-console-template for more information
+
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text.Json;
+using Pulsar.Client.Api;
+using Pulsar.Client.Common;
+
+const string SERVICE_URL = "pulsar+ssl://pulsar-gcp-uscentral1.streaming.datastax.com:6651";
+const string ADMIN_URL = "https://pulsar-gcp-uscentral1.api.streaming.datastax.com";
+const string TOPIC_NAME = "<my-super-cool-tenant>/astracdc/data-6109b1d9-0217-4783-809e-ed19d1299cbf-xxxxxx.yyyyyyy";
+const string PULSAR_TOKEN = "YOUR PULSAR TOKEN";
+const string SUBSCRIPTION_NAME = "my-subscription";
+
+//Retrieve the schemas
+var (keyAvroSchema, valueAvroSchema) = await GetSchema($"{ADMIN_URL}/admin/v2/schemas/{TOPIC_NAME}/schema");
+
+//Build the avro readers with schema info
+var keyAvroReader = new Avro.Generic.GenericDatumReader<Avro.Generic.GenericRecord>(keyAvroSchema, keyAvroSchema);
+var valueAvroReader = new Avro.Generic.GenericDatumReader<Avro.Generic.GenericRecord>(valueAvroSchema, valueAvroSchema);
+
+/*
+ *
+ * NOTE: We are using the F# Pulsar client below, but you could easily switch to the DotPulsar client. This is because the client isn't doing any decoding.
+ *   It's simply listening for a (binary) message and making the bytes available. All the decoding work is being done by the Avro libs.
+ */
+
+// Create client object
+var client = await new PulsarClientBuilder()
+	.ServiceUrl(SERVICE_URL)
+	.Authentication(
+		AuthenticationFactory.Token(PULSAR_TOKEN)
+	)
+	.BuildAsync();
+
+// Create consumer on a topic with a subscription
+var consumer = await client.NewConsumer()
+	.Topic(TOPIC_NAME)
+	.SubscriptionName(SUBSCRIPTION_NAME)
+	.SubscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+	.SubscribeAsync();
+
+var receivedMsg = false;
+
+while (!receivedMsg)
+{
+	var msg = await consumer.ReceiveAsync();
+
+	if (msg is null)
+	{
+		continue;
+	}
+
+	//The Key is Base64 Encoded, so it needs to be decoded
+	var msgKeyDecoded = Convert.FromBase64String(msg.Key);
+
+	// Stream Pulsar's binary bytes to an avro decoder and load into a reader
+	using (var keyBytes = new MemoryStream(msgKeyDecoded))
+	{
+		var keyDecoder = new Avro.IO.BinaryDecoder(keyBytes);
+		var messageKey = keyAvroReader.Read(null!, keyDecoder);
+		Console.WriteLine(@messageKey);
+	}
+
+	// Stream Pulsar's binary bytes to an avro decoder and load into a reader
+	using (var valueBytes = new MemoryStream(msg.Data))
+	{
+		var valueDecoder = new Avro.IO.BinaryDecoder(valueBytes);
+		var messageValue = valueAvroReader.Read(null!, valueDecoder);
+		Console.WriteLine(@messageValue);
+	}
+
+	// Acknowledge the message to remove it from the message backlog
+	await consumer.AcknowledgeAsync(msg.MessageId);
+
+	receivedMsg = true;
+}
+
+//Close the consumer
+await consumer.DisposeAsync();
+
+// Close the client
+await client.CloseAsync();
+
+async Task<(Avro.Schema, Avro.Schema)> GetSchema(string schemaUrl)
+{
+	using HttpClient httpClient = new();
+	httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue($"Bearer",$"{PULSAR_TOKEN}");
+	using var response = await httpClient.GetAsync(schemaUrl);
+
+	// Throw an exception if request was unsuccessful
+	response.EnsureSuccessStatusCode();
+
+	// Parse the response
+	var responseBody = await response.Content.ReadFromJsonAsync<JsonElement>();
+	var responseData = responseBody.GetProperty("data").GetString() ?? throw new Exception("Could not find a data property in json response");
+
+	// The contents of the data element in the response is a string, so we deserialize it as an object
+	var dataElement = JsonSerializer.Deserialize<JsonElement>(responseData);
+
+	var keySchema = dataElement.GetProperty("key");
+	var valueSchema = dataElement.GetProperty("value");
+
+	try
+	{
+		var keyAvroSchema = Avro.Schema.Parse(keySchema.GetRawText());
+		var valueAvroSchema = Avro.Schema.Parse(valueSchema.GetRawText());
+
+		return (keyAvroSchema, valueAvroSchema);
+	}
+	catch (Exception)
+	{
+		Console.WriteLine($"An error occurred trying to parse json schemas to avro");
+		throw;
+	}
+}
+----
+--
+
+Node.js::
++
+--
+.package.json
+[source,json]
+----
+{
+  "dependencies": {
+    "avro-js": "^1.11.0",
+    "pulsar-client": "^1.6.2"
+  }
+}
+----
+
+.consumer.js
+[source,javascript]
+----
+const Pulsar = require("pulsar-client");
+const https = require('https');
+const avro = require('avro-js');
+
+
+(async () => {
+  // Token based on authentication
+  const tokenStr =
+    " YOUR PULSAR TOKEN ";
+  const pulsarUri =
+    "pulsar+ssl://pulsar-aws-useast2.streaming.datastax.com:6651";
+  const adminUrl = "https://pulsar-aws-useast2.api.streaming.datastax.com";
+  const topicName =
+    "njcdcawsuseast2/astracdc/data-6ee78bd3-78af-4ddd-be73-093f38d094bd-ks1.tbl1";
+  const subscriptionName = "my-subscription21";
+
+
+  // CentOS RHEL:
+//   const trustStore = "/etc/ssl/certs/ca-bundle.crt";
+  // Debian Ubuntu:
+  // const trustStore = '/etc/ssl/certs/ca-certificates.crt'
+//   const trustStore = "/System/Library/Keychains/SystemCACertificates.keychain";
+
+  const auth = new Pulsar.AuthenticationToken({ token: tokenStr });
+
+  let url = adminUrl + "/admin/v2/schemas/" + topicName + "/schema"
+  var options = {
+      'headers' : {
+        'Authorization': 'Bearer ' + tokenStr
+      }
+  }
+
+  var topicSchema;
+  var keyAvroSchema;
+  var valAvroSchema;
+
+
+
+  https.get(url,options, (res) => {
+    var chunks = [];
+
+    res.on("data", function (chunk) {
+      chunks.push(chunk);
+    });
+
+    res.on("end", function (chunk) {
+      var body = Buffer.concat(chunks);
+      var bodyString = body.toString()
+      console.log(bodyString);
+      var replace = bodyString.replace(/\\/g,'');
+
+      replace = replace.replace(/"{/g,'{');
+      replace = replace.replace(/}"/g,'}');
+      console.log(replace);
+      topicSchema = JSON.parse(replace);
+
+      var keySchema = topicSchema.data.key;
+      var ns = keySchema.namespace.replace(/\d.*_/,'');
+      keySchema.namespace=ns;
+      keyAvroSchema = avro.parse(keySchema);
+
+      var valSchema = topicSchema.data.value;
+      var valns = valSchema.namespace.replace(/\d.*_/,'');
+      valSchema.namespace=valns;
+      valAvroSchema = avro.parse(valSchema);
+
+
+
+    });
+
+    res.on("error", function (error) {
+      console.error(error);
+    });
+  });
+
+  // Create a client
+  const client = new Pulsar.Client({
+    serviceUrl: pulsarUri,
+    authentication: auth,
+    // tlsTrustCertsFilePath: trustStore,
+    operationTimeoutSeconds: 30,
+  });
+
+  // Create consumer
+  const consumer = await client.subscribe({
+    topic: "persistent://"+topicName,
+    subscription: subscriptionName,
+    subscriptionType: "KeyShared",
+    subscriptionInitialPosition: "Earliest",
+    ackTimeoutMs: 10000,
+  });
+
+  // Receive and acknowledge messages
+  for (let i = 0; i < 100; i += 1) {
+    const msg = await consumer.receive();
+
+    // The PartitionKey is Base64 Encoded, so it needs to be decoded
+    let partitionKey = msg.getPartitionKey()
+    let buff = new Buffer(partitionKey,'base64')
+    let decodedPartitionKey = buff.toString('ascii')
+    console.log(decodedPartitionKey);
+
+    let decodedKey = keyAvroSchema.fromBuffer(buff)
+    console.log(decodedKey);
+
+    let decodedVal = valAvroSchema.fromBuffer(msg.getData())
+    console.log(decodedVal);
+
+    consumer.acknowledge(msg);
+  }
+
+  await consumer.close();
+  await client.close();
+})();
+----
+--
+======
 
 === {pulsar-short} functions
 
@@ -273,12 +771,391 @@ Similar to a client consumer, it needs to deserialize the message data.
 
 The following example functions consume messages from the CDC data topic.
 
-These examples are stored in the `astra-streaming-examples` repository, but they aren't specific to {astra-stream}.
-You can use these examples for functions for your own {cass-short}/{pulsar-short} clusters.
+[tabs]
+======
+Go::
++
+--
+.main.go
+[source,go]
+----
+include::ROOT:partial$cdc-example-main.go[]
+----
+--
 
-* svg:common::icons/logos/go.svg[role="icon text-xl",name="Go"] {astra-streaming-examples-repo}/blob/master/go/astra-cdc/main/main.go[Golang CDC project example]
-* svg:common::icons/logos/java.svg[role="icon text-xl",name="Java"] {astra-streaming-examples-repo}/blob/master/java/astra-cdc/javaexamples/functions/CDCFunction.java[Java CDC function example]
-* svg:common::icons/logos/python.svg[role="icon text-xl",name="Python"] {astra-streaming-examples-repo}/blob/master/python/cdc-in-pulsar-function/deschemaer.py[Python CDC function example]
+Java::
++
+--
+.pom.xml
+[source,xml]
+----
+include::ROOT:partial$cdc-example-pom.xml[]
+----
+
+./utils/JsonConverter.java
+[source,java]
+----
+package com.datastax.astrastreaming.javaexamples.utils;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericFixed;
+import org.apache.avro.generic.GenericRecord;
+
+import java.util.*;
+
+
+/**
+ * Convert an AVRO GenericRecord to a JsonNode.
+ */
+public class JsonConverter {
+
+    private static Map<String, LogicalTypeConverter> logicalTypeConverters = new HashMap<>();
+    private static final JsonNodeFactory jsonNodeFactory = JsonNodeFactory.withExactBigDecimals(true);
+
+    public static JsonNode topLevelMerge(JsonNode n1, JsonNode n2) {
+        ObjectNode objectNode = jsonNodeFactory.objectNode();
+        n1.fieldNames().forEachRemaining(f -> objectNode.put(f, n1.get(f)));
+        n2.fieldNames().forEachRemaining(f -> objectNode.put(f, n2.get(f)));
+        return objectNode;
+    }
+
+    public static ObjectNode toJson(GenericRecord genericRecord) {
+        if (genericRecord == null) {
+            return null;
+        }
+        ObjectNode objectNode = jsonNodeFactory.objectNode();
+        for(Schema.Field field: genericRecord.getSchema().getFields()) {
+            objectNode.set(field.name(), toJson(field.schema(), genericRecord.get(field.name())));
+        }
+        return objectNode;
+    }
+
+    public static JsonNode toJson(Schema schema, Object value) {
+        if (value == null) {
+            return jsonNodeFactory.nullNode();
+        }
+        if (schema.getLogicalType() != null) {
+            if (logicalTypeConverters.containsKey(schema.getLogicalType().getName())) {
+                return logicalTypeConverters.get(schema.getLogicalType().getName()).toJson(schema, value);
+            }
+        }
+        try {
+            switch (schema.getType()) {
+                case NULL: // this should not happen
+                    return jsonNodeFactory.nullNode();
+                case INT:
+                    return jsonNodeFactory.numberNode((Integer) value);
+                case LONG:
+                    return jsonNodeFactory.numberNode((Long) value);
+                case DOUBLE:
+                    return jsonNodeFactory.numberNode((Double) value);
+                case FLOAT:
+                    return jsonNodeFactory.numberNode((Float) value);
+                case BOOLEAN:
+                    return jsonNodeFactory.booleanNode((Boolean) value);
+                case BYTES:
+                    return jsonNodeFactory.binaryNode((byte[]) value);
+                case FIXED:
+                    return jsonNodeFactory.binaryNode(((GenericFixed) value).bytes());
+                case ARRAY: {
+                    Schema elementSchema = schema.getElementType();
+                    ArrayNode arrayNode = jsonNodeFactory.arrayNode();
+                    Object[] iterable;
+                    if (value instanceof GenericData.Array) {
+                        iterable = ((GenericData.Array) value).toArray();
+                    } else {
+                        iterable = (Object[]) value;
+                    }
+                    for (Object elem : iterable) {
+                        JsonNode fieldValue = toJson(elementSchema, elem);
+                        arrayNode.add(fieldValue);
+                    }
+                    return arrayNode;
+                }
+                case MAP: {
+                    Map<Object, Object> map = (Map<Object, Object>) value;
+                    ObjectNode objectNode = jsonNodeFactory.objectNode();
+                    for (Map.Entry<Object, Object> entry : map.entrySet()) {
+                        JsonNode jsonNode = toJson(schema.getValueType(), entry.getValue());
+                        // can be a String or org.apache.avro.util.Utf8
+                        final String entryKey = entry.getKey() == null ? null : entry.getKey().toString();
+                        objectNode.set(entryKey, jsonNode);
+                    }
+                    return objectNode;
+                }
+                case RECORD:
+                    return toJson( (GenericRecord) value);
+                case UNION:
+                    for (Schema s : schema.getTypes()) {
+                        if (s.getType() == Schema.Type.NULL)
+                            continue;
+                        return toJson( s, value);
+                    }
+                    // this case should not happen
+                    return jsonNodeFactory.textNode(value.toString());
+                case ENUM: // GenericEnumSymbol
+                case STRING:  // can be a String or org.apache.avro.util.Utf8
+                    return jsonNodeFactory.textNode(value.toString());
+                default:
+                    return jsonNodeFactory.nullNode();
+
+            }
+        } catch (ClassCastException error) {
+            throw new IllegalArgumentException("Error while converting a value of type " + value.getClass() + " to a " + schema.getType()
+                    + ": " + error, error);
+        }
+    }
+
+    abstract static class LogicalTypeConverter {
+        abstract JsonNode toJson(Schema schema, Object value);
+    }
+
+    private static void checkType(Object value, String name, Class expected) {
+        if (value == null) {
+            throw new IllegalArgumentException("Invalid type for " + name + ", expected " + expected.getName() + " but was NULL");
+        }
+        if (!expected.isInstance(value)) {
+            throw new IllegalArgumentException("Invalid type for " + name + ", expected " + expected.getName() + " but was " + value.getClass());
+        }
+    }
+
+    static {
+        logicalTypeConverters.put("date", new JsonConverter.LogicalTypeConverter() {
+            @Override
+            JsonNode toJson(Schema schema, Object value) {
+                checkType(value, "date", Integer.class);
+                Integer daysFromEpoch = (Integer)value;
+                return jsonNodeFactory.numberNode(daysFromEpoch);
+            }
+        });
+        logicalTypeConverters.put("time-millis", new JsonConverter.LogicalTypeConverter() {
+            @Override
+            JsonNode toJson(Schema schema, Object value) {
+                checkType(value, "time-millis", Integer.class);
+                Integer timeMillis = (Integer)value;
+                return jsonNodeFactory.numberNode(timeMillis);
+            }
+        });
+        logicalTypeConverters.put("time-micros", new JsonConverter.LogicalTypeConverter() {
+            @Override
+            JsonNode toJson(Schema schema, Object value) {
+                checkType(value, "time-micros", Long.class);
+                Long timeMicro = (Long)value;
+                return jsonNodeFactory.numberNode(timeMicro);
+            }
+        });
+        logicalTypeConverters.put("timestamp-millis", new JsonConverter.LogicalTypeConverter() {
+            @Override
+            JsonNode toJson(Schema schema, Object value) {
+                checkType(value, "timestamp-millis", Long.class);
+                Long epochMillis = (Long)value;
+                return jsonNodeFactory.numberNode(epochMillis);
+            }
+        });
+        logicalTypeConverters.put("timestamp-micros", new JsonConverter.LogicalTypeConverter() {
+            @Override
+            JsonNode toJson(Schema schema, Object value) {
+                checkType(value, "timestamp-micros", Long.class);
+                Long epochMillis = (Long)value;
+                return jsonNodeFactory.numberNode(epochMillis);
+            }
+        });
+        logicalTypeConverters.put("uuid", new JsonConverter.LogicalTypeConverter() {
+            @Override
+            JsonNode toJson(Schema schema, Object value) {
+                return jsonNodeFactory.textNode(value == null ? null : value.toString());
+            }
+        });
+    }
+
+    public static ArrayNode toJsonArray(JsonNode jsonNode, List<String> fields) {
+        ArrayNode arrayNode = jsonNodeFactory.arrayNode();
+        Iterator<String> it = jsonNode.fieldNames();
+        while (it.hasNext()) {
+            String fieldName = it.next();
+            if (fields.contains(fieldName)) {
+                arrayNode.add(jsonNode.get(fieldName));
+            }
+        }
+        return arrayNode;
+    }
+}
+----
+
+.CDCFunction.java
+[source,java]
+----
+package com.datastax.astrastreaming.javaexamples.functions;
+
+
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.pulsar.client.api.schema.GenericRecord;
+import org.apache.pulsar.client.api.schema.GenericObject;
+import org.apache.pulsar.functions.api.Context;
+import org.apache.pulsar.functions.api.Function;
+import org.apache.pulsar.common.schema.KeyValue;
+import com.datastax.astrastreaming.javaexamples.utils.JsonConverter;;
+
+
+/**
+ * Function that Consumes a CDC data topic and ouputs it as a json string
+ */
+public class CDCFunction implements Function<GenericObject, String> {
+
+
+
+    @Override
+    public String process(GenericObject input, Context context) {
+        try {
+            KeyValue<GenericRecord, GenericRecord> keyValue = (KeyValue<GenericRecord, GenericRecord>) input.getNativeObject();
+
+            GenericRecord keyGenObject = keyValue.getKey();
+            GenericRecord valGenObject = keyValue.getValue();
+
+
+            ObjectNode keyNode = JsonConverter.toJson((org.apache.avro.generic.GenericRecord) keyGenObject.getNativeObject());
+            ObjectNode valNode = JsonConverter.toJson((org.apache.avro.generic.GenericRecord) valGenObject.getNativeObject());
+
+            keyNode.setAll(valNode);
+
+            String json = keyNode.toPrettyString();
+            return json;
+        } catch (Throwable t) {
+            throw new RuntimeException(t);
+        }
+    }
+
+
+}
+----
+--
+
+Python::
++
+--
+The following function decodes the content of CDC events as plain JSON.
+For the full context of this example, see the https://github.com/hemidactylus/decoding-cdc-astra-streaming-functions[Decoding CDC {astra-stream} functions repository]
+
+.deschemaer.py
+[source,python]
+----
+import base64
+import json
+import io
+import avro.schema
+from avro.io import BinaryDecoder, DatumReader
+#
+from pulsar import Function
+
+
+## helpers
+keySchemaDict = {
+    "type": "record",
+    "name": "reviews",
+    "fields": [
+        {
+            "name": "hotel",
+            "type": "string",
+        },
+        {
+            "name": "id",
+            "type": [
+                "null",
+                {
+                    "type": "string",
+                    "logicalType": "uuid",
+                },
+            ],
+            "default": None,
+        },
+    ],
+}
+
+valueSchemaDict = {
+    "type": "record",
+    "name": "reviews",
+    "fields": [
+        {
+            "name": "body",
+            "type": [
+                "null",
+                "string"
+            ],
+            "default": None
+        },
+        {
+            "name": "reviewer",
+            "type": [
+                "null",
+                "string"
+            ],
+            "default": None
+        },
+        {
+            "name": "is_valid",
+            "type": [
+                "null",
+                "boolean"
+            ],
+            "default": None
+        },
+        {
+            "name": "score",
+            "type": [
+                "null",
+                "int"
+            ],
+            "default": None
+        }
+    ]
+}
+
+
+def createAvroReader(schemaDict):
+    return DatumReader(avro.schema.make_avsc_object(schemaDict))
+
+
+def bytesToReadDict(by, avroReader):
+    binDecoded = BinaryDecoder(io.BytesIO(by))
+    return avroReader.read(binDecoded)
+
+
+def b64ToReadDict(b64string, avroReader):
+    b64Decoded = base64.b64decode(b64string)
+    return bytesToReadDict(b64Decoded, avroReader)
+
+
+def cdcMessageToDictPF(pk, body, keyReader, valueReader):
+    # Body can be a 'str' or 'bytes' already depending on the length
+    # of the input fields in the table insert.
+    #       ¯\_(ツ)_/¯
+    # Take care of this:
+    encodedBody = body if isinstance(body, bytes) else body.encode()
+    #
+    return {
+        **bytesToReadDict(base64.b64decode(pk), keyReader),
+        **bytesToReadDict(encodedBody, valueReader),
+    }
+
+
+class Deschemaer(Function):
+
+    def __init__(self):
+        self.keyReader = createAvroReader(keySchemaDict)
+        self.valueReader = createAvroReader(valueSchemaDict)
+
+    def process(self, msgBody, context):
+        msgPK = context.get_partition_key()
+        msgDict = cdcMessageToDictPF(msgPK, msgBody, self.keyReader, self.valueReader)
+        return json.dumps(msgDict)
+----
+--
+======
 
 == See also
 

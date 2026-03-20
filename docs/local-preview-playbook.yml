@@ -79,7 +79,6 @@ asciidoc:
     astra-stream: 'Astra Streaming'
     starlight-kafka: 'Starlight for Kafka'
     starlight-rabbitmq: 'Starlight for RabbitMQ'
-    astra-streaming-examples-repo: 'https://github.com/datastax/astra-streaming-examples'
     sstable-sideloader: '{astra-db} Sideloader'
     zdm: 'Zero Downtime Migration'
     zdm-short: 'ZDM'
