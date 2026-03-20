@@ -289,11 +289,11 @@ public abstract class AbstractMessagingMutationSender<T> implements MutationSend
                     .build();
 
                 // Build producer configuration
-                ProducerConfigBuilder<byte[], MutationValue> producerBuilder = 
+                ProducerConfigBuilder<byte[], MutationValue> producerBuilder =
                     ProducerConfigBuilder.<byte[], MutationValue>builder()
                         .topic(k)
                         .producerName("cdc-producer-" + getHostId() + "-" + tm.key())
-                        .sendTimeoutMs(0)
+                        .sendTimeoutMs(30000) // 30 seconds (Pulsar default when timeout=0 means no timeout)
                         .maxPendingMessages(config.pulsarMaxPendingMessages)
                         .blockIfQueueFull(true)
                         .keySchema(keySchema)
