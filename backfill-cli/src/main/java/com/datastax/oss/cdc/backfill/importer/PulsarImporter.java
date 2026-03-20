@@ -105,9 +105,10 @@ public class PulsarImporter {
 
     /**
      * The maximum number of in-flight pulsar messages currently being imported
+     * This should match AbstractPulsarMutationSender.maxInflightMessages default value
      */
     @VisibleForTesting
-    public static final int MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING = 1000;
+    public static final int MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING = 1002;
 
     private final AtomicInteger sentMutations = new AtomicInteger(0);
     private final AtomicInteger sentErrors = new AtomicInteger(0);
