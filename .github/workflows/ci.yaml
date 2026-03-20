@@ -41,7 +41,7 @@ jobs:
     timeout-minutes: 90  # PHASE 1: Reduced from 360 to 90 minutes for faster failure detection
     strategy:
       fail-fast: false
-      max-parallel: 10  # PHASE 1: Limit parallel test execution
+      #max-parallel: 10  # PHASE 1: Limit parallel test execution
       matrix:
         module: ['agent', 'agent-c3', 'agent-c4', 'agent-dse4', 'connector']
         jdk: ['11', '17']
