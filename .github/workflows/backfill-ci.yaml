@@ -30,6 +30,8 @@ jobs:
         env:
           DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
           DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
+          MAVEN_OPTS: "-Xmx2g -XX:MaxMetaspaceSize=512m"  # PHASE 1: Limit JVM memory
+          GRADLE_OPTS: "-Xmx2g -Dorg.gradle.daemon=false"  # PHASE 1: Limit Gradle memory
         run: |
           ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
           backfill-cli:build
@@ -72,6 +74,8 @@ jobs:
         env:
           DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
           DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
+          MAVEN_OPTS: "-Xmx2g -XX:MaxMetaspaceSize=512m"  # PHASE 1: Limit JVM memory
+          GRADLE_OPTS: "-Xmx2g -Dorg.gradle.daemon=false"  # PHASE 1: Limit Gradle memory
         run: |
           set -e
           PREV_IFS=$IFS
