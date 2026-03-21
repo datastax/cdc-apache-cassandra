@@ -20,6 +20,7 @@ import com.datastax.oss.cdc.MutationValue;
 import com.datastax.oss.cdc.agent.exceptions.CassandraConnectorSchemaException;
 import com.datastax.oss.cdc.Constants;
 import com.datastax.oss.cdc.Murmur3MessageRouter;
+import com.datastax.oss.cdc.NativeSchemaWrapper;
 import com.datastax.oss.cdc.messaging.MessagingClient;
 import com.datastax.oss.cdc.messaging.MessagingException;
 import com.datastax.oss.cdc.messaging.MessageId;
@@ -51,7 +52,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Abstract base class for mutation senders using messaging abstraction layer.
  * Replaces AbstractPulsarMutationSender with provider-agnostic implementation.
- * 
+ *
  * @param <T> Column metadata type (version-specific)
  */
 @Slf4j
@@ -271,20 +272,29 @@ public abstract class AbstractMessagingMutationSender<T> implements MutationSend
             try {
                 SchemaAndWriter schemaAndWriter = getAvroKeySchema(tm);
                 
-                // Build key schema definition
+                // Build key schema definition with NativeSchemaWrapper for Pulsar
+                // NativeSchemaWrapper implements org.apache.pulsar.client.api.Schema<byte[]>
+                NativeSchemaWrapper pulsarKeySchema = new NativeSchemaWrapper(
+                    schemaAndWriter.schema,
+                    org.apache.pulsar.common.schema.SchemaType.AVRO
+                );
+                
                 SchemaDefinition keySchema = BaseSchemaDefinition.builder()
                     .type(SchemaType.AVRO)
                     .schemaDefinition(schemaAndWriter.schema.toString())
-                    .nativeSchema(schemaAndWriter.schema)
+                    .nativeSchema(pulsarKeySchema)  // Store Pulsar schema, not Avro schema
                     .name(tm.key())
                     .build();
                 
                 // Build value schema definition (MutationValue as AVRO)
-                org.apache.avro.Schema valueAvroSchema = org.apache.avro.Schema.create(org.apache.avro.Schema.Type.BYTES);
+                // Use Pulsar's built-in AVRO schema for MutationValue
+                org.apache.pulsar.client.api.Schema<MutationValue> pulsarValueSchema =
+                    org.apache.pulsar.client.api.Schema.AVRO(MutationValue.class);
+                
                 SchemaDefinition valueSchema = BaseSchemaDefinition.builder()
                     .type(SchemaType.AVRO)
-                    .schemaDefinition(valueAvroSchema.toString())
-                    .nativeSchema(valueAvroSchema)
+                    .schemaDefinition("MutationValue")  // Schema name
+                    .nativeSchema(pulsarValueSchema)  // Store Pulsar schema
                     .name("MutationValue")
                     .build();
 
