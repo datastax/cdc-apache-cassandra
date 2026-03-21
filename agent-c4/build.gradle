@@ -35,6 +35,8 @@ shadowJar {
     manifest {
         inheritFrom project.tasks.jar.manifest
     }
+    // Merge service provider files for SPI
+    mergeServiceFiles()
 }
 
 jar.enabled = true
