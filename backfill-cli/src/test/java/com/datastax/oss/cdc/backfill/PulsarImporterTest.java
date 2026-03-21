@@ -205,7 +205,7 @@ public class PulsarImporterTest {
         Connector connector = Mockito.mock(Connector.class);
         Resource resource = Mockito.mock(Resource.class);
         Record record = Mockito.mock(Record.class);
-        Record[] records = new Record[MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING / 2 + 1];
+        Record[] records = new Record[MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING / 2];
         Arrays.fill(records, record);
         Mockito.when(resource.read()).thenReturn(Flux.just(records));
         Mockito.when(connector.read()).thenReturn(Flux.just(resource, resource));
@@ -213,14 +213,14 @@ public class PulsarImporterTest {
         ConnectorFactory connectorFactory = Mockito.mock(ConnectorFactory.class);
         Mockito.when(connectorFactory.newCVSConnector()).thenReturn(connector);
 
-        CompletableFuture<MessageId>[] futures = new CompletableFuture[MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING + 2];
-        for (int i = 0; i < MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING + 2; i++) {
+        CompletableFuture<MessageId>[] futures = new CompletableFuture[MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING];
+        for (int i = 0; i < MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING; i++) {
             futures[i] = new CompletableFuture<>();
             // note that Arrays.fill(futures, new CompletableFuture<>()) will reuse the same future object
         }
 
-        int beforeLastFutureIndex = MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING;
-        int lastFutureIndex = MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING + 1;
+        int beforeLastFutureIndex = MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING - 2;
+        int lastFutureIndex = MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING - 1;
         CompletableFuture<MessageId> beforeLastfuture = futures[beforeLastFutureIndex];
         CompletableFuture<MessageId> lastFuture = futures[lastFutureIndex];
 
@@ -236,20 +236,20 @@ public class PulsarImporterTest {
         CompletableFuture<ExitStatus> importFuture =
                 CompletableFuture.supplyAsync(() -> importer.importTable());
         // then
-        // since MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING + 2 futures are in-flight, the import should be blocked
+        // since MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING futures are in-flight, the import should be blocked
         assertImportBlocked(importFuture);
 
         // at this point, mutation sender should've been invoked exactly MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING times
         Mockito.verify(sender, Mockito.times(MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING))
                 .sendMutationAsync(Mockito.any());
 
-        // release MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING futures
-        for (int i = 0; i < MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING; i++) {
+        // release MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING - 2 futures
+        for (int i = 0; i < MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING - 2; i++) {
             futures[i].complete(new MessageIdImpl(i, i, i));
         }
 
         // at this point, all records should've been sent to pulsar (but not yet complete)
-        Mockito.verify(sender, Mockito.times(MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING + 2))
+        Mockito.verify(sender, Mockito.times(MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING))
                 .sendMutationAsync(Mockito.any());
 
         assertImportBlocked(importFuture);
