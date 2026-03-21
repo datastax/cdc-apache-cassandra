@@ -241,8 +241,10 @@ public class PulsarImporterTest {
             // note that Arrays.fill(futures, new CompletableFuture<>()) will reuse the same future object
         }
 
-        int beforeLastFutureIndex = MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING;
-        int lastFutureIndex = MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING + 1;
+        // The test creates MAX_INFLIGHT + 2 records, but only MAX_INFLIGHT can be in-flight at once
+        // So we expect MAX_INFLIGHT to be sent initially, then 2 more after some complete
+        int beforeLastFutureIndex = MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING - 2;
+        int lastFutureIndex = MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING - 1;
         CompletableFuture<MessageId> beforeLastfuture = futures[beforeLastFutureIndex];
         CompletableFuture<MessageId> lastFuture = futures[lastFutureIndex];
 
@@ -265,8 +267,8 @@ public class PulsarImporterTest {
         Mockito.verify(sender, Mockito.times(MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING))
                 .sendMutationAsync(Mockito.any());
 
-        // release MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING futures
-        for (int i = 0; i < MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING; i++) {
+        // release MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING - 2 futures (all except the last 2)
+        for (int i = 0; i < MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING - 2; i++) {
             futures[i].complete(new MessageIdImpl(i, i, i));
         }
 
@@ -275,6 +277,7 @@ public class PulsarImporterTest {
         // run on the test thread, but the sender works on the default thread pool for the reactor flux
         assertImportBlocked(importFuture);
         // at this point, all records should've been sent to pulsar (but not yet complete)
+        // We released MAX_INFLIGHT - 2, so 2 more should have been sent (total MAX_INFLIGHT + 2)
         Mockito.verify(sender, Mockito.times(MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING + 2))
                 .sendMutationAsync(Mockito.any());
 
