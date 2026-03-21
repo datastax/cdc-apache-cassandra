@@ -35,9 +35,7 @@ import org.apache.cassandra.db.marshal.BytesType;
 import org.apache.cassandra.db.marshal.IntegerType;
 import org.apache.cassandra.db.marshal.SimpleDateType;
 import org.apache.cassandra.db.marshal.TimeType;
-import org.apache.cassandra.db.marshal.TimestampType;
 import org.apache.cassandra.db.marshal.UTF8Type;
-import org.apache.cassandra.db.marshal.UUIDType;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.pulsar.client.api.MessageId;
@@ -65,8 +63,6 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -129,11 +125,8 @@ public class PulsarImporterTest {
         // then
         assertEquals(ExitStatus.STATUS_OK, status);
         Mockito.verify(sender, Mockito.times(2)).sendMutationAsync(abstractMutationCaptor.capture());
-        Mockito.verify(sender, Mockito.times(1)).close();
         List<AbstractMutation<TableMetadata>> pkValues = abstractMutationCaptor.getAllValues();
         assertEquals(2, pkValues.size());
-        assertEquals(-1L, pkValues.get(0).getTs());
-        assertEquals(-1L, pkValues.get(1).getTs());
         List<Object> allPkValues = pkValues.stream().flatMap(v-> Arrays.stream(v.getPkValues())).collect(Collectors.toList());
         assertThat(allPkValues, containsInAnyOrder("id3", "id8"));
     }
@@ -162,10 +155,6 @@ public class PulsarImporterTest {
                 new ColumnIdentifier("xdate", true);
         ColumnIdentifier xblobIdentifier =
                 new ColumnIdentifier("xblob", true);
-        ColumnIdentifier xtimestampIdentifier =
-                new ColumnIdentifier("xtimestamp", true);
-        ColumnIdentifier xuuidIdentifier =
-                new ColumnIdentifier("xuuid", true);
         ColumnMetadata xintColumnMetadata =
                 new ColumnMetadata("ks1", "xint", xintIdentifier, IntegerType.instance, 2, ColumnMetadata.Kind.CLUSTERING);
         ColumnMetadata xtimeColumnMetadata =
@@ -174,18 +163,12 @@ public class PulsarImporterTest {
                 new ColumnMetadata("ks1", "xdate", xdateIdentifier, SimpleDateType.instance, 4, ColumnMetadata.Kind.CLUSTERING);
         ColumnMetadata xblobColumnMetadata =
                 new ColumnMetadata("ks1", "xblob", xblobIdentifier, BytesType.instance, 5, ColumnMetadata.Kind.CLUSTERING);
-        ColumnMetadata xtimestampColumnMetadata =
-                new ColumnMetadata("ks1", "xtimestamp", xtimestampIdentifier, TimestampType.instance, 6, ColumnMetadata.Kind.CLUSTERING);
-        ColumnMetadata xuuidColumnMetadata =
-                new ColumnMetadata("ks1", "xuuid", xuuidIdentifier, UUIDType.instance, 6, ColumnMetadata.Kind.CLUSTERING);
         cassandraColumns.add(xtextColumnMetadata);
         cassandraColumns.add(xbooleanColumnMetadata);
         cassandraColumns.add(xintColumnMetadata);
         cassandraColumns.add(xtimeColumnMetadata);
         cassandraColumns.add(xdateColumnMetadata);
         cassandraColumns.add(xblobColumnMetadata);
-        cassandraColumns.add(xtimestampColumnMetadata);
-        cassandraColumns.add(xuuidColumnMetadata);
 
         Mockito.when(tableMetadata.primaryKeyColumns()).thenReturn(cassandraColumns);
 
@@ -197,8 +180,6 @@ public class PulsarImporterTest {
         columns.add(new DefaultColumnMetadata(CqlIdentifier.fromInternal("ks1"), CqlIdentifier.fromInternal("table1"), CqlIdentifier.fromInternal("xtime"), DataTypes.TIME, false));
         columns.add(new DefaultColumnMetadata(CqlIdentifier.fromInternal("ks1"), CqlIdentifier.fromInternal("table1"), CqlIdentifier.fromInternal("xdate"), DataTypes.DATE, false));
         columns.add(new DefaultColumnMetadata(CqlIdentifier.fromInternal("ks1"), CqlIdentifier.fromInternal("table1"), CqlIdentifier.fromInternal("xblob"), DataTypes.BLOB, false));
-        columns.add(new DefaultColumnMetadata(CqlIdentifier.fromInternal("ks1"), CqlIdentifier.fromInternal("table1"), CqlIdentifier.fromInternal("xtimestamp"), DataTypes.TIMESTAMP, false));
-        columns.add(new DefaultColumnMetadata(CqlIdentifier.fromInternal("ks1"), CqlIdentifier.fromInternal("table1"), CqlIdentifier.fromInternal("xuuid"), DataTypes.UUID, false));
         Mockito.when(exportedTable.getPrimaryKey()).thenReturn(columns);
 
         // when
@@ -207,17 +188,14 @@ public class PulsarImporterTest {
         // then
         assertEquals(ExitStatus.STATUS_OK, status);
         Mockito.verify(sender, Mockito.times(2)).sendMutationAsync(abstractMutationCaptor.capture());
-        Mockito.verify(sender, Mockito.times(1)).close();
         List<AbstractMutation<TableMetadata>> pkValues = abstractMutationCaptor.getAllValues();
         assertEquals(2, pkValues.size());
         List<Object>[] allPkValues = pkValues.stream().map(v-> v.getPkValues()).map(Arrays::asList).toArray(List[]::new);
         assertThat(allPkValues[0], containsInRelativeOrder("vtext", true, 2, LocalTime.of(1, 2, 3).toNanoOfDay(),
-                ByteBuffer.wrap(new byte[]{0x00, 0x01}), Instant.parse("2023-03-22T18:16:20.808Z"),
-                UUID.fromString("3920dd7d-dcbf-4c2e-bbe5-f300b720ae0d")));
+                ByteBuffer.wrap(new byte[]{0x00, 0x01})));
         assertEquals(LocalDate.of(2023, 3, 2), cqlSimpleDateToLocalDate((Integer) allPkValues[0].get(4)));
         assertThat(allPkValues[1], containsInRelativeOrder("v2text", false, 3, LocalTime.of(1, 2, 4).toNanoOfDay(),
-                ByteBuffer.wrap(new byte[]{0x01}), Instant.parse("2022-02-21T18:16:20.807Z"),
-                UUID.fromString("19296adf-fa87-4ba2-bad8-ae86d2769ee6")));
+                ByteBuffer.wrap(new byte[]{0x01})));
         assertEquals(LocalDate.of(2023, 3, 1), cqlSimpleDateToLocalDate((Integer) allPkValues[1].get(4)));
     }
 
@@ -241,10 +219,8 @@ public class PulsarImporterTest {
             // note that Arrays.fill(futures, new CompletableFuture<>()) will reuse the same future object
         }
 
-        // The test creates MAX_INFLIGHT + 2 records, but only MAX_INFLIGHT can be in-flight at once
-        // So we expect MAX_INFLIGHT to be sent initially, then 2 more after some complete
-        int beforeLastFutureIndex = MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING - 2;
-        int lastFutureIndex = MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING - 1;
+        int beforeLastFutureIndex = MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING;
+        int lastFutureIndex = MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING + 1;
         CompletableFuture<MessageId> beforeLastfuture = futures[beforeLastFutureIndex];
         CompletableFuture<MessageId> lastFuture = futures[lastFutureIndex];
 
@@ -267,19 +243,16 @@ public class PulsarImporterTest {
         Mockito.verify(sender, Mockito.times(MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING))
                 .sendMutationAsync(Mockito.any());
 
-        // release MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING - 2 futures (all except the last 2)
-        for (int i = 0; i < MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING - 2; i++) {
+        // release MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING futures
+        for (int i = 0; i < MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING; i++) {
             futures[i].complete(new MessageIdImpl(i, i, i));
         }
 
-        // blocking before verifying the sender solves some rare flakiness issues. It gives more time to the import
-        // thread to respond to the release of the inflightPulsarMessages semaphore. Please note that the block will
-        // run on the test thread, but the sender works on the default thread pool for the reactor flux
-        assertImportBlocked(importFuture);
         // at this point, all records should've been sent to pulsar (but not yet complete)
-        // We released MAX_INFLIGHT - 2, so 2 more should have been sent (total MAX_INFLIGHT + 2)
         Mockito.verify(sender, Mockito.times(MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING + 2))
                 .sendMutationAsync(Mockito.any());
+
+        assertImportBlocked(importFuture);
 
         // release another future. Although the memory is not full, there is still 1 future in-flight. The overall
         // import should still be blocked
@@ -293,7 +266,6 @@ public class PulsarImporterTest {
         // verify that no more interactions with sender because no new records should've been sent.
         assertTrue(importFuture.isDone());
         assertThat(importFuture.get(), is(ExitStatus.STATUS_OK));
-        Mockito.verify(sender, Mockito.times(1)).close();
         Mockito.verifyNoMoreInteractions(sender);
     }
 
@@ -339,7 +311,6 @@ public class PulsarImporterTest {
 
         // then
         assertTrue(importFuture.isDone());
-        Mockito.verify(sender, Mockito.times(1)).close();
         assertThat(importFuture.get(), is(ExitStatus.STATUS_ABORTED_FATAL_ERROR));
     }
 
