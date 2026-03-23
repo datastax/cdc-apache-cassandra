@@ -22,7 +22,6 @@ asciidoc:
     opscenter: 'DSE OpsCenter'
     astra-db: 'Astra DB'
     astra-stream: 'Astra Streaming'
-    astra-streaming-examples-repo: 'https://github.com/datastax/astra-streaming-examples'
     scb: 'Secure Connect Bundle (SCB)'
     dsbulk-repo: 'https://github.com/datastax/dsbulk'
     dsbulk: 'DataStax Bulk Loader (DSBulk)'
