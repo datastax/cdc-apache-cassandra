@@ -12,6 +12,9 @@ dependencies {
     if (project.hasProperty("dse4")) {
         release project(path: ':agent-dse4', configuration: 'shadow')
     }
+    if (project.hasProperty("hcd")) {
+        release project(path: ':agent-hcd', configuration: 'shadow')
+    }
 }
 
 distributions {
