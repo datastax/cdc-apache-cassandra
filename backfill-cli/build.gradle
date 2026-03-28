@@ -66,6 +66,7 @@ sourceSets {
 dependencies {
     implementation project(':agent-c4')
     implementation project(':agent')
+    implementation project(':messaging-api')
 
     implementation "com.datastax.oss:dsbulk-config:${dsbulkVersion}"
     implementation "com.datastax.oss:dsbulk-runner:${dsbulkVersion}"

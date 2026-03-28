@@ -40,9 +40,15 @@ configurations {
 dependencies {
     custom project(':commons')
     custom project(':agent')
+    custom project(':messaging-api')
+    custom project(':messaging-pulsar')
+    custom project(':messaging-kafka')
 
     implementation project(':commons')
     implementation project(':agent')
+    implementation project(':messaging-api')
+    implementation project(':messaging-pulsar')
+    implementation project(':messaging-kafka')
 
     implementation("org.apache.avro:avro:${avroVersion}")
     implementation("${pulsarGroup}:pulsar-client:${pulsarVersion}")
@@ -84,6 +90,8 @@ shadowJar {
         inheritFrom project.tasks.jar.manifest
     }
     configurations = [project.configurations.custom]
+    // Merge service provider files for SPI
+    mergeServiceFiles()
     // relocate AVRO because dse-db depends on avro 1.7.7
     relocate 'org.apache.avro', 'com.datastax.oss.cdc.avro'
 }

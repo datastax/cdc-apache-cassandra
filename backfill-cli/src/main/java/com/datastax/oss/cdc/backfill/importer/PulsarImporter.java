@@ -22,7 +22,6 @@ import com.datastax.oss.cdc.agent.PulsarMutationSender;
 import com.datastax.oss.cdc.agent.exceptions.CassandraConnectorSchemaException;
 import com.datastax.oss.cdc.backfill.ExitStatus;
 import com.datastax.oss.cdc.backfill.exporter.ExportedTable;
-import com.datastax.oss.cdc.backfill.factory.CodecFactory;
 import com.datastax.oss.cdc.backfill.factory.ConnectorFactory;
 import com.datastax.oss.cdc.backfill.factory.PulsarMutationSenderFactory;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
@@ -30,7 +29,6 @@ import com.datastax.oss.driver.api.core.type.reflect.GenericType;
 import com.datastax.oss.driver.shaded.guava.common.annotations.VisibleForTesting;
 import com.datastax.oss.dsbulk.codecs.api.ConvertingCodec;
 import com.datastax.oss.dsbulk.codecs.api.ConvertingCodecFactory;
-import com.datastax.oss.dsbulk.codecs.text.string.StringConvertingCodecProvider;
 import com.datastax.oss.dsbulk.connectors.api.Connector;
 import com.datastax.oss.dsbulk.connectors.api.DefaultMappedField;
 import com.datastax.oss.dsbulk.connectors.api.Resource;
@@ -48,7 +46,6 @@ import java.time.LocalTime;
 import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Semaphore;
@@ -100,8 +97,7 @@ public class PulsarImporter {
      * node. Doesn't apply for CDC back-filling.
      */
     private final static UUID MUTATION_NODE = null;
-    private final static ConvertingCodecFactory codecFactory =
-            new CodecFactory().newCodecFactory(PulsarImporter.class.getClassLoader());
+    private final static ConvertingCodecFactory codecFactory = new ConvertingCodecFactory();
 
     /**
      * The maximum number of in-flight pulsar messages currently being imported
@@ -112,37 +108,25 @@ public class PulsarImporter {
     private final AtomicInteger sentMutations = new AtomicInteger(0);
     private final AtomicInteger sentErrors = new AtomicInteger(0);
 
-    public PulsarImporter(ConnectorFactory connectorFactory, ExportedTable exportedTable,
-                          PulsarMutationSenderFactory mutationSenderFactory) {
+    public PulsarImporter(ConnectorFactory connectorFactory, ExportedTable exportedTable, PulsarMutationSenderFactory factory) {
         this.connectorFactory = connectorFactory;
         this.exportedTable = exportedTable;
-        this.mutationSender = mutationSenderFactory.newPulsarMutationSender();
+        this.mutationSender = factory.newPulsarMutationSender();
         this.inflightPulsarMessages = new Semaphore(MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING);
     }
 
-    @SuppressWarnings("unchecked")
     public ExitStatus importTable() {
         Connector connector = null;
         long recordsCount = -1;
         try {
             connector = connectorFactory.newCVSConnector();
             // prepare PK codecs
-            // Explicitly request a string codec provider to avoid class loader unware issues at runtime
-            StringConvertingCodecProvider stringConvertingCodecProvider = new StringConvertingCodecProvider();
             Map<String, ConvertingCodec<String, AbstractType<?>>> codecs =
                     this.exportedTable.getPrimaryKey()
                             .stream()
-                            .map(k-> {
-                                Optional<ConvertingCodec<?, ?>> codec =
-                                        stringConvertingCodecProvider.maybeProvide(k.getType(), GenericType.STRING, codecFactory, false);
-                                if (!codec.isPresent()) {
-                                    throw new RuntimeException("Codec not found for requested operation: ["
-                                            + k.getType() + " <-> java.lang.String]");
-                                }
-                                return new AbstractMap.SimpleEntry<>(
+                            .map(k-> new AbstractMap.SimpleEntry<String, ConvertingCodec<String, AbstractType<?>>>(
                                     k.getName().toString(),
-                                    (ConvertingCodec<String, AbstractType<?>>) codec.get());
-                            } )
+                                    codecFactory.createConvertingCodec(k.getType(), GenericType.STRING, false)))
                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
             // prepare fields
@@ -172,9 +156,11 @@ public class PulsarImporter {
                             }
                             return newVal;
                         }).collect(Collectors.toList());
-                        // Disables the e2e latency metric because the {@link com.datastax.oss.cdc.Constants.WRITETIME}
-                        // property won't be set
-                        final long tsMicro = -1;
+                        // tsMicro is used to emit e2e metrics by the connectors, if you carry over the C* WRITETIME
+                        // of the source records, the metric will be greatly skewed because those records are historical.
+                        // For now, will mimic the metric by using now()
+                        // TODO: Disable the e2e latency metric if the records are emitted from cdc back-filling CLI
+                        final long tsMicro = Instant.now().toEpochMilli() * 1000;
                         final AbstractMutation<TableMetadata> mutation =
                                 createMutation(pkValues.toArray(), this.exportedTable.getCassandraTable(), tsMicro);
                         sendMutationAsync(mutation);
@@ -206,13 +192,6 @@ public class PulsarImporter {
                     connector.close();
                 } catch (Exception e) {
                     LOGGER.warn("Error while closing CVS connector", e);
-                }
-            }
-            if (mutationSender != null) {
-                try {
-                    mutationSender.close();
-                } catch (Exception e) {
-                    LOGGER.warn("Error while closing Pulsar mutation sender", e);
                 }
             }
             printSummary(recordsCount);
