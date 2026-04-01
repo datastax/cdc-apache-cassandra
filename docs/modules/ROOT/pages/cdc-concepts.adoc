@@ -191,7 +191,7 @@ Once the initial topic schema has been set, an ideal path has been established t
 
 Inevitably, table designs change: Columns are added, updated, or removed.
 When these changes occur, the components that are part of the CDC flow must adapt to preserve the ideal path of event data.
-This can become quite a complex set of decisions and as such, there are specific changes a CDC flow can tolerate before the flow needs to be recreated entirely.
+This can become quite a complex set of decisions and as such, there are specific changes a CDC flow can tolerate before the flow needs to be re-created entirely.
 
 Here is a summary of how the data message schema is created:
 
