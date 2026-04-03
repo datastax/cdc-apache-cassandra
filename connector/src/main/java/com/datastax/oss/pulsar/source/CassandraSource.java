@@ -47,6 +47,8 @@ import io.vavr.Tuple3;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.avro.Conversions;
 import org.apache.avro.specific.SpecificData;
 import org.apache.pulsar.client.api.Schema;
@@ -108,6 +110,7 @@ import java.util.stream.Collectors;
         configClass = CassandraSourceConfig.class)
 @Slf4j
 public class CassandraSource implements Source<GenericRecord>, SchemaChangeListener {
+    private static final Logger log = LoggerFactory.getLogger(CassandraSource.class);
 
     /**
      * Metric name for the mutation cache hits.
@@ -400,7 +403,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
      * @return preparedStatement
      */
     synchronized PreparedStatement getSelectStatement(ConverterAndQuery valueConverterAndQuery, int whereClauseLength) {
-        return valueConverterAndQuery.getPreparedStatements().computeIfAbsent(whereClauseLength, k ->
+        return valueConverterAndQuery.preparedStatements.computeIfAbsent(whereClauseLength, k ->
                 cassandraClient.prepareSelect(
                         valueConverterAndQuery.keyspaceName,
                         valueConverterAndQuery.tableName,
@@ -640,8 +643,9 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                 // in deduplicating mutations coming from different nodes
                 executeOrdered(msg.getKey(), () -> {
                     try {
-                        if (mutationCache.isMutationProcessed(msg.getKey(), mutationValue.getMd5Digest())) {
-                            log.debug("Message key={} md5={} already processed", msg.getKey(), mutationValue.getMd5Digest());
+                        String msgKey = msg.getKey().toString();
+                        if (mutationCache.isMutationProcessed(msgKey, mutationValue.getMd5Digest())) {
+                            log.debug("Message key={} md5={} already processed", msgKey, mutationValue.getMd5Digest());
                             // ignore duplicated mutation
                             consumer.acknowledge(msg);
                             queryResult.complete(null);
@@ -652,8 +656,8 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                             sourceContext.recordMetric(CACHE_SIZE, mutationCache.estimatedSize());
                             sourceContext.recordMetric(QUERY_LATENCY, 0);
                             sourceContext.recordMetric(QUERY_EXECUTORS, queryExecutors.size());
-                            if (msg.hasProperty(Constants.WRITETIME))
-                                sourceContext.recordMetric(REPLICATION_LATENCY, System.currentTimeMillis() - (Long.parseLong(msg.getProperty(Constants.WRITETIME)) / 1000L));
+                            msg.getProperty(Constants.WRITETIME).ifPresent(writetime ->
+                                sourceContext.recordMetric(REPLICATION_LATENCY, System.currentTimeMillis() - (Long.parseLong(writetime) / 1000L)));
                             return null;
                         }
 
@@ -675,19 +679,19 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                         sourceContext.recordMetric(QUERY_EXECUTORS, queryExecutors.size());
                         batchTotalLatency.addAndGet(end - start);
                         batchTotalQuery.incrementAndGet();
-                        if (msg.hasProperty(Constants.WRITETIME))
-                            sourceContext.recordMetric(REPLICATION_LATENCY, end - (Long.parseLong(msg.getProperty(Constants.WRITETIME)) / 1000L));
-                        Object value = tuple._1 == null ? this.emptyValue : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
+                        msg.getProperty(Constants.WRITETIME).ifPresent(writetime ->
+                            sourceContext.recordMetric(REPLICATION_LATENCY, end - (Long.parseLong(writetime) / 1000L)));
+                        Object value = tuple._1 == null ? this.emptyValue : converterAndQueryFinal.converter.toConnectData(tuple._1);
                         if (ConsistencyLevel.LOCAL_QUORUM.equals(tuple._2()) &&
                                 (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._3 != null && tuple._3.equals(mutationValue.getNodeId())))) {
-                            log.debug("Caching mutation key={} md5={} pk={}", msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues);
+                            log.debug("Caching mutation key={} md5={} pk={}", msgKey, mutationValue.getMd5Digest(), nonNullPkValues);
                             // cache the mutation digest if the coordinator is the source of this event.
-                            mutationCache.addMutationMd5(msg.getKey(), mutationValue.getMd5Digest());
+                            mutationCache.addMutationMd5(msgKey, mutationValue.getMd5Digest());
                         } else {
                             log.debug("Not caching mutation key={} md5={} pk={} CL={} coordinator={}",
-                            msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues, tuple._2(), tuple._3());
+                            msgKey, mutationValue.getMd5Digest(), nonNullPkValues, tuple._2(), tuple._3());
                         }
-                        Object key = config.isAvroOutputFormat() ? msg.getKeyBytes() : keyConverter.fromConnectData(mutationKey.getNativeObject());
+                        Object key = config.isAvroOutputFormat() ? msg.getKey() : keyConverter.fromConnectData(mutationKey.getNativeObject());
                         queryResult.complete(new KeyValue(key, value));
                     } catch (Throwable err) {
                         queryResult.completeExceptionally(err);
@@ -913,7 +917,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
         @Override
         public Schema getValueSchema() {
-            return converterAndQueryFinal.getConverter().getSchema();
+            return converterAndQueryFinal.converter.getSchema();
         }
 
         @Override
@@ -971,7 +975,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         }
 
         @Override
-        public Message<KeyValue<GenericRecord, MutationValue>> getMutationMessage() {
+        public Message<GenericRecord, MutationValue> getMutationMessage() {
             return kvRecord.getMutationMessage();
         }
 

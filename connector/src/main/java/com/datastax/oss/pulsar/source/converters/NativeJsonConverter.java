@@ -39,6 +39,8 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.base.Preconditions;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.avro.Conversion;
 import org.apache.avro.Conversions;
 import org.apache.avro.generic.GenericData;
@@ -56,6 +58,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class NativeJsonConverter extends AbstractNativeConverter<byte[]> {
+    private static final Logger log = LoggerFactory.getLogger(NativeJsonConverter.class);
     private static final ObjectMapper mapper = new ObjectMapper();
 
     private static final JsonNodeFactory jsonNodeFactory = JsonNodeFactory.withExactBigDecimals(true);
