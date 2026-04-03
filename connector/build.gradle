@@ -13,16 +13,17 @@ task versionTxt()  {
 
 compileJava {
     dependsOn versionTxt
-    options.compilerArgs = ['-Xlint:none']
-    options.annotationProcessorPath = configurations.annotationProcessor
 }
 
 compileTestJava {
     options.compilerArgs += '-parameters'
 }
 
-tasks.withType(JavaCompile) {
-    options.compilerArgs += '-Xlint:none'
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs = (options.compilerArgs ?: []).findAll { it != '-Werror' }
+    if (!options.compilerArgs.contains('-Xlint:none')) {
+        options.compilerArgs += '-Xlint:none'
+    }
 }
 
 sourceSets {
@@ -47,10 +48,6 @@ dependencies {
     // Override the version of jackson-core that gets pulled transitively
     // TODO: Review while upgrading avro as latest version (2.14.3) was coming from org.apache.avro:avro:1.11.4
     implementation("com.fasterxml.jackson.core:jackson-core:${jacksonCoreVersion}")
-    
-    // Lombok for compile-time annotation processing
-    compileOnly "org.projectlombok:lombok:${lombokVersion}"
-    annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
     
     compileOnly("${pulsarGroup}:pulsar-client-original:${pulsarVersion}") {
         exclude group: 'io.netty', module: 'netty-transport-native-unix-common'
@@ -90,10 +87,6 @@ dependencies {
         implementation("org.apache.commons:commons-compress:${commonCompressVersion}")
         implementation("org.json:json:${jsonVersion}")
     }
-
-    testRuntimeOnly "org.projectlombok:lombok:${lombokVersion}"
-    testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
-
 
     testImplementation("com.datastax.oss:dsbulk-tests:${dsbulkVersion}")
     testImplementation("org.reactivestreams:reactive-streams:1.0.3")

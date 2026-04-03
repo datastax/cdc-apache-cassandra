@@ -29,8 +29,6 @@ import edu.umd.cs.findbugs.annotations.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -48,7 +46,6 @@ import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.*;
 @SuppressWarnings("WeakerAccess")
 @Slf4j
 public class CassandraSourceConnectorConfig {
-    private static final Logger log = LoggerFactory.getLogger(CassandraSourceConnectorConfig.class);
 
     public static final String KEYSPACE_NAME_CONFIG = "keyspace";
     public static final String TABLE_NAME_CONFIG = "table";

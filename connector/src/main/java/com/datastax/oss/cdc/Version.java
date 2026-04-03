@@ -16,8 +16,6 @@
 package com.datastax.oss.cdc;
 
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,7 +23,6 @@ import java.util.Properties;
 
 @Slf4j
 public class Version {
-    private static final Logger log = LoggerFactory.getLogger(Version.class);
 
     private static final String VERSION_FILE = "/cassandra-source-version.properties";
 

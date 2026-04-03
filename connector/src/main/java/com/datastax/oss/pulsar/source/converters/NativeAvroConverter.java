@@ -36,8 +36,6 @@ import com.datastax.oss.protocol.internal.ProtocolConstants;
 import com.google.common.base.Preconditions;
 import com.google.common.net.InetAddresses;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.avro.Conversion;
 import org.apache.avro.LogicalType;
 import org.apache.avro.Schema;
@@ -68,7 +66,6 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 public class NativeAvroConverter extends AbstractNativeConverter<List<Object>> {
-    private static final Logger log = LoggerFactory.getLogger(NativeAvroConverter.class);
 
     public NativeAvroConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
         super(ksm, tm, columns);

@@ -47,8 +47,6 @@ import io.vavr.Tuple3;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.avro.Conversions;
 import org.apache.avro.specific.SpecificData;
 import org.apache.pulsar.client.api.Schema;
@@ -110,7 +108,6 @@ import java.util.stream.Collectors;
         configClass = CassandraSourceConfig.class)
 @Slf4j
 public class CassandraSource implements Source<GenericRecord>, SchemaChangeListener {
-    private static final Logger log = LoggerFactory.getLogger(CassandraSource.class);
 
     /**
      * Metric name for the mutation cache hits.
