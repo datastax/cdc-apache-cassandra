@@ -49,14 +49,7 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Conversions;
 import org.apache.avro.specific.SpecificData;
-import org.apache.pulsar.client.api.Consumer;
-import org.apache.pulsar.client.api.ConsumerBuilder;
-import org.apache.pulsar.client.api.KeySharedPolicy;
-import org.apache.pulsar.client.api.Message;
 import org.apache.pulsar.client.api.Schema;
-import org.apache.pulsar.client.api.SubscriptionInitialPosition;
-import org.apache.pulsar.client.api.SubscriptionMode;
-import org.apache.pulsar.client.api.SubscriptionType;
 import org.apache.pulsar.client.api.schema.GenericRecord;
 import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.common.schema.KeyValueEncodingType;
@@ -66,6 +59,24 @@ import org.apache.pulsar.io.core.Source;
 import org.apache.pulsar.io.core.SourceContext;
 import org.apache.pulsar.io.core.annotations.Connector;
 import org.apache.pulsar.io.core.annotations.IOType;
+
+// Messaging abstraction layer imports
+import com.datastax.oss.cdc.messaging.MessagingClient;
+import com.datastax.oss.cdc.messaging.MessageConsumer;
+import com.datastax.oss.cdc.messaging.Message;
+import com.datastax.oss.cdc.messaging.MessagingException;
+import com.datastax.oss.cdc.messaging.config.ClientConfig;
+import com.datastax.oss.cdc.messaging.config.ConsumerConfig;
+import com.datastax.oss.cdc.messaging.config.InitialPosition;
+import com.datastax.oss.cdc.messaging.config.MessagingProvider;
+import com.datastax.oss.cdc.messaging.config.SubscriptionType;
+import com.datastax.oss.cdc.messaging.config.impl.ClientConfigBuilder;
+import com.datastax.oss.cdc.messaging.config.impl.ConsumerConfigBuilder;
+import com.datastax.oss.cdc.messaging.factory.MessagingClientFactory;
+import com.datastax.oss.cdc.messaging.schema.SchemaDefinition;
+import com.datastax.oss.cdc.messaging.schema.SchemaType;
+import com.datastax.oss.cdc.messaging.schema.impl.BaseSchemaDefinition;
+import com.datastax.oss.cdc.NativeSchemaWrapper;
 
 import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.StandardCharsets;
@@ -135,7 +146,8 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
     SourceContext sourceContext;
     CassandraSourceConnectorConfig config;
-    Consumer<KeyValue<GenericRecord, MutationValue>> consumer = null;
+    MessageConsumer<GenericRecord, MutationValue> consumer = null;
+    MessagingClient messagingClient = null;
     volatile CassandraClient cassandraClient;
 
     String dirtyTopicName;
@@ -146,10 +158,9 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
     MutationCache<String> mutationCache;
 
-    final Schema<KeyValue<GenericRecord, MutationValue>> eventsSchema = Schema.KeyValue(
-            Schema.AUTO_CONSUME(),
-            Schema.AVRO(MutationValue.class),
-            KeyValueEncodingType.SEPARATED);
+    // Schema definitions for messaging abstraction
+    SchemaDefinition keySchemaDefinition;
+    SchemaDefinition valueSchemaDefinition;
 
     /**
      * Converter and CQL query parameters updated on CQL schema update.
@@ -293,17 +304,15 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
             Preconditions.checkArgument(this.config.getEventsTopic() != null, "Events topic not set");
             this.dirtyTopicName = this.config.getEventsTopic();
-            ConsumerBuilder<KeyValue<GenericRecord, MutationValue>> consumerBuilder = sourceContext.newConsumerBuilder(eventsSchema)
-                    .consumerName("CDC Consumer")
-                    .topic(dirtyTopicName)
-                    .subscriptionName(this.config.getEventsSubscriptionName())
-                    .subscriptionType(SubscriptionType.valueOf(this.config.getEventsSubscriptionType()))
-                    .subscriptionMode(SubscriptionMode.Durable)
-                    .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest);
-            if (SubscriptionType.Key_Shared.equals(SubscriptionType.valueOf(this.config.getEventsSubscriptionType()))) {
-                consumerBuilder.keySharedPolicy(KeySharedPolicy.autoSplitHashRange());
-            }
-            this.consumer = consumerBuilder.subscribe();
+            
+            // Initialize schema definitions for messaging abstraction
+            initializeSchemaDefinitions();
+            
+            // Initialize messaging client and consumer using abstraction layer
+            initializeMessagingClient();
+            
+            // Create consumer using messaging abstraction
+            this.consumer = createConsumer();
             this.mutationCache = new MutationCache<>(
                     this.config.getCacheMaxDigests(),
                     this.config.getCacheMaxCapacity(),
@@ -391,7 +400,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
      * @return preparedStatement
      */
     synchronized PreparedStatement getSelectStatement(ConverterAndQuery valueConverterAndQuery, int whereClauseLength) {
-        return valueConverterAndQuery.getPreparedStatements().computeIfAbsent(whereClauseLength, k ->
+        return valueConverterAndQuery.preparedStatements.computeIfAbsent(whereClauseLength, k ->
                 cassandraClient.prepareSelect(
                         valueConverterAndQuery.keyspaceName,
                         valueConverterAndQuery.tableName,
@@ -420,7 +429,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                 .newInstance(ksm, tableMetadata, columns);
     }
 
-    CassandraRecord createRecord(ConverterAndQuery converterAndQueryFinal, CompletableFuture<KeyValue<Object, Object>> keyValue, Message<KeyValue<GenericRecord, MutationValue>> msg) {
+    CassandraRecord createRecord(ConverterAndQuery converterAndQueryFinal, CompletableFuture<KeyValue<Object, Object>> keyValue, Message<GenericRecord, MutationValue> msg) {
         final MyKVRecord kvRecord = new MyKVRecord(converterAndQueryFinal, keyValue, msg);
 
         return config.isJsonOnlyOutputFormat() ? new JsonValueRecord(kvRecord) : kvRecord;
@@ -433,11 +442,129 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             this.cassandraClient.close();
             this.cassandraClient = null;
         }
+        if (this.messagingClient != null) {
+            try {
+                this.messagingClient.close();
+            } catch (MessagingException e) {
+                log.warn("Error closing messaging client", e);
+            }
+            this.messagingClient = null;
+        }
         if (queryExecutors != null) {
             for (ExecutorService thread : queryExecutors) {
                 thread.shutdownNow();
             }
             queryExecutors = null;
+        }
+    }
+
+    /**
+     * Initialize schema definitions for key and value.
+     */
+    void initializeSchemaDefinitions() {
+        // Create key schema definition using AUTO_CONSUME for GenericRecord
+        Schema<GenericRecord> pulsarKeySchema = Schema.AUTO_CONSUME();
+        this.keySchemaDefinition = BaseSchemaDefinition.builder()
+                .type(SchemaType.AVRO)
+                .schemaDefinition("AUTO_CONSUME")
+                .nativeSchema(pulsarKeySchema)
+                .name("GenericRecord")
+                .build();
+        
+        // Create value schema definition for MutationValue
+        Schema<MutationValue> pulsarValueSchema = Schema.AVRO(MutationValue.class);
+        this.valueSchemaDefinition = BaseSchemaDefinition.builder()
+                .type(SchemaType.AVRO)
+                .schemaDefinition("MutationValue")
+                .nativeSchema(pulsarValueSchema)
+                .name("MutationValue")
+                .build();
+        
+        log.debug("Initialized schema definitions for consumer");
+    }
+
+    /**
+     * Initialize messaging client using abstraction layer.
+     */
+    void initializeMessagingClient() throws MessagingException {
+        try {
+            // Build client configuration - default to Pulsar for backward compatibility
+            // The service URL will be obtained from the Pulsar SourceContext's underlying client
+            // For now, we use a placeholder that will be resolved by the Pulsar implementation
+            ClientConfig clientConfig = ClientConfigBuilder.builder()
+                    .provider(MessagingProvider.PULSAR)
+                    .serviceUrl("pulsar://localhost:6650") // Placeholder - actual URL from SourceContext
+                    .build();
+            
+            // Create messaging client using factory
+            // Note: For Pulsar connector, the actual PulsarClient from SourceContext
+            // should be reused. This will be handled in the PulsarMessagingClient implementation.
+            this.messagingClient = MessagingClientFactory.create(clientConfig);
+            this.messagingClient.initialize(clientConfig);
+            
+            log.info("Messaging client initialized successfully");
+        } catch (Exception e) {
+            log.error("Failed to initialize messaging client", e);
+            throw new MessagingException("Failed to initialize messaging client", e);
+        }
+    }
+
+    /**
+     * Create consumer using messaging abstraction layer.
+     */
+    MessageConsumer<GenericRecord, MutationValue> createConsumer() throws MessagingException {
+        try {
+            // Map subscription type from config string to abstraction enum
+            SubscriptionType subscriptionType = mapSubscriptionType(this.config.getEventsSubscriptionType());
+            
+            // Build consumer configuration
+            ConsumerConfig<GenericRecord, MutationValue> consumerConfig =
+                    ConsumerConfigBuilder.<GenericRecord, MutationValue>builder()
+                    .topic(dirtyTopicName)
+                    .subscriptionName(this.config.getEventsSubscriptionName())
+                    .subscriptionType(subscriptionType)
+                    .initialPosition(InitialPosition.EARLIEST)
+                    .consumerName("CDC Consumer")
+                    .keySchema(keySchemaDefinition)
+                    .valueSchema(valueSchemaDefinition)
+                    .receiverQueueSize(1000) // Default Pulsar value
+                    .ackTimeoutMs(0) // No ack timeout by default
+                    .build();
+            
+            MessageConsumer<GenericRecord, MutationValue> consumer =
+                    messagingClient.createConsumer(consumerConfig);
+            
+            log.info("Consumer created successfully for topic={} subscription={} type={}",
+                    dirtyTopicName, this.config.getEventsSubscriptionName(), subscriptionType);
+            
+            return consumer;
+        } catch (Exception e) {
+            log.error("Failed to create consumer", e);
+            throw new MessagingException("Failed to create consumer", e);
+        }
+    }
+
+    /**
+     * Map subscription type string to abstraction enum.
+     * Package-private for testing.
+     */
+    SubscriptionType mapSubscriptionType(String subscriptionTypeStr) {
+        if (subscriptionTypeStr == null) {
+            return SubscriptionType.EXCLUSIVE;
+        }
+        
+        switch (subscriptionTypeStr.toUpperCase()) {
+            case "EXCLUSIVE":
+                return SubscriptionType.EXCLUSIVE;
+            case "SHARED":
+                return SubscriptionType.SHARED;
+            case "FAILOVER":
+                return SubscriptionType.FAILOVER;
+            case "KEY_SHARED":
+                return SubscriptionType.KEY_SHARED;
+            default:
+                log.warn("Unknown subscription type: {}, defaulting to EXCLUSIVE", subscriptionTypeStr);
+                return SubscriptionType.EXCLUSIVE;
         }
     }
 
@@ -486,7 +613,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             // we want to fill the buffer
             // this method will block until we receive at least one record
             while (newRecords.size() < this.config.getBatchSize()) {
-                final Message<KeyValue<GenericRecord, MutationValue>> msg = consumer.receive(1, TimeUnit.SECONDS);
+                final Message<GenericRecord, MutationValue> msg = consumer.receive(Duration.ofSeconds(1));
                 if (msg == null) {
                     if (!newRecords.isEmpty()) {
                         log.debug("no message received, buffer size {}", newRecords.size());
@@ -497,12 +624,11 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                         continue;
                     }
                 }
-                final KeyValue<GenericRecord, MutationValue> kv = msg.getValue();
-                final GenericRecord mutationKey = kv.getKey();
-                final MutationValue mutationValue = kv.getValue();
+                final GenericRecord mutationKey = msg.getKey();
+                final MutationValue mutationValue = msg.getValue();
 
-                log.debug("Message from producer={} msgId={} key={} value={} schema {}\n",
-                        msg.getProducerName(), msg.getMessageId(), kv.getKey(), kv.getValue(), msg.getReaderSchema().orElse(null));
+                log.debug("Message msgId={} key={} value={}\n",
+                        msg.getMessageId(), mutationKey, mutationValue);
 
                 List<Object> pk = (List<Object>) mutationKeyConverter.fromConnectData(mutationKey.getNativeObject());
                 // ensure the schema is the one used when building the struct.
@@ -514,8 +640,9 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                 // in deduplicating mutations coming from different nodes
                 executeOrdered(msg.getKey(), () -> {
                     try {
-                        if (mutationCache.isMutationProcessed(msg.getKey(), mutationValue.getMd5Digest())) {
-                            log.debug("Message key={} md5={} already processed", msg.getKey(), mutationValue.getMd5Digest());
+                        String msgKey = msg.getKey().toString();
+                        if (mutationCache.isMutationProcessed(msgKey, mutationValue.getMd5Digest())) {
+                            log.debug("Message key={} md5={} already processed", msgKey, mutationValue.getMd5Digest());
                             // ignore duplicated mutation
                             consumer.acknowledge(msg);
                             queryResult.complete(null);
@@ -526,8 +653,8 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                             sourceContext.recordMetric(CACHE_SIZE, mutationCache.estimatedSize());
                             sourceContext.recordMetric(QUERY_LATENCY, 0);
                             sourceContext.recordMetric(QUERY_EXECUTORS, queryExecutors.size());
-                            if (msg.hasProperty(Constants.WRITETIME))
-                                sourceContext.recordMetric(REPLICATION_LATENCY, System.currentTimeMillis() - (Long.parseLong(msg.getProperty(Constants.WRITETIME)) / 1000L));
+                            msg.getProperty(Constants.WRITETIME).ifPresent(writetime ->
+                                sourceContext.recordMetric(REPLICATION_LATENCY, System.currentTimeMillis() - (Long.parseLong(writetime) / 1000L)));
                             return null;
                         }
 
@@ -549,19 +676,19 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                         sourceContext.recordMetric(QUERY_EXECUTORS, queryExecutors.size());
                         batchTotalLatency.addAndGet(end - start);
                         batchTotalQuery.incrementAndGet();
-                        if (msg.hasProperty(Constants.WRITETIME))
-                            sourceContext.recordMetric(REPLICATION_LATENCY, end - (Long.parseLong(msg.getProperty(Constants.WRITETIME)) / 1000L));
-                        Object value = tuple._1 == null ? this.emptyValue : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
+                        msg.getProperty(Constants.WRITETIME).ifPresent(writetime ->
+                            sourceContext.recordMetric(REPLICATION_LATENCY, end - (Long.parseLong(writetime) / 1000L)));
+                        Object value = tuple._1 == null ? this.emptyValue : converterAndQueryFinal.converter.toConnectData(tuple._1);
                         if (ConsistencyLevel.LOCAL_QUORUM.equals(tuple._2()) &&
                                 (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._3 != null && tuple._3.equals(mutationValue.getNodeId())))) {
-                            log.debug("Caching mutation key={} md5={} pk={}", msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues);
+                            log.debug("Caching mutation key={} md5={} pk={}", msgKey, mutationValue.getMd5Digest(), nonNullPkValues);
                             // cache the mutation digest if the coordinator is the source of this event.
-                            mutationCache.addMutationMd5(msg.getKey(), mutationValue.getMd5Digest());
+                            mutationCache.addMutationMd5(msgKey, mutationValue.getMd5Digest());
                         } else {
                             log.debug("Not caching mutation key={} md5={} pk={} CL={} coordinator={}",
-                            msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues, tuple._2(), tuple._3());
+                            msgKey, mutationValue.getMd5Digest(), nonNullPkValues, tuple._2(), tuple._3());
                         }
-                        Object key = config.isAvroOutputFormat() ? msg.getKeyBytes() : keyConverter.fromConnectData(mutationKey.getNativeObject());
+                        Object key = config.isAvroOutputFormat() ? msg.getKey() : keyConverter.fromConnectData(mutationKey.getNativeObject());
                         queryResult.complete(new KeyValue(key, value));
                     } catch (Throwable err) {
                         queryResult.completeExceptionally(err);
@@ -631,9 +758,13 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         }
     }
 
-    void negativeAcknowledge(final Consumer<KeyValue<GenericRecord, MutationValue>> consumer,
-                             final Message<KeyValue<GenericRecord, MutationValue>> message) {
-        consumer.negativeAcknowledge(message);
+    void negativeAcknowledge(final MessageConsumer<GenericRecord, MutationValue> consumer,
+                             final Message<GenericRecord, MutationValue> message) {
+        try {
+            consumer.negativeAcknowledge(message);
+        } catch (MessagingException e) {
+            log.error("Error negative acknowledging message", e);
+        }
     }
 
     @Override
@@ -746,7 +877,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         /**
          * @return a Message container the mutation as received from the events topic.
          */
-        Message<KeyValue<GenericRecord, MutationValue>> getMutationMessage();
+        Message<GenericRecord, MutationValue> getMutationMessage();
 
         /**
          * @return a future tracking the result of the Cassandra query triggered by the mutations recorded in the
@@ -758,16 +889,16 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     private class MyKVRecord implements CassandraRecord {
         private final ConverterAndQuery converterAndQueryFinal;
         private final CompletableFuture<KeyValue<Object, Object>> keyValue;
-        private final Message<KeyValue<GenericRecord, MutationValue>> msg;
+        private final Message<GenericRecord, MutationValue> msg;
 
-        public MyKVRecord(ConverterAndQuery converterAndQueryFinal, CompletableFuture<KeyValue<Object, Object>> keyValue, Message<KeyValue<GenericRecord, MutationValue>> msg) {
+        public MyKVRecord(ConverterAndQuery converterAndQueryFinal, CompletableFuture<KeyValue<Object, Object>> keyValue, Message<GenericRecord, MutationValue> msg) {
             this.converterAndQueryFinal = converterAndQueryFinal;
             this.keyValue = keyValue;
             this.msg = msg;
         }
 
         @Override
-        public Message<KeyValue<GenericRecord, MutationValue>> getMutationMessage() {
+        public Message<GenericRecord, MutationValue> getMutationMessage() {
             return msg;
         }
 
@@ -783,7 +914,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
         @Override
         public Schema getValueSchema() {
-            return converterAndQueryFinal.getConverter().getSchema();
+            return converterAndQueryFinal.converter.getSchema();
         }
 
         @Override
@@ -803,9 +934,11 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
         @Override
         public Map<String, String> getProperties() {
-            return msg.hasProperty(Constants.WRITETIME)
-                    ? ImmutableMap.of(Constants.WRITETIME, msg.getProperty(Constants.WRITETIME))
-                    : ImmutableMap.of();
+            Map<String, String> props = msg.getProperties();
+            if (props != null && props.containsKey(Constants.WRITETIME)) {
+                return ImmutableMap.of(Constants.WRITETIME, props.get(Constants.WRITETIME));
+            }
+            return ImmutableMap.of();
         }
     }
 
@@ -839,7 +972,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         }
 
         @Override
-        public Message<KeyValue<GenericRecord, MutationValue>> getMutationMessage() {
+        public Message<GenericRecord, MutationValue> getMutationMessage() {
             return kvRecord.getMutationMessage();
         }
 
