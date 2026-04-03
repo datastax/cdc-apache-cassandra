@@ -33,8 +33,6 @@ import com.datastax.oss.driver.api.core.type.UserDefinedType;
 import com.datastax.oss.protocol.internal.ProtocolConstants;
 import com.datastax.oss.pulsar.source.Converter;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.avro.generic.GenericData;
@@ -58,7 +56,7 @@ import java.util.Map;
  */
 @Slf4j
 public abstract class AbstractNativeConverter<T> implements Converter<byte[], GenericRecord, Row, T> {
-    private static final Logger log = LoggerFactory.getLogger(AbstractNativeConverter.class);
+
     public final org.apache.pulsar.client.api.Schema<byte[]> pulsarSchema;
     public final Schema nativeSchema;
     public final TableMetadata tableMetadata;
