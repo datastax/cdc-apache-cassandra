@@ -14,6 +14,7 @@ task versionTxt()  {
 compileJava {
     dependsOn versionTxt
     options.compilerArgs = ['-Xlint:none']
+    options.annotationProcessorPath = configurations.annotationProcessor
 }
 
 compileTestJava {
@@ -46,9 +47,23 @@ dependencies {
     // Override the version of jackson-core that gets pulled transitively
     // TODO: Review while upgrading avro as latest version (2.14.3) was coming from org.apache.avro:avro:1.11.4
     implementation("com.fasterxml.jackson.core:jackson-core:${jacksonCoreVersion}")
-    compileOnly("${pulsarGroup}:pulsar-client-original:${pulsarVersion}")
-    compileOnly("${pulsarGroup}:pulsar-io-common:${pulsarVersion}")
-    compileOnly("${pulsarGroup}:pulsar-io-core:${pulsarVersion}")
+    
+    // Lombok for compile-time annotation processing
+    compileOnly "org.projectlombok:lombok:${lombokVersion}"
+    annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+    
+    compileOnly("${pulsarGroup}:pulsar-client-original:${pulsarVersion}") {
+        exclude group: 'io.netty', module: 'netty-transport-native-unix-common'
+        exclude group: 'io.netty', module: 'netty-transport-native-epoll'
+    }
+    compileOnly("${pulsarGroup}:pulsar-io-common:${pulsarVersion}") {
+        exclude group: 'io.netty', module: 'netty-transport-native-unix-common'
+        exclude group: 'io.netty', module: 'netty-transport-native-epoll'
+    }
+    compileOnly("${pulsarGroup}:pulsar-io-core:${pulsarVersion}") {
+        exclude group: 'io.netty', module: 'netty-transport-native-unix-common'
+        exclude group: 'io.netty', module: 'netty-transport-native-epoll'
+    }
     implementation(platform("com.fasterxml.jackson:jackson-bom:${jacksonBomVersion}"))
     // Override transitive bouncycastle dependencies coming from pulsar
     implementation(platform("org.bouncycastle:bcpkix-jdk18on:${bouncycastleVersion}"))
@@ -58,10 +73,7 @@ dependencies {
     configurations.all {
         resolutionStrategy {
             force "io.netty:netty-handler:${nettyVersion}"
-            force "io.netty:netty-transport-native-epoll:${nettyVersion}"
-            force "io.netty:netty-transport-native-unix-common:${nettyVersion}"
             force "io.netty:netty-codec-haproxy:${nettyVersion}"
-            force "io.netty:netty-tcnative-boringssl-static:${nettyTcNativeVersion}"
             // Override the version of lz4-java to fix vulnerability
             // Also this project is migrated to at.yawk.lz4
             dependencySubstitution {
@@ -74,10 +86,7 @@ dependencies {
         implementation("ch.qos.logback:logback-classic:${logbackVersion}")
         implementation("com.github.jnr:jnr-posix:${jnrVersion}")
         implementation("io.netty:netty-handler:${nettyVersion}")
-        implementation("io.netty:netty-transport-native-epoll:${nettyVersion}")
-        implementation("io.netty:netty-transport-native-unix-common:${nettyVersion}")
         implementation("io.netty:netty-codec-haproxy:${nettyVersion}")
-        implementation("io.netty:netty-tcnative-boringssl-static:${nettyTcNativeVersion}")
         implementation("org.apache.commons:commons-compress:${commonCompressVersion}")
         implementation("org.json:json:${jsonVersion}")
     }

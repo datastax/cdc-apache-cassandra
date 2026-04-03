@@ -54,6 +54,8 @@ import io.vavr.Tuple2;
 import io.vavr.Tuple3;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
@@ -76,6 +78,7 @@ import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.selectFrom;
 @Getter
 @SuppressWarnings("try")
 public class CassandraClient implements AutoCloseable {
+    private static final Logger log = LoggerFactory.getLogger(CassandraClient.class);
 
     final CqlSession cqlSession;
 
