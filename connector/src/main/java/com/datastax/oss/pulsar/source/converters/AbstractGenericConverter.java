@@ -30,6 +30,8 @@ import com.datastax.oss.protocol.internal.ProtocolConstants;
 import com.datastax.oss.pulsar.source.Converter;
 import com.google.common.net.InetAddresses;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.api.schema.Field;
 import org.apache.pulsar.client.api.schema.FieldSchemaBuilder;
@@ -54,6 +56,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public abstract class AbstractGenericConverter implements Converter<GenericRecord, GenericRecord, Row, List<Object>> {
+    private static final Logger log = LoggerFactory.getLogger(AbstractGenericConverter.class);
 
     public final GenericSchema<GenericRecord> schema;
     public final SchemaInfo schemaInfo;
