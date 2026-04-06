@@ -17,7 +17,7 @@
 package com.datastax.oss.cdc.backfill;
 
 import com.datastax.oss.cdc.agent.AbstractMutation;
-import com.datastax.oss.cdc.agent.PulsarMutationSender;
+import com.datastax.oss.cdc.agent.MutationSender;
 import com.datastax.oss.cdc.backfill.exporter.ExportedTable;
 import com.datastax.oss.cdc.backfill.factory.ConnectorFactory;
 import com.datastax.oss.cdc.backfill.factory.PulsarMutationSenderFactory;
@@ -38,8 +38,6 @@ import org.apache.cassandra.db.marshal.TimeType;
 import org.apache.cassandra.db.marshal.UTF8Type;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
-import org.apache.pulsar.client.api.MessageId;
-import org.apache.pulsar.client.impl.MessageIdImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -88,7 +86,7 @@ public class PulsarImporterTest {
     private PulsarMutationSenderFactory factory;
 
     @Mock
-    private PulsarMutationSender sender;
+    private MutationSender<TableMetadata> sender;
 
     @Captor
     private ArgumentCaptor<AbstractMutation<TableMetadata>> abstractMutationCaptor;
@@ -213,7 +211,7 @@ public class PulsarImporterTest {
         ConnectorFactory connectorFactory = Mockito.mock(ConnectorFactory.class);
         Mockito.when(connectorFactory.newCVSConnector()).thenReturn(connector);
 
-        CompletableFuture<MessageId>[] futures = new CompletableFuture[MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING];
+        CompletableFuture<?>[] futures = new CompletableFuture[MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING];
         for (int i = 0; i < MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING; i++) {
             futures[i] = new CompletableFuture<>();
             // note that Arrays.fill(futures, new CompletableFuture<>()) will reuse the same future object
@@ -221,11 +219,13 @@ public class PulsarImporterTest {
 
         int beforeLastFutureIndex = MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING - 2;
         int lastFutureIndex = MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING - 1;
-        CompletableFuture<MessageId> beforeLastfuture = futures[beforeLastFutureIndex];
-        CompletableFuture<MessageId> lastFuture = futures[lastFutureIndex];
+        CompletableFuture<?> beforeLastfuture = futures[beforeLastFutureIndex];
+        CompletableFuture<?> lastFuture = futures[lastFutureIndex];
 
         //Mockito.reset(sender, factory);
-        sender = Mockito.mock(PulsarMutationSender.class);
+        @SuppressWarnings("unchecked")
+        MutationSender<TableMetadata> mockSender = Mockito.mock(MutationSender.class);
+        sender = mockSender;
         factory = Mockito.mock(PulsarMutationSenderFactory.class);
         AtomicInteger futureIndex = new AtomicInteger();
         Mockito.doAnswer(invocation -> futures[futureIndex.getAndIncrement()]).when(sender).sendMutationAsync(Mockito.any());
@@ -245,7 +245,7 @@ public class PulsarImporterTest {
 
         // release MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING - 2 futures
         for (int i = 0; i < MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING - 2; i++) {
-            futures[i].complete(new MessageIdImpl(i, i, i));
+            futures[i].complete(null); // MessageId implementation doesn't matter for the test
         }
 
         // at this point, all records should've been sent to pulsar (but not yet complete)
@@ -256,11 +256,11 @@ public class PulsarImporterTest {
 
         // release another future. Although the memory is not full, there is still 1 future in-flight. The overall
         // import should still be blocked
-        beforeLastfuture.complete(new MessageIdImpl(beforeLastFutureIndex, beforeLastFutureIndex, beforeLastFutureIndex));
+        beforeLastfuture.complete(null); // MessageId implementation doesn't matter for the test
         assertImportBlocked(importFuture);
 
         // release the last future. The import should be unblocked
-        lastFuture.complete(new MessageIdImpl(lastFutureIndex, lastFutureIndex, lastFutureIndex));
+        lastFuture.complete(null); // MessageId implementation doesn't matter for the test
         assertImportUnBlocked(importFuture);
 
         // verify that no more interactions with sender because no new records should've been sent.
@@ -283,13 +283,15 @@ public class PulsarImporterTest {
         ConnectorFactory connectorFactory = Mockito.mock(ConnectorFactory.class);
         Mockito.when(connectorFactory.newCVSConnector()).thenReturn(connector);
 
-        CompletableFuture<MessageId>[] futures = new CompletableFuture[MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING * 2];
+        CompletableFuture<?>[] futures = new CompletableFuture[MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING * 2];
         for (int i = 0; i < MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING * 2; i++) {
             futures[i] = new CompletableFuture<>();
             // note that Arrays.fill(futures, new CompletableFuture<>()) will reuse the same future object
         }
 
-        sender = Mockito.mock(PulsarMutationSender.class);
+        @SuppressWarnings("unchecked")
+        MutationSender<TableMetadata> mockSender = Mockito.mock(MutationSender.class);
+        sender = mockSender;
         factory = Mockito.mock(PulsarMutationSenderFactory.class);
         AtomicInteger futureIndex = new AtomicInteger();
         Mockito.doAnswer(invocation -> futures[futureIndex.getAndIncrement()]).when(sender).sendMutationAsync(Mockito.any());
