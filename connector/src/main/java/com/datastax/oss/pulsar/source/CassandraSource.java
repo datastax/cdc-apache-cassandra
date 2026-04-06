@@ -49,6 +49,10 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Conversions;
 import org.apache.avro.specific.SpecificData;
+import org.apache.avro.io.DatumReader;
+import org.apache.avro.io.Decoder;
+import org.apache.avro.io.DecoderFactory;
+import org.apache.avro.generic.GenericDatumReader;
 import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.api.schema.GenericRecord;
 import org.apache.pulsar.common.schema.KeyValue;
@@ -630,7 +634,34 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                 log.debug("Message msgId={} key={} value={}\n",
                         msg.getMessageId(), mutationKey, mutationValue);
 
-                List<Object> pk = (List<Object>) mutationKeyConverter.fromConnectData(mutationKey.getNativeObject());
+                // Handle both GenericAvroRecord and byte array cases
+                Object nativeKeyObject = mutationKey.getNativeObject();
+                org.apache.avro.generic.GenericRecord avroRecord;
+                
+                if (nativeKeyObject instanceof org.apache.avro.generic.GenericRecord) {
+                    // Direct Avro GenericRecord
+                    avroRecord = (org.apache.avro.generic.GenericRecord) nativeKeyObject;
+                } else if (nativeKeyObject instanceof byte[]) {
+                    // Byte array - need to deserialize to Avro GenericRecord
+                    byte[] keyBytes = (byte[]) nativeKeyObject;
+                    try {
+                        org.apache.avro.io.DatumReader<org.apache.avro.generic.GenericRecord> reader =
+                            new org.apache.avro.generic.GenericDatumReader<>(
+                                ((NativeAvroConverter) mutationKeyConverter).nativeSchema);
+                        org.apache.avro.io.Decoder decoder =
+                            org.apache.avro.io.DecoderFactory.get().binaryDecoder(keyBytes, null);
+                        avroRecord = reader.read(null, decoder);
+                    } catch (Exception e) {
+                        log.error("Failed to deserialize key bytes to Avro GenericRecord", e);
+                        throw new RuntimeException("Failed to deserialize key", e);
+                    }
+                } else {
+                    throw new IllegalStateException(
+                        "Unexpected key type: " + (nativeKeyObject != null ? nativeKeyObject.getClass().getName() : "null") +
+                        ". Expected org.apache.avro.generic.GenericRecord or byte[]");
+                }
+                
+                List<Object> pk = (List<Object>) mutationKeyConverter.fromConnectData(avroRecord);
                 // ensure the schema is the one used when building the struct.
                 final ConverterAndQuery converterAndQueryFinal = this.valueConverterAndQuery;
 
@@ -792,24 +823,36 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
     }
 
-    @SneakyThrows
     @Override
     public void onTableUpdated(@NonNull TableMetadata current, @NonNull TableMetadata previous) {
         log.debug("onTableUpdated {} {}", current, previous);
         if (current.getKeyspace().asInternal().equals(config.getKeyspaceName())
                 && current.getName().asInternal().equals(config.getTableName())) {
-            KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(current.getKeyspace()).get();
-            setValueConverterAndQuery(ksm, current);
+            // Use ifPresent to avoid blocking .get() call on driver thread
+            cassandraClient.getCqlSession().getMetadata().getKeyspace(current.getKeyspace()).ifPresent(ksm -> {
+                try {
+                    setValueConverterAndQuery(ksm, current);
+                } catch (Exception e) {
+                    log.error("Error updating table schema", e);
+                }
+            });
         }
     }
 
-    @SneakyThrows
     @Override
     public void onUserDefinedTypeCreated(@NonNull UserDefinedType type) {
         log.debug("onUserDefinedTypeCreated {}", type);
         if (type.getKeyspace().asInternal().equals(config.getKeyspaceName())) {
-            KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(type.getKeyspace()).get();
-            setValueConverterAndQuery(ksm, ksm.getTable(config.getTableName()).get());
+            // Use ifPresent to avoid blocking .get() calls on driver thread
+            cassandraClient.getCqlSession().getMetadata().getKeyspace(type.getKeyspace()).ifPresent(ksm -> {
+                ksm.getTable(config.getTableName()).ifPresent(table -> {
+                    try {
+                        setValueConverterAndQuery(ksm, table);
+                    } catch (Exception e) {
+                        log.error("Error updating schema for UDT creation", e);
+                    }
+                });
+            });
         }
     }
 
@@ -818,13 +861,20 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         log.debug("onUserDefinedTypeDropped {}", type);
     }
 
-    @SneakyThrows
     @Override
     public void onUserDefinedTypeUpdated(@NonNull UserDefinedType userDefinedType, @NonNull UserDefinedType userDefinedType1) {
         log.debug("onUserDefinedTypeUpdated {} {}", userDefinedType, userDefinedType1);
         if (userDefinedType.getKeyspace().asCql(true).equals(config.getKeyspaceName())) {
-            KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(userDefinedType.getKeyspace()).get();
-            setValueConverterAndQuery(ksm, ksm.getTable(config.getTableName()).get());
+            // Use ifPresent to avoid blocking .get() calls on driver thread
+            cassandraClient.getCqlSession().getMetadata().getKeyspace(userDefinedType.getKeyspace()).ifPresent(ksm -> {
+                ksm.getTable(config.getTableName()).ifPresent(table -> {
+                    try {
+                        setValueConverterAndQuery(ksm, table);
+                    } catch (Exception e) {
+                        log.error("Error updating schema for UDT update", e);
+                    }
+                });
+            });
         }
     }
 
