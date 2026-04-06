@@ -383,7 +383,11 @@ public abstract class AbstractMessagingMutationSender<T> implements MutationSend
         for (ColumnInfo columnInfo : mutation.primaryKeyColumns()) {
             if (keySchema.getField(columnInfo.name()) == null)
                 throw new CassandraConnectorSchemaException("Not a valid schema field: " + columnInfo.name());
-            genericRecord.put(columnInfo.name(), cqlToAvro(mutation.getMetadata(), columnInfo.name(), mutation.getPkValues()[i++]));
+            Object value = cqlToAvro(mutation.getMetadata(), columnInfo.name(), mutation.getPkValues()[i++]);
+            // Only put non-null values to ensure optional clustering keys remain null when not present
+            if (value != null) {
+                genericRecord.put(columnInfo.name(), value);
+            }
         }
         return genericRecord;
     }
