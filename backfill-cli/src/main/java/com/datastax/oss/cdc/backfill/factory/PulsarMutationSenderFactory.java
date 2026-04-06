@@ -17,8 +17,9 @@
 package com.datastax.oss.cdc.backfill.factory;
 
 import com.datastax.oss.cdc.agent.AgentConfig;
-import com.datastax.oss.cdc.agent.PulsarMutationSender;
+import com.datastax.oss.cdc.agent.MutationSender;
 import com.datastax.oss.cdc.backfill.importer.ImportSettings;
+import org.apache.cassandra.schema.TableMetadata;
 
 public class PulsarMutationSenderFactory {
 
@@ -30,10 +31,10 @@ public class PulsarMutationSenderFactory {
     }
 
     // 1. Disable Murmur3 partitioner usages. This will default to round-robin in pulsar producer.
-    // 2. A git diff between C3/C4/DSE4 on PulsarMutationSender shows no difference. Here we use the dse one.
+    // 2. A git diff between C3/C4/DSE4 on PulsarMutationSender shows no difference. Here we use the C4 one.
     // TODO: Add e2e tests to verify compatibility with C3/C4/DSE4.
-    public PulsarMutationSender newPulsarMutationSender() {
-        return new PulsarMutationSender(createAgentConfigs(), false);
+    public MutationSender<TableMetadata> newPulsarMutationSender() {
+        return new com.datastax.oss.cdc.agent.PulsarMutationSender(createAgentConfigs(), false);
     }
 
     private AgentConfig createAgentConfigs() {

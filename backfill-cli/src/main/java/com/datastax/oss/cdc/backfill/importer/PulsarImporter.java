@@ -18,7 +18,7 @@ package com.datastax.oss.cdc.backfill.importer;
 
 import com.datastax.oss.cdc.agent.AbstractMutation;
 import com.datastax.oss.cdc.agent.Mutation;
-import com.datastax.oss.cdc.agent.PulsarMutationSender;
+import com.datastax.oss.cdc.agent.MutationSender;
 import com.datastax.oss.cdc.agent.exceptions.CassandraConnectorSchemaException;
 import com.datastax.oss.cdc.backfill.ExitStatus;
 import com.datastax.oss.cdc.backfill.exporter.ExportedTable;
@@ -60,7 +60,7 @@ public class PulsarImporter {
     final private ConnectorFactory connectorFactory;
     final private ExportedTable exportedTable;
 
-    private final PulsarMutationSender mutationSender;
+    private final MutationSender<TableMetadata> mutationSender;
 
     private final Semaphore inflightPulsarMessages;
 
