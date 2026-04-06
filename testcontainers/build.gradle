@@ -36,7 +36,7 @@ dependencies {
     implementation "org.testcontainers:kafka:${testContainersVersion}"
 
     implementation("${pulsarGroup}:pulsar-client:${pulsarVersion}")
-    implementation("org.apache.kafka:kafka-clients:3.6.1")
+    implementation("org.apache.kafka:kafka-clients:${kafkaVersion}")
 
     implementation("org.apache.avro:avro:${avroVersion}")
     implementation("commons-io:commons-io:2.8.0")
