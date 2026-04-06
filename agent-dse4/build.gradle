@@ -92,6 +92,8 @@ shadowJar {
     configurations = [project.configurations.custom]
     // Merge service provider files for SPI
     mergeServiceFiles()
+    // Exclude Netty native libraries; DSE provides its own bundled natives
+    exclude 'META-INF/native/*'
     // relocate AVRO because dse-db depends on avro 1.7.7
     relocate 'org.apache.avro', 'com.datastax.oss.cdc.avro'
 }
