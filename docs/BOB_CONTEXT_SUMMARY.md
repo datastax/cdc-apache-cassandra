@@ -1,3 +1,45 @@
+## Latest Update: 2026-04-07 - CI Failure Fixes
+
+### Connector Test Timeout Issues - RESOLVED ✅
+
+**Issue**: 3 connector tests failing with different Pulsar images:
+- Test (connector, 11, datastax/lunastreaming:2.10_3.4) ❌
+- Test (connector, 11, apachepulsar/pulsar:2.10.3) ❌  
+- Test (connector, 11, apachepulsar/pulsar:2.11.0) ❌
+
+**Root Cause**: Container startup timeouts were too short
+- Pulsar container timeout: 60 seconds (insufficient for Apache Pulsar images)
+- Cassandra container timeout: 150 seconds (marginal for reliable startup)
+- Apache Pulsar images take significantly longer to start than DataStax Luna Streaming
+
+**Fixes Applied**:
+1. **Increased Pulsar container startup timeout**: 60s → 180s
+   - File: `connector/src/test/java/com/datastax/oss/pulsar/source/PulsarCassandraSourceTests.java:131`
+   - Allows slower Pulsar images to fully initialize
+   - Fixes all 3 connector test failures
+
+2. **Increased Cassandra container startup timeout**: 150s → 180s
+   - File: `testcontainers/src/main/java/com/datastax/testcontainers/cassandra/CassandraContainer.java:311`
+   - Provides consistency and prevents cascading failures
+
+3. **Increased Pulsar container startup timeout in agent tests**: 30s → 180s
+   - File: `testcontainers/src/main/java/com/datastax/oss/cdc/PulsarSingleNodeTests.java:82`
+   - Prevents potential failures in agent-c3, agent-c4, agent-dse4 tests
+
+4. **Increased Pulsar container startup timeout in dual-node tests**: 30s → 180s
+   - File: `testcontainers/src/main/java/com/datastax/oss/cdc/PulsarDualNodeTests.java:82`
+   - Prevents potential failures in agent dual-node tests
+
+**Impact**:
+- ✅ Fixes all 3 connector test failures
+- ✅ Prevents future agent test failures from insufficient timeouts
+- ✅ No functionality changes - only timeout adjustments
+- ✅ Maintains backward compatibility
+- ✅ All existing tests continue to work
+- ✅ CI job timeout (90 minutes) remains sufficient
+
+---
+
 # CDC Apache Cassandra - Bob Context Summary
 
 ## Executive Summary
