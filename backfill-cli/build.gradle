@@ -27,6 +27,9 @@ shadowJar {
         resource = 'driver-reference.conf'
     }
 
+    // Merge SPI service files for messaging provider discovery
+    mergeServiceFiles()
+
     dependencies {
         // Exclude log4j from the shadow jar. This is optional step and meant to reduce the size of the nar.
         exclude "org/apache/logging/**"

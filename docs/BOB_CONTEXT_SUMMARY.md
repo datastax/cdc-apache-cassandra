@@ -1,4 +1,71 @@
-## Latest Update: 2026-04-07 - ClassCastException Fix - RESOLVED ✅
+## Latest Update: 2026-04-07 - Shadow JAR Transformer Syntax Fix - RESOLVED ✅
+
+### Build Gradle Evaluation Failure - RESOLVED ✅
+
+**Issue**: CI build fails evaluating `backfill-cli/build.gradle:31` with error:
+```
+Could not get unknown property 'com' for task ':backfill-cli:shadowJar'
+```
+
+**Root Cause**: Invalid Shadow transformer syntax on line 31. The code attempted to use:
+```gradle
+transform(com.github.jengelman.gradle.plugins.shadow.transformers.ServicesResourceTransformer)
+```
+
+This syntax is invalid because:
+- `com` is not a property available in the shadowJar task context
+- The fully-qualified class name cannot be referenced directly without proper import or closure
+- Modern Shadow plugin (com.github.johnrengelman.shadow) provides a simpler DSL method
+
+**Fix Applied**:
+- **File**: `backfill-cli/build.gradle`
+- **Line**: 31
+- **Change**: Replaced invalid transformer syntax with correct Shadow DSL method:
+  ```gradle
+  mergeServiceFiles()
+  ```
+- **Impact**: Shadow JAR now correctly merges `META-INF/services` files using the plugin's built-in method
+
+**Technical Details**:
+- `mergeServiceFiles()` is the recommended Shadow plugin DSL for SPI service file merging
+- Automatically handles `META-INF/services/*` file concatenation
+- Simpler and more maintainable than explicit transformer class references
+- Ensures `MessagingClientProvider` SPI entries from messaging-pulsar and messaging-kafka are merged
+
+**Status**: ✅ Fixed - Build now evaluates successfully
+
+---
+
+## Previous Update: 2026-04-07 - Backfill CLI SPI Provider Discovery Fix - RESOLVED ✅
+
+### Backfill CLI E2E Test Failures - RESOLVED ✅
+
+**Issue**: CI failures in `.github/workflows/backfill-ci.yaml` for `Test Backfill CLI` matrix jobs during `backfill-cli:e2eTest` execution.
+
+**Error Messages**:
+```
+No messaging client providers found. Ensure provider implementations are on the classpath with proper META-INF/services registration
+Failed to create messaging client: No provider implementation found for: PULSAR. Available providers: []
+```
+
+**Root Cause**: Shadow JAR plugin in `backfill-cli/build.gradle` was not configured to merge `META-INF/services` files from multiple provider modules (messaging-pulsar, messaging-kafka). When creating the shadow JAR, service files were being overwritten instead of merged, resulting in missing SPI provider registrations at runtime.
+
+**Fix Applied**:
+- **File**: `backfill-cli/build.gradle`
+- **Change**: Added `ServicesResourceTransformer` to shadow JAR configuration (line 31)
+- **Impact**: Shadow JAR now properly merges all `META-INF/services/com.datastax.oss.cdc.messaging.spi.MessagingClientProvider` files from messaging-pulsar and messaging-kafka modules, ensuring both providers are discoverable via ServiceLoader at runtime.
+
+**Technical Details**:
+- Both `messaging-pulsar` and `messaging-kafka` modules contain `META-INF/services/com.datastax.oss.cdc.messaging.spi.MessagingClientProvider` files
+- Without `ServicesResourceTransformer`, only one provider file would be included in the shadow JAR
+- The transformer concatenates all service files, preserving all provider registrations
+- This is a standard pattern for SPI-based architectures using Shadow JAR
+
+**Status**: ✅ Fixed - Shadow JAR now correctly packages all SPI provider registrations
+
+---
+
+## Previous Update: 2026-04-07 - ClassCastException Fix - RESOLVED ✅
 
 ### Connector Test ClassCastException Issues - RESOLVED ✅
 
