@@ -999,27 +999,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         @Override
         public byte[] getValue() {
             try {
-                Object value = kvRecord.getValue().getValue();
-                // Handle both byte[] (from NativeConverter) and GenericRecord (from GenericConverter)
-                if (value instanceof byte[]) {
-                    return (byte[]) value;
-                } else if (value instanceof org.apache.pulsar.client.api.schema.GenericRecord) {
-                    // GenericRecord from Pulsar - need to serialize to bytes
-                    org.apache.pulsar.client.api.schema.GenericRecord genericRecord =
-                        (org.apache.pulsar.client.api.schema.GenericRecord) value;
-                    
-                    // Use the converter to serialize the GenericRecord to bytes
-                    // The converter's fromConnectData method handles the serialization
-                    @SuppressWarnings("unchecked")
-                    Converter<byte[], org.apache.pulsar.client.api.schema.GenericRecord, ?, byte[]> converter =
-                        (Converter<byte[], org.apache.pulsar.client.api.schema.GenericRecord, ?, byte[]>)
-                        kvRecord.converterAndQueryFinal.converter;
-                    return converter.fromConnectData(genericRecord);
-                } else {
-                    throw new IllegalStateException("Unexpected value type: " +
-                        (value != null ? value.getClass().getName() : "null") +
-                        ". Expected byte[] or GenericRecord");
-                }
+                return (byte[]) kvRecord.getValue().getValue();
             } catch (Exception err) {
                 throw new RuntimeException(err);
             }
@@ -1033,30 +1013,12 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         @Override
         public Optional<String> getKey() {
             Object key = kvRecord.getValue().getKey();
-            // Handle both byte[] and GenericRecord for keys
-            if (key instanceof byte[]) {
-                // returns a json string in plain text. E.g.: key:[{"a":"38878"}]
-                return Optional.of(new String((byte[])key, StandardCharsets.UTF_8));
-            } else if (key instanceof org.apache.pulsar.client.api.schema.GenericRecord) {
-                // GenericRecord from Pulsar - need to serialize to bytes
-                org.apache.pulsar.client.api.schema.GenericRecord genericRecord =
-                    (org.apache.pulsar.client.api.schema.GenericRecord) key;
-                
-                try {
-                    // Use the key converter to serialize the GenericRecord to bytes
-                    @SuppressWarnings("unchecked")
-                    Converter<byte[], org.apache.pulsar.client.api.schema.GenericRecord, ?, byte[]> converter =
-                        (Converter<byte[], org.apache.pulsar.client.api.schema.GenericRecord, ?, byte[]>) keyConverter;
-                    byte[] keyBytes = converter.fromConnectData(genericRecord);
-                    return Optional.of(new String(keyBytes, StandardCharsets.UTF_8));
-                } catch (Exception e) {
-                    throw new RuntimeException("Failed to serialize key", e);
-                }
-            } else {
-                throw new IllegalStateException("Invalid key type: " +
-                    (key != null ? key.getClass().getName() : "null") +
-                    ". Expected byte[] or GenericRecord");
+            if (!(key instanceof byte[])) {
+                throw new IllegalStateException("Invalid key type " + key.getClass().getName());
             }
+
+            // returns a json string in plain text. E.g.: key:[{"a":"38878"}]
+            return Optional.of(new String((byte[])key, StandardCharsets.UTF_8));
         }
 
         @Override
