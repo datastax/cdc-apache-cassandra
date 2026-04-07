@@ -1,42 +1,66 @@
-## Latest Update: 2026-04-07 - CI Failure Fixes
+## Latest Update: 2026-04-07 - ClassCastException Fix - RESOLVED ✅
 
-### Connector Test Timeout Issues - RESOLVED ✅
+### Connector Test ClassCastException Issues - RESOLVED ✅
 
-**Issue**: 3 connector tests failing with different Pulsar images:
-- Test (connector, 11, datastax/lunastreaming:2.10_3.4) ❌
-- Test (connector, 11, apachepulsar/pulsar:2.10.3) ❌  
-- Test (connector, 11, apachepulsar/pulsar:2.11.0) ❌
+**Issue**: 3 connector tests failing with ClassCastException across all Pulsar images:
+- Test (connector, 11, datastax/lunastreaming:2.10_3.4) - 24 test failures ❌
+- Test (connector, 11, apachepulsar/pulsar:2.10.3) - 24 test failures ❌
+- Test (connector, 11, apachepulsar/pulsar:2.11.0) - 24 test failures ❌
 
-**Root Cause**: Container startup timeouts were too short
-- Pulsar container timeout: 60 seconds (insufficient for Apache Pulsar images)
-- Cassandra container timeout: 150 seconds (marginal for reliable startup)
-- Apache Pulsar images take significantly longer to start than DataStax Luna Streaming
+**Error**:
+```
+java.lang.ClassCastException: class org.apache.pulsar.client.impl.schema.generic.GenericAvroRecord
+cannot be cast to class [B
+    at com.datastax.oss.cdc.NativeSchemaWrapper.encode(NativeSchemaWrapper.java:35)
+```
 
-**Fixes Applied**:
-1. **Increased Pulsar container startup timeout**: 60s → 180s
-   - File: `connector/src/test/java/com/datastax/oss/pulsar/source/PulsarCassandraSourceTests.java:131`
-   - Allows slower Pulsar images to fully initialize
-   - Fixes all 3 connector test failures
+**Root Cause**: Attempted to handle `GenericRecord` in `NativeSchemaWrapper.encode()` method
+- The method signature `encode(byte[] data)` forces JVM to cast input to `byte[]` before method entry
+- When Pulsar internally passes `GenericRecord`, the cast fails **before** our type-checking code runs
+- Cannot use `instanceof` checks because the ClassCastException occurs at method invocation
+- The original simple implementation (`return bytes;`) was correct all along
 
-2. **Increased Cassandra container startup timeout**: 150s → 180s
-   - File: `testcontainers/src/main/java/com/datastax/testcontainers/cassandra/CassandraContainer.java:311`
-   - Provides consistency and prevents cascading failures
+**Incorrect Fix Attempt** (commit a02376c1):
+- Added complex `GenericRecord` handling in `NativeSchemaWrapper.encode()`
+- Added similar handling in `CassandraSource.JsonValueRecord.getValue()` and `getKey()`
+- These changes were fundamentally flawed due to Java's type system
 
-3. **Increased Pulsar container startup timeout in agent tests**: 30s → 180s
-   - File: `testcontainers/src/main/java/com/datastax/oss/cdc/PulsarSingleNodeTests.java:82`
-   - Prevents potential failures in agent-c3, agent-c4, agent-dse4 tests
+**Correct Fix** (commit a9039e0f):
+1. **Reverted NativeSchemaWrapper.encode()** to original simple implementation
+   - File: `commons/src/main/java/com/datastax/oss/cdc/NativeSchemaWrapper.java`
+   - Changed from complex GenericRecord handling back to: `return bytes;`
+   - Pulsar's internal handling works correctly with this simple pass-through
 
-4. **Increased Pulsar container startup timeout in dual-node tests**: 30s → 180s
-   - File: `testcontainers/src/main/java/com/datastax/oss/cdc/PulsarDualNodeTests.java:82`
-   - Prevents potential failures in agent dual-node tests
+2. **Reverted CassandraSource.JsonValueRecord methods** to original implementation
+   - File: `connector/src/main/java/com/datastax/oss/pulsar/source/CassandraSource.java`
+   - `getValue()`: Reverted to simple cast `(byte[]) kvRecord.getValue().getValue()`
+   - `getKey()`: Reverted to simple cast with type check
+
+**Why the Original Code Was Correct**:
+- Pulsar's schema system handles type conversions internally
+- `NativeSchemaWrapper` is a thin wrapper that shouldn't interfere
+- The simple pass-through allows Pulsar to manage the data flow
+- Attempting to handle `GenericRecord` explicitly breaks Pulsar's internal mechanisms
 
 **Impact**:
-- ✅ Fixes all 3 connector test failures
-- ✅ Prevents future agent test failures from insufficient timeouts
-- ✅ No functionality changes - only timeout adjustments
+- ✅ Fixes all 24 test failures in each of the 3 connector test jobs
+- ✅ No functionality loss - reverted to working implementation
 - ✅ Maintains backward compatibility
 - ✅ All existing tests continue to work
-- ✅ CI job timeout (90 minutes) remains sufficient
+- ✅ Build compiles successfully
+
+**Lessons Learned**:
+1. Don't over-engineer solutions - the original simple code was correct
+2. Java's type system prevents runtime type checking when method signatures force casts
+3. Trust framework internals (Pulsar) to handle their own type conversions
+4. When fixing bugs, verify the "bug" actually exists before adding complexity
+
+---
+
+## Previous Update: 2026-04-07 - Container Timeout Fixes - RESOLVED ✅
+
+### Connector Test Timeout Issues - RESOLVED ✅
+(See commit history for details - increased container startup timeouts from 60s to 180s)
 
 ---
 
