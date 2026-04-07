@@ -16,25 +16,15 @@
 package com.datastax.oss.cdc;
 
 import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericDatumWriter;
-import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.io.BinaryEncoder;
-import org.apache.avro.io.EncoderFactory;
 import org.apache.pulsar.client.api.schema.SchemaInfoProvider;
 import org.apache.pulsar.common.schema.SchemaInfo;
 import org.apache.pulsar.common.schema.SchemaType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Optional;
 
 public class NativeSchemaWrapper implements org.apache.pulsar.client.api.Schema<byte[]> {
-
-    private static final Logger log = LoggerFactory.getLogger(NativeSchemaWrapper.class);
 
     private final SchemaInfo pulsarSchemaInfo;
     private final Schema nativeSchema;
@@ -53,41 +43,8 @@ public class NativeSchemaWrapper implements org.apache.pulsar.client.api.Schema<
     }
 
     @Override
-    public byte[] encode(byte[] data) {
-        if (data == null) {
-            throw new IllegalArgumentException("Cannot encode null data");
-        }
-
-        // The parameter is declared as byte[] to match the Schema<byte[]> interface,
-        // but Pulsar internally may pass GenericRecord objects. We need to handle both cases.
-        Object actualData = (Object) data;
-
-        // Handle byte[] input (backward compatibility)
-        if (actualData instanceof byte[]) {
-            return (byte[]) actualData;
-        }
-
-        // Handle GenericRecord input (Pulsar internal usage)
-        if (actualData instanceof GenericRecord) {
-            try {
-                GenericRecord record = (GenericRecord) actualData;
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                BinaryEncoder encoder = EncoderFactory.get().binaryEncoder(out, null);
-                GenericDatumWriter<GenericRecord> writer = new GenericDatumWriter<>(nativeSchema);
-                writer.write(record, encoder);
-                encoder.flush();
-                return out.toByteArray();
-            } catch (IOException e) {
-                log.error("Failed to serialize GenericRecord to bytes", e);
-                throw new RuntimeException("Failed to serialize GenericRecord", e);
-            }
-        }
-
-        // Unexpected type
-        throw new IllegalArgumentException(
-            "Unsupported data type for encoding: " + actualData.getClass().getName() +
-            ". Expected byte[] or GenericRecord."
-        );
+    public byte[] encode(byte[] bytes) {
+        return bytes;
     }
 
     @Override
