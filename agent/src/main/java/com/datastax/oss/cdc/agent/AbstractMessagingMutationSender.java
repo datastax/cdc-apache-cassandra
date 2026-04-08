@@ -85,6 +85,14 @@ public abstract class AbstractMessagingMutationSender<T> implements MutationSend
     public AbstractMessagingMutationSender(AgentConfig config, boolean useMurmur3Partitioner) {
         this.config = config;
         this.useMurmur3Partitioner = useMurmur3Partitioner;
+        // Eager initialization: Initialize messaging client at construction time
+        // to avoid lazy initialization race conditions with table drops
+        try {
+            initialize(config);
+        } catch (MessagingException e) {
+            log.error("Failed to initialize messaging client during construction", e);
+            throw new RuntimeException("Failed to initialize messaging client", e);
+        }
     }
 
     public abstract Schema getNativeSchema(String cql3Type);
@@ -258,15 +266,9 @@ public abstract class AbstractMessagingMutationSender<T> implements MutationSend
 
     /**
      * Build the message producer for the provided table metadata.
+     * Note: messagingClient is now eagerly initialized in constructor, so no lazy init check needed.
      */
     protected MessageProducer<byte[], MutationValue> getProducer(final TableInfo tm) throws MessagingException {
-        if (this.messagingClient == null) {
-            synchronized (this) {
-                if (this.messagingClient == null)
-                    initialize(config);
-            }
-        }
-
         final String topicName = config.topicPrefix + tm.key();
         return producers.computeIfAbsent(topicName, k -> {
             try {
@@ -416,6 +418,10 @@ public abstract class AbstractMessagingMutationSender<T> implements MutationSend
 
             return producer.sendAsync(keyBytes, mutation.mutationValue(), properties);
         } catch(Exception e) {
+            log.error("Failed to send mutation for table {}.{}: {}",
+                mutation.getMetadata() != null ? mutation.keyspace() : "unknown",
+                mutation.getMetadata() != null ? mutation.name() : "unknown",
+                e.getMessage(), e);
             CompletableFuture<MessageId> future = new CompletableFuture<>();
             future.completeExceptionally(e);
             return future;
