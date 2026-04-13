@@ -241,11 +241,7 @@ For example:
 ALTER TABLE [keyspace_name.] table_name DROP some-column;
 ----
 
-== Consume change data with {pulsar}
-
-This section describes how to consume change data with {pulsar}.
-
-=== {pulsar-short} clients
+== Consume change data with {pulsar} clients
 
 Each client handles message consumption a little differently but there is one overall pattern to follow.
 As covered in the previous sections, a CDC message arrives as an Avro GenericRecord of type KeyValue.
@@ -257,21 +253,16 @@ From there you'll want to deserialize the Avro record and extract the interestin
 The following example projects demonstrate implementations for each runtime consuming messages from a CDC data topic.
 Make sure to set the connection details according to your cluster configuration.
 
-[tabs]
-======
-Go::
-+
---
+=== Go client example
+
 .main.go
 [source,go]
 ----
 include::ROOT:partial$cdc-example-main.go[]
 ----
---
 
-Java::
-+
---
+=== Java client example
+
 .pom.xml
 [source,xml]
 ----
@@ -359,11 +350,9 @@ public class CDCConsumer {
 
 }
 ----
---
 
-Python::
-+
---
+=== Python client example
+
 .requirements.txt
 [source,plaintext]
 ----
@@ -447,8 +436,6 @@ keyAvroReader = DatumReader(keyAvroSchema)
 valueAvroReader = DatumReader(valueAvroSchema)
 
 
-
-
 waitingForMsg = True
 while waitingForMsg:
     try:
@@ -478,14 +465,11 @@ while waitingForMsg:
         logging.info("Still waiting for a message...")
 
 
-
 client.close()
 ----
---
 
-C#::
-+
---
+=== C# client example
+
 .dotnet-pulsar-astracdc.csproj
 [source,xml]
 ----
@@ -626,11 +610,9 @@ async Task<(Avro.Schema, Avro.Schema)> GetSchema(string schemaUrl)
 	}
 }
 ----
---
 
-Node.js::
-+
---
+=== Node.js client example
+
 .package.json
 [source,json]
 ----
@@ -760,10 +742,8 @@ const avro = require('avro-js');
   await client.close();
 })();
 ----
---
-======
 
-=== {pulsar-short} functions
+== Consume change data with {pulsar-short} functions
 
 It is very common to have a function consuming the CDC data.
 Functions usually perform additional processing on the data and pass it to another topic.
@@ -771,21 +751,16 @@ Similar to a client consumer, it needs to deserialize the message data.
 
 The following example functions consume messages from the CDC data topic.
 
-[tabs]
-======
-Go::
-+
---
+=== Go function example
+
 .main.go
 [source,go]
 ----
 include::ROOT:partial$cdc-example-main.go[]
 ----
---
 
-Java::
-+
---
+=== Java function example
+
 .pom.xml
 [source,xml]
 ----
@@ -1033,11 +1008,9 @@ public class CDCFunction implements Function<GenericObject, String> {
 
 }
 ----
---
 
-Python::
-+
---
+=== Python function example
+
 The following function decodes the content of CDC events as plain JSON.
 For the full context of this example, see the https://github.com/hemidactylus/decoding-cdc-astra-streaming-functions[Decoding CDC {astra-stream} functions repository]
 
@@ -1154,8 +1127,6 @@ class Deschemaer(Function):
         msgDict = cdcMessageToDictPF(msgPK, msgBody, self.keyReader, self.valueReader)
         return json.dumps(msgDict)
 ----
---
-======
 
 == See also
 
