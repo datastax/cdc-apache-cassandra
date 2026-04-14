@@ -15,64 +15,49 @@ The `pulsar-admin` extension is packaged with the IBM Elite Support for {pulsar}
 
 Both artifacts are built with Gradle.
 
-To build the CLI, run the following commands:
-
+. Build the CLI:
++
 [source,bash]
 ----
 git clone git@github.com:datastax/cdc-apache-cassandra.git
 cd cdc-apache-cassandra
 ./gradlew backfill-cli:assemble
 ----
-
++
 .Results
-[%collapsible]
-====
 [source,console]
 ----
 BUILD SUCCESSFUL in 37s
 17 actionable tasks: 15 executed, 2 up-to-date
 ----
-====
-
++
 Gradle generates two main artifacts:
-
++
 * An uber JAR file containing the CLI and all its dependencies: `backfill-cli/build/libs/backfill-cli-{version}-all.jar`
 * A NAR archive that wraps the CLI as a `pulsar-admin` Extension: `backfill-cli/build/libs/pulsar-cassandra-admin-{version}-nar.nar`
 
-Once the artifacts are generated, you can run the backfill CLI tool as either a standalone Java application or as a `pulsar-admin` extension.
-
-[tabs]
-======
-Java standalone::
+. Once the artifacts are generated, run the backfill CLI tool as either a standalone Java application or a `pulsar-admin` extension:
 +
---
+Run as a Java standalone application::
++
 [source,shell,subs="+attributes"]
 ----
 java -jar backfill-cli/build/libs/backfill-cli-{version}-all.jar --data-dir target/export --export-host 127.0.0.1:9042 \
  --export-username cassandra --export-password cassandra --keyspace ks1 --table table1
 ----
 
---
-
-`pulsar-admin` extension::
-+
---
+Run as a `pulsar-admin` extension::
 The `pulsar-admin` extension is packaged with the IBM Elite Support for {pulsar} (formerly {company} Luna Streaming) distribution in the /cliextensions folder, so you don't need to build from source unless you want to make changes to the code.
-
-. Move the generated NAR archive to the /cliextensions folder of your {pulsar-short} installation (e.g. /pulsar/cliextensions).
-
-. Modify the client.conf file of your {pulsar-short} installation to include: `customCommandFactories=cassandra-cdc`.
-
-. Run the following command (this assumes the xref:6.9@dse:installing:tarball-dse.adoc[default tarball installation of {dse-short}]):
++
+.. Move the generated NAR archive to the /cliextensions folder of your {pulsar-short} installation (e.g. /pulsar/cliextensions).
+..Modify the client.conf file of your {pulsar-short} installation to include: `customCommandFactories=cassandra-cdc`.
+.. Run the following command (this assumes the xref:6.9@dse:installing:tarball-dse.adoc[default tarball installation of {dse-short}]):
 +
 [source,shell]
 ----
 -data-dir target/export --export-host 127.0.0.1:9042 \
  --export-username cassandra --export-password cassandra --keyspace ks1 --table table1
 ----
-
---
-======
 
 == Test
 
@@ -99,8 +84,6 @@ This test quickly confirms your CDC backfill is working correctly.
 ----
 +
 .Results
-[%collapsible]
-====
 [source,console]
 ----
 Datacenter: Cassandra
@@ -110,7 +93,6 @@ Status=Up/Down
 --  Address    Load       Owns (effective)  Host ID                               Token                                    Rack
 UN  127.0.0.1  169.82 KiB  100.0%            d4a8181f-b248-431f-a218-47651a30ef4d  -5094113265891965089                     rack1
 ----
-====
 
 . Use `cqlsh` to create a CDC-enabled table, and then add data to the table:
 +
@@ -122,14 +104,11 @@ UN  127.0.0.1  169.82 KiB  100.0%            d4a8181f-b248-431f-a218-47651a30ef4
 ----
 +
 .Results
-[%collapsible]
-====
 [source,console]
 ----
 Connected to Test Cluster at 127.0.0.1:9042.
 [cqlsh 6.8.0 | DSE 6.8.33 | CQL spec 3.4.5 | DSE protocol v2]
 ----
-====
 
 .. Create a keyspace:
 +
@@ -211,11 +190,9 @@ Make sure the last line of the output is similar to the following:
 +
 Your data topic is now populated with the existing data from the {cass-short} table.
 
-. Check your {pulsar-short} subscription to ensure {pulsar-short} received the change events:
+. Check your {pulsar-short} subscription to ensure {pulsar-short} received the change events.
 +
 .{pulsar-short} consumer subscription output
-[%collapsible]
-====
 [source,console]
 ----
 ----- got message -----
@@ -266,7 +243,6 @@ key:[AjM=], properties:[writetime=1681487267244000], content:{key={id=3}, value=
 key:[AjE=], properties:[writetime=1681487267246000], content:{key={id=1}, value={val=val1}}
 2023-04-14T11:48:18,905-0400 [pulsar-timer-6-1] INFO  org.apache.pulsar.client.impl.ConsumerStatsRecorderImpl - [persistent://public/default/data-ks1.table1] [subsc] [5759a] Prefetched messages: 0 --- Consume throughput received: 0.05 msgs/s --- 0.00 Mbit/s --- Ack sent rate: 0.05 ack/s --- Failed messages: 0 --- batch messages: 0 ---Failed acks: 0
 ----
-====
 
 Now that you have tested the Backfill CLI, you can run it manually when you want to backfill data on a CDC-enabled table, or when you need to create events for existing data or upstream applications.
 
