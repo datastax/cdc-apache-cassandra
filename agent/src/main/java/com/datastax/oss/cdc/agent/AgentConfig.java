@@ -225,13 +225,21 @@ public class AgentConfig {
                     null, "CDC_SSL_KEYSTORE_PASSWORD", Setting::getEnvAsString,
                     "String", "ssl", 6);
 
+    public static final String SSL_KEYSTORE_TYPE = "sslKeystoreType";
+    public String sslKeystoreType;
+    public static final Setting<String> SSL_KEYSTORE_TYPE_SETTING =
+            new Setting<>(SSL_KEYSTORE_TYPE, Platform.ALL, (c, s) -> c.sslKeystoreType = s, c -> c.sslKeystoreType,
+                    "The type of the SSL/TLS keystore.",
+                    "JKS", "CDC_SSL_KEYSTORE_TYPE", Setting::getEnvAsString,
+                    "String", "ssl", 7);
+
     public static final String SSL_CIPHER_SUITES = "sslCipherSuites";
     public String sslCipherSuites;
     public static final Setting<String> SSL_CIPHER_SUITES_SETTING =
             new Setting<>(SSL_CIPHER_SUITES, Platform.ALL, (c, s) -> c.sslCipherSuites = s, c -> c.sslCipherSuites,
                     "Defines one or more cipher suites to use for negotiating the SSL/TLS connection.",
                     null, "CDC_SSL_CIPHER_SUITES", Setting::getEnvAsString,
-                    "String", "ssl", 7);
+                    "String", "ssl", 8);
 
     public static final String SSL_ENABLED_PROTOCOLS = "sslEnabledProtocols";
     public String sslEnabledProtocols;
@@ -239,7 +247,7 @@ public class AgentConfig {
             new Setting<>(SSL_ENABLED_PROTOCOLS, Platform.ALL, (c, s) -> c.sslEnabledProtocols = s, c -> c.sslEnabledProtocols,
                     "Enabled SSL/TLS protocols",
                     "TLSv1.2,TLSv1.1,TLSv1", "CDC_SSL_ENABLED_PROTOCOLS", Setting::getEnvAsString,
-                    "String", "ssl", 8);
+                    "String", "ssl", 9);
 
     public static final String SSL_ALLOW_INSECURE_CONNECTION = "sslAllowInsecureConnection";
     public boolean sslAllowInsecureConnection;
@@ -407,6 +415,7 @@ public class AgentConfig {
         set.add(SSL_TRUSTSTORE_TYPE_SETTING);
         set.add(SSL_KEYSTORE_PATH_SETTING);
         set.add(SSL_KEYSTORE_PASSWORD_SETTING);
+        set.add(SSL_KEYSTORE_TYPE_SETTING);
         set.add(SSL_CIPHER_SUITES_SETTING);
         set.add(SSL_ENABLED_PROTOCOLS_SETTING);
         set.add(SSL_ALLOW_INSECURE_CONNECTION_SETTING);
@@ -448,6 +457,7 @@ public class AgentConfig {
         this.sslTruststoreType = SSL_TRUSTSTORE_TYPE_SETTING.initDefault();
         this.sslKeystorePath = SSL_KEYSTORE_PATH_SETTING.initDefault();
         this.sslKeystorePassword = SSL_KEYSTORE_PASSWORD_SETTING.initDefault();
+        this.sslKeystoreType = SSL_KEYSTORE_TYPE_SETTING.initDefault();
         this.sslCipherSuites = SSL_CIPHER_SUITES_SETTING.initDefault();
         this.sslEnabledProtocols = SSL_ENABLED_PROTOCOLS_SETTING.initDefault();
         this.sslAllowInsecureConnection = SSL_ALLOW_INSECURE_CONNECTION_SETTING.initDefault();

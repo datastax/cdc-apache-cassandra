@@ -207,9 +207,9 @@ public abstract class AbstractMessagingMutationSender<T> implements MutationSend
 
         if (config.useKeyStoreTls) {
             builder.keyStorePath(config.sslKeystorePath)
-                   .keyStorePassword(config.sslTruststorePassword)
-                   .keyStoreType(config.sslTruststoreType)
-                   .trustStorePath(config.sslKeystorePath)
+                   .keyStorePassword(config.sslKeystorePassword)  // Fixed: use keystore password
+                   .keyStoreType(config.sslKeystoreType)          // Fixed: use keystore type
+                   .trustStorePath(config.sslTruststorePath)      // Fixed: use truststore path
                    .trustStorePassword(config.sslTruststorePassword)
                    .trustStoreType(config.sslTruststoreType);
         }
@@ -305,7 +305,7 @@ public abstract class AbstractMessagingMutationSender<T> implements MutationSend
                     ProducerConfigBuilder.<byte[], MutationValue>builder()
                         .topic(k)
                         .producerName("cdc-producer-" + getHostId() + "-" + tm.key())
-                        .sendTimeoutMs(30000) // 30 seconds (Pulsar default when timeout=0 means no timeout)
+                        .sendTimeoutMs(0) // 0 = infinite timeout for backward compatibility
                         .maxPendingMessages(config.pulsarMaxPendingMessages)
                         .blockIfQueueFull(true)
                         .keySchema(keySchema)
