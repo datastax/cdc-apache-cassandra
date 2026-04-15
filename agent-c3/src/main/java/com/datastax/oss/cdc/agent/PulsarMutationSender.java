@@ -106,6 +106,12 @@ public class PulsarMutationSender extends AbstractMessagingMutationSender<CFMeta
      */
     @Override
     public boolean isSupported(final AbstractMutation<CFMetaData> mutation) {
+        // Check if metadata is null (table may have been dropped)
+        if (mutation.metadata == null) {
+            log.warn("Table metadata is null for mutation key={}, table may have been dropped, skipping mutation", mutation.key());
+            return false;
+        }
+        
         if (!pkSchemas.containsKey(mutation.key())) {
             for (ColumnDefinition cm : mutation.metadata.primaryKeyColumns()) {
                 if (!avroNativeTypes.containsKey(cm.type.asCQL3Type().toString())) {
