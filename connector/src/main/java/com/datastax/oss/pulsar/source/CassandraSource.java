@@ -807,6 +807,14 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                     ? ImmutableMap.of(Constants.WRITETIME, msg.getProperty(Constants.WRITETIME))
                     : ImmutableMap.of();
         }
+
+        @Override
+        public Optional<Long> getEventTime() {
+            if(msg.hasProperty(Constants.WRITETIME) && msg.getProperty(Constants.WRITETIME) != null){
+                return Optional.of(Long.parseLong(msg.getProperty(Constants.WRITETIME)));
+            }
+            return Optional.empty();
+        }
     }
 
     @RequiredArgsConstructor
@@ -861,6 +869,11 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         @Override
         public KeyValueEncodingType getKeyValueEncodingType() {
             throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<Long> getEventTime() {
+            return kvRecord.getEventTime();
         }
     }
 }
