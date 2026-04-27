@@ -48,9 +48,9 @@ dependencies {
     compileOnly("${pulsarGroup}:pulsar-io-core:${pulsarVersion}")
     implementation(platform("com.fasterxml.jackson:jackson-bom:${jacksonBomVersion}"))
     // Override transitive bouncycastle dependencies coming from pulsar
-    implementation(platform("org.bouncycastle:bcpkix-jdk18on:${bouncycastleVersion}"))
-    implementation(platform("org.bouncycastle:bcprov-jdk18on:${bouncycastleVersion}"))
-    implementation(platform("org.bouncycastle:bcprov-ext-jdk18on:1.78.1"))
+    implementation("org.bouncycastle:bcpkix-jdk18on:${bouncycastleVersion}")
+    implementation("org.bouncycastle:bcprov-jdk18on:${bouncycastleVersion}")
+    implementation("org.bouncycastle:bcprov-ext-jdk18on:1.78.1")
 
     configurations.all {
         resolutionStrategy {

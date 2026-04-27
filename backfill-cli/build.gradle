@@ -84,6 +84,14 @@ dependencies {
     implementation "${pulsarGroup}:pulsar-client:${pulsarVersion}"
     implementation "${pulsarGroup}:pulsar-client-tools-api:${pulsarVersion}"
 
+    configurations.all {
+        resolutionStrategy.dependencySubstitution {
+            // Override the version of lz4-java to fix vulnerability
+            // Also this project is migrated to at.yawk.lz4
+            substitute module('org.lz4:lz4-java') using module("at.yawk.lz4:lz4-java:${lz4javaVersion}")
+        }
+    }
+
     runtimeOnly 'org.conscrypt:conscrypt-openjdk-uber:2.5.2'
 
     testImplementation "org.junit.jupiter:junit-jupiter-api:5.8.1"
