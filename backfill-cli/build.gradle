@@ -27,6 +27,9 @@ shadowJar {
         resource = 'driver-reference.conf'
     }
 
+    // Merge SPI service files for messaging provider discovery
+    mergeServiceFiles()
+
     dependencies {
         // Exclude log4j from the shadow jar. This is optional step and meant to reduce the size of the nar.
         exclude "org/apache/logging/**"
@@ -66,6 +69,9 @@ sourceSets {
 dependencies {
     implementation project(':agent-c4')
     implementation project(':agent')
+    implementation project(':messaging-api')
+    implementation project(':messaging-pulsar')
+    implementation project(':messaging-kafka')
 
     implementation "com.datastax.oss:dsbulk-config:${dsbulkVersion}"
     implementation "com.datastax.oss:dsbulk-runner:${dsbulkVersion}"

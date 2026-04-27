@@ -35,7 +35,7 @@ public class AgentConfig {
     public static final String storageDir = System.getProperty("cassandra.storagedir", null);
 
     public enum Platform {
-        ALL, PULSAR
+        ALL, PULSAR, KAFKA
     }
 
     @AllArgsConstructor
@@ -120,6 +120,14 @@ public class AgentConfig {
             return v == null || v.isEmpty() ? defaultValue : Long.parseLong(v);
         }
     }
+
+    public static final String MESSAGING_PROVIDER = "messagingProvider";
+    public String messagingProvider;
+    public static final Setting<String> MESSAGING_PROVIDER_SETTING =
+            new Setting<String>(MESSAGING_PROVIDER, Platform.ALL, (c, s) -> c.messagingProvider = s, c -> c.messagingProvider,
+                    "The messaging provider to use (PULSAR or KAFKA).",
+                    "PULSAR", "CDC_MESSAGING_PROVIDER", Setting::getEnvAsString,
+                    "String", "main", 0);
 
     public static final String TOPIC_PREFIX = "topicPrefix";
     public String topicPrefix;
@@ -217,13 +225,21 @@ public class AgentConfig {
                     null, "CDC_SSL_KEYSTORE_PASSWORD", Setting::getEnvAsString,
                     "String", "ssl", 6);
 
+    public static final String SSL_KEYSTORE_TYPE = "sslKeystoreType";
+    public String sslKeystoreType;
+    public static final Setting<String> SSL_KEYSTORE_TYPE_SETTING =
+            new Setting<>(SSL_KEYSTORE_TYPE, Platform.ALL, (c, s) -> c.sslKeystoreType = s, c -> c.sslKeystoreType,
+                    "The type of the SSL/TLS keystore.",
+                    "JKS", "CDC_SSL_KEYSTORE_TYPE", Setting::getEnvAsString,
+                    "String", "ssl", 7);
+
     public static final String SSL_CIPHER_SUITES = "sslCipherSuites";
     public String sslCipherSuites;
     public static final Setting<String> SSL_CIPHER_SUITES_SETTING =
             new Setting<>(SSL_CIPHER_SUITES, Platform.ALL, (c, s) -> c.sslCipherSuites = s, c -> c.sslCipherSuites,
                     "Defines one or more cipher suites to use for negotiating the SSL/TLS connection.",
                     null, "CDC_SSL_CIPHER_SUITES", Setting::getEnvAsString,
-                    "String", "ssl", 7);
+                    "String", "ssl", 8);
 
     public static final String SSL_ENABLED_PROTOCOLS = "sslEnabledProtocols";
     public String sslEnabledProtocols;
@@ -231,7 +247,7 @@ public class AgentConfig {
             new Setting<>(SSL_ENABLED_PROTOCOLS, Platform.ALL, (c, s) -> c.sslEnabledProtocols = s, c -> c.sslEnabledProtocols,
                     "Enabled SSL/TLS protocols",
                     "TLSv1.2,TLSv1.1,TLSv1", "CDC_SSL_ENABLED_PROTOCOLS", Setting::getEnvAsString,
-                    "String", "ssl", 8);
+                    "String", "ssl", 9);
 
     public static final String SSL_ALLOW_INSECURE_CONNECTION = "sslAllowInsecureConnection";
     public boolean sslAllowInsecureConnection;
@@ -321,12 +337,70 @@ public class AgentConfig {
                     null, "CDC_PULSAR_AUTH_PARAMS", Setting::getEnvAsString,
                     "String", "pulsar", 7);
 
+    // Kafka-specific settings
+    public static final String KAFKA_BOOTSTRAP_SERVERS = "kafkaBootstrapServers";
+    public String kafkaBootstrapServers;
+    public static final Setting<String> KAFKA_BOOTSTRAP_SERVERS_SETTING =
+            new Setting<>(KAFKA_BOOTSTRAP_SERVERS, Platform.KAFKA, (c, s) -> c.kafkaBootstrapServers = s, c -> c.kafkaBootstrapServers,
+                    "The Kafka bootstrap servers (comma-separated list of host:port).",
+                    "localhost:9092", "CDC_KAFKA_BOOTSTRAP_SERVERS", Setting::getEnvAsString,
+                    "String", "kafka", 1);
+
+    public static final String KAFKA_ACKS = "kafkaAcks";
+    public String kafkaAcks;
+    public static final Setting<String> KAFKA_ACKS_SETTING =
+            new Setting<>(KAFKA_ACKS, Platform.KAFKA, (c, s) -> c.kafkaAcks = s, c -> c.kafkaAcks,
+                    "The number of acknowledgments the producer requires (0, 1, or all).",
+                    "all", "CDC_KAFKA_ACKS", Setting::getEnvAsString,
+                    "String", "kafka", 2);
+
+    public static final String KAFKA_COMPRESSION_TYPE = "kafkaCompressionType";
+    public String kafkaCompressionType;
+    public static final Setting<String> KAFKA_COMPRESSION_TYPE_SETTING =
+            new Setting<>(KAFKA_COMPRESSION_TYPE, Platform.KAFKA, (c, s) -> c.kafkaCompressionType = s, c -> c.kafkaCompressionType,
+                    "The compression type for Kafka messages (none, gzip, snappy, lz4, zstd).",
+                    "none", "CDC_KAFKA_COMPRESSION_TYPE", Setting::getEnvAsString,
+                    "String", "kafka", 3);
+
+    public static final String KAFKA_BATCH_SIZE = "kafkaBatchSize";
+    public int kafkaBatchSize;
+    public static final Setting<Integer> KAFKA_BATCH_SIZE_SETTING =
+            new Setting<>(KAFKA_BATCH_SIZE, Platform.KAFKA, (c, s) -> c.kafkaBatchSize = Integer.parseInt(s), c -> c.kafkaBatchSize,
+                    "The batch size in bytes for Kafka producer.",
+                    16384, "CDC_KAFKA_BATCH_SIZE", Setting::getEnvAsInteger,
+                    "Integer", "kafka", 4);
+
+    public static final String KAFKA_LINGER_MS = "kafkaLingerMs";
+    public long kafkaLingerMs;
+    public static final Setting<Long> KAFKA_LINGER_MS_SETTING =
+            new Setting<>(KAFKA_LINGER_MS, Platform.KAFKA, (c, s) -> c.kafkaLingerMs = Long.parseLong(s), c -> c.kafkaLingerMs,
+                    "The linger time in milliseconds for Kafka batching.",
+                    0L, "CDC_KAFKA_LINGER_MS", Setting::getEnvAsLong,
+                    "Long", "kafka", 5);
+
+    public static final String KAFKA_MAX_IN_FLIGHT_REQUESTS = "kafkaMaxInFlightRequests";
+    public int kafkaMaxInFlightRequests;
+    public static final Setting<Integer> KAFKA_MAX_IN_FLIGHT_REQUESTS_SETTING =
+            new Setting<>(KAFKA_MAX_IN_FLIGHT_REQUESTS, Platform.KAFKA, (c, s) -> c.kafkaMaxInFlightRequests = Integer.parseInt(s), c -> c.kafkaMaxInFlightRequests,
+                    "The maximum number of unacknowledged requests per connection.",
+                    5, "CDC_KAFKA_MAX_IN_FLIGHT_REQUESTS", Setting::getEnvAsInteger,
+                    "Integer", "kafka", 6);
+
+    public static final String KAFKA_SCHEMA_REGISTRY_URL = "kafkaSchemaRegistryUrl";
+    public String kafkaSchemaRegistryUrl;
+    public static final Setting<String> KAFKA_SCHEMA_REGISTRY_URL_SETTING =
+            new Setting<>(KAFKA_SCHEMA_REGISTRY_URL, Platform.KAFKA, (c, s) -> c.kafkaSchemaRegistryUrl = s, c -> c.kafkaSchemaRegistryUrl,
+                    "The Confluent Schema Registry URL for Kafka.",
+                    null, "CDC_KAFKA_SCHEMA_REGISTRY_URL", Setting::getEnvAsString,
+                    "String", "kafka", 7);
+
     public static final Set<Setting<?>> settings;
     public static final Map<String, Setting<?>> settingMap;
 
     static {
         // don't use guava
         Set<Setting<?>> set = new HashSet<>();
+        set.add(MESSAGING_PROVIDER_SETTING);
         set.add(CDC_RELOCATION_DIR_SETTING);
         set.add(CDC_DIR_POLL_INTERVAL_MS_SETTING);
         set.add(CDC_CONCURRENT_PROCESSORS_SETTING);
@@ -341,6 +415,7 @@ public class AgentConfig {
         set.add(SSL_TRUSTSTORE_TYPE_SETTING);
         set.add(SSL_KEYSTORE_PATH_SETTING);
         set.add(SSL_KEYSTORE_PASSWORD_SETTING);
+        set.add(SSL_KEYSTORE_TYPE_SETTING);
         set.add(SSL_CIPHER_SUITES_SETTING);
         set.add(SSL_ENABLED_PROTOCOLS_SETTING);
         set.add(SSL_ALLOW_INSECURE_CONNECTION_SETTING);
@@ -352,6 +427,13 @@ public class AgentConfig {
         set.add(PULSAR_AUTH_PLUGIN_CLASS_NAME_SETTING);
         set.add(PULSAR_AUTH_PARAMS_SETTING);
         set.add(PULSAR_MEMORY_LIMIT_BYTES_SETTING);
+        set.add(KAFKA_BOOTSTRAP_SERVERS_SETTING);
+        set.add(KAFKA_ACKS_SETTING);
+        set.add(KAFKA_COMPRESSION_TYPE_SETTING);
+        set.add(KAFKA_BATCH_SIZE_SETTING);
+        set.add(KAFKA_LINGER_MS_SETTING);
+        set.add(KAFKA_MAX_IN_FLIGHT_REQUESTS_SETTING);
+        set.add(KAFKA_SCHEMA_REGISTRY_URL_SETTING);
         settings = Collections.unmodifiableSet(set);
 
         Map<String, Setting<?>> map = new HashMap<>();
@@ -360,6 +442,7 @@ public class AgentConfig {
     }
 
     public AgentConfig() {
+        this.messagingProvider = MESSAGING_PROVIDER_SETTING.initDefault();
         this.cdcWorkingDir = CDC_RELOCATION_DIR_SETTING.initDefault();
         this.cdcDirPollIntervalMs = CDC_DIR_POLL_INTERVAL_MS_SETTING.initDefault();
         this.cdcConcurrentProcessors = CDC_CONCURRENT_PROCESSORS_SETTING.initDefault();
@@ -374,6 +457,7 @@ public class AgentConfig {
         this.sslTruststoreType = SSL_TRUSTSTORE_TYPE_SETTING.initDefault();
         this.sslKeystorePath = SSL_KEYSTORE_PATH_SETTING.initDefault();
         this.sslKeystorePassword = SSL_KEYSTORE_PASSWORD_SETTING.initDefault();
+        this.sslKeystoreType = SSL_KEYSTORE_TYPE_SETTING.initDefault();
         this.sslCipherSuites = SSL_CIPHER_SUITES_SETTING.initDefault();
         this.sslEnabledProtocols = SSL_ENABLED_PROTOCOLS_SETTING.initDefault();
         this.sslAllowInsecureConnection = SSL_ALLOW_INSECURE_CONNECTION_SETTING.initDefault();
@@ -385,6 +469,13 @@ public class AgentConfig {
         this.pulsarAuthPluginClassName = PULSAR_AUTH_PLUGIN_CLASS_NAME_SETTING.initDefault();
         this.pulsarAuthParams = PULSAR_AUTH_PARAMS_SETTING.initDefault();
         this.pulsarMemoryLimitBytes = PULSAR_MEMORY_LIMIT_BYTES_SETTING.initDefault();
+        this.kafkaBootstrapServers = KAFKA_BOOTSTRAP_SERVERS_SETTING.initDefault();
+        this.kafkaAcks = KAFKA_ACKS_SETTING.initDefault();
+        this.kafkaCompressionType = KAFKA_COMPRESSION_TYPE_SETTING.initDefault();
+        this.kafkaBatchSize = KAFKA_BATCH_SIZE_SETTING.initDefault();
+        this.kafkaLingerMs = KAFKA_LINGER_MS_SETTING.initDefault();
+        this.kafkaMaxInFlightRequests = KAFKA_MAX_IN_FLIGHT_REQUESTS_SETTING.initDefault();
+        this.kafkaSchemaRegistryUrl = KAFKA_SCHEMA_REGISTRY_URL_SETTING.initDefault();
     }
 
     public static void main(String[] args) {
