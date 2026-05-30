@@ -155,13 +155,15 @@ public class ProducerConfigBuilder<K, V> {
     
     /**
      * Set send timeout.
-     * 
-     * @param sendTimeoutMs Send timeout in milliseconds (must be > 0)
+     *
+     * @param sendTimeoutMs Send timeout in milliseconds; {@code 0} means no timeout (wait
+     *                      indefinitely for acknowledgement), matching the Pulsar default. Must be
+     *                      {@code >= 0}.
      * @return This builder
      */
     public ProducerConfigBuilder<K, V> sendTimeoutMs(long sendTimeoutMs) {
-        if (sendTimeoutMs <= 0) {
-            throw new IllegalArgumentException("Send timeout must be > 0");
+        if (sendTimeoutMs < 0) {
+            throw new IllegalArgumentException("Send timeout must be >= 0 (0 = no timeout)");
         }
         this.sendTimeoutMs = sendTimeoutMs;
         return this;

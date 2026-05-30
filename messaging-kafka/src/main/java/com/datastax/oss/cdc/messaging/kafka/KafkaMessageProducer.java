@@ -19,6 +19,7 @@ import com.datastax.oss.cdc.messaging.MessageId;
 import com.datastax.oss.cdc.messaging.ProducerException;
 import com.datastax.oss.cdc.messaging.config.ProducerConfig;
 import com.datastax.oss.cdc.messaging.impl.AbstractMessageProducer;
+import com.datastax.oss.cdc.messaging.kafka.serde.KafkaSerde;
 import com.datastax.oss.cdc.messaging.stats.ProducerStats;
 import com.datastax.oss.cdc.messaging.stats.impl.BaseProducerStats;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -49,19 +50,19 @@ public class KafkaMessageProducer<K, V> extends AbstractMessageProducer<K, V> {
     private final KafkaProducer<byte[], byte[]> producer;
     private final String topic;
     private final BaseProducerStats stats;
-    private final KafkaSchemaProvider schemaProvider;
-    
+    private final KafkaSerde serde;
+
     /**
      * Create KafkaMessageProducer.
      */
     public KafkaMessageProducer(KafkaProducer<byte[], byte[]> producer,
                                 ProducerConfig<K, V> config,
-                                KafkaSchemaProvider schemaProvider) {
+                                KafkaSerde serde) {
         super(config);
         this.producer = producer;
         this.topic = config.getTopic();
         this.stats = new BaseProducerStats();
-        this.schemaProvider = schemaProvider;
+        this.serde = serde;
         markConnected();
     }
     
@@ -71,10 +72,10 @@ public class KafkaMessageProducer<K, V> extends AbstractMessageProducer<K, V> {
         long startTime = System.nanoTime();
         
         try {
-            // Serialize key and value using schema provider
-            byte[] keyBytes = schemaProvider.serialize(key, topic, true);
+            // Serialize key and value using the configured serde (registry-less or registry-backed)
+            byte[] keyBytes = serde.serialize(key, topic, true);
             byte[] valueBytes = value != null ?
-                schemaProvider.serialize(value, topic, false) : null;
+                serde.serialize(value, topic, false) : null;
             
             // Convert properties to Kafka headers
             List<Header> headers = convertPropertiesToHeaders(properties);

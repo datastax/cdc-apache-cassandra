@@ -270,7 +270,7 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
                                                                                String kafkaBootstrapServers) {
         return createCassandraContainerWithAgent(image, network, nodeIndex, System.getProperty("buildDir"),
                 String.format("agent-%s", cassandraVersion),
-                String.format("kafkaBootstrapServers=%s", kafkaBootstrapServers),
+                String.format("messagingProvider=kafka,kafkaBootstrapServers=%s", kafkaBootstrapServers),
                 cassandraVersion);
     }
 

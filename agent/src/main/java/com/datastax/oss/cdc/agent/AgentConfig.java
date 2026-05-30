@@ -596,7 +596,12 @@ public class AgentConfig {
             String value = (String) entry.getValue();
             Setting<?> setting = settingMap.get(key);
             if (setting != null) {
-                if (!setting.platform.equals(Platform.ALL) && !setting.platform.equals(platform)) {
+                // Platform.ALL acts as a wildcard that accepts parameters for any provider
+                // (the active provider is chosen at runtime via 'messagingProvider'). A specific
+                // platform still rejects parameters that belong to another provider.
+                if (!platform.equals(Platform.ALL)
+                        && !setting.platform.equals(Platform.ALL)
+                        && !setting.platform.equals(platform)) {
                     throw new IllegalArgumentException(String.format("Unsupported parameter '%s' for the %s platform ", key, platform));
                 }
                 setting.initializer.apply(this, value);
@@ -611,7 +616,7 @@ public class AgentConfig {
         if (log.isInfoEnabled()) {
             StringBuilder sb = new StringBuilder();
             settings.forEach(s -> {
-                if (s.platform.equals(Platform.ALL) || s.platform.equals(platform)) {
+                if (platform.equals(Platform.ALL) || s.platform.equals(Platform.ALL) || s.platform.equals(platform)) {
                     if (sb.length() > 0)
                         sb.append(", ");
                     sb.append(s.name).append("=").append(s.supplier.apply(this));
