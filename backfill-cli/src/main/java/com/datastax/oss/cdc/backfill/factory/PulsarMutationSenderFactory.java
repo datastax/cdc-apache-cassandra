@@ -30,13 +30,15 @@ public class PulsarMutationSenderFactory {
     }
 
     /**
-     * Creates a MutationSender via the messaging abstraction layer (Pulsar provider).
+     * Creates a MutationSender via the messaging abstraction layer for the configured provider
+     * (Pulsar by default, or Kafka when {@code --messaging-provider=kafka}).
      * <p>
      * The version-specific {@code PulsarMutationSender} extends
-     * {@code AbstractMessagingMutationSender}, which builds and owns its messaging client from an
-     * {@link AgentConfig} (constructor {@code (AgentConfig, boolean)}). We therefore translate the
-     * backfill {@link ImportSettings} into an {@link AgentConfig} rather than passing a pre-built
-     * client. Murmur3 partitioning is disabled to use round-robin routing for backfill operations.
+     * {@code AbstractMessagingMutationSender}, which is provider-agnostic: it builds and owns its
+     * messaging client from an {@link AgentConfig} (constructor {@code (AgentConfig, boolean)}) and
+     * branches on {@code messagingProvider} internally. We therefore translate the backfill
+     * {@link ImportSettings} into an {@link AgentConfig} rather than passing a pre-built client.
+     * Murmur3 partitioning is disabled to use round-robin routing for backfill operations.
      */
     public MutationSender<TableMetadata> newPulsarMutationSender() {
         try {
@@ -65,17 +67,33 @@ public class PulsarMutationSenderFactory {
     }
 
     /**
-     * Translate the backfill import settings into an {@link AgentConfig} targeting Pulsar.
+     * Translate the backfill import settings into an {@link AgentConfig} targeting the configured
+     * messaging provider. The provider-specific connection fields (Pulsar service URL / auth, or
+     * Kafka bootstrap servers / producer settings) are mapped according to
+     * {@link ImportSettings#messagingProvider}. The shared SSL/TLS settings are always mapped.
+     * Provider validation (e.g. an unrecognized provider, or Kafka without bootstrap servers) is
+     * performed by {@code AbstractMessagingMutationSender} when the sender is constructed.
      */
-    private AgentConfig buildAgentConfig() {
+    AgentConfig buildAgentConfig() {
         AgentConfig config = new AgentConfig();
-        config.messagingProvider = "pulsar";
+        config.messagingProvider = importSettings.messagingProvider;
         config.topicPrefix = importSettings.topicPrefix;
+
+        // Pulsar provider settings
         config.pulsarServiceUrl = importSettings.pulsarServiceUrl;
         config.pulsarAuthPluginClassName = importSettings.pulsarAuthPluginClassName;
         config.pulsarAuthParams = importSettings.pulsarAuthParams;
 
-        // SSL / TLS
+        // Kafka provider settings
+        config.kafkaBootstrapServers = importSettings.kafkaBootstrapServers;
+        config.kafkaSchemaRegistryUrl = importSettings.kafkaSchemaRegistryUrl;
+        config.kafkaAcks = importSettings.kafkaAcks;
+        config.kafkaCompressionType = importSettings.kafkaCompressionType;
+        config.kafkaBatchSize = importSettings.kafkaBatchSize;
+        config.kafkaLingerMs = importSettings.kafkaLingerMs;
+        config.kafkaMaxInFlightRequests = importSettings.kafkaMaxInFlightRequests;
+
+        // SSL / TLS (shared by both providers)
         config.sslProvider = importSettings.sslProvider;
         config.sslTruststorePath = importSettings.sslTruststorePath;
         config.sslTruststorePassword = importSettings.sslTruststorePassword;
