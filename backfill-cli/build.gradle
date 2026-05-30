@@ -226,6 +226,9 @@ task e2eTestKafka(type: Test) {
     }
 
     def cassandraFamily = project.hasProperty("cassandraFamily") ? project.property("cassandraFamily") : "c4"
+    // The test selects the cassandra.yaml config-override resource dir from this property; it must
+    // match the CASSANDRA_IMAGE below or the node rejects version-incompatible yaml and fails to start.
+    systemProperty "cassandraFamily", cassandraFamily
     if (cassandraFamily == "c3") {
         systemProperty "cassandraVersion", cassandra3Version
         environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra3Version
