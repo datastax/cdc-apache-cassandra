@@ -157,6 +157,13 @@ task e2eTest(type: Test) {
 
     useJUnitPlatform()
 
+    // Forward the Docker Engine API version to the docker-java client used by Testcontainers
+    // (newer Docker engines reject the client default of 1.32). This custom task does not inherit
+    // the forwarding configured on the standard `test` task. Pass -Papi.version=1.43 to enable.
+    if (project.hasProperty('api.version')) {
+        systemProperty 'api.version', project.property('api.version')
+    }
+
     environment 'PULSAR_IMAGE', testPulsarImage + ':' + testPulsarImageTag
     def cassandraFamily =  project.hasProperty("cassandraFamily") ? project.property("cassandraFamily") : "c4";
     if (cassandraFamily == "c3") {
