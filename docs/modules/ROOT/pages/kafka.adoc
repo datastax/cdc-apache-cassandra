@@ -169,6 +169,21 @@ Deploy one connector per CDC-enabled table. Example configuration:
 * `outputFormat` accepts `key-value-avro` (default) and `key-value-json`.
 * {cass-short} connection, cache, SSL, and authentication settings reuse the same keys as the {csc_pulsar}.
 
+== Back-fill historical data to {kafka-short}
+
+CDC only streams changes that occur *after* it is enabled, so rows written before then are not in the data topic. The xref:ROOT:backfill-cli.adoc[backfill CLI] seeds that historical data, and supports {kafka-short} via `--messaging-provider=kafka`:
+
+[source,bash,subs="+attributes"]
+----
+java -jar backfill-cli-{version}-all.jar \
+  --messaging-provider kafka \
+  --kafka-bootstrap-servers broker:9092 \
+  --data-dir target/export --export-host 127.0.0.1:9042 \
+  --keyspace ks1 --table table1
+----
+
+The CLI exports the table with {dsbulk} and publishes a mutation per row to `events-<keyspace>.<table>`, where the {csc_kafka} picks them up exactly as it does live change events. Run the backfill CLI as the standalone JAR for {kafka-short} (the `pulsar-admin` extension form is {pulsar-short}-only). See xref:ROOT:backfill-cli.adoc[] for all parameters.
+
 == Limitations and follow-ups
 
 * {confluent} Schema Registry output for the *data* topic is not yet implemented; the connector currently reads and writes registry-less raw Avro. The agent already supports registry *input*.
