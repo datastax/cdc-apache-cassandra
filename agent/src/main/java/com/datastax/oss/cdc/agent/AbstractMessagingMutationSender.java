@@ -17,6 +17,7 @@ package com.datastax.oss.cdc.agent;
 
 import com.datastax.oss.cdc.CqlLogicalTypes;
 import com.datastax.oss.cdc.MutationValue;
+import com.datastax.oss.cdc.MutationValueCodec;
 import com.datastax.oss.cdc.agent.exceptions.CassandraConnectorSchemaException;
 import com.datastax.oss.cdc.Constants;
 import com.datastax.oss.cdc.Murmur3MessageRouter;
@@ -76,15 +77,26 @@ public abstract class AbstractMessagingMutationSender<T> implements MutationSend
     }
 
     protected volatile MessagingClient messagingClient;
-    protected final Map<String, MessageProducer<byte[], MutationValue>> producers = new ConcurrentHashMap<>();
+    // Producers are keyed by topic. Key/value types are Object because they differ per provider and
+    // per serialization mode (Pulsar: byte[] key + MutationValue object value; Kafka registry-less:
+    // raw AVRO byte[] for both; Kafka registry mode: AVRO GenericRecord for both).
+    protected final Map<String, MessageProducer<Object, Object>> producers = new ConcurrentHashMap<>();
     protected final Map<String, SchemaAndWriter> pkSchemas = new ConcurrentHashMap<>();
 
     protected final AgentConfig config;
     protected final boolean useMurmur3Partitioner;
+    /** Resolved messaging provider for this sender. */
+    protected final MessagingProvider provider;
+    /** True when targeting Kafka with a Confluent Schema Registry configured. */
+    protected final boolean kafkaUseSchemaRegistry;
 
     public AbstractMessagingMutationSender(AgentConfig config, boolean useMurmur3Partitioner) {
         this.config = config;
         this.useMurmur3Partitioner = useMurmur3Partitioner;
+        this.provider = determineProvider(config);
+        this.kafkaUseSchemaRegistry = provider == MessagingProvider.KAFKA
+                && config.kafkaSchemaRegistryUrl != null
+                && !config.kafkaSchemaRegistryUrl.trim().isEmpty();
         // Eager initialization: Initialize messaging client at construction time
         // to avoid lazy initialization race conditions with table drops
         try {
@@ -268,69 +280,76 @@ public abstract class AbstractMessagingMutationSender<T> implements MutationSend
      * Build the message producer for the provided table metadata.
      * Note: messagingClient is now eagerly initialized in constructor, so no lazy init check needed.
      */
-    protected MessageProducer<byte[], MutationValue> getProducer(final TableInfo tm) throws MessagingException {
+    protected MessageProducer<Object, Object> getProducer(final TableInfo tm) throws MessagingException {
         final String topicName = config.topicPrefix + tm.key();
         return producers.computeIfAbsent(topicName, k -> {
             try {
                 SchemaAndWriter schemaAndWriter = getAvroKeySchema(tm);
-                
-                // Build key schema definition with NativeSchemaWrapper for Pulsar
-                // NativeSchemaWrapper implements org.apache.pulsar.client.api.Schema<byte[]>
-                NativeSchemaWrapper pulsarKeySchema = new NativeSchemaWrapper(
-                    schemaAndWriter.schema,
-                    org.apache.pulsar.common.schema.SchemaType.AVRO
-                );
-                
-                SchemaDefinition keySchema = BaseSchemaDefinition.builder()
-                    .type(SchemaType.AVRO)
-                    .schemaDefinition(schemaAndWriter.schema.toString())
-                    .nativeSchema(pulsarKeySchema)  // Store Pulsar schema, not Avro schema
-                    .name(tm.key())
-                    .build();
-                
-                // Build value schema definition (MutationValue as AVRO)
-                // Use Pulsar's built-in AVRO schema for MutationValue
-                org.apache.pulsar.client.api.Schema<MutationValue> pulsarValueSchema =
-                    org.apache.pulsar.client.api.Schema.AVRO(MutationValue.class);
-                
-                SchemaDefinition valueSchema = BaseSchemaDefinition.builder()
-                    .type(SchemaType.AVRO)
-                    .schemaDefinition("MutationValue")  // Schema name
-                    .nativeSchema(pulsarValueSchema)  // Store Pulsar schema
-                    .name("MutationValue")
-                    .build();
+                final String producerName = "cdc-producer-" + getHostId() + "-" + tm.key();
 
-                // Build producer configuration
-                ProducerConfigBuilder<byte[], MutationValue> producerBuilder =
-                    ProducerConfigBuilder.<byte[], MutationValue>builder()
+                ProducerConfigBuilder<Object, Object> producerBuilder =
+                    ProducerConfigBuilder.<Object, Object>builder()
                         .topic(k)
-                        .producerName("cdc-producer-" + getHostId() + "-" + tm.key())
+                        .producerName(producerName)
                         .sendTimeoutMs(0) // 0 = infinite timeout for backward compatibility
                         .maxPendingMessages(config.pulsarMaxPendingMessages)
-                        .blockIfQueueFull(true)
-                        .keySchema(keySchema)
-                        .valueSchema(valueSchema);
+                        .blockIfQueueFull(true);
 
-                // Add batch configuration (provider-specific)
-                MessagingProvider provider = determineProvider(config);
                 if (provider == MessagingProvider.PULSAR) {
+                    // Pulsar wire format is unchanged: key is wrapped in NativeSchemaWrapper
+                    // (Schema<byte[]>) and the value uses Pulsar's reflection AVRO schema for
+                    // MutationValue. The connector depends on this exact format.
+                    NativeSchemaWrapper pulsarKeySchema = new NativeSchemaWrapper(
+                        schemaAndWriter.schema,
+                        org.apache.pulsar.common.schema.SchemaType.AVRO);
+                    SchemaDefinition keySchema = BaseSchemaDefinition.builder()
+                        .type(SchemaType.AVRO)
+                        .schemaDefinition(schemaAndWriter.schema.toString())
+                        .nativeSchema(pulsarKeySchema)
+                        .name(tm.key())
+                        .build();
+
+                    org.apache.pulsar.client.api.Schema<MutationValue> pulsarValueSchema =
+                        org.apache.pulsar.client.api.Schema.AVRO(MutationValue.class);
+                    SchemaDefinition valueSchema = BaseSchemaDefinition.builder()
+                        .type(SchemaType.AVRO)
+                        .schemaDefinition("MutationValue")
+                        .nativeSchema(pulsarValueSchema)
+                        .name("MutationValue")
+                        .build();
+
+                    producerBuilder.keySchema(keySchema).valueSchema(valueSchema);
+
                     BatchConfig batchConfig = buildBatchConfig(config);
                     if (batchConfig != null) {
                         producerBuilder.batchConfig(batchConfig);
                     }
-
-                    // Add routing configuration
                     RoutingConfig routingConfig = buildRoutingConfig(config, useMurmur3Partitioner);
                     if (routingConfig != null) {
                         producerBuilder.routingConfig(routingConfig);
                     }
 
                     log.info("Creating Pulsar producer name={} with batching delay={}ms",
-                            "cdc-producer-" + getHostId() + "-" + tm.key(), config.pulsarBatchDelayInMs);
-                } else if (provider == MessagingProvider.KAFKA) {
-                    // Kafka batching is configured via provider properties
-                    log.info("Creating Kafka producer name={} with linger.ms={}ms",
-                            "cdc-producer-" + getHostId() + "-" + tm.key(), config.kafkaLingerMs);
+                            producerName, config.pulsarBatchDelayInMs);
+                } else { // KAFKA
+                    // Provider-agnostic schema definitions (no Pulsar types). Serialization is
+                    // handled by the Kafka serde: registry-less raw AVRO, or Confluent registry
+                    // (auto-registration) when a schema registry URL is configured.
+                    SchemaDefinition keySchema = BaseSchemaDefinition.builder()
+                        .type(SchemaType.AVRO)
+                        .schemaDefinition(schemaAndWriter.schema.toString())
+                        .name(tm.key())
+                        .build();
+                    SchemaDefinition valueSchema = BaseSchemaDefinition.builder()
+                        .type(SchemaType.AVRO)
+                        .schemaDefinition(MutationValueCodec.SCHEMA.toString())
+                        .name("MutationValue")
+                        .build();
+
+                    producerBuilder.keySchema(keySchema).valueSchema(valueSchema);
+
+                    log.info("Creating Kafka producer name={} (schemaRegistry={}) with linger.ms={}ms",
+                            producerName, kafkaUseSchemaRegistry, config.kafkaLingerMs);
                 }
 
                 return messagingClient.createProducer(producerBuilder.build());
@@ -401,12 +420,30 @@ public abstract class AbstractMessagingMutationSender<T> implements MutationSend
             return CompletableFuture.completedFuture(null);
         }
         try {
-            MessageProducer<byte[], MutationValue> producer = getProducer(mutation);
+            MessageProducer<Object, Object> producer = getProducer(mutation);
             SchemaAndWriter schemaAndWriter = getAvroKeySchema(mutation);
+            org.apache.avro.generic.GenericRecord keyRecord =
+                    buildAvroKey(schemaAndWriter.schema, mutation);
 
-            byte[] keyBytes = serializeAvroGenericRecord(
-                    buildAvroKey(schemaAndWriter.schema, mutation),
-                    schemaAndWriter.writer);
+            // Prepare the key/value payloads according to provider and serialization mode.
+            Object key;
+            Object value;
+            if (provider == MessagingProvider.KAFKA) {
+                if (kafkaUseSchemaRegistry) {
+                    // Pass AVRO records; the Confluent serializer registers and frames them.
+                    key = keyRecord;
+                    value = MutationValueCodec.toGenericRecord(mutation.mutationValue());
+                } else {
+                    // Registry-less: pre-encode to raw AVRO binary. The key writer carries the CQL
+                    // logical-type conversions; the value uses the canonical MutationValue codec.
+                    key = serializeAvroGenericRecord(keyRecord, schemaAndWriter.writer);
+                    value = MutationValueCodec.serialize(mutation.mutationValue());
+                }
+            } else {
+                // Pulsar: byte[] key (NativeSchemaWrapper passes through) + MutationValue object.
+                key = serializeAvroGenericRecord(keyRecord, schemaAndWriter.writer);
+                value = mutation.mutationValue();
+            }
 
             Map<String, String> properties = new HashMap<>();
             properties.put(Constants.SEGMENT_AND_POSITION,
@@ -416,7 +453,7 @@ public abstract class AbstractMessagingMutationSender<T> implements MutationSend
                 properties.put(Constants.WRITETIME, mutation.getTs() + "");
             }
 
-            return producer.sendAsync(keyBytes, mutation.mutationValue(), properties);
+            return producer.sendAsync(key, value, properties);
         } catch(Exception e) {
             log.error("Failed to send mutation for table {}.{}: {}",
                 mutation.getMetadata() != null ? mutation.keyspace() : "unknown",

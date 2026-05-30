@@ -82,6 +82,7 @@ test {
     useJUnitPlatform()
 
     environment 'PULSAR_IMAGE', testPulsarImage + ':' + testPulsarImageTag
+    environment 'KAFKA_IMAGE', testKafkaImage + ':' + testKafkaImageTag
     environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra4Version
 
     systemProperty "buildDir", buildDir

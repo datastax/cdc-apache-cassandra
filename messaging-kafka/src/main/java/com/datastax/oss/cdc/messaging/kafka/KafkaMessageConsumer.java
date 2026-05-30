@@ -19,6 +19,7 @@ import com.datastax.oss.cdc.messaging.ConsumerException;
 import com.datastax.oss.cdc.messaging.Message;
 import com.datastax.oss.cdc.messaging.config.ConsumerConfig;
 import com.datastax.oss.cdc.messaging.impl.AbstractMessageConsumer;
+import com.datastax.oss.cdc.messaging.kafka.serde.KafkaSerde;
 import com.datastax.oss.cdc.messaging.stats.ConsumerStats;
 import com.datastax.oss.cdc.messaging.stats.impl.BaseConsumerStats;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -48,7 +49,7 @@ public class KafkaMessageConsumer<K, V> extends AbstractMessageConsumer<K, V> {
     private final String topic;
     private final KafkaOffsetTracker offsetTracker;
     private final BaseConsumerStats stats;
-    private final KafkaSchemaProvider schemaProvider;
+    private final KafkaSerde serde;
     private final LinkedBlockingQueue<ConsumerRecord<byte[], byte[]>> messageQueue;
     private final Thread pollingThread;
     private volatile boolean running;
@@ -58,13 +59,13 @@ public class KafkaMessageConsumer<K, V> extends AbstractMessageConsumer<K, V> {
      */
     public KafkaMessageConsumer(KafkaConsumer<byte[], byte[]> consumer,
                                 ConsumerConfig<K, V> config,
-                                KafkaSchemaProvider schemaProvider) {
+                                KafkaSerde serde) {
         super(config);
         this.consumer = consumer;
         this.topic = config.getTopic();
         this.offsetTracker = new KafkaOffsetTracker(consumer);
         this.stats = new BaseConsumerStats();
-        this.schemaProvider = schemaProvider;
+        this.serde = serde;
         this.messageQueue = new LinkedBlockingQueue<>(1000);
         this.running = true;
         
@@ -126,10 +127,14 @@ public class KafkaMessageConsumer<K, V> extends AbstractMessageConsumer<K, V> {
                 return null;
             }
             
-            // Deserialize key and value
-            K key = schemaProvider.deserialize(record.key(), record.topic(), true);
+            // Deserialize key and value using the configured serde.
+            // The registry-less serde returns the raw bytes (caller decodes); the registry serde
+            // returns the decoded object. Casts are erased at runtime.
+            @SuppressWarnings("unchecked")
+            K key = (K) serde.deserialize(record.key(), record.topic(), true);
+            @SuppressWarnings("unchecked")
             V value = record.value() != null ?
-                schemaProvider.deserialize(record.value(), record.topic(), false) : null;
+                (V) serde.deserialize(record.value(), record.topic(), false) : null;
             
             // Create message wrapper with deserialized key/value
             @SuppressWarnings("unchecked")

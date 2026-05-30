@@ -21,6 +21,9 @@ import com.datastax.oss.cdc.messaging.config.ClientConfig;
 import com.datastax.oss.cdc.messaging.config.ConsumerConfig;
 import com.datastax.oss.cdc.messaging.config.ProducerConfig;
 import com.datastax.oss.cdc.messaging.impl.AbstractMessagingClient;
+import com.datastax.oss.cdc.messaging.kafka.serde.KafkaSerde;
+import com.datastax.oss.cdc.messaging.kafka.serde.RawAvroSerde;
+import com.datastax.oss.cdc.messaging.kafka.serde.RegistryAvroSerde;
 import com.datastax.oss.cdc.messaging.stats.ClientStats;
 import com.datastax.oss.cdc.messaging.stats.impl.BaseClientStats;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -44,7 +47,7 @@ public class KafkaMessagingClient extends AbstractMessagingClient {
     private static final Logger log = LoggerFactory.getLogger(KafkaMessagingClient.class);
     
     private Properties commonProperties;
-    private KafkaSchemaProvider schemaProvider;
+    private KafkaSerde serde;
     private final BaseClientStats stats;
     
     /**
@@ -63,20 +66,21 @@ public class KafkaMessagingClient extends AbstractMessagingClient {
             // Map configuration to Kafka common properties
             this.commonProperties = KafkaConfigMapper.mapClientConfig(config);
             
-            // Initialize schema provider if schema registry URL is provided
+            // Select the serde strategy: Confluent Schema Registry when a registry URL is
+            // configured, otherwise registry-less raw AVRO (works with plain Apache Kafka).
             Object schemaRegistryUrlObj = config.getProviderProperties() != null ?
                 config.getProviderProperties().get("schema.registry.url") : null;
             String schemaRegistryUrl = schemaRegistryUrlObj != null ?
-                schemaRegistryUrlObj.toString() : null;
-            
-            if (schemaRegistryUrl != null) {
-                this.schemaProvider = new KafkaSchemaProvider(schemaRegistryUrl, 
-                    config.getProviderProperties());
-                log.info("Initialized schema provider with registry: {}", schemaRegistryUrl);
+                schemaRegistryUrlObj.toString().trim() : null;
+
+            if (schemaRegistryUrl != null && !schemaRegistryUrl.isEmpty()) {
+                this.serde = new RegistryAvroSerde(schemaRegistryUrl, config.getProviderProperties());
+                log.info("Using Confluent Schema Registry serde: {}", schemaRegistryUrl);
             } else {
-                log.warn("No schema registry URL provided, schema operations will not be available");
+                this.serde = new RawAvroSerde();
+                log.info("No schema registry URL configured; using registry-less raw AVRO serde");
             }
-            
+
             log.info("Kafka client initialized successfully");
         } catch (Exception e) {
             log.error("Failed to initialize Kafka client", e);
@@ -100,7 +104,7 @@ public class KafkaMessagingClient extends AbstractMessagingClient {
             
             // Create wrapper
             KafkaMessageProducer<K, V> producer = new KafkaMessageProducer<>(
-                kafkaProducer, config, schemaProvider);
+                kafkaProducer, config, serde);
             
             stats.incrementProducerCount();
             
@@ -129,7 +133,7 @@ public class KafkaMessagingClient extends AbstractMessagingClient {
             
             // Create wrapper
             KafkaMessageConsumer<K, V> consumer = new KafkaMessageConsumer<>(
-                kafkaConsumer, config, schemaProvider);
+                kafkaConsumer, config, serde);
             
             stats.incrementConsumerCount();
             
@@ -145,8 +149,8 @@ public class KafkaMessagingClient extends AbstractMessagingClient {
     @Override
     protected void doClose() throws Exception {
         try {
-            if (schemaProvider != null) {
-                schemaProvider.close();
+            if (serde != null) {
+                serde.close();
             }
             log.info("Closed Kafka client");
         } catch (Exception e) {
@@ -173,10 +177,10 @@ public class KafkaMessagingClient extends AbstractMessagingClient {
     }
     
     /**
-     * Get the schema provider.
+     * Get the serde strategy in use (registry-less or Confluent Schema Registry).
      */
-    public KafkaSchemaProvider getSchemaProvider() {
-        return schemaProvider;
+    public KafkaSerde getSerde() {
+        return serde;
     }
 }
 
