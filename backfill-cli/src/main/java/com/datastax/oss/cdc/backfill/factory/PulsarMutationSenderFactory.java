@@ -19,11 +19,6 @@ package com.datastax.oss.cdc.backfill.factory;
 import com.datastax.oss.cdc.agent.AgentConfig;
 import com.datastax.oss.cdc.agent.MutationSender;
 import com.datastax.oss.cdc.backfill.importer.ImportSettings;
-import com.datastax.oss.cdc.messaging.MessagingClient;
-import com.datastax.oss.cdc.messaging.config.ClientConfig;
-import com.datastax.oss.cdc.messaging.config.MessagingProvider;
-import com.datastax.oss.cdc.messaging.config.impl.ClientConfigBuilder;
-import com.datastax.oss.cdc.messaging.factory.MessagingClientFactory;
 import org.apache.cassandra.schema.TableMetadata;
 
 public class PulsarMutationSenderFactory {
@@ -35,40 +30,65 @@ public class PulsarMutationSenderFactory {
     }
 
     /**
-     * Creates a MutationSender using the messaging abstraction layer.
-     * Disables Murmur3 partitioner to use round-robin routing for backfill operations.
+     * Creates a MutationSender via the messaging abstraction layer (Pulsar provider).
+     * <p>
+     * The version-specific {@code PulsarMutationSender} extends
+     * {@code AbstractMessagingMutationSender}, which builds and owns its messaging client from an
+     * {@link AgentConfig} (constructor {@code (AgentConfig, boolean)}). We therefore translate the
+     * backfill {@link ImportSettings} into an {@link AgentConfig} rather than passing a pre-built
+     * client. Murmur3 partitioning is disabled to use round-robin routing for backfill operations.
      */
     public MutationSender<TableMetadata> newPulsarMutationSender() {
         try {
-            // Create messaging client configuration
-            ClientConfig clientConfig = ClientConfigBuilder.builder()
-                .provider(MessagingProvider.PULSAR)
-                .serviceUrl(importSettings.pulsarServiceUrl)
-                .build();
-            
-            // Create messaging client using the factory
-            MessagingClient messagingClient = MessagingClientFactory.create(clientConfig);
-            
-            // Use reflection to instantiate the appropriate PulsarMutationSender based on available classes
-            // This maintains compatibility with C3/C4/DSE4 variants
+            AgentConfig config = buildAgentConfig();
+
+            // Use reflection to instantiate the appropriate PulsarMutationSender based on the
+            // agent variant on the classpath (C3/C4/DSE4).
             String senderClassName = detectPulsarMutationSenderClass();
-            
+
             Class<?> senderClass = Class.forName(senderClassName);
             java.lang.reflect.Constructor<?> constructor = senderClass.getConstructor(
-                MessagingClient.class,
+                AgentConfig.class,
                 boolean.class
             );
-            
+
             @SuppressWarnings("unchecked")
             MutationSender<TableMetadata> sender = (MutationSender<TableMetadata>) constructor.newInstance(
-                messagingClient,
+                config,
                 false  // Disable Murmur3 partitioner for round-robin routing
             );
-            
+
             return sender;
         } catch (Exception e) {
             throw new RuntimeException("Failed to create PulsarMutationSender via messaging abstraction", e);
         }
+    }
+
+    /**
+     * Translate the backfill import settings into an {@link AgentConfig} targeting Pulsar.
+     */
+    private AgentConfig buildAgentConfig() {
+        AgentConfig config = new AgentConfig();
+        config.messagingProvider = "pulsar";
+        config.topicPrefix = importSettings.topicPrefix;
+        config.pulsarServiceUrl = importSettings.pulsarServiceUrl;
+        config.pulsarAuthPluginClassName = importSettings.pulsarAuthPluginClassName;
+        config.pulsarAuthParams = importSettings.pulsarAuthParams;
+
+        // SSL / TLS
+        config.sslProvider = importSettings.sslProvider;
+        config.sslTruststorePath = importSettings.sslTruststorePath;
+        config.sslTruststorePassword = importSettings.sslTruststorePassword;
+        config.sslTruststoreType = importSettings.sslTruststoreType;
+        config.sslKeystorePath = importSettings.sslKeystorePath;
+        config.sslKeystorePassword = importSettings.sslKeystorePassword;
+        config.sslCipherSuites = importSettings.sslCipherSuites;
+        config.sslEnabledProtocols = importSettings.sslEnabledProtocols;
+        config.sslAllowInsecureConnection = importSettings.sslAllowInsecureConnection;
+        config.sslHostnameVerificationEnable = importSettings.sslHostnameVerificationEnable;
+        config.tlsTrustCertsFilePath = importSettings.tlsTrustCertsFilePath;
+        config.useKeyStoreTls = importSettings.useKeyStoreTls;
+        return config;
     }
 
     /**

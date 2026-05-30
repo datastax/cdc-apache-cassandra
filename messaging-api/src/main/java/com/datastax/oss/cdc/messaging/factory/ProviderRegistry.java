@@ -239,31 +239,50 @@ public final class ProviderRegistry {
      */
     private void loadProviders() {
         log.debug("Loading messaging client providers via ServiceLoader");
-        
-        ServiceLoader<MessagingClientProvider> loader = 
-            ServiceLoader.load(MessagingClientProvider.class);
-        
+
+        // Discover providers across multiple class loaders. The thread context class loader works
+        // for a plain JVM (e.g. `java -jar`), but in plugin runtimes such as a Pulsar NAR the
+        // context loader is NOT the one that loaded the messaging classes / bundled the
+        // META-INF/services files, so we also try the messaging API's own class loader.
+        java.util.List<ClassLoader> classLoaders = new java.util.ArrayList<>();
+        ClassLoader contextCl = Thread.currentThread().getContextClassLoader();
+        if (contextCl != null) {
+            classLoaders.add(contextCl);
+        }
+        ClassLoader ownCl = MessagingClientProvider.class.getClassLoader();
+        if (ownCl != null && !classLoaders.contains(ownCl)) {
+            classLoaders.add(ownCl);
+        }
+        if (classLoaders.isEmpty()) {
+            classLoaders.add(ClassLoader.getSystemClassLoader());
+        }
+
         int count = 0;
-        for (MessagingClientProvider provider : loader) {
-            try {
-                MessagingProvider type = provider.getProvider();
-                if (providers.containsKey(type)) {
-                    log.warn("Duplicate provider found for type: {}. Using first discovered: {}", 
-                        type, providers.get(type).getClass().getName());
-                } else {
-                    providers.put(type, provider);
-                    log.info("Discovered provider: {} for type: {}", 
-                        provider.getClass().getName(), type);
-                    count++;
+        for (ClassLoader classLoader : classLoaders) {
+            ServiceLoader<MessagingClientProvider> loader =
+                ServiceLoader.load(MessagingClientProvider.class, classLoader);
+            for (MessagingClientProvider provider : loader) {
+                try {
+                    MessagingProvider type = provider.getProvider();
+                    if (providers.containsKey(type)) {
+                        // Already discovered (possibly via another class loader); keep the first.
+                        log.debug("Provider for type {} already discovered, ignoring {}",
+                            type, provider.getClass().getName());
+                    } else {
+                        providers.put(type, provider);
+                        log.info("Discovered provider: {} for type: {}",
+                            provider.getClass().getName(), type);
+                        count++;
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to load provider: {}",
+                        provider.getClass().getName(), e);
                 }
-            } catch (Exception e) {
-                log.error("Failed to load provider: {}", 
-                    provider.getClass().getName(), e);
             }
         }
-        
+
         log.info("Loaded {} messaging client provider(s)", count);
-        
+
         if (count == 0) {
             log.warn("No messaging client providers found. " +
                 "Ensure provider implementations are on the classpath with proper " +
