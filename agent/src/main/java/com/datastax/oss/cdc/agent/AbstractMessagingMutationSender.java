@@ -97,6 +97,9 @@ public abstract class AbstractMessagingMutationSender<T> implements MutationSend
         this.kafkaUseSchemaRegistry = provider == MessagingProvider.KAFKA
                 && config.kafkaSchemaRegistryUrl != null
                 && !config.kafkaSchemaRegistryUrl.trim().isEmpty();
+        // Fail fast with an actionable message if the provider-specific config is incomplete,
+        // rather than deferring to a cryptic client-side error on first connect.
+        validateProviderConfig(config, provider);
         // Eager initialization: Initialize messaging client at construction time
         // to avoid lazy initialization race conditions with table drops
         try {
@@ -195,18 +198,65 @@ public abstract class AbstractMessagingMutationSender<T> implements MutationSend
 
     /**
      * Determine messaging provider from config.
+     * <p>
+     * The {@code messagingProvider} property is matched case-insensitively and is whitespace
+     * tolerant. When it is unset (null or blank) we default to {@code PULSAR} for backward
+     * compatibility. An unrecognized non-blank value is rejected with a clear, actionable error
+     * instead of silently falling back to Pulsar (which would point a Kafka deployment at Pulsar
+     * and surface only as confusing downstream connection failures).
      */
     protected MessagingProvider determineProvider(AgentConfig config) {
-        if (config.messagingProvider != null) {
-            String provider = config.messagingProvider.toUpperCase();
-            if ("KAFKA".equals(provider)) {
-                return MessagingProvider.KAFKA;
-            } else if ("PULSAR".equals(provider)) {
-                return MessagingProvider.PULSAR;
+        final String raw = config.messagingProvider;
+        if (raw == null || raw.trim().isEmpty()) {
+            // Unset/blank: default to PULSAR for backward compatibility.
+            return MessagingProvider.PULSAR;
+        }
+        final String provider = raw.trim().toUpperCase(Locale.ROOT);
+        if ("KAFKA".equals(provider)) {
+            return MessagingProvider.KAFKA;
+        } else if ("PULSAR".equals(provider)) {
+            return MessagingProvider.PULSAR;
+        }
+        throw new IllegalArgumentException(String.format(
+                "Invalid messagingProvider '%s'. Supported values are 'pulsar' or 'kafka' "
+                        + "(case-insensitive); leave the property unset to default to 'pulsar'.",
+                raw));
+    }
+
+    /**
+     * Validate that the provider-specific configuration required to connect is present and
+     * well-formed, throwing an {@link IllegalArgumentException} with an actionable message when it
+     * is not. This runs at construction time so misconfiguration is reported up front rather than
+     * as a late, cryptic failure inside the Pulsar/Kafka client.
+     */
+    protected void validateProviderConfig(AgentConfig config, MessagingProvider provider) {
+        if (provider == MessagingProvider.KAFKA) {
+            if (isBlank(config.kafkaBootstrapServers)) {
+                throw new IllegalArgumentException(
+                        "messagingProvider=kafka requires 'kafkaBootstrapServers' to be set "
+                                + "(e.g. host1:9092,host2:9092).");
+            }
+            if (!isBlank(config.kafkaSchemaRegistryUrl)) {
+                final String url = config.kafkaSchemaRegistryUrl.trim();
+                if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                    throw new IllegalArgumentException(String.format(
+                            "Invalid kafkaSchemaRegistryUrl '%s'. It must be an http(s) URL "
+                                    + "(e.g. http://localhost:8081); leave it unset to use the "
+                                    + "registry-less raw Avro serialization.",
+                            config.kafkaSchemaRegistryUrl));
+                }
+            }
+        } else { // PULSAR
+            if (isBlank(config.pulsarServiceUrl)) {
+                throw new IllegalArgumentException(
+                        "messagingProvider=pulsar requires 'pulsarServiceUrl' to be set "
+                                + "(e.g. pulsar://localhost:6650).");
             }
         }
-        // Default to PULSAR for backward compatibility
-        return MessagingProvider.PULSAR;
+    }
+
+    private static boolean isBlank(String s) {
+        return s == null || s.trim().isEmpty();
     }
 
     /**
