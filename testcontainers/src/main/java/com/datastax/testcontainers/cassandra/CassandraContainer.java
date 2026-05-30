@@ -30,13 +30,15 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.delegate.DatabaseDelegate;
 import org.testcontainers.ext.ScriptUtils;
 import org.testcontainers.ext.ScriptUtils.ScriptLoadException;
-import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.containers.ContainerLaunchException;
+import org.testcontainers.containers.wait.strategy.AbstractWaitStrategy;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
 import javax.script.ScriptException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -273,18 +275,48 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
                 .withEnv("MAX_HEAP_SIZE", "1500m")
                 .withEnv("HEAP_NEWSIZE", "300m")
                 .withEnv("DS_LICENSE", "accept")
-                // The base container exposes the debug port (8000) alongside CQL (9042) and JMX
-                // (7199); the default wait strategy waits for ALL of them. The agent-based factories
-                // open 8000 via the JVM debug agent, but a no-agent node never does, so wait on the
-                // CQL-readiness log line instead to avoid a spurious port-open timeout.
-                .waitingFor(Wait.forLogMessage(".*Starting listening for CQL clients.*", 1)
-                        .withStartupTimeout(Duration.ofSeconds(180)))
+                // Wait only on the CQL port. The default strategy waits for ALL exposed ports,
+                // including the debug port (8000) that the agent-based factories open via the JVM
+                // debug agent but a no-agent node never does. A log-message strategy is also unusable
+                // here because some config-override logback.xml files (e.g. c4) route Cassandra
+                // output to file only, leaving stdout empty.
+                .waitingFor(new CqlPortWaitStrategy().withStartupTimeout(Duration.ofSeconds(180)))
                 .withStartupTimeout(Duration.ofSeconds(180));
         if (nodeIndex > 1) {
             cassandraContainer.withEnv("CASSANDRA_SEEDS", "cassandra-1");   // for Cassandra
             cassandraContainer.withEnv("SEEDS", "cassandra-1");             // for DSE
         }
         return cassandraContainer;
+    }
+
+    /**
+     * Waits until the CQL native-transport port (9042) accepts TCP connections from the host.
+     * Targets only the CQL port so it does not block on the always-exposed-but-unused debug port
+     * (8000), and does not depend on Cassandra writing to stdout (some config-override logback.xml
+     * files log to file only).
+     */
+    private static class CqlPortWaitStrategy extends AbstractWaitStrategy {
+        @Override
+        protected void waitUntilReady() {
+            final String host = waitStrategyTarget.getHost();
+            final int port = waitStrategyTarget.getMappedPort(CQL_PORT);
+            final long deadline = System.currentTimeMillis() + startupTimeout.toMillis();
+            while (System.currentTimeMillis() < deadline) {
+                try (Socket socket = new Socket()) {
+                    socket.connect(new InetSocketAddress(host, port), 2000);
+                    return;
+                } catch (IOException notReadyYet) {
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new ContainerLaunchException("Interrupted while waiting for the CQL port", ie);
+                    }
+                }
+            }
+            throw new ContainerLaunchException(
+                    "Timed out waiting for the CQL port (" + CQL_PORT + ") to accept connections");
+        }
     }
 
     public static CassandraContainer<?> createCassandraContainerWithAgent(DockerImageName image,
