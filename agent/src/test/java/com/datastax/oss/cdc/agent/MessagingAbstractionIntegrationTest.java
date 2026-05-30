@@ -289,12 +289,75 @@ public class MessagingAbstractionIntegrationTest {
     void testProviderDeterminationKafka() {
         config.messagingProvider = "KAFKA";
         config.kafkaBootstrapServers = "localhost:9092";
-        
+
         mutationSender = new TestMutationSender(config, false);
         MessagingProvider provider = mutationSender.determineProvider(config);
-        
+
         assertEquals(MessagingProvider.KAFKA, provider,
                 "Should use KAFKA when explicitly specified");
+    }
+
+    @Test
+    @DisplayName("Test provider determination is case-insensitive and whitespace-tolerant")
+    void testProviderDeterminationCaseAndWhitespace() {
+        mutationSender = new TestMutationSender(config, false);
+
+        AgentConfig kafkaCfg = new AgentConfig();
+        kafkaCfg.messagingProvider = "  kafka  ";
+        assertEquals(MessagingProvider.KAFKA, mutationSender.determineProvider(kafkaCfg),
+                "Lowercase, padded 'kafka' should resolve to KAFKA");
+
+        AgentConfig pulsarCfg = new AgentConfig();
+        pulsarCfg.messagingProvider = "Pulsar";
+        assertEquals(MessagingProvider.PULSAR, mutationSender.determineProvider(pulsarCfg),
+                "Mixed-case 'Pulsar' should resolve to PULSAR");
+
+        AgentConfig blankCfg = new AgentConfig();
+        blankCfg.messagingProvider = "   ";
+        assertEquals(MessagingProvider.PULSAR, mutationSender.determineProvider(blankCfg),
+                "Blank provider should default to PULSAR");
+    }
+
+    @Test
+    @DisplayName("Test invalid provider is rejected with a clear error")
+    void testProviderDeterminationInvalidRejected() {
+        mutationSender = new TestMutationSender(config, false);
+
+        AgentConfig badCfg = new AgentConfig();
+        badCfg.messagingProvider = "confluent";
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> mutationSender.determineProvider(badCfg),
+                "An unrecognized provider must not silently fall back to Pulsar");
+        assertTrue(ex.getMessage().contains("confluent"), "Message should echo the bad value");
+        assertTrue(ex.getMessage().contains("pulsar") && ex.getMessage().contains("kafka"),
+                "Message should list the supported values");
+    }
+
+    @Test
+    @DisplayName("Test Kafka without bootstrap servers fails fast at construction")
+    void testKafkaMissingBootstrapServersRejected() {
+        config.messagingProvider = "kafka";
+        config.kafkaBootstrapServers = null;
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> new TestMutationSender(config, false),
+                "Kafka without bootstrap servers should fail fast");
+        assertTrue(ex.getMessage().contains("kafkaBootstrapServers"),
+                "Message should name the missing property");
+    }
+
+    @Test
+    @DisplayName("Test malformed Kafka schema registry URL fails fast at construction")
+    void testKafkaInvalidSchemaRegistryUrlRejected() {
+        config.messagingProvider = "kafka";
+        config.kafkaBootstrapServers = "localhost:9092";
+        config.kafkaSchemaRegistryUrl = "localhost:8081"; // missing http(s):// scheme
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> new TestMutationSender(config, false),
+                "A schema registry URL without an http(s) scheme should be rejected");
+        assertTrue(ex.getMessage().contains("kafkaSchemaRegistryUrl"),
+                "Message should name the offending property");
     }
 
     @Test
