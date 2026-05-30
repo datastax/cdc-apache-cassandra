@@ -82,10 +82,57 @@ The Testcontainers docker-java client defaults to Docker Engine API `1.32`, whic
 engines reject. Pass `-Papi.version=1.43` to force a supported version (CI does this). On Docker
 Desktop you may also need `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock`.
 
-## Status: source connector (events → Cassandra → data)
+## Source connector (events → Cassandra → data)
 
-The **agent (producer) side is complete for both providers.** The **source connector** — which
-consumes the events topic, queries Cassandra for the current row, and publishes to the `data-*`
-topic — currently exists only for Pulsar (it runs inside the Pulsar IO runtime; see
-`docs/CONNECTOR_ARCHITECTURE_DECISION.md`). A Kafka equivalent is a separate Kafka Connect plugin and
-is tracked as follow-up work.
+The pipeline is complete for Kafka via a **Kafka Connect sink connector** in the `connector-kafka`
+module: `com.datastax.oss.kafka.sink.CassandraSinkConnector`. It consumes the `events-*` topic,
+de-duplicates mutations, queries Cassandra for the current row, and publishes the row to the
+`data-*` topic. It reuses the proven Cassandra query + AVRO/JSON conversion + de-duplication logic
+from the Pulsar connector (`CassandraClient`, `NativeAvroConverter`/`NativeJsonConverter`,
+`MutationCache`), so the output format matches.
+
+### Deploying
+
+Build the plugin jar with `./gradlew :connector-kafka:shadowJar` and put it on the Kafka Connect
+`plugin.path`. Example connector configuration:
+
+```json
+{
+  "name": "cassandra-source-ks1-table1",
+  "config": {
+    "connector.class": "com.datastax.oss.kafka.sink.CassandraSinkConnector",
+    "tasks.max": "1",
+    "topics": "events-ks1.table1",
+    "key.converter": "org.apache.kafka.connect.converters.ByteArrayConverter",
+    "value.converter": "org.apache.kafka.connect.converters.ByteArrayConverter",
+    "keyspace": "ks1",
+    "table": "table1",
+    "contactPoints": "cassandra-host",
+    "port": "9042",
+    "loadBalancing.localDc": "datacenter1",
+    "kafka.bootstrap.servers": "broker:9092",
+    "data.topic.prefix": "data-",
+    "outputFormat": "key-value-avro"
+  }
+}
+```
+
+- The data topic is `<data.topic.prefix><keyspace>.<table>` (e.g. `data-ks1.table1`).
+- The data record key reuses the event key bytes (the AVRO primary key); the value is the AVRO/JSON
+  row, or `null` (tombstone) for a delete.
+- `outputFormat` accepts `key-value-avro` (default) and `key-value-json`.
+- Cassandra connection / cache / SSL / auth settings reuse the same keys as the Pulsar connector
+  (delegated to `CassandraSourceConnectorConfig`).
+
+### Tested
+
+`CassandraKafkaSinkE2ETest` validates the full pipeline end-to-end (agent → events → connector →
+data) for both AVRO and JSON output, and runs in the `test-kafka` CI job.
+
+### Known follow-ups
+
+- Confluent Schema Registry output for the data topic (the agent already supports registry input;
+  the connector currently reads/writes registry-less raw AVRO).
+- Adaptive query-executor pool / batching parity with the Pulsar connector (the sink processes
+  records sequentially per `put()` batch).
+- JSON-only output format (key embedded in the value) and custom key/value converter classes.

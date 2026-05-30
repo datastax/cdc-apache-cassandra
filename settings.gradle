@@ -33,6 +33,7 @@ include 'agent-distribution'
 
 include 'connector'
 include 'connector-distribution'
+include 'connector-kafka'
 
 include 'docs'
 
