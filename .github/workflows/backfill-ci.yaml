@@ -86,6 +86,7 @@ jobs:
           PULSAR_IMAGE_TAG=${PULSAR_FULL_IMAGE[1]}
           
           ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
+          -Papi.version=1.43 \
           -PtestPulsarImage=$PULSAR_IMAGE \
           -PtestPulsarImageTag=$PULSAR_IMAGE_TAG \
           -PcassandraFamily=${{ matrix.cassandraFamily }} \
