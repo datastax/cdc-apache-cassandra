@@ -133,6 +133,25 @@ Build the plugin jar with `./gradlew :connector-kafka:shadowJar` and put it on t
 `CassandraKafkaSinkE2ETest` validates the full pipeline end-to-end (agent → events → connector →
 data) for both AVRO and JSON output, and runs in the `test-kafka` CI job.
 
+## Back-fill (CLI)
+
+The `backfill-cli` can seed historical (pre-CDC) rows into the Kafka pipeline, not just Pulsar.
+Pass `--messaging-provider=kafka` and `--kafka-bootstrap-servers=...` (plus optional
+`--kafka-schema-registry-url` / producer tunables). The CLI exports the table with DSBulk and
+publishes a mutation per row to `events-<keyspace>.<table>`, which the Kafka sink connector then
+consumes into `data-<keyspace>.<table>`.
+
+Run the backfill CLI as the **standalone shadow JAR** for Kafka — the `pulsar-admin` CLI-extension
+(NAR) form is Pulsar-specific (there is no Kafka admin extension host). The core engine
+(`TableExporter` + `PulsarImporter` + the provider-agnostic `AbstractMessagingMutationSender`) is
+shared with the Pulsar path; only `ImportSettings` (the `--kafka-*` options) and the
+`PulsarMutationSenderFactory` provider mapping differ.
+
+Tested by `BackfillCLIKafkaE2ETest` (`@Tag("kafka")`): runs the backfill JAR with
+`--messaging-provider=kafka` against Kafka + Cassandra, then runs the Kafka sink in-process to
+validate the data topic — the Kafka counterpart of `BackfillCLIE2ETests`. CI runs it in the
+`test-kafka` job of `backfill-ci.yaml` across the `kafkaImage` x `cassandraFamily` matrix.
+
 ### Known follow-ups
 
 - Confluent Schema Registry output for the data topic (the agent already supports registry input;
