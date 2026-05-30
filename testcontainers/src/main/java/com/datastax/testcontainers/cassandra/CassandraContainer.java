@@ -30,6 +30,7 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.delegate.DatabaseDelegate;
 import org.testcontainers.ext.ScriptUtils;
 import org.testcontainers.ext.ScriptUtils.ScriptLoadException;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
@@ -272,7 +273,13 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
                 .withEnv("MAX_HEAP_SIZE", "1500m")
                 .withEnv("HEAP_NEWSIZE", "300m")
                 .withEnv("DS_LICENSE", "accept")
-                .withStartupTimeout(Duration.ofSeconds(150));
+                // The base container exposes the debug port (8000) alongside CQL (9042) and JMX
+                // (7199); the default wait strategy waits for ALL of them. The agent-based factories
+                // open 8000 via the JVM debug agent, but a no-agent node never does, so wait on the
+                // CQL-readiness log line instead to avoid a spurious port-open timeout.
+                .waitingFor(Wait.forLogMessage(".*Starting listening for CQL clients.*", 1)
+                        .withStartupTimeout(Duration.ofSeconds(180)))
+                .withStartupTimeout(Duration.ofSeconds(180));
         if (nodeIndex > 1) {
             cassandraContainer.withEnv("CASSANDRA_SEEDS", "cassandra-1");   // for Cassandra
             cassandraContainer.withEnv("SEEDS", "cassandra-1");             // for DSE
