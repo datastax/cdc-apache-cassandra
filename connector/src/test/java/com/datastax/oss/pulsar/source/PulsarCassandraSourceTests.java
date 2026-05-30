@@ -1414,12 +1414,14 @@ public abstract class PulsarCassandraSourceTests {
             }
         }
         else if (actual instanceof Map){
-            Map<org.apache.pulsar.shade.org.apache.avro.util.Utf8, Object> actualMap = (Map<org.apache.pulsar.shade.org.apache.avro.util.Utf8, Object>) actual;
+            // Keys may be either AVRO Utf8 (org.apache.avro) or Pulsar's shaded Utf8 depending on
+            // how the value is deserialized; compare via toString() to be tolerant of both.
+            Map<Object, Object> actualMap = (Map<Object, Object>) actual;
             assertEquals(expected.size(), actualMap.size(), "Maps have different sizes");
             for (Map.Entry<String, Object> entry : expected.entrySet()) {
                 String expectedKey = entry.getKey();
                 assertTrue(actualMap.keySet().stream()
-                        .map(Utf8::toString)
+                        .map(Object::toString)
                         .anyMatch(str -> str.equals(expectedKey)), "Missing key: " + expectedKey);
                 assertEquals(
                         expected.get(entry.getKey()),
