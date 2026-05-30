@@ -16,11 +16,13 @@
 package com.datastax.oss.cdc.backfill.factory;
 
 import com.datastax.oss.cdc.agent.AgentConfig;
+import com.datastax.oss.cdc.backfill.importer.ImportSettings;
 import com.datastax.oss.cdc.messaging.MessagingClient;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Constructor;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -48,5 +50,40 @@ public class PulsarMutationSenderFactoryTest {
         // NoSuchMethodException — guard against a regression to that broken contract.
         assertThrows(NoSuchMethodException.class,
                 () -> senderClass.getConstructor(MessagingClient.class, boolean.class));
+    }
+
+    @Test
+    public void buildAgentConfigDefaultsToPulsar() {
+        ImportSettings settings = new ImportSettings();
+        settings.pulsarServiceUrl = "pulsar://broker:6650";
+        AgentConfig config = new PulsarMutationSenderFactory(settings).buildAgentConfig();
+
+        assertEquals("pulsar", config.messagingProvider);
+        assertEquals("pulsar://broker:6650", config.pulsarServiceUrl);
+        assertEquals("events-", config.topicPrefix);
+    }
+
+    @Test
+    public void buildAgentConfigMapsKafkaSettings() {
+        ImportSettings settings = new ImportSettings();
+        settings.messagingProvider = "kafka";
+        settings.kafkaBootstrapServers = "broker1:9092,broker2:9092";
+        settings.kafkaSchemaRegistryUrl = "http://registry:8081";
+        settings.kafkaAcks = "1";
+        settings.kafkaCompressionType = "snappy";
+        settings.kafkaBatchSize = 32768;
+        settings.kafkaLingerMs = 25;
+        settings.kafkaMaxInFlightRequests = 3;
+
+        AgentConfig config = new PulsarMutationSenderFactory(settings).buildAgentConfig();
+
+        assertEquals("kafka", config.messagingProvider);
+        assertEquals("broker1:9092,broker2:9092", config.kafkaBootstrapServers);
+        assertEquals("http://registry:8081", config.kafkaSchemaRegistryUrl);
+        assertEquals("1", config.kafkaAcks);
+        assertEquals("snappy", config.kafkaCompressionType);
+        assertEquals(32768, config.kafkaBatchSize);
+        assertEquals(25, config.kafkaLingerMs);
+        assertEquals(3, config.kafkaMaxInFlightRequests);
     }
 }

@@ -84,10 +84,58 @@ jobs:
           IFS=$PREV_IFS
           PULSAR_IMAGE=${PULSAR_FULL_IMAGE[0]}
           PULSAR_IMAGE_TAG=${PULSAR_FULL_IMAGE[1]}
-          
+
           ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
           -Papi.version=1.43 \
           -PtestPulsarImage=$PULSAR_IMAGE \
           -PtestPulsarImageTag=$PULSAR_IMAGE_TAG \
           -PcassandraFamily=${{ matrix.cassandraFamily }} \
           backfill-cli:e2eTest
+
+  test-kafka:
+    needs: build
+    name: Test Backfill CLI (Kafka)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        jdk: ['11']
+        kafkaImage: ['confluentinc/cp-kafka:7.8.8', 'confluentinc/cp-kafka:7.9.7', 'confluentinc/cp-kafka:8.1.3']
+        cassandraFamily: ['c3', 'c4', 'dse4']
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up JDK ${{ matrix.jdk }}
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ matrix.jdk }}
+          distribution: 'adopt'
+
+      - name: Get project version
+        uses: HardNorth/github-version-generate@v1.4.0
+        with:
+          version-source: file
+          version-file: gradle.properties
+          version-file-extraction-pattern: '(?<=version=).+'
+
+      - name: Cache Docker layers
+        uses: actions/cache@v5
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Test with Gradle
+        env:
+          DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
+          DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
+          MAVEN_OPTS: "-Xmx2g -XX:MaxMetaspaceSize=512m"
+          GRADLE_OPTS: "-Xmx2g -Dorg.gradle.daemon=false"
+        run: |
+          set -e
+          ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
+          -Papi.version=1.43 \
+          -PkafkaImage=${{ matrix.kafkaImage }} \
+          -PcassandraFamily=${{ matrix.cassandraFamily }} \
+          backfill-cli:e2eTestKafka

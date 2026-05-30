@@ -252,6 +252,34 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
         return new CassandraDatabaseDelegate(this);
     }
 
+    /**
+     * Create a plain Cassandra/DSE node with no CDC agent installed. Useful for tools that connect
+     * to Cassandra directly over CQL (e.g. the backfill CLI, which exports table data via the
+     * driver and publishes mutations itself rather than relying on a node-side agent).
+     *
+     * @param configLocation the test-resource directory holding cassandra.yaml et al. (e.g. "c3"/"c4"/"dse4")
+     * @param cassandraVersion the Cassandra family ("c3"/"c4"/"dse4"), used for version-specific tweaks
+     */
+    public static CassandraContainer<?> createCassandraContainer(DockerImageName image,
+                                                                 Network network,
+                                                                 String configLocation,
+                                                                 int nodeIndex,
+                                                                 String cassandraVersion) {
+        CassandraContainer<?> cassandraContainer = new CassandraContainer<>(image)
+                .withCreateContainerCmdModifier(c -> c.withName("cassandra-" + nodeIndex))
+                .withNetwork(network)
+                .withConfigurationOverride(configLocation)
+                .withEnv("MAX_HEAP_SIZE", "1500m")
+                .withEnv("HEAP_NEWSIZE", "300m")
+                .withEnv("DS_LICENSE", "accept")
+                .withStartupTimeout(Duration.ofSeconds(150));
+        if (nodeIndex > 1) {
+            cassandraContainer.withEnv("CASSANDRA_SEEDS", "cassandra-1");   // for Cassandra
+            cassandraContainer.withEnv("SEEDS", "cassandra-1");             // for DSE
+        }
+        return cassandraContainer;
+    }
+
     public static CassandraContainer<?> createCassandraContainerWithAgent(DockerImageName image,
                                                                           Network network,
                                                                           int nodeIndex,
