@@ -97,7 +97,35 @@ public class PulsarImporter {
      * node. Doesn't apply for CDC back-filling.
      */
     private final static UUID MUTATION_NODE = null;
-    private final static ConvertingCodecFactory codecFactory = new ConvertingCodecFactory();
+    private final static ConvertingCodecFactory codecFactory = newCodecFactory();
+
+    /**
+     * Builds the dsbulk {@link ConvertingCodecFactory} used to turn the exported CSV string values
+     * back into their CQL types (e.g. String -&gt; boolean/int/decimal for primary-key columns).
+     * <p>
+     * The no-arg {@code ConvertingCodecFactory} constructor discovers its {@code ConvertingCodecProvider}s
+     * (such as dsbulk-codecs-text's {@code StringConvertingCodecProvider}, which handles
+     * {@code String <-> boolean}, {@code String <-> int}, etc.) via {@link java.util.ServiceLoader}
+     * using only the <em>thread context</em> class loader. In a plain JVM (the {@code java -jar} backfill
+     * path) that loader sees the bundled {@code META-INF/services} files. But in a Pulsar NAR (the
+     * CLI-extension backfill path used by LunaStreaming) the context class loader is NOT the NAR loader
+     * that bundled those service files, so discovery returns no providers and
+     * {@code createConvertingCodec} later fails with
+     * {@code CodecNotFoundException: Codec not found for requested operation: [BOOLEAN <-> java.lang.String]}.
+     * <p>
+     * Temporarily set the context class loader to this class's own loader (the NAR loader that bundles
+     * dsbulk) so the providers are discovered, then restore the previous loader.
+     */
+    private static ConvertingCodecFactory newCodecFactory() {
+        final Thread current = Thread.currentThread();
+        final ClassLoader previous = current.getContextClassLoader();
+        try {
+            current.setContextClassLoader(PulsarImporter.class.getClassLoader());
+            return new ConvertingCodecFactory();
+        } finally {
+            current.setContextClassLoader(previous);
+        }
+    }
 
     /**
      * The maximum number of in-flight pulsar messages currently being imported
