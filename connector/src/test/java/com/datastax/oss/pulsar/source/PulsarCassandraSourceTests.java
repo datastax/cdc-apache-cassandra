@@ -774,7 +774,15 @@ public abstract class PulsarCassandraSourceTests {
             case "mapoftuple":
                 log.debug("field={} gm={}", field, gm);
                 Assert.assertEquals("Incorrect size of map", gm.size(), 1);
-                assertAvroTupleRecord((GenericData.Record) gm.get(new Utf8("a")));
+                // The map key may be a shaded or non-shaded Avro Utf8 depending on how Pulsar
+                // returned it; look it up by string value. The tuple record value may likewise be
+                // non-shaded, so normalize it to shaded before asserting.
+                Object tupleValue = gm.entrySet().stream()
+                        .filter(e -> e.getKey().toString().equals("a"))
+                        .map(Map.Entry::getValue)
+                        .findFirst()
+                        .orElse(null);
+                assertAvroTupleRecord((GenericData.Record) normalizeToShadedAvro(tupleValue));
                 return;
         }
         Assert.assertTrue("Unexpected field="+field, false);
@@ -943,10 +951,17 @@ public abstract class PulsarCassandraSourceTests {
             case "tinyint":
             case "smallint":
             case "int":
-            case "bigint":
+            case "bigint": {
+                Assert.assertEquals("Wrong value for regular field " + field, dataSpecMap.get(field).jsonValue(), node.numberValue());
+            }
+            return;
             case "double":
             case "float": {
-                Assert.assertEquals("Wrong value for regular field " + field, dataSpecMap.get(field).jsonValue(), node.numberValue());
+                // A whole-number double/float (e.g. 1.0) is serialized to JSON as `1`, which Jackson
+                // reads back as an IntNode -- so numberValue() yields an Integer, not a Double, and an
+                // exact type-sensitive equals fails. Compare numerically instead.
+                Assert.assertEquals("Wrong value for regular field " + field,
+                        ((Number) dataSpecMap.get(field).jsonValue()).doubleValue(), node.asDouble(), 0.0);
             }
             return;
             case "set": {
@@ -1347,11 +1362,49 @@ public abstract class PulsarCassandraSourceTests {
             return jsonNodeToMap((JsonNode) genericRecord.getNativeObject());
         } else {
             for (Field field : genericRecord.getFields()) {
-                map.put(field.getName(), genericRecord.getField(field));
+                map.put(field.getName(), normalizeToShadedAvro(genericRecord.getField(field)));
             }
         }
 
         return map;
+    }
+
+    /**
+     * Normalize a value that Pulsar returned as a NON-shaded Avro object
+     * ({@code org.apache.avro.*}) into the Pulsar-shaded equivalent
+     * ({@code org.apache.pulsar.shade.org.apache.avro.*}) by round-tripping it through binary Avro.
+     * <p>
+     * Pulsar's {@code GenericRecord.getField()} returns collection (array) columns as non-shaded
+     * Avro arrays even though nested records come back shaded, so a direct cast to the shaded
+     * {@code GenericData.Array} (as the assertions below do) throws {@link ClassCastException}.
+     * Round-tripping deeply converts the array and everything nested inside it (records, maps,
+     * strings, CQL logical-type records) to shaded objects, so the existing shaded-typed assertions
+     * work unchanged. Non-{@code GenericContainer} values (primitives, Maps, Strings, and values
+     * that are already shaded) are returned unchanged.
+     */
+    private static Object normalizeToShadedAvro(Object value) {
+        if (!(value instanceof org.apache.avro.generic.GenericContainer)) {
+            return value;
+        }
+        try {
+            org.apache.avro.Schema nonShadedSchema = ((org.apache.avro.generic.GenericContainer) value).getSchema();
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            org.apache.avro.io.BinaryEncoder encoder = org.apache.avro.io.EncoderFactory.get().binaryEncoder(out, null);
+            org.apache.avro.generic.GenericDatumWriter<Object> writer =
+                    new org.apache.avro.generic.GenericDatumWriter<>(nonShadedSchema);
+            writer.write(value, encoder);
+            encoder.flush();
+
+            Schema shadedSchema = new Schema.Parser().parse(nonShadedSchema.toString());
+            org.apache.pulsar.shade.org.apache.avro.io.BinaryDecoder decoder =
+                    org.apache.pulsar.shade.org.apache.avro.io.DecoderFactory.get()
+                            .binaryDecoder(out.toByteArray(), null);
+            org.apache.pulsar.shade.org.apache.avro.generic.GenericDatumReader<Object> reader =
+                    new org.apache.pulsar.shade.org.apache.avro.generic.GenericDatumReader<>(shadedSchema);
+            return reader.read(null, decoder);
+        } catch (java.io.IOException e) {
+            throw new RuntimeException("Failed to normalize non-shaded Avro value to shaded", e);
+        }
     }
 
     static Map<String, Object> jsonNodeToMap(JsonNode jsonNode) {
