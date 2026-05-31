@@ -760,7 +760,11 @@ public abstract class PulsarCassandraSourceTests {
         }
     }
 
-    void assertGenericMap(String field, Map<Utf8, Object> gm) {
+    // Keys are typed as Object (not the shaded Utf8): a map column value comes back from Pulsar as a
+    // plain java.util.Map whose keys may be non-shaded Avro Utf8, and a Map<Utf8,Object> parameter
+    // would make the compiler insert a checkcast to the shaded Utf8 on getKey() that throws. Keys are
+    // compared via toString() to tolerate either Avro flavor.
+    void assertGenericMap(String field, Map<Object, Object> gm) {
         switch (field) {
             case "map":
                 log.debug("field={} gm={}", field, gm);
