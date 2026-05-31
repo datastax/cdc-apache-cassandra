@@ -899,15 +899,18 @@ public abstract class PulsarCassandraSourceTests {
             return;
             case "tuple":
             case "udt": {
+                // A field of this (shaded) record may itself be a non-shaded Avro collection (e.g.
+                // the UDT's zlist/zset), since Pulsar returns nested collections non-shaded even when
+                // the enclosing record is shaded. Normalize each nested value before asserting.
                 for (Field f : gr.getFields()) {
-                    assertField(f.getName(), gr.getField(f.getName()));
+                    assertField(f.getName(), normalizeToShadedAvro(gr.getField(f.getName())));
                 }
             }
             return;
             case "udtoptional": {
                 for (Field f : gr.getFields()) {
                     if (f.getName().equals("ztext")){
-                        assertField(f.getName(), gr.getField(f.getName()));
+                        assertField(f.getName(), normalizeToShadedAvro(gr.getField(f.getName())));
                     }
                     else {
                         assertNull(gr.getField(f.getName()));
