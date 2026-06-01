@@ -253,7 +253,7 @@ When running the backfill CLI as a `pulsar-admin` extension, all `--pulsar-*` pa
 The `--dsbulk-log-dir` is only available when running the backfill CLI as a standalone Java application.
 
 The `--export-dsbulk-option` parameter passes extra parameters to {dsbulk-short}.
-The relevant {dsbulk-short} settings configure the CSV connector and can be found in the {dsbulk-repo}/blob/1.10.x/manual/settings.md#connector.csv[{dsbulk-short} repository].
+The relevant {dsbulk-short} settings configure the CSV connector and can be found in the {dsbulk-repo-url}/blob/1.10.x/manual/settings.md#connector.csv[{dsbulk-short} repository].
 Shortened option names aren't supported.
 
 In both the `pulsar-admin` extension and the standalone Java application, {cass-short} related configurations are exclusively passed as command line arguments.
