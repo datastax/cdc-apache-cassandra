@@ -23,7 +23,7 @@ asciidoc:
     astra-db: 'Astra DB'
     astra-stream: 'Astra Streaming'
     scb: 'Secure Connect Bundle (SCB)'
-    dsbulk-repo: 'https://github.com/datastax/dsbulk'
+    dsbulk-repo-url: 'https://github.com/datastax/dsbulk'
     dsbulk: 'DataStax Bulk Loader (DSBulk)'
     dsbulk-short: 'DSBulk'
     cass-reg: 'Apache Cassandra(R)'
