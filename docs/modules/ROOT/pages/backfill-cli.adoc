@@ -406,3 +406,55 @@ Always disable `sslAllowInsecureConnection` in production environments.
 |--pulsar-ssl-use-key-store-tls
 |If TLS is enabled, specifies whether to use KeyStore type as TLS configuration parameter.
 |===
+
+== Back-fill to {kafka-short}
+
+The backfill CLI can publish the back-filled mutations to {kafka-reg} / {confluent} instead of {pulsar-short} by setting `--messaging-provider=kafka` and the Kafka bootstrap servers. The export-from-{cass-short} behavior is identical; only the destination of the mutations changes.
+
+[NOTE]
+====
+The `pulsar-admin` extension form of the backfill CLI is {pulsar-short}-specific. To back-fill to {kafka-short}, run the backfill CLI as the **standalone Java application** (the uber JAR).
+====
+
+[source,shell,subs="+attributes"]
+----
+java -jar backfill-cli/build/libs/backfill-cli-{version}-all.jar \
+  --messaging-provider kafka \
+  --kafka-bootstrap-servers broker1:9092,broker2:9092 \
+  --data-dir target/export --export-host 127.0.0.1:9042 \
+  --keyspace ks1 --table table1
+----
+
+The mutations are published to `events-<keyspace>.<table>` (registry-less raw Avro by default, or the {confluent} Schema Registry when `--kafka-schema-registry-url` is set). Deploy the {csc_kafka} to consume that topic and populate `data-<keyspace>.<table>`. See xref:ROOT:kafka.adoc[] for the {kafka-short} pipeline and the sink connector.
+
+.{kafka-short} connectivity parameters (standalone Java application only)
+[cols=2]
+|===
+|Parameter |Description
+
+|--messaging-provider=<pulsar\|kafka>
+|The messaging provider to publish back-filled mutations to. The default is `pulsar`.
+
+|--kafka-bootstrap-servers=<servers>
+|The Kafka bootstrap servers (comma-separated list of host:port). Required when `--messaging-provider=kafka`.
+
+|--kafka-schema-registry-url=<url>
+|The {confluent} Schema Registry URL. When set, mutations are serialized with the {confluent} Avro serializer; when unset, registry-less raw Avro is used.
+
+|--kafka-acks=<acks>
+|The Kafka producer acks (0, 1, or all). The default is all.
+
+|--kafka-compression-type=<type>
+|The compression type for Kafka messages (none, gzip, snappy, lz4, zstd). The default is none.
+
+|--kafka-batch-size=<bytes>
+|The Kafka producer batch.size in bytes. The default is 16384.
+
+|--kafka-linger-ms=<ms>
+|The Kafka producer linger.ms. The default is 0.
+
+|--kafka-max-in-flight-requests=<n>
+|The Kafka producer max.in.flight.requests.per.connection. The default is 5.
+|===
+
+The shared `--pulsar-ssl-*` SSL/TLS parameters also configure the {kafka-short} client TLS settings.

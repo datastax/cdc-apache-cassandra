@@ -2,6 +2,8 @@
 
 {product} is open-source software (OSS) that sends {cass-short} mutations for tables having Change Data Capture (CDC) enabled to https://www.ibm.com/docs/en/supportforpulsar[IBM Elite Support for {pulsar}] or your own self-managed https://pulsar.apache.org/[{pulsar-reg})] deployment, which in turn can write the data to platforms such as Elasticsearch(R) or Snowflake(R).
 
+The {cdc_agent} can also stream change events to {kafka-reg} / {confluent} instead of {pulsar-short}, selected at runtime with a single parameter. See xref:ROOT:kafka.adoc[].
+
 == Key Features
 
 * Supports {cass} version 3.11 or later, {cass} version 4.0 or later, and {dse} version 6.8.16 or later
@@ -72,6 +74,7 @@ For each update to the table, an MD5 digest is calculated to de-duplicate the up
 
 * IBM Elite Support for {pulsar} (formerly {company} Luna Streaming) 2.8 and later (current version is {luna_version})
 * Self-managed {pulsar} version 2.8.1 and later
+* {kafka-reg} / {confluent} (agent provider `messagingProvider=kafka`) — see xref:ROOT:kafka.adoc[]
 
 === Connector deployment matrix
 

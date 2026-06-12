@@ -27,6 +27,9 @@ shadowJar {
         resource = 'driver-reference.conf'
     }
 
+    // Merge SPI service files for messaging provider discovery
+    mergeServiceFiles()
+
     dependencies {
         // Exclude log4j from the shadow jar. This is optional step and meant to reduce the size of the nar.
         exclude "org/apache/logging/**"
@@ -66,6 +69,9 @@ sourceSets {
 dependencies {
     implementation project(':agent-c4')
     implementation project(':agent')
+    implementation project(':messaging-api')
+    implementation project(':messaging-pulsar')
+    implementation project(':messaging-kafka')
 
     implementation "com.datastax.oss:dsbulk-config:${dsbulkVersion}"
     implementation "com.datastax.oss:dsbulk-runner:${dsbulkVersion}"
@@ -102,6 +108,13 @@ dependencies {
     testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
     testImplementation project(':testcontainers')
     testImplementation "${pulsarGroup}:pulsar-client:${pulsarVersion}"
+    // Kafka backfill e2e: in-process sink + Kafka container + Kafka consumer.
+    // kafka-clients/connect-api are 'implementation' in connector-kafka (not exposed to consumers),
+    // so the test module needs them directly to compile against KafkaConsumer/SinkRecord/etc.
+    testImplementation project(':connector-kafka')
+    testImplementation "org.apache.kafka:kafka-clients:${kafkaVersion}"
+    testImplementation "org.apache.kafka:connect-api:${kafkaVersion}"
+    testImplementation "org.testcontainers:kafka:${testContainersVersion}"
     // https://mvnrepository.com/artifact/commons-io/commons-io
     testImplementation 'commons-io:commons-io:2.11.0'
 
@@ -149,7 +162,17 @@ task e2eTest(type: Test) {
     dependsOn project(':connector').assemble // couldn't take dependency on nar directly
     dependsOn nar
 
-    useJUnitPlatform()
+    // The Pulsar e2e job must not run the Kafka-tagged e2e (it needs a Kafka container, not Pulsar).
+    useJUnitPlatform {
+        excludeTags 'kafka'
+    }
+
+    // Forward the Docker Engine API version to the docker-java client used by Testcontainers
+    // (newer Docker engines reject the client default of 1.32). This custom task does not inherit
+    // the forwarding configured on the standard `test` task. Pass -Papi.version=1.43 to enable.
+    if (project.hasProperty('api.version')) {
+        systemProperty 'api.version', project.property('api.version')
+    }
 
     environment 'PULSAR_IMAGE', testPulsarImage + ':' + testPulsarImageTag
     def cassandraFamily =  project.hasProperty("cassandraFamily") ? project.property("cassandraFamily") : "c4";
@@ -173,6 +196,52 @@ task e2eTest(type: Test) {
     }
 
     systemProperty "connectorBuildDir", project(':connector').buildDir
+    systemProperty "cdcBackfillBuildDir", buildDir
+    systemProperty "projectVersion", project.version
+}
+
+// Kafka backfill e2e: runs the standalone backfill JAR with --messaging-provider=kafka against a
+// Kafka container + Cassandra, then runs the Kafka sink in-process to validate the data topic.
+// Only the @Tag("kafka") e2e runs here; the Pulsar e2eTest excludes that tag.
+task e2eTestKafka(type: Test) {
+    include 'com/datastax/oss/cdc/backfill/e2e/**'
+
+    testLogging.showStandardStreams = true
+
+    // The subprocess backfill run uses the shadow JAR.
+    dependsOn shadowJar
+
+    useJUnitPlatform {
+        includeTags 'kafka'
+    }
+
+    // Forward the Docker Engine API version to the docker-java client used by Testcontainers
+    // (newer Docker engines reject the client default of 1.32). Pass -Papi.version=1.43 to enable.
+    if (project.hasProperty('api.version')) {
+        systemProperty 'api.version', project.property('api.version')
+    }
+
+    if (project.hasProperty('kafkaImage')) {
+        environment 'KAFKA_IMAGE', project.property('kafkaImage')
+    }
+
+    def cassandraFamily = project.hasProperty("cassandraFamily") ? project.property("cassandraFamily") : "c4"
+    // The test selects the cassandra.yaml config-override resource dir from this property; it must
+    // match the CASSANDRA_IMAGE below or the node rejects version-incompatible yaml and fails to start.
+    systemProperty "cassandraFamily", cassandraFamily
+    if (cassandraFamily == "c3") {
+        systemProperty "cassandraVersion", cassandra3Version
+        environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra3Version
+    } else if (cassandraFamily == "c4") {
+        systemProperty "cassandraVersion", cassandra4Version
+        environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra4Version
+    } else if (cassandraFamily == "dse4") {
+        systemProperty "cassandraVersion", cassandra4Version
+        environment 'CASSANDRA_IMAGE', 'datastax/dse-server:' + dse4Version
+    } else {
+        throw new GradleException("Unknown Cassandra family. Use -PcassandraFamily=[c3|c4|dse4]")
+    }
+
     systemProperty "cdcBackfillBuildDir", buildDir
     systemProperty "projectVersion", project.version
 }

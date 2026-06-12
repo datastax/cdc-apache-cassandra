@@ -121,10 +121,24 @@ subprojects {
     test {
         useJUnitPlatform {
             includeEngines 'junit-jupiter'
+            // Kafka integration tests are tagged "kafka". They run only when -PkafkaTests is set
+            // (the dedicated CI job); otherwise they are excluded so the default/Pulsar test runs
+            // don't spin up a Kafka broker.
+            if (project.hasProperty('kafkaTests')) {
+                includeTags 'kafka'
+            } else {
+                excludeTags 'kafka'
+            }
         }
         testLogging {
             showStandardStreams = true
             // events = ["failed"]
+        }
+        // Allow forcing the Docker Engine API version used by the docker-java client behind
+        // Testcontainers. Newer Docker engines reject the client default (1.32, min supported 1.40).
+        // Pass -Papi.version=1.43 (CI sets this) to forward it to the test JVM.
+        if (project.hasProperty('api.version')) {
+            systemProperty 'api.version', project.property('api.version')
         }
         finalizedBy jacocoTestReport // report is always generated after tests run
     }

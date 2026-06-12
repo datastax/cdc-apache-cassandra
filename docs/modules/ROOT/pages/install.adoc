@@ -78,6 +78,11 @@ The CDC parameter mappings between JVM and {cass-short} environment variables ar
 
 For the full set of JVM configuration options, see xref:install.adoc#agentParams[].
 
+[TIP]
+====
+To stream change events to {kafka-reg} / {confluent} instead of {pulsar-short}, set `messagingProvider=kafka` and the `kafka*` parameters. See xref:ROOT:kafka.adoc[].
+====
+
 == cassandra.yaml
 
 In addition to configuring the change agent, enable CDC on the {cass-short} node by setting `cdc_enabled` to `true` in the `cassandra.yaml` file.
