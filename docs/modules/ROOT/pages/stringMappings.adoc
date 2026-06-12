@@ -51,6 +51,11 @@ This document lists the CDC Change Agent parameter mappings between the JVM opti
 | MAX_INFLIGHT_MESSAGES_PER_TASK
 
 
+| *messagingProvider*
+| The streaming platform to publish change events to: `pulsar` (default) or `kafka`. See xref:ROOT:kafka.adoc[].
+| CDC_MESSAGING_PROVIDER
+
+
 | *pulsarServiceUrl*
 | The {pulsar-short} broker service URL.
 | PULSAR_SERVICE_URL
@@ -84,6 +89,41 @@ This document lists the CDC Change Agent parameter mappings between the JVM opti
 | *pulsarAuthParams*
 | The {pulsar-short} authentication parameters.
 | PULSAR_AUTH_PARAMS
+
+
+| *kafkaBootstrapServers*
+| The {kafka-short} bootstrap servers (comma-separated list of `host:port`). Required when `messagingProvider=kafka`.
+| CDC_KAFKA_BOOTSTRAP_SERVERS
+
+
+| *kafkaAcks*
+| The number of acknowledgments the producer requires (`0`, `1`, or `all`).
+| CDC_KAFKA_ACKS
+
+
+| *kafkaCompressionType*
+| The compression type for {kafka-short} messages (`none`, `gzip`, `snappy`, `lz4`, `zstd`).
+| CDC_KAFKA_COMPRESSION_TYPE
+
+
+| *kafkaBatchSize*
+| The producer `batch.size` in bytes.
+| CDC_KAFKA_BATCH_SIZE
+
+
+| *kafkaLingerMs*
+| The producer `linger.ms`.
+| CDC_KAFKA_LINGER_MS
+
+
+| *kafkaMaxInFlightRequests*
+| The `max.in.flight.requests.per.connection`.
+| CDC_KAFKA_MAX_IN_FLIGHT_REQUESTS
+
+
+| *kafkaSchemaRegistryUrl*
+| The {confluent} Schema Registry URL. When set, the agent uses the {confluent} Avro serializer; when unset, registry-less raw Avro is used. See xref:ROOT:kafka.adoc[].
+| CDC_KAFKA_SCHEMA_REGISTRY_URL
 
 
 | *sslProvider*
