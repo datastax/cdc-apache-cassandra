@@ -29,14 +29,18 @@ Depending on the workloads of the CDC enabled {cass-short} tables, you might nee
 . Download the `cassandra-source-agents` tar file from the {product-repo}/releases[{product-short} GitHub repository].
 The following files are available in the tar file:
 +
-[cols="1,1"]
+[cols=2]
 |===
-| {cass-short} type | JAR file
+|{cass-short} type |JAR file
 
-| {cass} 3.x | `agent-c3-**VERSION**-all.jar`
-| {cass} 4.x | `agent-c4-**VERSION**-all.jar`
-| {dse-short} 6.8.16 or later | `agent-dse4-**VERSION**-all.jar`
+|{cass} 3.x
+|`agent-c3-**VERSION**-all.jar`
 
+|{cass} 4.x
+|`agent-c4-**VERSION**-all.jar`
+
+|{dse-short} 6.8.16 or later
+|`agent-dse4-**VERSION**-all.jar`
 |===
 
 . Extract the files from the tar with the following command:
@@ -211,29 +215,30 @@ If you don't provide either in your configuration, {csc_pulsar} defaults are app
 
 For information about the Java properties, refer to the https://docs.datastax.com/en/developer/java-driver/4.3/manual/core/configuration/reference/index.html[{company} Java driver documentation].
 
+[cols=2]
 |===
-| {csc_pulsar} | Using `datastax-java-driver` prefix
+|{csc_pulsar} |Using `datastax-java-driver` prefix
 
-| `contactPoints`
-| `datastax-java-driver.basic.contact-points`
+|`contactPoints`
+|`datastax-java-driver.basic.contact-points`
 
-| `loadBalancing.localDc`
-| `datastax-java-driver.basic.load-balancing-policy.local-datacenter`
+|`loadBalancing.localDc`
+|`datastax-java-driver.basic.load-balancing-policy.local-datacenter`
 
-| `cloud.secureConnectBundle`
-| `datastax-java-driver.basic.cloud.secure-connect-bundle`
+|`cloud.secureConnectBundle`
+|`datastax-java-driver.basic.cloud.secure-connect-bundle`
 
-| `queryExecutionTimeout`
-| `datastax-java-driver.basic.request.timeout`
+|`queryExecutionTimeout`
+|`datastax-java-driver.basic.request.timeout`
 
-| `connectionPoolLocalSize`
-| `datastax-java-driver.advanced.connection.pool.local.size`
+|`connectionPoolLocalSize`
+|`datastax-java-driver.advanced.connection.pool.local.size`
 
-| `compression`
-| `datastax-java-driver.advanced.protocol.compression`
+|`compression`
+|`datastax-java-driver.advanced.protocol.compression`
 
-| `metricsHighestLatency`
-| `datastax-java-driver.advanced.metrics.session.cql-requests.highest-latency`
+|`metricsHighestLatency`
+|`datastax-java-driver.advanced.metrics.session.cql-requests.highest-latency`
 |===
 
 There is a difference between the {csc_pulsar}'s `contactPoints` setting and the Java driver's `datastax-java-driver.basic.contact-points`.

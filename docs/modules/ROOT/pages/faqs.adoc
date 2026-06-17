@@ -65,7 +65,7 @@ If the {pulsar-short} cluster is down, the change agent continues trying to send
 When the disk space of the `cdc_raw` directory reaches your `cdc_total_space_in_mb` {cass-short} setting (less than 4 GB by default), writes to CDC-enabled tables fail with a `CDCWriteException`.
 The following warning message is included in {cass-short} logs:
 
-[source,bash]
+[source,console]
 ----
 WARN  [CoreThread-5] 2021-10-29 09:12:52,790  NoSpamLogger.java:98 - Rejecting Mutation containing CDC-enabled table. Free up space in /mnt/data/cdc_raw.
 ----
@@ -93,7 +93,7 @@ SELECT * FROM system_distributed.cdc_local WHERE keyspace_name = 'keyspace_name'
 
 There are three possible statuses:
 
-Enabled::
+`enabled`::
 If the CDC status is `enabled`, then CDC is enabled on the table.
 +
 From this status, you can disable CDC on the table by running the following CQL query:
@@ -103,7 +103,7 @@ From this status, you can disable CDC on the table by running the following CQL 
 ALTER TABLE keyspace_name.table_name WITH cdc = {'enabled': false};
 ----
 
-Disabled::
+`disabled`::
 If the CDC status is `disabled` then CDC is disabled on the table.
 +
 From this status, you can enable CDC on the table by running the following CQL query:
@@ -113,7 +113,7 @@ From this status, you can enable CDC on the table by running the following CQL q
 ALTER TABLE keyspace_name.table_name WITH cdc = {'enabled': true};
 ----
 
-Null::
+`null`::
 If the CDC status is `null` then CDC isn't enabled on the table.
 +
 From this status, you can enable CDC on the table by running the following CQL query:
@@ -134,7 +134,7 @@ SELECT * FROM system_distributed.cdc_local WHERE keyspace_name = 'cdc' AND table
 
 There are three possible statuses:
 
-Running::
+`running`::
 If the `status` column is `running`, then the agent is running.
 +
 From this status, you can stop the agent by running the following CQL query:
@@ -144,7 +144,7 @@ From this status, you can stop the agent by running the following CQL query:
 ALTER TABLE cdc.raw_cdc WITH cdc = {'enabled': false};
 ----
 
-Stopped::
+`stopped`::
 If the `status` column is `stopped` then the agent isn't running.
 +
 From this status, you can start the agent by running the following CQL query:
@@ -154,7 +154,7 @@ From this status, you can start the agent by running the following CQL query:
 ALTER TABLE cdc.raw_cdc WITH cdc = {'enabled': true};
 ----
 
-Null::
+`null`::
 If the `status` column is `null`, then the agent isn't running.
 +
 From this status, you can start the agent by running the following CQL query:
@@ -227,11 +227,11 @@ The most manageable way to handle this is to use the {pulsar-short} {cass-short}
 
 The {cass-short} sink requires the following provisions:
 
-- Use the CDC data topic as its source of messages
-- Provide a secure bundle (creds) to another {cass-short} cluster
-- Map message values to a specific table in the other cluster
-- Use the {pulsar-short} delivery guarantee to ensure success
-- Use the {pulsar-short} connector health metrics to monitor failures
+* Use the CDC data topic as its source of messages
+* Provide a secure bundle (creds) to another {cass-short} cluster
+* Map message values to a specific table in the other cluster
+* Use the {pulsar-short} delivery guarantee to ensure success
+* Use the {pulsar-short} connector health metrics to monitor failures
 
 == How do I migrate table data using CDC?
 

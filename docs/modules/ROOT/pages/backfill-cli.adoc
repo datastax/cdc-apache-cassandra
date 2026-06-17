@@ -50,7 +50,7 @@ Run as a `pulsar-admin` extension::
 The `pulsar-admin` extension is packaged with the IBM Elite Support for {pulsar} (formerly {company} Luna Streaming) distribution in the /cliextensions folder, so you don't need to build from source unless you want to make changes to the code.
 +
 .. Move the generated NAR archive to the /cliextensions folder of your {pulsar-short} installation (e.g. /pulsar/cliextensions).
-..Modify the client.conf file of your {pulsar-short} installation to include: `customCommandFactories=cassandra-cdc`.
+.. Modify the client.conf file of your {pulsar-short} installation to include: `customCommandFactories=cassandra-cdc`.
 .. Run the following command (this assumes the xref:6.9@dse:installing:tarball-dse.adoc[default tarball installation of {dse-short}]):
 +
 [source,shell]
@@ -264,7 +264,7 @@ In both the `pulsar-admin` extension and the standalone Java application, {cass-
 |Parameter
 |Description
 
-|--data-dir=PATH
+|`--data-dir=PATH`
 |The directory where data is exported to and imported from. The
 default is a 'data' subdirectory in the current working directory.
 The data directory is created if it doesn't exist. Tables are exported in subdirectories of the data directory specified here;
@@ -272,78 +272,78 @@ there is one subdirectory per keyspace inside the data
 directory, then one subdirectory per table inside each keyspace
 directory.
 
-|--help, -h
+|`--help`, `-h`
 |Displays this help message
 
-|--dsbulk-log-dir=PATH, -l
+|`--dsbulk-log-dir=PATH`, `-l`
 |The directory where {dsbulk-short} should store its logs. The default is a
 'logs' subdirectory in the current working directory. This
 subdirectory is created if it doesn't exist. Each {dsbulk-short}
 operation creates a subdirectory inside the log directory
 specified here. This command isn't available in the `pulsar-admin` extension.
 
-|--export-bundle=PATH
+|`--export-bundle=PATH`
 |The path to a {scb} to connect to an {astra-db} database. Options --export-host and --export-bundle are mutually exclusive.
 
-|--export-consistency=CONSISTENCY
+|`--export-consistency=CONSISTENCY`
 |The consistency level to use when exporting data. The default is
 LOCAL_QUORUM.
 
-|--export-max-concurrent-files=NUM\|AUTO
+|`--export-max-concurrent-files=NUM|AUTO`
 |The maximum number of concurrent files to write to. Must be a positive
 number or the special value AUTO. The default is AUTO.
 
-|--export-max-concurrent-queries=NUM\|AUTO
+|`--export-max-concurrent-queries=NUM|AUTO`
 |The maximum number of concurrent queries to execute. Must be a
 positive number or the special value AUTO. The default is AUTO.
 
-|--export-splits=NUM\|NC
+|`--export-splits=NUM|NC`
 |The maximum number of token range queries to generate. Use the NC
 syntax to specify a multiple of the number of available cores, e.g.
 8C = 8 times the number of available cores. The default is 8C. This
 is an advanced setting; you should rarely need to modify the default
 value.
 
-|--export-dsbulk-option=OPT=VALUE
+|`--export-dsbulk-option=OPT=VALUE`
 |An extra {dsbulk-short} option to use when exporting. Any valid {dsbulk-short} option
 can be specified here, and it is passed as-is to the {dsbulk-short}
 process. {dsbulk-short} options, including driver options, must be passed as
 '--long.option.name=<value>'. Short options aren't supported.
 
-|--export-host=HOST[:PORT]
+|`--export-host=HOST[:PORT]`
 |The host name or IP and, optionally, the port of a node from the
 {cass-short} cluster. If the port isn't specified, it defaults to
 9042. This option can be specified multiple times. Options
 --export-host and --export-bundle are mutually exclusive.
 
-|--export-password
+|`--export-password`
 |The password to use to authenticate against the origin cluster.
 Options --export-username and --export-password must be provided
 together, or not at all. Omit the parameter value to be prompted for
 the password interactively.
 
-|--export-protocol-version=VERSION
+|`--export-protocol-version=VERSION`
 |The protocol version to use to connect to the {cass-short} cluster, e.g.
 'V4'. If not specified, the driver negotiates the highest
 version supported by both the client and the server.
 
-|--export-username=STRING
+|`--export-username=STRING`
 |The username to use to authenticate against the origin cluster.
 Options --export-username and --export-password must be provided
 together, or not at all.
 
-|--keyspace=<keyspace>, -k
+|`--keyspace=<keyspace>`, `-k`
 |The name of the keyspace where the table to be exported exists
 
-|--max-rows-per-second=PATH
+|`--max-rows-per-second=PATH`
 |The maximum number of rows per second to read from the {cass-short}
 table. Setting this option to any negative value or zero
 disables it. The default is -1.
 
-|--table=<table>, -t
+|`--table=<table>`, `-t`
 |The name of the table to export data from for cdc back filling
 
-|--version, -v
+|`--version`, `-v`
 |Displays version info.
 |===
 
@@ -357,52 +357,52 @@ These parameters should be passed as command line arguments in the standalone Ja
 |===
 |Parameter |Description
 
-|--events-topic-prefix=<topicPrefix>
+|`--events-topic-prefix=<topicPrefix>`
 |The event topic name prefix. The `<keyspace_name>.<table_name>` is appended to that prefix to build the topic name.
 
-|--pulsar-auth-params=<pulsarAuthParams>
+|`--pulsar-auth-params=<pulsarAuthParams>`
 |The {pulsar-short} authentication parameters.
 
-|--pulsar-auth-plugin-class-name=<pulsarAuthPluginClassName>
+|`--pulsar-auth-plugin-class-name=<pulsarAuthPluginClassName>`
 |The {pulsar-short} authentication plugin class name.
 
-|--pulsar-url=<pulsarServiceUrl>
+|`--pulsar-url=<pulsarServiceUrl>`
 |The {pulsar-short} broker service URL.
 
-|--pulsar-ssl-provider=<sslProvider>
+|`--pulsar-ssl-provider=<sslProvider>`
 |The SSL/TLS provider to use.
 
-|--pulsar-ssl-truststore-path=<sslTruststorePath>
+|`--pulsar-ssl-truststore-path=<sslTruststorePath>`
 |The path to the SSL/TLS truststore file.
 
-|--pulsar-ssl-truststore-password=<sslTruststorePassword>
+|`--pulsar-ssl-truststore-password=<sslTruststorePassword>`
 |The password for the SSL/TLS truststore.
 
-|--pulsar-ssl-truststore-type=<sslTruststoreType>
+|`--pulsar-ssl-truststore-type=<sslTruststoreType>`
 |The type of the SSL/TLS truststore.
 
-|--pulsar-ssl-keystore-path=<sslKeystorePath>
+|`--pulsar-ssl-keystore-path=<sslKeystorePath>`
 |The path to the SSL/TLS keystore file.
 
-|--pulsar-ssl-keystore-password=<sslKeystorePassword>
+|`--pulsar-ssl-keystore-password=<sslKeystorePassword>`
 |The password for the SSL/TLS keystore.
 
-|--pulsar-ssl-cipher-suites=<sslCipherSuites>
+|`--pulsar-ssl-cipher-suites=<sslCipherSuites>`
 |Defines one or more cipher suites to use for negotiating the SSL/TLS connection.
 
-|--pulsar-ssl-enabled-protocols=<sslEnabledProtocols>
+|`--pulsar-ssl-enabled-protocols=<sslEnabledProtocols>`
 |Enabled SSL/TLS protocols
 
-|--pulsar-ssl-allow-insecure-connections
+|`--pulsar-ssl-allow-insecure-connections`
 |Allows insecure connections to servers whose certificate hasn't been signed by an approved CA.
-Always disable `sslAllowInsecureConnection` in production environments.
+Always disable `--pulsar-ssl-allow-insecure-connections` in production environments.
 
-|--pulsar-ssl-enable-hostname-verification
+|`--pulsar-ssl-enable-hostname-verification`
 |Enable the server hostname verification.
 
-|--pulsar-ssl-tls-trust-certs-path=<tlsTrustCertsFilePath>
+|`--pulsar-ssl-tls-trust-certs-path=<tlsTrustCertsFilePath>`
 |The path to the trusted TLS certificate file.
 
-|--pulsar-ssl-use-key-store-tls
+|`--pulsar-ssl-use-key-store-tls`
 |If TLS is enabled, specifies whether to use KeyStore type as TLS configuration parameter.
 |===

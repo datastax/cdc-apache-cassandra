@@ -7,7 +7,7 @@ The {product} agent pushes the mutation primary key for the CDC-enabled table in
 
 In order to support https://pulsar.apache.org/docs/en/concepts-topic-compaction/[{pulsar-short} Topic Compaction], the message key is encoded separately from the message payload, in the message metadata.
 
-Finally, the following CQL data types are encoded as AVRO logical types:
+The following CQL data types are encoded as https://avro.apache.org/docs/current/spec.html#Logical+Types[AVRO logical types]:
 
 * `Date`
 * `Decimal`
@@ -16,15 +16,13 @@ Finally, the following CQL data types are encoded as AVRO logical types:
 * `Varint`
 * `Uuid`, `timeuuid`
 
-See https://avro.apache.org/docs/current/spec.html#Logical+Types[AVRO Logical Types] for more info on AVRO.
-
 == Change Event's Key
 
 For a given table, the change event's key is an AVRO record that contains a field for each column in the primary key of the table at the time the event was created. Both the events and the data topics (also called the dirty and the clean topics) have the same message key, an AVRO record including the primary key columns.
 
 == `INSERT` Event
 
-Let's create a {cass-short} table to illustrate what happens:
+Create a {cass-short} table to test this behavior:
 
 [source,bash]
 ----
@@ -49,7 +47,7 @@ CREATE TABLE ks1.tbl1 (
     AND speculative_retry = '99PERCENTILE';
 ----
 
-Then insert a row:
+Insert a row:
 
 [source,bash]
 ----
@@ -89,6 +87,10 @@ You can check the connector status with the following command. The connector mus
 [source,bash]
 ----
 bin/pulsar-admin source status --name cassandra-source-ks1-table1
+----
+
+[source,json]
+----
 {
     "numInstances" : 1,
     "numRunning" : 1,
@@ -115,22 +117,24 @@ bin/pulsar-admin source status --name cassandra-source-ks1-table1
 
 If you're having issues consuming CDC events, check the source connector logs on your {pulsar-short} function workers and the data topic schema.
 
-=== Check the source connector logs
-
+Check the source connector logs::
 Check the source connector logs on your {pulsar-short} function workers. The name of the logs depends on the connectors' name.
-
++
 [source,bash]
 ----
 cat logs/functions/public/default/cassandra-source-ks1-table1/cassandra-source-ks1-table1-0.log
 ----
 
-=== Check the data topic schema
-
+Check the data topic schema::
 Check the https://pulsar.apache.org/docs/en/schema-manage/[{pulsar-short} schema] to ensure the clean topic matches your CQL table:
-
++
 [source,bash]
 ----
 bin/pulsar-admin schemas get "persistent://public/default/data-ks1.table1"
+----
++
+[source,json]
+----
 {
   "version": 0,
   "schemaInfo": {
