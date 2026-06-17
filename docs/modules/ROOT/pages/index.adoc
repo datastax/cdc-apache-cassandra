@@ -19,7 +19,7 @@ Other than the prerequisite {cass-short} and {pulsar-short} clusters, {product-s
 
 The following diagram describes the general architecture.
 
-image::cdc-for-cassandra-overview.png[]
+image::ROOT:cdc-for-cassandra-overview.png[]
 
 Since version 3.0, {cass-short} has included a change data capture (CDC) feature.
 The CDC feature can be enabled on the table level by setting the table property `cdc=true`, after which any commit log containing data for a CDC-enabled table is moved to the CDC directory specified in `cassandra.yaml` on discard/flush (default: `cdc_raw`).

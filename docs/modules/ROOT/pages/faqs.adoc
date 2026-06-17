@@ -23,7 +23,7 @@ From there, the data can be published to external platforms like Elasticsearch, 
 
 == How do I install {product-short}?
 
-Follow the xref:install.adoc[installation instructions].
+Follow the xref:ROOT:install.adoc[installation instructions].
 
 == What are the requirements for {product-short}?
 
@@ -179,7 +179,7 @@ The design of CDC in {cass-short} assumed that when table changes are synchroniz
 There is a max log size setting that disables writes to the table when the set threshold is reached.
 If a connection to the {pulsar-short} cluster is needed for the log to be drained, and it isn't responsive, then the log begins to fill, which can impact a table's write availability.
 
-For more, see the xref:cdc-for-cassandra:ROOT:install.adoc#scaling-up-your-configuration[Scaling up your CDC configuration].
+For more, see the xref:ROOT:install.adoc#scaling-up-your-configuration[Scaling up your CDC configuration].
 
 == Does the {csc_pulsar_first} use a dead-letter topic?
 

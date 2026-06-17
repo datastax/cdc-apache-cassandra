@@ -229,4 +229,4 @@ Any captured CDC events from your database table should be reflected in the comm
 
 == See also
 
-* xref:monitor.adoc[]
+* xref:ROOT:monitor.adoc[]

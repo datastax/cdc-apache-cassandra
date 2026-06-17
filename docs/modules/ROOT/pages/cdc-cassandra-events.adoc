@@ -188,8 +188,6 @@ bin/pulsar-admin schemas get "persistent://public/default/data-ks1.table1"
 }
 ----
 
-== What's next? 
+== See also
 
-For more on change data capture, see xref:cdcExample.adoc[].
-
-
+* xref:ROOT:cdcExample.adoc[]

@@ -74,9 +74,9 @@ And to enable CDC for your {cass-short} deployment:
 JVM_OPTS="$JVM_OPTS -javaagent:/home/automaton/cdc104/agent-dse4-pulsar-1.0.5-all.jar"
 ----
 
-The CDC parameter mappings between JVM and {cass-short} environment variables are provided in xref:stringMappings.adoc[CDC Environment Parameter Strings].
+The CDC parameter mappings between JVM and {cass-short} environment variables are provided in xref:ROOT:stringMappings.adoc[CDC Environment Parameter Strings].
 
-For the full set of JVM configuration options, see xref:install.adoc#agentParams[].
+For the full set of JVM configuration options, see <<agentParams>>.
 
 == cassandra.yaml
 
@@ -128,7 +128,7 @@ For each CDC-enabled table, the change agent sends events to the events topic.
 The topic name is determined by the `topicPrefix` setting in the agent (default is `events-`).
 The `<keyspace_name>.<table_name>` is appended to the prefix to build the topic name.
 
-You have to specify the following parameters:
+The following parameters are required:
 
 * Connector name. You have one connector per CDC-enabled {cass-short} table, make sure to use a unique name.
 * Previously downloaded {csc_pulsar} `NAR` file.
@@ -171,12 +171,7 @@ pulsar-admin source status --name cassandra-source-1
 
 Once the connector is running, it processes events from the `events` topic, and then publishes the result to the `data` topic.
 
-For mre information and options, see the following:
-
-* xref:install.adoc#datastax-cassandra-source-connector-for-apache-pulsar-settings[{csc_pulsar} settings]
-* xref:install.adoc#cassandra-authentication-settings[{cass-short} Authentication settings]
-* xref:install.adoc#cassandra-ssltls-settings[{cass-short} SSL/TLS settings]
-* xref:install.adoc#pass-cdc-for-cassandra-settings-directly-to-the-datastax-java-driver[Pass {csc_pulsar} settings directly to the {company} Java driver]
+For all configuration options, see the other information on this page.
 
 == Enabling and disabling CDC on a table
 
@@ -191,11 +186,11 @@ ALTER TABLE foo WITH cdc=false;
 
 When CDC is enabled on a table, updates to that table are sent by the change agent to the {csc_pulsar} which further processes the event and then sends it to the data topic when it can be processed by other connectors (for example, Elasticsearch).
 
-include::partial$cfgCassandraSource.adoc[]
+include::ROOT:partial$cfgCassandraSource.adoc[]
 
-include::partial$cfgCassandraAuth.adoc[]
+include::ROOT:partial$cfgCassandraAuth.adoc[]
 
-include::partial$cfgCassandraSSL.adoc[]
+include::ROOT:partial$cfgCassandraSSL.adoc[]
 
 == Pass {csc_pulsar} settings directly to the {company} Java driver
 
