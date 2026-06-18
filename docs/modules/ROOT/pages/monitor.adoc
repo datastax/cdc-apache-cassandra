@@ -1,8 +1,11 @@
 = Monitoring {product-short}
 
+Statistics and metrics are available to help you monitor the performance and health of {product-short}.
+
 == Change Agent Metrics
 
-The change agent is a JVM agent running in {cass-reg} nodes and provides a dedicated MBean type=`CdcAgent` with the following metrics:
+The change agent is a JVM agent running in {cass-reg} nodes.
+It provides a dedicated MBean `type='CdcAgent'` with the following metrics:
 
 [cols="2,1,3"]
 |===
@@ -55,12 +58,18 @@ The change agent is a JVM agent running in {cass-reg} nodes and provides a dedic
 
 == {product-short} stats
 
-The {product-short} framework reports stats for each connector. You can view the stats for a connector like this:
+The {product-short} framework reports stats for each connector.
+You can use `pulsar-admin` commands to get a connector's stats:
 
 [source,bash]
 ----
 pulsar-admin source stats --name cassandra-source-1
+----
 
+The output is a JSON object:
+
+[source,json]
+----
 {
   "numInstances" : 1,
   "numRunning" : 0,
@@ -81,13 +90,14 @@ pulsar-admin source stats --name cassandra-source-1
 }
 ----
 
-The stats `numReceivedFromSource` and `numWritten` indicate how many events have been processed by the {product-short}.
-If the connector has errors, the counts are shown.
-A description of the last seen error is displayed in the `error` field.
+In this example, the stats `numReceivedFromSource` and `numWritten` indicate how many events have been processed by the {product-short}.
+
+If the connector has errors, the counts are output.
+A description of the last seen error is output to the `error` field.
 
 == {product-short} metrics
 
-{product-short} also publishes per message metrics:
+{product-short} publishes per-message metrics:
 
 [cols="2,3"]
 |===
@@ -116,11 +126,15 @@ A description of the last seen error is displayed in the `error` field.
 
 |===
 
-Here an example of those user-defined metrics aggregated by {pulsar-reg} when processing 2000 mutations:
+Here is an example of user-defined metrics aggregated by {pulsar-reg} when processing 2000 mutations:
 
 [source,bash]
 ----
 curl http://localhost:8080/metrics/ 2>/dev/null | grep user
+----
+
+[source,console]
+----
 # HELP process_cpu_seconds_total Total user and system CPU time spent in seconds.
 # HELP pulsar_source_user_metric_ User defined metric.
 # TYPE pulsar_source_user_metric_ summary
@@ -146,7 +160,7 @@ pulsar_source_user_metric__sum{tenant="public",namespace="public/default",name="
 
 == Monitoring and Alerting resources
 
-* The change agent exposes metrics with xref:planning:ROOT:metrics-alerts.adoc[JMX], a technology within Java that provides tools for managing and monitoring applications.
-* xref:opscenter:overview:opscenter-about.adoc[{opscenter}] can collect these exposed metrics for visualization and alerts, and pass them on to xref:monitoring:ROOT:ops-use-metrics-collector.adoc[{metrics-collector}] for additional integration with https://prometheus.io/docs/introduction/overview/[Prometheus] and https://grafana.com/[Grafana].
+* The change agent xref:dse:managing:operations/monitor-contents.adoc[exposes metrics with JMX], a technology within Java that provides tools for managing and monitoring applications.
+* xref:opscenter:overview:opscenter-about.adoc[{opscenter}] can collect these exposed metrics for visualization and alerts, and pass them on to xref:dse:managing:tools/about-metrics-collector.adoc[{metrics-collector}] for additional integration with https://prometheus.io/docs/introduction/overview/[Prometheus] and https://grafana.com/[Grafana].
 * The https://github.com/datastax/metric-collector-for-apache-cassandra[Metrics Collector for {cass}] with Prometheus and Grafana dashboards provides the same functionality as {metrics-collector}, built on the well-supported collectd agent.
 * Other monitoring tools like https://github.com/prometheus/jmx_exporter[JMX Exporter] by Prometheus are available, but they might require additional tuning.

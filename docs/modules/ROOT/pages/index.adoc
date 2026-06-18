@@ -17,9 +17,8 @@ Other than the prerequisite {cass-short} and {pulsar-short} clusters, {product-s
 * {cdc_agent_first}, which is an event producer deployed as a JVM agent on each {cass-short} data node
 * {csc_pulsar_first}, which is a source connector deployed in your {pulsar-short} cluster
 
-The following diagram describes the general architecture.
-
-image::cdc-for-cassandra-overview.png[]
+.General {product-short} architecture
+image::ROOT:cdc-for-cassandra-overview.png[]
 
 Since version 3.0, {cass-short} has included a change data capture (CDC) feature.
 The CDC feature can be enabled on the table level by setting the table property `cdc=true`, after which any commit log containing data for a CDC-enabled table is moved to the CDC directory specified in `cassandra.yaml` on discard/flush (default: `cdc_raw`).
@@ -36,14 +35,19 @@ When CDC is enabled:
 It maintains a processing offset for each commit log.
 If the {cdc_agent} restarts, it picks up where it left off using the recorded offset value.
 
-The following table describes what is published to the data topic for each update to a CDC-enabled {cass-short} table.
-
-[cols="1,1"]
+.Event data published to the data topic for each write to a CDC-enabled {cass-short} table.
+[cols=2]
 |===
-| Type | Event Data
-| insert | Key set to primary key of the row, value set to all column values
-| update | Key set to primary key of the row, value set to all column values
-| delete | Key set to primary key of the row, value set to null
+|Type |Event Data
+
+|insert
+|Key set to primary key of the row, value set to all column values
+
+|update
+|Key set to primary key of the row, value set to all column values
+
+|delete
+|Key set to primary key of the row, value set to null
 |===
 
 The {csc_pulsar} updates the schema registry to dynamically reflect the {cass-short} table schema.
@@ -60,37 +64,41 @@ For each update to the table, an MD5 digest is calculated to de-duplicate the up
 
 === Change Agent deployment matrix
 
-[cols="1,1"]
+[cols=2]
 |===
-| {cass-short} version | Self-managed {pulsar} or IBM Elite Support for {pulsar} (formerly {company} Luna Streaming) agent
-| {cass-short} 3.x | {product-repo}/tree/master/agent-c3[agent-c3]
-| {cass-short} 4.x | {product-repo}/tree/master/agent-c4[agent-c4]
-| {dse-short} 6.8.16 or later | {product-repo}/tree/master/agent-dse4[agent-dse4]
-|===
+|{cass-short} version |Self-managed {pulsar} or IBM Elite Support for {pulsar} (formerly {company} Luna Streaming) agent
 
-== Supported streaming platforms
+|{cass-short} 3.x
+|{product-repo}/tree/master/agent-c3[agent-c3]
 
-* IBM Elite Support for {pulsar} (formerly {company} Luna Streaming) 2.8 and later (current version is {luna_version})
-* Self-managed {pulsar} version 2.8.1 and later
+|{cass-short} 4.x
+|{product-repo}/tree/master/agent-c4[agent-c4]
 
-=== Connector deployment matrix
-
-[cols="1"]
-|===
-| Self-managed {pulsar} or IBM Elite Support for {pulsar} (formerly {company} Luna Streaming)
-| {product-repo}/tree/master/connector[connector]
+|{dse-short} 6.8.16 or later
+|{product-repo}/tree/master/agent-dse4[agent-dse4]
 |===
 
 [#supported-databases]
-== Supported databases
+== Compatibility
 
-* {cass-reg} 3.11.x and 4.x databases
+Supported streaming platforms::
++
+* IBM Elite Support for {pulsar} (formerly {company} Luna Streaming) 2.8 and later (current version is {luna_version})
+* Self-managed {pulsar} version 2.8.1 and later
+
+Connectors::
++
+* {product-repo}/tree/master/connector[Connector for self-managed {pulsar} or IBM Elite Support for {pulsar}]
+
+Supported databases::
++
+* Open-source {cass-reg} 3.11.x and 4.x
 * {dse} 6.8.16 or later
 
-== Supported {cass-short} data structures
-
+Supported {cass-short} data structures::
 The following CQL data types are encoded as AVRO logical types:
-
++
+--
 * ascii (string)
 * bigint (long)
 * blob(bytes)
@@ -116,17 +124,18 @@ The following CQL data types are encoded as AVRO logical types:
 * User Defined Types (record)
 * uuid (uuid)
 * varint (cql_varint)
-
-[NOTE]
-====
-If using the `key-value-json` output format, the supported {cass-short} types are the same as AVRO. The output is an exact schema with logical types, but with a JSON schema type.
-====
-
-{cass-short} static columns are supported:
-
+--
++
+If using the `key-value-json` output format, the supported {cass-short} types are the same as AVRO.
+The output is an exact schema with logical types, but with a JSON schema type.
++
+{cass-short} static columns are supported in the following ways:
++
+--
 * On row-level updates, static columns are included in the message value.
 * On partition-level updates, the clustering keys are null in the message key, and the message value only has static columns on `insert`/`update` operations.
-
+--
++
 For data types that aren't supported, columns using those data types are omitted from the events sent to the data topic.
 If a row update contains both supported and unsupported data types, the event includes only columns with supported data types.
 
@@ -189,7 +198,7 @@ It stores the number of milliseconds since January 1, 1970, 00:00:00 GMT as an I
 
 == Manage schema updates on topics
 
-Schema registry updates on a {pulsar-short} topic are controlled by the `is-allow-auto-update-schema` option.
+Schema registry updates on a {pulsar-short} topic are controlled by the `is-allow-auto-update-schema` option:
 
 * `true` allows the broker to register a new schema for a topic and connect the producer if the schema isn't registered.
 * `false` rejects the producer's connection to the broker if the schema isn't registered.
