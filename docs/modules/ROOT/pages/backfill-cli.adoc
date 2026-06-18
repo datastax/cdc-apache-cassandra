@@ -289,19 +289,26 @@ specified here. This command isn't available in the `pulsar-admin` extension.
 |The consistency level to use when exporting data. The default is
 LOCAL_QUORUM.
 
-|`--export-max-concurrent-files=NUM|AUTO`
-|The maximum number of concurrent files to write to. Must be a positive
-number or the special value AUTO. The default is AUTO.
+|`--export-max-concurrent-files=NUM`
+|The maximum number of concurrent files to write to.
+Must be a positive number or the special value AUTO.
+The default is AUTO.
 
-|`--export-max-concurrent-queries=NUM|AUTO`
-|The maximum number of concurrent queries to execute. Must be a
-positive number or the special value AUTO. The default is AUTO.
+|`--export-max-concurrent-queries=NUM`
+|The maximum number of concurrent queries to execute.
+Must be a positive number or the special value AUTO.
+The default is AUTO.
 
-|`--export-splits=NUM|NC`
-|The maximum number of token range queries to generate. Use the NC
-syntax to specify a multiple of the number of available cores, e.g.
-8C = 8 times the number of available cores. The default is 8C. This
-is an advanced setting; you should rarely need to modify the default
+|`--export-splits=NUM`
+|The maximum number of token range queries to generate.
+Can be a positive number or the special syntax NC.
+
+Use the NC syntax to specify a multiple of the number of available cores.
+For example, 8C is 8 times the number of available cores.
+
+The default is 8C.
+
+This is an advanced setting; you should rarely need to modify the default
 value.
 
 |`--export-dsbulk-option=OPT=VALUE`
