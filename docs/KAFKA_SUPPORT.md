@@ -1,5 +1,9 @@
 # Kafka / Confluent Support
 
+> This is the implementation/developer reference. The user-facing documentation is published in the
+> Antora site at `docs/modules/ROOT/pages/kafka.adoc` ("Stream CDC to Kafka"). Keep the two in sync
+> when behavior changes.
+
 This project historically streamed Cassandra CDC mutations only to Apache Pulsar. It now ships a
 **provider-agnostic messaging abstraction** (`messaging-api`, with `messaging-pulsar` and
 `messaging-kafka` implementations) so the **CDC agent can publish change events to either Apache

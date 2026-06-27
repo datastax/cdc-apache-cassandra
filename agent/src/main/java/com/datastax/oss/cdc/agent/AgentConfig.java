@@ -480,7 +480,7 @@ public class AgentConfig {
 
     public static void main(String[] args) {
         try {
-            String targetDir = args.length == 1 ? args[0] : "docs/modules/ROOT/pages";
+            String targetDir = args.length == 1 ? args[0] : "docs/modules/ROOT/partials";
             System.out.println("Generating agent parameter documentation in " + targetDir);
             generateAsciiDoc(Paths.get(targetDir), "agentParams.adoc", "Change Agent Parameters");
         } catch(Exception e) {
