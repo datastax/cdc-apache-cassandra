@@ -16,6 +16,7 @@
 package com.datastax.oss.cdc.agent;
 
 import com.datastax.oss.cdc.CqlLogicalTypes;
+import com.datastax.oss.cdc.agent.MutationSenderAvroUtil.SchemaAndWriter;
 import com.google.common.collect.ImmutableMap;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.cassandra.config.DatabaseDescriptor;
