@@ -19,8 +19,10 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -35,7 +37,7 @@ public class AgentConfig {
     public static final String storageDir = System.getProperty("cassandra.storagedir", null);
 
     public enum Platform {
-        ALL, PULSAR
+        ALL, PULSAR, KAFKA
     }
 
     @AllArgsConstructor
@@ -265,6 +267,20 @@ public class AgentConfig {
                     false, "CDC_USE_KEYSTORE_TLS", Setting::getEnvAsBoolean,
                     "Boolean", "ssl", 13);
 
+    public static final String PULSAR_PREFIX = "PULSAR_";
+    public static final String KAFKA_PREFIX = "KAFKA_";
+
+    public static final String PULSAR_CONFIG_FILE = "pulsarConfigFile";
+    public String pulsarConfigFile;
+    public static final Setting<String> PULSAR_CONFIG_FILE_SETTING =
+            new Setting<>(PULSAR_CONFIG_FILE, Platform.PULSAR, (c, s) -> c.pulsarConfigFile = s, c -> c.pulsarConfigFile,
+                    "Optional path to a config file containing Pulsar-specific settings. " +
+                    "Keys in the file have no platform prefix (e.g. serviceUrl=...) and are " +
+                    "mapped to agent settings by prepending the \"PULSAR_\" prefix. " +
+                    "Values are applied before inline agent parameters (inline wins on conflict).",
+                    null, "CDC_PULSAR_CONFIG_FILE", Setting::getEnvAsString,
+                    "String", "pulsar", 0);
+
     public static final String PULSAR_SERVICE_URL = "pulsarServiceUrl";
     public String pulsarServiceUrl;
     public static final Setting<String> PULSAR_SERVICE_URL_SETTING =
@@ -321,6 +337,28 @@ public class AgentConfig {
                     null, "CDC_PULSAR_AUTH_PARAMS", Setting::getEnvAsString,
                     "String", "pulsar", 7);
 
+    public static final String KAFKA_CONFIG_FILE = "kafkaConfigFile";
+    public String kafkaConfigFile;
+    public static final Setting<String> KAFKA_CONFIG_FILE_SETTING =
+            new Setting<>(KAFKA_CONFIG_FILE, Platform.KAFKA, (c, s) -> c.kafkaConfigFile = s, c -> c.kafkaConfigFile,
+                    "Optional path to a config file containing Kafka-specific settings. " +
+                    "Keys in the file have no platform prefix (e.g. bootstrapServers=...) and are " +
+                    "mapped to agent settings by prepending the \"KAFKA_\" prefix. " +
+                    "Values are applied before inline agent parameters (inline wins on conflict).",
+                    null, "CDC_KAFKA_CONFIG_FILE", Setting::getEnvAsString,
+                    "String", "kafka", 0);
+
+    /**
+     * Properties loaded from the platform config file ({@code pulsarConfigFile} or
+     * {@code kafkaConfigFile}). The config file is optional — if no path is configured
+     * the map stays empty. Keys in the file carry no platform prefix; each key is
+     * stored here with the full agent-setting name (e.g. file key {@code serviceUrl}
+     * becomes map key {@code pulsarServiceUrl} for the Pulsar platform). Values are
+     * parsed in order: Long, Double, Boolean, falling back to String. Inline agent
+     * parameters always take precedence over entries in this map.
+     */
+    public Map<String, Object> configFileProperties = new HashMap<>();
+
     public static final Set<Setting<?>> settings;
     public static final Map<String, Setting<?>> settingMap;
 
@@ -345,6 +383,7 @@ public class AgentConfig {
         set.add(SSL_ENABLED_PROTOCOLS_SETTING);
         set.add(SSL_ALLOW_INSECURE_CONNECTION_SETTING);
         set.add(SSL_HOSTNAME_VERIFICATION_ENABLE_SETTING);
+        set.add(PULSAR_CONFIG_FILE_SETTING);
         set.add(PULSAR_SERVICE_URL_SETTING);
         set.add(PULSAR_BATCH_BATCH_DELAY_IN_MS_SETTING);
         set.add(PULSAR_KEY_BASED_BATCHER_SETTING);
@@ -352,6 +391,7 @@ public class AgentConfig {
         set.add(PULSAR_AUTH_PLUGIN_CLASS_NAME_SETTING);
         set.add(PULSAR_AUTH_PARAMS_SETTING);
         set.add(PULSAR_MEMORY_LIMIT_BYTES_SETTING);
+        set.add(KAFKA_CONFIG_FILE_SETTING);
         settings = Collections.unmodifiableSet(set);
 
         Map<String, Setting<?>> map = new HashMap<>();
@@ -378,6 +418,7 @@ public class AgentConfig {
         this.sslEnabledProtocols = SSL_ENABLED_PROTOCOLS_SETTING.initDefault();
         this.sslAllowInsecureConnection = SSL_ALLOW_INSECURE_CONNECTION_SETTING.initDefault();
         this.sslHostnameVerificationEnable = SSL_HOSTNAME_VERIFICATION_ENABLE_SETTING.initDefault();
+        this.pulsarConfigFile = PULSAR_CONFIG_FILE_SETTING.initDefault();
         this.pulsarServiceUrl = PULSAR_SERVICE_URL_SETTING.initDefault();
         this.pulsarBatchDelayInMs = PULSAR_BATCH_BATCH_DELAY_IN_MS_SETTING.initDefault();
         this.pulsarKeyBasedBatcher = PULSAR_KEY_BASED_BATCHER_SETTING.initDefault();
@@ -385,6 +426,7 @@ public class AgentConfig {
         this.pulsarAuthPluginClassName = PULSAR_AUTH_PLUGIN_CLASS_NAME_SETTING.initDefault();
         this.pulsarAuthParams = PULSAR_AUTH_PARAMS_SETTING.initDefault();
         this.pulsarMemoryLimitBytes = PULSAR_MEMORY_LIMIT_BYTES_SETTING.initDefault();
+        this.kafkaConfigFile = KAFKA_CONFIG_FILE_SETTING.initDefault();
     }
 
     public static void main(String[] args) {
@@ -488,12 +530,34 @@ public class AgentConfig {
     /**
      * Override the system properties with agent parameters.
      *
-     * @param agentParameters
+     * <p>If a {@code pulsarConfigFile} (for PULSAR) or {@code kafkaConfigFile} (for KAFKA)
+     * parameter is present — either as an inline parameter or via the corresponding env var —
+     * the file is loaded first into {@link #configFileProperties}. Only keys that start with
+     * the platform prefix ({@code "pulsar"} or {@code "kafka"}) are retained from the file;
+     * any other key is silently skipped. Both the config file and the prefix filter are
+     * optional. Inline agent parameters always take precedence over file values.
+     *
+     * @param agentParameters inline key=value parameters (may be null)
      */
     public AgentConfig configure(Platform platform, Map<String, Object> agentParameters) {
         if (agentParameters == null) {
             agentParameters = new HashMap<>();
         }
+
+        // Resolve the config file path: prefer inline parameter, fall back to the
+        // value already initialised from the env var during construction.
+        String fileSettingName = platform == Platform.KAFKA ? KAFKA_CONFIG_FILE : PULSAR_CONFIG_FILE;
+        String platformPrefix  = platform == Platform.KAFKA ? KAFKA_PREFIX      : PULSAR_PREFIX;
+        Object inlineFilePath  = agentParameters.get(fileSettingName);
+        String configFilePath  = (inlineFilePath instanceof String && !((String) inlineFilePath).isEmpty())
+                ? (String) inlineFilePath
+                : (platform == Platform.KAFKA ? this.kafkaConfigFile : this.pulsarConfigFile);
+
+        // Config file is optional — only load if a path was provided.
+        if (configFilePath != null && !configFilePath.isEmpty()) {
+            this.configFileProperties = loadConfigFile(configFilePath, platformPrefix);
+        }
+
         for (Map.Entry<String, Object> entry : agentParameters.entrySet()) {
             String key = entry.getKey();
             if (entry.getValue() == null) {
@@ -529,5 +593,53 @@ public class AgentConfig {
             log.info(sb.toString());
         }
         return this;
+    }
+
+    /**
+     * Loads a config file into a {@code Map<String, Object>}. Keys in the file carry no
+     * platform prefix (e.g. {@code serviceUrl=pulsar+ssl://...}). Each key is stored in
+     * the result map with the {@code platformPrefix} prepended so it matches the
+     * corresponding agent {@link Setting} name (e.g. {@code PULSAR_serviceUrl}).
+     * The platform prefix is optional — pass null or empty to store keys as-is.
+     * Values are parsed in order: Long, Double, Boolean, falling back to String.
+     *
+     * @param filePath       path to the config file (must not be null)
+     * @param platformPrefix prefix prepended to each key (e.g. {@code "PULSAR_"} or
+     *                       {@code "KAFKA_"}); pass null or empty to keep keys unchanged
+     * @return type-parsed map of prefixed-key → value
+     */
+    static Map<String, Object> loadConfigFile(String filePath, String platformPrefix) {
+        Properties props = new Properties();
+        try (InputStream in = new FileInputStream(filePath)) {
+            props.load(in);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load config file: " + filePath, e);
+        }
+
+        boolean addPrefix = platformPrefix != null && !platformPrefix.isEmpty();
+        Map<String, Object> result = new HashMap<>();
+        for (String key : props.stringPropertyNames()) {
+            String mappedKey = addPrefix ? platformPrefix + key : key;
+            result.put(mappedKey, parseValue(props.getProperty(key)));
+        }
+        log.info("Loaded {} properties from config file: {}", result.size(), filePath);
+        return result;
+    }
+
+    /**
+     * Parses a raw string value by attempting Long, then Double, then Boolean,
+     * falling back to String if none match.
+     */
+    static Object parseValue(String raw) {
+        try {
+            return Long.parseLong(raw);
+        } catch (NumberFormatException ignored) {}
+        try {
+            return Double.parseDouble(raw);
+        } catch (NumberFormatException ignored) {}
+        if ("true".equalsIgnoreCase(raw) || "false".equalsIgnoreCase(raw)) {
+            return Boolean.parseBoolean(raw);
+        }
+        return raw;
     }
 }
