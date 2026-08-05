@@ -15,31 +15,23 @@
  */
 package com.datastax.oss.cdc.agent;
 
-import com.datastax.oss.cdc.CqlLogicalTypes;
 import com.datastax.oss.cdc.MutationValue;
-import com.datastax.oss.cdc.agent.exceptions.CassandraConnectorSchemaException;
 import com.datastax.oss.cdc.NativeSchemaWrapper;
 import com.datastax.oss.cdc.Murmur3MessageRouter;
 import com.datastax.oss.cdc.Constants;
+import com.datastax.oss.cdc.agent.MutationSenderAvroUtil.SchemaAndWriter;
 import lombok.AllArgsConstructor;
-import lombok.EqualsAndHashCode;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.avro.Conversions;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.io.BinaryEncoder;
-import org.apache.avro.io.EncoderFactory;
-import org.apache.avro.specific.SpecificData;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.pulsar.client.api.*;
 import org.apache.pulsar.common.schema.KeyValue;
 import org.apache.pulsar.common.schema.KeyValueEncodingType;
 import org.apache.pulsar.common.schema.SchemaType;
 
-import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
-import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -47,23 +39,6 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public abstract class AbstractPulsarMutationSender<T> implements MutationSender<T>, AutoCloseable {
-
-    public static final String SCHEMA_DOC_PREFIX = "Primary key schema for table ";
-
-    static {
-        // register AVRO logical types conversion
-        SpecificData.get().addLogicalTypeConversion(new CqlLogicalTypes.CqlVarintConversion());
-        SpecificData.get().addLogicalTypeConversion(new CqlLogicalTypes.CqlDecimalConversion());
-        SpecificData.get().addLogicalTypeConversion(new Conversions.UUIDConversion());
-    }
-
-    @AllArgsConstructor
-    @ToString
-    @EqualsAndHashCode
-    public static class SchemaAndWriter {
-        public final org.apache.avro.Schema schema;
-        public final SpecificDatumWriter<GenericRecord> writer;
-    }
 
     volatile PulsarClient client;
     final Map<String, Producer<KeyValue<byte[], MutationValue>>> producers = new ConcurrentHashMap<>();
@@ -125,37 +100,17 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
         }
     }
 
-    public byte[] serializeAvroGenericRecord(org.apache.avro.generic.GenericRecord genericRecord, SpecificDatumWriter<org.apache.avro.generic.GenericRecord> datumWriter) {
-        try {
-            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-            BinaryEncoder binaryEncoder = new EncoderFactory().binaryEncoder(byteArrayOutputStream, null);
-            datumWriter.write(genericRecord, binaryEncoder);
-            binaryEncoder.flush();
-            return byteArrayOutputStream.toByteArray();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+    public byte[] serializeAvroGenericRecord(GenericRecord genericRecord, SpecificDatumWriter<GenericRecord> datumWriter) {
+        return MutationSenderAvroUtil.serializeAvroGenericRecord(genericRecord, datumWriter);
     }
 
     /**
      * Build the AVRO schema for the primary key.
-     * @param tableInfo
-     * @return avroSchema of the table primary key
+     * @param tableInfo table metadata
+     * @return avroSchema and writer for the table primary key
      */
     public SchemaAndWriter getAvroKeySchema(final TableInfo tableInfo) {
-        return pkSchemas.computeIfAbsent(tableInfo.key(), k -> {
-            List<Schema.Field> fields = new ArrayList<>();
-            for (ColumnInfo cm : tableInfo.primaryKeyColumns()) {
-                org.apache.avro.Schema.Field field = new org.apache.avro.Schema.Field(cm.name(), getNativeSchema(cm.cql3Type()));
-                if (cm.isClusteringKey()) {
-                    // clustering keys are optional
-                    field = new org.apache.avro.Schema.Field(cm.name(), org.apache.avro.SchemaBuilder.unionOf().nullType().and().type(field.schema()).endUnion());
-                }
-                fields.add(field);
-            }
-            org.apache.avro.Schema avroSchema = org.apache.avro.Schema.createRecord(tableInfo.key(), SCHEMA_DOC_PREFIX + tableInfo.key(), tableInfo.name(), false, fields);
-            return new SchemaAndWriter(avroSchema, new SpecificDatumWriter<>(avroSchema));
-        });
+        return MutationSenderAvroUtil.getAvroKeySchema(tableInfo, pkSchemas, this::getNativeSchema);
     }
 
     @AllArgsConstructor
@@ -229,15 +184,9 @@ public abstract class AbstractPulsarMutationSender<T> implements MutationSender<
      * @param mutation
      * @return The primary key as an AVRO GenericRecord
      */
-    public org.apache.avro.generic.GenericRecord buildAvroKey(org.apache.avro.Schema keySchema, AbstractMutation<T> mutation) {
-        org.apache.avro.generic.GenericRecord genericRecord = new org.apache.avro.generic.GenericData.Record(keySchema);
-        int i = 0;
-        for (ColumnInfo columnInfo : mutation.primaryKeyColumns()) {
-            if (keySchema.getField(columnInfo.name()) == null)
-                throw new CassandraConnectorSchemaException("Not a valid schema field: " + columnInfo.name());
-            genericRecord.put(columnInfo.name(), cqlToAvro(mutation.getMetadata(), columnInfo.name(), mutation.getPkValues()[i++]));
-        }
-        return genericRecord;
+    public GenericRecord buildAvroKey(Schema keySchema, AbstractMutation<T> mutation) {
+        return MutationSenderAvroUtil.buildAvroKey(keySchema, mutation,
+                (colName, value) -> cqlToAvro(mutation.getMetadata(), colName, value));
     }
 
     @Override
