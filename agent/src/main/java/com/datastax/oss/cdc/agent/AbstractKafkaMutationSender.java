@@ -23,9 +23,8 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.EncoderFactory;
-import org.apache.avro.specific.SpecificDatumWriter;
-import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.header.internals.RecordHeader;
@@ -44,7 +43,7 @@ import java.util.concurrent.Semaphore;
 @Slf4j
 public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T>, AutoCloseable {
 
-    volatile KafkaProducer<byte[], byte[]> producer;
+    volatile Producer<byte[], byte[]> producer;
     final Map<String, SchemaAndWriter> pkSchemas = new ConcurrentHashMap<>();
 
     final AgentConfig config;
@@ -126,7 +125,7 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
                     Murmur3KafkaPartitioner.class.getName());
         }
 
-        this.producer = new KafkaProducer<>(props);
+        this.producer = new KafkaProducer<byte[], byte[]>(props);
         log.info("Kafka producer connected to {}", props.get(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG));
     }
 
@@ -202,12 +201,35 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
         }
     }
 
-    private byte[] serializeMutationValue(MutationValue mv) {
+    // Schema for MutationValue: {md5Digest: string, nodeId: uuid-string, columns: [string]}
+    static final Schema MUTATION_VALUE_SCHEMA;
+    private static final org.apache.avro.generic.GenericDatumWriter<org.apache.avro.generic.GenericRecord>
+            MUTATION_VALUE_WRITER;
+
+    static {
+        Schema nullableString = Schema.createUnion(Schema.create(Schema.Type.NULL), Schema.create(Schema.Type.STRING));
+        Schema nullableStringArray = Schema.createUnion(Schema.create(Schema.Type.NULL),
+                Schema.createArray(Schema.create(Schema.Type.STRING)));
+        MUTATION_VALUE_SCHEMA = Schema.createRecord("MutationValue", null, "com.datastax.oss.cdc", false,
+                java.util.Arrays.asList(
+                        new Schema.Field("md5Digest", nullableString, null, (Object) null),
+                        new Schema.Field("nodeId",    nullableString, null, (Object) null),
+                        new Schema.Field("columns",   nullableStringArray, null, (Object) null)
+                ));
+        MUTATION_VALUE_WRITER = new org.apache.avro.generic.GenericDatumWriter<>(MUTATION_VALUE_SCHEMA);
+    }
+
+    byte[] serializeMutationValue(MutationValue mv) {
         try {
-            SpecificDatumWriter<MutationValue> writer = new SpecificDatumWriter<>(MutationValue.class);
+            org.apache.avro.generic.GenericData.Record record =
+                    new org.apache.avro.generic.GenericData.Record(MUTATION_VALUE_SCHEMA);
+            record.put("md5Digest", mv.getMd5Digest());
+            record.put("nodeId",    mv.getNodeId() != null ? mv.getNodeId().toString() : null);
+            record.put("columns",   mv.getColumns() != null
+                    ? java.util.Arrays.asList(mv.getColumns()) : null);
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             BinaryEncoder encoder = new EncoderFactory().binaryEncoder(out, null);
-            writer.write(mv, encoder);
+            MUTATION_VALUE_WRITER.write(record, encoder);
             encoder.flush();
             return out.toByteArray();
         } catch (IOException e) {
