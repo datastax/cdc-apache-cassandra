@@ -36,8 +36,10 @@ jobs:
           ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
           build -x test -x backfill-cli:compileJava
 
+  # Full matrix — runs on master only (all modules, JDKs, Pulsar images).
   test:
     needs: build
+    if: github.ref == 'refs/heads/master' || github.base_ref == 'master'
     name: Test
     runs-on: ubuntu-latest
     timeout-minutes: 360
@@ -84,6 +86,59 @@ jobs:
           PULSAR_IMAGE_TAG=${PULSAR_FULL_IMAGE[1]}
                     
           ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
+          -PtestPulsarImage=$PULSAR_IMAGE \
+          -PtestPulsarImageTag=$PULSAR_IMAGE_TAG \
+          ${{ matrix.module }}:test
+
+  # Lean smoke test — runs on feature branches (agent + agent-c4, JDK 11, one Pulsar image).
+  test-feature:
+    needs: build
+    if: github.ref != 'refs/heads/master' && github.base_ref != 'master'
+    name: Test (feature)
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ['agent', 'agent-c4']
+        pulsarImage: ['datastax/lunastreaming:2.10_3.4']
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up JDK 11
+        uses: actions/setup-java@v5
+        with:
+          java-version: '11'
+          distribution: 'adopt'
+
+      - name: Get project version
+        uses: HardNorth/github-version-generate@v1.4.0
+        with:
+          version-source: file
+          version-file: gradle.properties
+          version-file-extraction-pattern: '(?<=version=).+'
+
+      - name: Cache Docker layers
+        uses: actions/cache@v5
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Test with Gradle
+        env:
+          DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
+          DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
+        run: |
+          set -e
+          PREV_IFS=$IFS
+          IFS=':'
+          read -ra PULSAR_FULL_IMAGE <<< "${{ matrix.pulsarImage }}"
+          IFS=$PREV_IFS
+          PULSAR_IMAGE=${PULSAR_FULL_IMAGE[0]}
+          PULSAR_IMAGE_TAG=${PULSAR_FULL_IMAGE[1]}
+
+          ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
           -PtestPulsarImage=$PULSAR_IMAGE \
           -PtestPulsarImageTag=$PULSAR_IMAGE_TAG \
           ${{ matrix.module }}:test

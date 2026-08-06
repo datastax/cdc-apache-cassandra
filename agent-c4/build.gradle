@@ -81,6 +81,7 @@ test {
 
     systemProperty "buildDir", buildDir
     systemProperty "projectVersion", project.version
+    systemProperty "cassandraVersion", cassandra4Version
 }
 
 dockerPrepare.dependsOn(jar, shadowJar)

@@ -507,6 +507,36 @@ public class AgentConfig {
     }
 
     /**
+     * Extracts the value of the {@code platform} key from the agent args string.
+     * Returns {@link Platform#PULSAR} if not present.
+     */
+    public static Platform extractPlatform(String agentArgs) {
+        if (agentArgs == null) return Platform.PULSAR;
+        for (String token : agentArgs.split("(?<!\\\\),\\s*")) {
+            String param = token.replace("\\,", ",");
+            int i = param.indexOf('=');
+            if (i > 0 && "platform".equals(param.substring(0, i).trim())) {
+                return Platform.valueOf(param.substring(i + 1).trim().toUpperCase());
+            }
+        }
+        return Platform.PULSAR;
+    }
+
+    /**
+     * Returns a copy of {@code agentArgs} with the named key=value token removed.
+     * Safe to call when {@code agentArgs} is {@code null}.
+     */
+    public static String stripParam(String agentArgs, String paramName) {
+        if (agentArgs == null) return null;
+        return agentArgs
+                .replaceAll("(?:^|(?<=,))\\s*" + paramName + "=[^,]*(?:,|$)", "")
+                .replaceAll(",+$", "")
+                .replaceAll("^,+", "")
+                .replaceAll(",{2,}", ",")
+                .trim();
+    }
+
+    /**
      * Override the system properties with agent parameters.
      *
      * @param agentParameters

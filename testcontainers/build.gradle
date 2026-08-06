@@ -33,6 +33,8 @@ dependencies {
 
     implementation "org.testcontainers:testcontainers:${testContainersVersion}"
     implementation "org.testcontainers:database-commons:${testContainersVersion}"
+    implementation "org.testcontainers:kafka:${testContainersVersion}"
+    implementation "org.apache.kafka:kafka-clients:${kafkaVersion}"
 
     implementation("${pulsarGroup}:pulsar-client:${pulsarVersion}")
 
