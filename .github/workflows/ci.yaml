@@ -91,11 +91,14 @@ jobs:
           BROKER_IMAGE=${BROKER_IMAGE_FULL%:*}
           BROKER_IMAGE_TAG=${BROKER_IMAGE_FULL##*:}
 
+          if [ "$BROKER_TYPE" = "pulsar" ]; then
+            BROKER_FLAGS="-PtestPulsarImage=$BROKER_IMAGE -PtestPulsarImageTag=$BROKER_IMAGE_TAG"
+          else
+            BROKER_FLAGS="-PtestKafkaImage=$BROKER_IMAGE -PtestKafkaImageTag=$BROKER_IMAGE_TAG"
+          fi
+
           ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
-          -PtestPulsarImage=$([ "$BROKER_TYPE" = "pulsar" ] && echo $BROKER_IMAGE || echo "") \
-          -PtestPulsarImageTag=$([ "$BROKER_TYPE" = "pulsar" ] && echo $BROKER_IMAGE_TAG || echo "") \
-          -PtestKafkaImage=$([ "$BROKER_TYPE" = "kafka" ] && echo $BROKER_IMAGE || echo "") \
-          -PtestKafkaImageTag=$([ "$BROKER_TYPE" = "kafka" ] && echo $BROKER_IMAGE_TAG || echo "") \
+          $BROKER_FLAGS \
           ${{ matrix.module }}:test
 
   # Lean smoke test — runs on feature branches (agent + agent-c4, JDK 11).
@@ -147,9 +150,12 @@ jobs:
           BROKER_IMAGE=${BROKER_IMAGE_FULL%:*}
           BROKER_IMAGE_TAG=${BROKER_IMAGE_FULL##*:}
 
+          if [ "$BROKER_TYPE" = "pulsar" ]; then
+            BROKER_FLAGS="-PtestPulsarImage=$BROKER_IMAGE -PtestPulsarImageTag=$BROKER_IMAGE_TAG"
+          else
+            BROKER_FLAGS="-PtestKafkaImage=$BROKER_IMAGE -PtestKafkaImageTag=$BROKER_IMAGE_TAG"
+          fi
+
           ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
-          -PtestPulsarImage=$([ "$BROKER_TYPE" = "pulsar" ] && echo $BROKER_IMAGE || echo "") \
-          -PtestPulsarImageTag=$([ "$BROKER_TYPE" = "pulsar" ] && echo $BROKER_IMAGE_TAG || echo "") \
-          -PtestKafkaImage=$([ "$BROKER_TYPE" = "kafka" ] && echo $BROKER_IMAGE || echo "") \
-          -PtestKafkaImageTag=$([ "$BROKER_TYPE" = "kafka" ] && echo $BROKER_IMAGE_TAG || echo "") \
+          $BROKER_FLAGS \
           ${{ matrix.module }}:test
