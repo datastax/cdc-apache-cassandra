@@ -88,3 +88,20 @@ Run these checks locally before pushing to avoid CI failures.
 | `agent-dse4` can only be compiled in CI or with DSE repo credentials | `dse-db` artifact lives in a private DataStax Artifactory repo (HTTP 401 without credentials) |
 | Integration tests require Docker | Testcontainers spins up real Cassandra + Pulsar/Kafka containers |
 | `backfill-cli:compileJava` is excluded from CI build | Has a known separate dependency issue; excluded via `-x backfill-cli:compileJava` |
+| `./gradlew build` fails locally if Docker daemon is not running | `agent-c3:docker` and `agent-c4:docker` tasks require Docker; compilation itself is unaffected |
+
+## Dependency conflict rules
+
+When a module depends on both `cassandra-all` **and** `kafka-clients` (directly or transitively via `:agent`), a Gradle capability conflict arises between `org.lz4:lz4-java` (pulled by Cassandra) and `at.yawk.lz4:lz4-java` (pulled by Kafka). Both jars declare the same capability `org.lz4:lz4-java`.
+
+**Fix**: add a `dependencySubstitution` block to the affected module's `build.gradle`:
+
+```groovy
+configurations.all {
+    resolutionStrategy.dependencySubstitution {
+        substitute module('org.lz4:lz4-java') using module("at.yawk.lz4:lz4-java:${lz4javaVersion}")
+    }
+}
+```
+
+This pattern is already applied in `agent-c3`, `agent-c4`, `connector`, and `backfill-cli`. Any new module that combines Cassandra and Kafka dependencies must include it too.

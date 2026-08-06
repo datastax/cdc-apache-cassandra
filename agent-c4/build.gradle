@@ -40,6 +40,15 @@ shadowJar {
 jar.enabled = true
 assemble.dependsOn(shadowJar)
 
+configurations.all {
+    resolutionStrategy.dependencySubstitution {
+        // Resolve capability conflict between org.lz4:lz4-java (from cassandra-all)
+        // and at.yawk.lz4:lz4-java (from kafka-clients, added in agent/build.gradle).
+        // Both declare the same capability; substitute to the single upgraded artifact.
+        substitute module('org.lz4:lz4-java') using module("at.yawk.lz4:lz4-java:${lz4javaVersion}")
+    }
+}
+
 dependencies {
     implementation project(':commons')
     implementation project(':agent')
