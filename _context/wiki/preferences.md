@@ -9,6 +9,27 @@
 - No breaking changes to existing Pulsar classes; new Kafka code lives in new classes / new packages
 - Gradle multi-project conventions: new modules added to `settings.gradle`, dependencies declared in module `build.gradle`
 
+## Java formatting (Google Java Style — new code only)
+
+Apply these rules to **all new code**. Do not reformat pre-existing code that is unrelated to the change.
+
+- **Always use braces** for `if`, `else`, `for`, `while`, `do` — even single-statement bodies.
+  ```java
+  // bad
+  if (x != null) return x;
+
+  // good
+  if (x != null) {
+      return x;
+  }
+  ```
+- **No inline assignments** inside `if` conditions.
+- **One statement per line** — do not chain assignments or returns on the same line.
+- **4-space indentation**, no tabs.
+- **Opening brace on the same line** as the declaration/control statement (K&R style).
+- **Blank line** between methods; no blank line immediately after an opening brace or before a closing brace.
+- **Imports**: no wildcard imports; grouped as (1) `java.*`, (2) `javax.*`, (3) third-party, (4) same-project; separated by a blank line.
+
 ## Planning before implementation
 
 - Write a planning doc first (in `_context/wiki/`) before touching production code
@@ -23,3 +44,47 @@
 - Flag backward-compatibility risks prominently
 - Use todo lists to track multi-step tasks
 - Offer to update the wiki after completing a task that yields durable knowledge
+
+## Pre-push checklist
+
+Run these checks locally before pushing to avoid CI failures.
+
+### Compile all modules (no DSE4 — requires private repo credentials)
+
+```bash
+./gradlew build -x test -x backfill-cli:compileJava
+```
+
+### Compile including DSE4 (requires `DSE_REPO_USERNAME` / `DSE_REPO_PASSWORD`)
+
+```bash
+./gradlew -Pdse4 \
+  -PdseRepoUsername=$DSE_REPO_USERNAME \
+  -PdseRepoPassword=$DSE_REPO_PASSWORD \
+  build -x test -x backfill-cli:compileJava
+```
+
+> `agent-dse4` depends on `com.datastax.dse:dse-db` from a private DataStax repo.
+> Skip the `-Pdse4` flag when those credentials are not available locally — CI will verify it.
+
+### Run unit tests (no containers required)
+
+```bash
+./gradlew agent:test commons:test
+```
+
+### Run integration tests for a specific module (requires Docker)
+
+```bash
+./gradlew agent-c4:test \
+  -PtestPulsarImage=datastax/lunastreaming \
+  -PtestPulsarImageTag=2.10_3.4
+```
+
+### Known local limitations
+
+| Constraint | Reason |
+|------------|--------|
+| `agent-dse4` can only be compiled in CI or with DSE repo credentials | `dse-db` artifact lives in a private DataStax Artifactory repo (HTTP 401 without credentials) |
+| Integration tests require Docker | Testcontainers spins up real Cassandra + Pulsar/Kafka containers |
+| `backfill-cli:compileJava` is excluded from CI build | Has a known separate dependency issue; excluded via `-x backfill-cli:compileJava` |

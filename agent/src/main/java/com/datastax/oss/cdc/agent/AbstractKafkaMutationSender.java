@@ -117,7 +117,9 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
 
         int maxPending = 1000;
         Object mp = config.get("maxPendingMessages");
-        if (mp != null) maxPending = (int) toLong(mp);
+        if (mp != null) {
+            maxPending = (int) toLong(mp);
+        }
         this.pendingSemaphore = new Semaphore(maxPending);
 
         if (useMurmur3Partitioner) {
@@ -131,11 +133,15 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
 
     private static void putIfPresent(Properties props, AgentConfig config, String kafkaKey, String configKey) {
         Object v = config.get(configKey);
-        if (v != null) props.put(kafkaKey, v.toString());
+        if (v != null) {
+            props.put(kafkaKey, v.toString());
+        }
     }
 
     private static long toLong(Object v) {
-        if (v instanceof Number) return ((Number) v).longValue();
+        if (v instanceof Number) {
+            return ((Number) v).longValue();
+        }
         return Long.parseLong(v.toString());
     }
 
