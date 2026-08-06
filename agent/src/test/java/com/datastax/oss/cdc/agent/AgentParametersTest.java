@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static com.datastax.oss.cdc.agent.AgentConfig.*;
@@ -234,8 +235,47 @@ public class AgentParametersTest {
     }
 
     @Test
+    public void testPropertyKeysFromKafkaFile() throws Exception {
+        URL resource = getClass().getClassLoader().getResource("kafka-test.conf");
+        String filePath = resource.getPath();
+
+        AgentConfig config = AgentConfig.create(Platform.KAFKA, KAFKA_CONFIG_FILE + "=" + filePath);
+
+        // propertyKeys() returns only the raw unregistered file keys
+        Iterable<String> keys = config.propertyKeys();
+        assertTrue(contains(keys, "bootstrapServers"));
+        assertTrue(contains(keys, "maxPendingMessages"));
+        assertTrue(contains(keys, "batchDelayInMs"));
+    }
+
+    @Test
+    public void testPropertyKeysEmptyWhenNoConfigFile() {
+        // No config file — propertyKeys() returns nothing
+        AgentConfig config = AgentConfig.create(Platform.KAFKA, "");
+        assertFalse(config.propertyKeys().iterator().hasNext());
+    }
+
+    @Test
+    public void testPropertyKeysEmptyForRegisteredOnlyFile() throws Exception {
+        // pulsar-test.conf has only registered setting keys (serviceUrl, batchDelayInMs, etc.)
+        // — all are applied via their initializers, none land in propertyKeys()
+        URL resource = getClass().getClassLoader().getResource("pulsar-test.conf");
+        String filePath = resource.getPath();
+
+        AgentConfig config = AgentConfig.create(Platform.PULSAR, PULSAR_CONFIG_FILE + "=" + filePath);
+        assertFalse(config.propertyKeys().iterator().hasNext());
+    }
+
+    private static boolean contains(Iterable<String> iterable, String value) {
+        for (String s : iterable) {
+            if (value.equals(s)) return true;
+        }
+        return false;
+    }
+
+    @Test
     public void testConfigFileIsOptional() {
-        // No config file path set — all resolved setting values are still present
+        // No config file path set — registered settings are still accessible via get()
         AgentConfig config = AgentConfig.create(Platform.PULSAR, "");
         assertNotNull(config.get(PULSAR_SERVICE_URL));
         assertNotNull(config.get(TOPIC_PREFIX));

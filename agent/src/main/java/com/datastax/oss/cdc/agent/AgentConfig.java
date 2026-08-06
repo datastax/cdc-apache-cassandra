@@ -601,9 +601,6 @@ public class AgentConfig {
             }
         }
 
-        // Populate properties with all resolved setting values.
-        settings.forEach(s -> properties.put(s.name, s.supplier.apply(this)));
-
         if (log.isInfoEnabled()) {
             StringBuilder sb = new StringBuilder();
             settings.forEach(s -> {
@@ -620,19 +617,28 @@ public class AgentConfig {
 
     /**
      * Returns the resolved value for the given configuration key, or {@code null} if
-     * the key is not present. Keys match setting names (e.g. {@code "pulsarServiceUrl"},
-     * {@code "topicPrefix"}) or raw file keys for unregistered entries.
+     * the key is not present.
      *
-     * @param key the setting name to look up
+     * <p>For registered setting names (e.g. {@code "pulsarServiceUrl"}, {@code "topicPrefix"})
+     * the value is read from the typed field via the setting's supplier.
+     * For raw file keys of unregistered entries (e.g. {@code "bootstrapServers"}) the value
+     * is read from the properties map populated during config-file loading.
+     *
+     * @param key the setting name or raw file key to look up
      * @return the resolved value, or {@code null} if not found
      */
     public Object get(String key) {
+        Setting<?> setting = settingMap.get(key);
+        if (setting != null) {
+            return setting.supplier.apply(this);
+        }
         return properties.get(key);
     }
 
     /**
-     * Returns all keys present in the resolved properties map, including both registered
-     * setting names and raw file keys for unregistered entries.
+     * Returns all keys present in the raw-file properties map (unregistered entries only).
+     * Use this to forward arbitrary config-file properties to an underlying client
+     * (e.g. Kafka producer).
      */
     public Iterable<String> propertyKeys() {
         return properties.keySet();
