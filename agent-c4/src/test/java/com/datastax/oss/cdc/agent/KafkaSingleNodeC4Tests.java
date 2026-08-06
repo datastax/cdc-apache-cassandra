@@ -36,7 +36,7 @@ public class KafkaSingleNodeC4Tests extends KafkaSingleNodeTests {
     public CassandraContainer<?> createCassandraContainer(
             int nodeIndex, String kafkaConfigFilePath, Network testNetwork) throws IOException {
         String agentParams = String.format(
-                "platform=KAFKA,kafkaConfigFile=%s,topicPrefix=events-", kafkaConfigFilePath);
+                "platform=KAFKA,kafkaConfigFile=%s,topicPrefix=events-", CONTAINER_KAFKA_CONFIG_PATH);
         return CassandraContainer.createCassandraContainerWithAgent(
                 CASSANDRA_IMAGE, testNetwork, nodeIndex,
                 System.getProperty("buildDir"), "agent-c4", agentParams, "c4");

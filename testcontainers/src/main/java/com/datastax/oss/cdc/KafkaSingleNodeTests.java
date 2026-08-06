@@ -19,6 +19,7 @@ import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.BinaryDecoder;
@@ -43,6 +44,8 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.Properties;
 
+import org.testcontainers.utility.MountableFile;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -56,6 +59,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public abstract class KafkaSingleNodeTests {
 
     private static final DockerImageName KAFKA_IMAGE = AgentTestUtil.KAFKA_IMAGE;
+    public static final String CONTAINER_KAFKA_CONFIG_PATH = "/etc/cassandra/cdc-kafka.conf";
 
     private static Network testNetwork;
     private static KafkaContainer kafkaContainer;
@@ -102,8 +106,9 @@ public abstract class KafkaSingleNodeTests {
     }
 
     /**
-     * Writes a temporary Kafka config file containing {@code bootstrapServers} for use
-     * as the agent's {@code kafkaConfigFile} parameter.
+     * Writes a temporary Kafka config file on the host containing {@code bootstrapServers}.
+     * The file must be copied into the container before start; the in-container path is
+     * {@link #CONTAINER_KAFKA_CONFIG_PATH}.
      */
     protected static File writeKafkaConfigFile(String bootstrapServers) throws IOException {
         File tmp = File.createTempFile("cdc-kafka-agent-", ".conf");
@@ -160,6 +165,9 @@ public abstract class KafkaSingleNodeTests {
         File kafkaConf = writeKafkaConfigFile(internalBootstrapServers());
         try (CassandraContainer<?> cassandra =
                      createCassandraContainer(1, kafkaConf.getAbsolutePath(), testNetwork)) {
+            cassandra.withCopyFileToContainer(
+                    MountableFile.forHostPath(kafkaConf.getAbsolutePath()),
+                    CONTAINER_KAFKA_CONFIG_PATH);
             cassandra.start();
 
             try (CqlSession session = cassandra.getCqlSession()) {
@@ -180,12 +188,20 @@ public abstract class KafkaSingleNodeTests {
                 assertTrue(rec.value() != null && rec.value().length > 0,
                         "Avro value bytes must be non-empty");
 
-                // Verify the key can be decoded as Avro (schema has at least one field "id")
+                // Decode and validate the Avro key
                 Schema keySchema = buildKeySchema();
-                GenericDatumReader<GenericRecord> reader = new GenericDatumReader<>(keySchema);
-                BinaryDecoder decoder = DecoderFactory.get().binaryDecoder(rec.key(), null);
-                GenericRecord keyRecord = reader.read(null, decoder);
+                GenericDatumReader<GenericRecord> keyReader = new GenericDatumReader<>(keySchema);
+                BinaryDecoder keyDecoder = DecoderFactory.get().binaryDecoder(rec.key(), null);
+                GenericRecord keyRecord = keyReader.read(null, keyDecoder);
                 assertEquals("hello", keyRecord.get("id").toString());
+
+                // Decode and validate the Avro value (MutationValue)
+                GenericDatumReader<GenericRecord> valueReader =
+                        new GenericDatumReader<>(buildMutationValueSchema());
+                BinaryDecoder valueDecoder = DecoderFactory.get().binaryDecoder(rec.value(), null);
+                GenericRecord valueRecord = valueReader.read(null, valueDecoder);
+                assertNotNull(valueRecord.get("md5Digest"), "md5Digest must be present");
+                assertNotNull(valueRecord.get("nodeId"), "nodeId must be a valid UUID string");
 
                 // segpos header must be present
                 assertNotNull(rec.headers().lastHeader(Constants.SEGMENT_AND_POSITION),
@@ -203,6 +219,9 @@ public abstract class KafkaSingleNodeTests {
         File kafkaConf = writeKafkaConfigFile(internalBootstrapServers());
         try (CassandraContainer<?> cassandra =
                      createCassandraContainer(1, kafkaConf.getAbsolutePath(), testNetwork)) {
+            cassandra.withCopyFileToContainer(
+                    MountableFile.forHostPath(kafkaConf.getAbsolutePath()),
+                    CONTAINER_KAFKA_CONFIG_PATH);
             cassandra.start();
 
             try (CqlSession session = cassandra.getCqlSession()) {
@@ -216,6 +235,8 @@ public abstract class KafkaSingleNodeTests {
                 }
             }
 
+            Schema mutationValueSchema = buildMutationValueSchema();
+            GenericDatumReader<GenericRecord> valueReader = new GenericDatumReader<>(mutationValueSchema);
             int received = 0;
             long deadline = System.currentTimeMillis() + 120_000L;
             try (KafkaConsumer<byte[], byte[]> consumer = createConsumer("events-mt1.tbl1")) {
@@ -225,7 +246,13 @@ public abstract class KafkaSingleNodeTests {
                         assertNotNull(rec.headers().lastHeader(Constants.SEGMENT_AND_POSITION),
                                 "segpos header must be present");
                         assertNotNull(rec.key());
-                        assertNotNull(rec.value());
+                        assertTrue(rec.value() != null && rec.value().length > 0,
+                                "value bytes must be non-empty");
+                        // Decode and validate the Avro value
+                        BinaryDecoder valueDecoder = DecoderFactory.get().binaryDecoder(rec.value(), null);
+                        GenericRecord valueRecord = valueReader.read(null, valueDecoder);
+                        assertNotNull(valueRecord.get("md5Digest"), "md5Digest must be present");
+                        assertNotNull(valueRecord.get("nodeId"), "nodeId must be a valid UUID string");
                         received++;
                     }
                 }
@@ -236,16 +263,32 @@ public abstract class KafkaSingleNodeTests {
     }
 
     /**
-     * Builds a minimal Avro schema for the `ks1.tbl1` key (single string PK field `id`).
-     * Concrete subclasses can override if their schema differs.
+     * Builds the Avro schema for the {@code ks1.tbl1} partition key (single {@code text} field
+     * {@code id}). Partition key fields are encoded as plain STRING — not a nullable union —
+     * matching the logic in {@code MutationSenderAvroUtil.getAvroKeySchema}.
      */
     protected Schema buildKeySchema() {
-        Schema nullableString = Schema.createUnion(
-                Schema.create(Schema.Type.NULL),
-                Schema.create(Schema.Type.STRING));
-        return Schema.createRecord("ks1_tbl1", null, "com.datastax.oss.cdc", false,
+        // key() returns "ks.table", name() returns "table" — matches MutationSenderAvroUtil.getAvroKeySchema
+        return Schema.createRecord("ks1.tbl1", "Primary key schema for table ks1.tbl1", "tbl1", false,
                 Collections.singletonList(
-                        new Schema.Field("id", nullableString, null, (Object) null)));
+                        new Schema.Field("id", Schema.create(Schema.Type.STRING), null, (Object) null)));
+    }
+
+    /**
+     * Builds the Avro schema for the MutationValue, mirroring
+     * {@code AbstractKafkaMutationSender.MUTATION_VALUE_SCHEMA}.
+     */
+    protected static Schema buildMutationValueSchema() {
+        Schema nullableString = Schema.createUnion(
+                Schema.create(Schema.Type.NULL), Schema.create(Schema.Type.STRING));
+        Schema nullableStringArray = Schema.createUnion(
+                Schema.create(Schema.Type.NULL),
+                Schema.createArray(Schema.create(Schema.Type.STRING)));
+        return Schema.createRecord("MutationValue", null, "com.datastax.oss.cdc", false,
+                java.util.Arrays.asList(
+                        new Schema.Field("md5Digest", nullableString, null, (Object) null),
+                        new Schema.Field("nodeId",    nullableString, null, (Object) null),
+                        new Schema.Field("columns",   nullableStringArray, null, (Object) null)));
     }
 
     // -------------------------------------------------------------------------

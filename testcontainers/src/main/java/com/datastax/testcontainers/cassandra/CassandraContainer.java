@@ -284,13 +284,13 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
                                                                           String cassandraVersion) {
         String projectVersion = System.getProperty("projectVersion");
         String jarFile = String.format(Locale.ROOT, "%s-%s-all.jar", agentName, projectVersion);
+        String hostJarPath = String.format(Locale.ROOT, "%s/libs/%s", agentBuildDir, jarFile);
+        String containerJarPath = String.format(Locale.ROOT, "/%s", jarFile);
         CassandraContainer<?> cassandraContainer = new CassandraContainer<>(image)
                 .withCreateContainerCmdModifier(c -> c.withName("cassandra-" + nodeIndex))
                 .withNetwork(network)
                 .withConfigurationOverride(configLocation)
-                .withFileSystemBind(
-                        String.format(Locale.ROOT, "%s/libs/%s", agentBuildDir, jarFile),
-                        String.format(Locale.ROOT, "/%s", jarFile))
+                .withCopyFileToContainer(MountableFile.forHostPath(hostJarPath), containerJarPath)
                 .withEnv("JVM_EXTRA_OPTS", String.format(Locale.ROOT,
                         "-javaagent:/%s=%s -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" +
                                 (cassandraVersion.equals("c4") ? "*:8000" : "8000"), jarFile, agentParams))
