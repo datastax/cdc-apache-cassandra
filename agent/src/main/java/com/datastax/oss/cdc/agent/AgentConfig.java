@@ -272,9 +272,10 @@ public class AgentConfig {
     public static final Setting<String> PULSAR_CONFIG_FILE_SETTING =
             new Setting<>(PULSAR_CONFIG_FILE, Platform.PULSAR, (c, s) -> c.pulsarConfigFile = s, c -> c.pulsarConfigFile,
                     "Optional path to a config file containing Pulsar-specific settings. " +
-                    "Keys in the file have no platform prefix (e.g. serviceUrl=...) and are " +
-                    "mapped to agent settings by prepending the camelCase \"pulsar\" prefix " +
-                    "(e.g. pulsarServiceUrl). Inline agent parameters always win on conflict.",
+                    "Keys that match a registered agent setting are mapped by prepending the " +
+                    "\"pulsar\" prefix (e.g. serviceUrl -> pulsarServiceUrl). " +
+                    "Unrecognised keys are stored as-is and accessible via config.get(). " +
+                    "Inline agent parameters always win on conflict.",
                     null, "CDC_PULSAR_CONFIG_FILE", Setting::getEnvAsString,
                     "String", "pulsar", 0);
 
@@ -339,9 +340,10 @@ public class AgentConfig {
     public static final Setting<String> KAFKA_CONFIG_FILE_SETTING =
             new Setting<>(KAFKA_CONFIG_FILE, Platform.KAFKA, (c, s) -> c.kafkaConfigFile = s, c -> c.kafkaConfigFile,
                     "Optional path to a config file containing Kafka-specific settings. " +
-                    "Keys in the file have no platform prefix (e.g. bootstrapServers=...) and are " +
-                    "mapped to agent settings by prepending the camelCase \"kafka\" prefix " +
-                    "(e.g. kafkaBootstrapServers). Inline agent parameters always win on conflict.",
+                    "Keys that match a registered agent setting are mapped by prepending the " +
+                    "\"kafka\" prefix (e.g. configFile -> kafkaConfigFile). " +
+                    "Unrecognised keys are stored as-is and accessible via config.get(). " +
+                    "Inline agent parameters always win on conflict.",
                     null, "CDC_KAFKA_CONFIG_FILE", Setting::getEnvAsString,
                     "String", "kafka", 0);
 
@@ -530,9 +532,10 @@ public class AgentConfig {
      *
      * <p>If a {@code pulsarConfigFile} (for PULSAR) or {@code kafkaConfigFile} (for KAFKA)
      * parameter is present — either as an inline parameter or via the corresponding env var —
-     * the file is loaded first. Keys in the file carry no platform prefix (e.g.
-     * {@code serviceUrl}); they are mapped to setting names by prepending the camelCase
-     * platform prefix (e.g. {@code pulsarServiceUrl}) before being applied.
+     * the file is loaded first. Each file key is matched against registered settings by
+     * prepending the camelCase platform prefix (e.g. {@code serviceUrl} → {@code pulsarServiceUrl}).
+     * Keys that match a registered setting are applied via its initializer. Unrecognised keys
+     * are stored as-is in the properties map and accessible via {@link #get(String)}.
      * Inline agent parameters always take precedence over file values.
      *
      * @param agentParameters inline key=value parameters (may be null)
@@ -555,12 +558,22 @@ public class AgentConfig {
         // File keys (e.g. "serviceUrl") are mapped to setting names by prepending the
         // camelCase platform prefix (e.g. "pulsarServiceUrl"). Inline params take
         // precedence — skip file entries that are already present in agentParameters.
+        // Keys that do not match a registered Setting are stored directly in properties
+        // so they remain accessible via config.get().
         if (configFilePath != null && !configFilePath.isEmpty()) {
             Map<String, Object> fileEntries = loadConfigFile(configFilePath);
             for (Map.Entry<String, Object> entry : fileEntries.entrySet()) {
-                String settingName = platformCamelPrefix + Character.toUpperCase(entry.getKey().charAt(0)) + entry.getKey().substring(1);
-                if (!agentParameters.containsKey(settingName) && settingMap.containsKey(settingName)) {
+                String rawKey = entry.getKey();
+                String settingName = platformCamelPrefix + Character.toUpperCase(rawKey.charAt(0)) + rawKey.substring(1);
+                if (agentParameters.containsKey(settingName)) {
+                    // inline parameter wins — skip file entry
+                    continue;
+                }
+                if (settingMap.containsKey(settingName)) {
                     settingMap.get(settingName).initializer.apply(this, entry.getValue().toString());
+                } else {
+                    // unregistered key — store under the original file key so config.get() can retrieve it
+                    properties.put(rawKey, entry.getValue());
                 }
             }
         }

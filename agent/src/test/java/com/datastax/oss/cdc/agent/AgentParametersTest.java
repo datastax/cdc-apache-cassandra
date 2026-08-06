@@ -227,6 +227,10 @@ public class AgentParametersTest {
         assertEquals("events-", config.get(TOPIC_PREFIX));
         assertEquals(false, config.get(ERROR_COMMITLOG_REPROCESS_ENABLED));
         assertEquals(60000L, config.get(CDC_DIR_POLL_INTERVAL_MS));
+        // unregistered kafka-specific keys from the file are accessible via get() under their original file key
+        assertEquals("broker1:9092,broker2:9092", config.get("bootstrapServers"));
+        assertEquals(250L, config.get("maxPendingMessages"));
+        assertEquals(10L,  config.get("batchDelayInMs"));
     }
 
     @Test
