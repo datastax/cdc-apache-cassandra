@@ -26,22 +26,32 @@ import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Random;
 
 public class AgentTestUtil {
 
     public static final Random random = new Random();
 
-    public static final DockerImageName PULSAR_IMAGE = DockerImageName.parse(
-            Optional.ofNullable(System.getenv("PULSAR_IMAGE"))
-                    .orElse(System.getProperty("testPulsarImage") + ":" + System.getProperty("testPulsarImageTag"))
-    ).asCompatibleSubstituteFor("pulsar");
+    public static final DockerImageName PULSAR_IMAGE = resolveImage(
+            "PULSAR_IMAGE", "testPulsarImage", "testPulsarImageTag", "pulsar");
 
-    public static final DockerImageName KAFKA_IMAGE = DockerImageName.parse(
-            Optional.ofNullable(System.getenv("KAFKA_IMAGE"))
-                    .orElse(System.getProperty("testKafkaImage") + ":" + System.getProperty("testKafkaImageTag"))
-    );
+    public static final DockerImageName KAFKA_IMAGE = resolveImage(
+            "KAFKA_IMAGE", "testKafkaImage", "testKafkaImageTag", null);
+
+    private static DockerImageName resolveImage(String envVar, String imageProp, String tagProp,
+                                                String compatSubstituteFor) {
+        String env = System.getenv(envVar);
+        String image = System.getProperty(imageProp);
+        String tag   = System.getProperty(tagProp);
+        String ref = (env != null && !env.isEmpty())
+                ? env
+                : (image != null && tag != null ? image + ":" + tag : null);
+        if (ref == null) {
+            return null;
+        }
+        DockerImageName name = DockerImageName.parse(ref);
+        return compatSubstituteFor != null ? name.asCompatibleSubstituteFor(compatSubstituteFor) : name;
+    }
 
     public static String genericRecordToString(GenericRecord genericRecord) {
         StringBuilder sb = new StringBuilder("{");
