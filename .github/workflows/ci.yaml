@@ -37,7 +37,9 @@ jobs:
           ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
           build -x test -x backfill-cli:compileJava
 
-  # Full matrix — runs on master only (all modules, JDKs, Pulsar images).
+  # Full matrix — runs on master only (all modules, JDKs, broker images).
+  # brokerImage entries use the format "pulsar|image:tag" or "kafka|image:tag"
+  # so the run script knows which Gradle properties to set.
   test:
     needs: build
     if: github.ref == 'refs/heads/master' || github.base_ref == 'master'
@@ -49,8 +51,11 @@ jobs:
       matrix:
         module: ['agent', 'agent-c3', 'agent-c4', 'agent-dse4', 'connector']
         jdk: ['11', '17']
-        pulsarImage: ['datastax/lunastreaming:2.10_3.4', 'apachepulsar/pulsar:2.10.3', 'apachepulsar/pulsar:2.11.0']
-        kafkaImage: ['confluentinc/cp-kafka:7.4.0']
+        brokerImage:
+          - 'pulsar|datastax/lunastreaming:2.10_3.4'
+          - 'pulsar|apachepulsar/pulsar:2.10.3'
+          - 'pulsar|apachepulsar/pulsar:2.11.0'
+          - 'kafka|confluentinc/cp-kafka:7.4.0'
     steps:
       - uses: actions/checkout@v6
       - name: Set up JDK ${{ matrix.jdk }}
@@ -80,24 +85,20 @@ jobs:
           DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
         run: |
           set -e
-          PREV_IFS=$IFS
-          IFS=':'
-          read -ra PULSAR_FULL_IMAGE <<< "${{ matrix.pulsarImage }}"
-          read -ra KAFKA_FULL_IMAGE  <<< "${{ matrix.kafkaImage }}"
-          IFS=$PREV_IFS
-          PULSAR_IMAGE=${PULSAR_FULL_IMAGE[0]}
-          PULSAR_IMAGE_TAG=${PULSAR_FULL_IMAGE[1]}
-          KAFKA_IMAGE=${KAFKA_FULL_IMAGE[0]}
-          KAFKA_IMAGE_TAG=${KAFKA_FULL_IMAGE[1]}
+          BROKER_ENTRY="${{ matrix.brokerImage }}"
+          BROKER_TYPE=${BROKER_ENTRY%%|*}
+          BROKER_IMAGE_FULL=${BROKER_ENTRY#*|}
+          BROKER_IMAGE=${BROKER_IMAGE_FULL%:*}
+          BROKER_IMAGE_TAG=${BROKER_IMAGE_FULL##*:}
 
           ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
-          -PtestPulsarImage=$PULSAR_IMAGE \
-          -PtestPulsarImageTag=$PULSAR_IMAGE_TAG \
-          -PtestKafkaImage=$KAFKA_IMAGE \
-          -PtestKafkaImageTag=$KAFKA_IMAGE_TAG \
+          -PtestPulsarImage=$([ "$BROKER_TYPE" = "pulsar" ] && echo $BROKER_IMAGE || echo "") \
+          -PtestPulsarImageTag=$([ "$BROKER_TYPE" = "pulsar" ] && echo $BROKER_IMAGE_TAG || echo "") \
+          -PtestKafkaImage=$([ "$BROKER_TYPE" = "kafka" ] && echo $BROKER_IMAGE || echo "") \
+          -PtestKafkaImageTag=$([ "$BROKER_TYPE" = "kafka" ] && echo $BROKER_IMAGE_TAG || echo "") \
           ${{ matrix.module }}:test
 
-  # Lean smoke test — runs on feature branches (agent + agent-c4, JDK 11, one Pulsar image).
+  # Lean smoke test — runs on feature branches (agent + agent-c4, JDK 11).
   test-feature:
     needs: build
     if: github.ref != 'refs/heads/master' && github.base_ref != 'master'
@@ -108,8 +109,9 @@ jobs:
       fail-fast: false
       matrix:
         module: ['agent', 'agent-c4']
-        pulsarImage: ['datastax/lunastreaming:2.10_3.4']
-        kafkaImage: ['confluentinc/cp-kafka:7.4.0']
+        brokerImage:
+          - 'pulsar|datastax/lunastreaming:2.10_3.4'
+          - 'kafka|confluentinc/cp-kafka:7.4.0'
     steps:
       - uses: actions/checkout@v6
       - name: Set up JDK 11
@@ -139,19 +141,15 @@ jobs:
           DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
         run: |
           set -e
-          PREV_IFS=$IFS
-          IFS=':'
-          read -ra PULSAR_FULL_IMAGE <<< "${{ matrix.pulsarImage }}"
-          read -ra KAFKA_FULL_IMAGE  <<< "${{ matrix.kafkaImage }}"
-          IFS=$PREV_IFS
-          PULSAR_IMAGE=${PULSAR_FULL_IMAGE[0]}
-          PULSAR_IMAGE_TAG=${PULSAR_FULL_IMAGE[1]}
-          KAFKA_IMAGE=${KAFKA_FULL_IMAGE[0]}
-          KAFKA_IMAGE_TAG=${KAFKA_FULL_IMAGE[1]}
+          BROKER_ENTRY="${{ matrix.brokerImage }}"
+          BROKER_TYPE=${BROKER_ENTRY%%|*}
+          BROKER_IMAGE_FULL=${BROKER_ENTRY#*|}
+          BROKER_IMAGE=${BROKER_IMAGE_FULL%:*}
+          BROKER_IMAGE_TAG=${BROKER_IMAGE_FULL##*:}
 
           ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
-          -PtestPulsarImage=$PULSAR_IMAGE \
-          -PtestPulsarImageTag=$PULSAR_IMAGE_TAG \
-          -PtestKafkaImage=$KAFKA_IMAGE \
-          -PtestKafkaImageTag=$KAFKA_IMAGE_TAG \
+          -PtestPulsarImage=$([ "$BROKER_TYPE" = "pulsar" ] && echo $BROKER_IMAGE || echo "") \
+          -PtestPulsarImageTag=$([ "$BROKER_TYPE" = "pulsar" ] && echo $BROKER_IMAGE_TAG || echo "") \
+          -PtestKafkaImage=$([ "$BROKER_TYPE" = "kafka" ] && echo $BROKER_IMAGE || echo "") \
+          -PtestKafkaImageTag=$([ "$BROKER_TYPE" = "kafka" ] && echo $BROKER_IMAGE_TAG || echo "") \
           ${{ matrix.module }}:test
