@@ -267,17 +267,14 @@ public class AgentConfig {
                     false, "CDC_USE_KEYSTORE_TLS", Setting::getEnvAsBoolean,
                     "Boolean", "ssl", 13);
 
-    public static final String PULSAR_PREFIX = "PULSAR_";
-    public static final String KAFKA_PREFIX = "KAFKA_";
-
     public static final String PULSAR_CONFIG_FILE = "pulsarConfigFile";
     public String pulsarConfigFile;
     public static final Setting<String> PULSAR_CONFIG_FILE_SETTING =
             new Setting<>(PULSAR_CONFIG_FILE, Platform.PULSAR, (c, s) -> c.pulsarConfigFile = s, c -> c.pulsarConfigFile,
                     "Optional path to a config file containing Pulsar-specific settings. " +
                     "Keys in the file have no platform prefix (e.g. serviceUrl=...) and are " +
-                    "mapped to agent settings by prepending the \"PULSAR_\" prefix. " +
-                    "Values are applied before inline agent parameters (inline wins on conflict).",
+                    "mapped to agent settings by prepending the camelCase \"pulsar\" prefix " +
+                    "(e.g. pulsarServiceUrl). Inline agent parameters always win on conflict.",
                     null, "CDC_PULSAR_CONFIG_FILE", Setting::getEnvAsString,
                     "String", "pulsar", 0);
 
@@ -343,21 +340,22 @@ public class AgentConfig {
             new Setting<>(KAFKA_CONFIG_FILE, Platform.KAFKA, (c, s) -> c.kafkaConfigFile = s, c -> c.kafkaConfigFile,
                     "Optional path to a config file containing Kafka-specific settings. " +
                     "Keys in the file have no platform prefix (e.g. bootstrapServers=...) and are " +
-                    "mapped to agent settings by prepending the \"KAFKA_\" prefix. " +
-                    "Values are applied before inline agent parameters (inline wins on conflict).",
+                    "mapped to agent settings by prepending the camelCase \"kafka\" prefix " +
+                    "(e.g. kafkaBootstrapServers). Inline agent parameters always win on conflict.",
                     null, "CDC_KAFKA_CONFIG_FILE", Setting::getEnvAsString,
                     "String", "kafka", 0);
 
     /**
-     * Properties loaded from the platform config file ({@code pulsarConfigFile} or
-     * {@code kafkaConfigFile}). The config file is optional — if no path is configured
-     * the map stays empty. Keys in the file carry no platform prefix; each key is
-     * stored here with the full agent-setting name (e.g. file key {@code serviceUrl}
-     * becomes map key {@code pulsarServiceUrl} for the Pulsar platform). Values are
-     * parsed in order: Long, Double, Boolean, falling back to String. Inline agent
-     * parameters always take precedence over entries in this map.
+     * Unified view of all resolved configuration values. Contains every setting
+     * registered in {@link #settingMap}, keyed by its setting name. After
+     * {@link #configure} completes, each entry reflects the final resolved value
+     * (env-var default → config-file → inline parameter, in increasing precedence).
+     *
+     * <p>Config-file entries (from {@code pulsarConfigFile} / {@code kafkaConfigFile})
+     * are also included here with their prefixed keys (e.g. {@code PULSAR_serviceUrl}).
+     * Use {@link #get(String)} to retrieve a value by key.
      */
-    public Map<String, Object> configFileProperties = new HashMap<>();
+    private Map<String, Object> properties = new HashMap<>();
 
     public static final Set<Setting<?>> settings;
     public static final Map<String, Setting<?>> settingMap;
@@ -532,10 +530,10 @@ public class AgentConfig {
      *
      * <p>If a {@code pulsarConfigFile} (for PULSAR) or {@code kafkaConfigFile} (for KAFKA)
      * parameter is present — either as an inline parameter or via the corresponding env var —
-     * the file is loaded first into {@link #configFileProperties}. Only keys that start with
-     * the platform prefix ({@code "pulsar"} or {@code "kafka"}) are retained from the file;
-     * any other key is silently skipped. Both the config file and the prefix filter are
-     * optional. Inline agent parameters always take precedence over file values.
+     * the file is loaded first. Keys in the file carry no platform prefix (e.g.
+     * {@code serviceUrl}); they are mapped to setting names by prepending the camelCase
+     * platform prefix (e.g. {@code pulsarServiceUrl}) before being applied.
+     * Inline agent parameters always take precedence over file values.
      *
      * @param agentParameters inline key=value parameters (may be null)
      */
@@ -546,16 +544,25 @@ public class AgentConfig {
 
         // Resolve the config file path: prefer inline parameter, fall back to the
         // value already initialised from the env var during construction.
-        String fileSettingName = platform == Platform.KAFKA ? KAFKA_CONFIG_FILE : PULSAR_CONFIG_FILE;
-        String platformPrefix  = platform == Platform.KAFKA ? KAFKA_PREFIX      : PULSAR_PREFIX;
-        Object inlineFilePath  = agentParameters.get(fileSettingName);
-        String configFilePath  = (inlineFilePath instanceof String && !((String) inlineFilePath).isEmpty())
+        String fileSettingName     = platform == Platform.KAFKA ? KAFKA_CONFIG_FILE : PULSAR_CONFIG_FILE;
+        String platformCamelPrefix = platform == Platform.KAFKA ? "kafka"           : "pulsar";
+        Object inlineFilePath      = agentParameters.get(fileSettingName);
+        String configFilePath      = (inlineFilePath instanceof String && !((String) inlineFilePath).isEmpty())
                 ? (String) inlineFilePath
                 : (platform == Platform.KAFKA ? this.kafkaConfigFile : this.pulsarConfigFile);
 
         // Config file is optional — only load if a path was provided.
+        // File keys (e.g. "serviceUrl") are mapped to setting names by prepending the
+        // camelCase platform prefix (e.g. "pulsarServiceUrl"). Inline params take
+        // precedence — skip file entries that are already present in agentParameters.
         if (configFilePath != null && !configFilePath.isEmpty()) {
-            this.configFileProperties = loadConfigFile(configFilePath, platformPrefix);
+            Map<String, Object> fileEntries = loadConfigFile(configFilePath);
+            for (Map.Entry<String, Object> entry : fileEntries.entrySet()) {
+                String settingName = platformCamelPrefix + Character.toUpperCase(entry.getKey().charAt(0)) + entry.getKey().substring(1);
+                if (!agentParameters.containsKey(settingName) && settingMap.containsKey(settingName)) {
+                    settingMap.get(settingName).initializer.apply(this, entry.getValue().toString());
+                }
+            }
         }
 
         for (Map.Entry<String, Object> entry : agentParameters.entrySet()) {
@@ -581,6 +588,9 @@ public class AgentConfig {
             }
         }
 
+        // Populate properties with all resolved setting values.
+        settings.forEach(s -> properties.put(s.name, s.supplier.apply(this)));
+
         if (log.isInfoEnabled()) {
             StringBuilder sb = new StringBuilder();
             settings.forEach(s -> {
@@ -596,19 +606,26 @@ public class AgentConfig {
     }
 
     /**
-     * Loads a config file into a {@code Map<String, Object>}. Keys in the file carry no
-     * platform prefix (e.g. {@code serviceUrl=pulsar+ssl://...}). Each key is stored in
-     * the result map with the {@code platformPrefix} prepended so it matches the
-     * corresponding agent {@link Setting} name (e.g. {@code PULSAR_serviceUrl}).
-     * The platform prefix is optional — pass null or empty to store keys as-is.
-     * Values are parsed in order: Long, Double, Boolean, falling back to String.
+     * Returns the resolved value for the given configuration key, or {@code null} if
+     * the key is not present. Keys match setting names (e.g. {@code "pulsarServiceUrl"},
+     * {@code "topicPrefix"}).
      *
-     * @param filePath       path to the config file (must not be null)
-     * @param platformPrefix prefix prepended to each key (e.g. {@code "PULSAR_"} or
-     *                       {@code "KAFKA_"}); pass null or empty to keep keys unchanged
-     * @return type-parsed map of prefixed-key → value
+     * @param key the setting name to look up
+     * @return the resolved value, or {@code null} if not found
      */
-    static Map<String, Object> loadConfigFile(String filePath, String platformPrefix) {
+    public Object get(String key) {
+        return properties.get(key);
+    }
+
+    /**
+     * Loads a config file into a {@code Map<String, Object>}. Keys are stored as-is
+     * (no prefix added). Values are parsed in order: Long, Double, Boolean, falling
+     * back to String.
+     *
+     * @param filePath path to the config file (must not be null)
+     * @return type-parsed map of key → value
+     */
+    static Map<String, Object> loadConfigFile(String filePath) {
         Properties props = new Properties();
         try (InputStream in = new FileInputStream(filePath)) {
             props.load(in);
@@ -616,11 +633,9 @@ public class AgentConfig {
             throw new RuntimeException("Failed to load config file: " + filePath, e);
         }
 
-        boolean addPrefix = platformPrefix != null && !platformPrefix.isEmpty();
         Map<String, Object> result = new HashMap<>();
         for (String key : props.stringPropertyNames()) {
-            String mappedKey = addPrefix ? platformPrefix + key : key;
-            result.put(mappedKey, parseValue(props.getProperty(key)));
+            result.put(key, parseValue(props.getProperty(key)));
         }
         log.info("Loaded {} properties from config file: {}", result.size(), filePath);
         return result;

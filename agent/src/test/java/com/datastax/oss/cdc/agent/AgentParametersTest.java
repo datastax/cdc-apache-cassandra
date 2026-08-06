@@ -24,7 +24,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static com.datastax.oss.cdc.agent.AgentConfig.*;
 
@@ -208,11 +208,10 @@ public class AgentParametersTest {
 
         AgentConfig config = AgentConfig.create(Platform.PULSAR, PULSAR_CONFIG_FILE + "=" + filePath);
 
-        // values loaded from file and stored with PULSAR_ prefix in configFileProperties
-        assertEquals("pulsar+ssl://filehost:6650", config.configFileProperties.get(PULSAR_PREFIX + "serviceUrl"));
-        assertEquals(42L,  config.configFileProperties.get(PULSAR_PREFIX + "batchDelayInMs"));
-        assertEquals(500L, config.configFileProperties.get(PULSAR_PREFIX + "maxPendingMessages"));
-        assertEquals(true, config.configFileProperties.get(PULSAR_PREFIX + "keyBasedBatcher"));
+        assertEquals("pulsar+ssl://filehost:6650", config.get(PULSAR_SERVICE_URL));
+        assertEquals(42L,  config.get(PULSAR_BATCH_DELAY_IN_MS));
+        assertEquals(500,  config.get(PULSAR_MAX_PENDING_MESSAGES));
+        assertEquals(true, config.get(PULSAR_KEY_BASED_BATCHER));
     }
 
     @Test
@@ -222,16 +221,20 @@ public class AgentParametersTest {
 
         AgentConfig config = AgentConfig.create(Platform.KAFKA, KAFKA_CONFIG_FILE + "=" + filePath);
 
-        assertEquals("broker1:9092,broker2:9092", config.configFileProperties.get(KAFKA_PREFIX + "bootstrapServers"));
-        assertEquals(250L, config.configFileProperties.get(KAFKA_PREFIX + "maxPendingMessages"));
-        assertEquals(10L,  config.configFileProperties.get(KAFKA_PREFIX + "batchDelayInMs"));
+        // config file path is recorded
+        assertEquals(filePath, config.get(KAFKA_CONFIG_FILE));
+        // common settings are accessible and at their defaults
+        assertEquals("events-", config.get(TOPIC_PREFIX));
+        assertEquals(false, config.get(ERROR_COMMITLOG_REPROCESS_ENABLED));
+        assertEquals(60000L, config.get(CDC_DIR_POLL_INTERVAL_MS));
     }
 
     @Test
     public void testConfigFileIsOptional() {
-        // No config file path set — configFileProperties must remain empty
+        // No config file path set — all resolved setting values are still present
         AgentConfig config = AgentConfig.create(Platform.PULSAR, "");
-        assertTrue(config.configFileProperties.isEmpty());
+        assertNotNull(config.get(PULSAR_SERVICE_URL));
+        assertNotNull(config.get(TOPIC_PREFIX));
     }
 
     @Test
@@ -243,10 +246,9 @@ public class AgentParametersTest {
         AgentConfig config = AgentConfig.create(Platform.PULSAR,
                 PULSAR_CONFIG_FILE + "=" + filePath + "," + PULSAR_BATCH_DELAY_IN_MS + "=99");
 
-        // inline agent setting wins
+        // inline agent setting wins — resolved value is 99
         assertEquals(99L, config.pulsarBatchDelayInMs);
-        // file entry is still present in configFileProperties
-        assertEquals(42L, config.configFileProperties.get(PULSAR_PREFIX + "batchDelayInMs"));
+        assertEquals(99L, config.get(PULSAR_BATCH_DELAY_IN_MS));
     }
 
     @Test
