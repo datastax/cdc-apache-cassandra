@@ -43,6 +43,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.Properties;
+import java.util.UUID;
 
 import org.testcontainers.utility.MountableFile;
 
@@ -195,13 +196,23 @@ public abstract class KafkaSingleNodeTests {
                 GenericRecord keyRecord = keyReader.read(null, keyDecoder);
                 assertEquals("hello", keyRecord.get("id").toString());
 
-                // Decode and validate the Avro value (MutationValue)
+                // Decode and validate the Avro value (MutationValue).
+                // The agent publishes a change pointer, not full row data:
+                // - md5Digest: non-empty hash of the mutation
+                // - nodeId: UUID of the Cassandra node that processed the write
+                // - columns: always null — the agent never populates changed column names
+                //   (AbstractMutation.mutationValue() hardcodes null)
                 GenericDatumReader<GenericRecord> valueReader =
                         new GenericDatumReader<>(buildMutationValueSchema());
                 BinaryDecoder valueDecoder = DecoderFactory.get().binaryDecoder(rec.value(), null);
                 GenericRecord valueRecord = valueReader.read(null, valueDecoder);
                 assertNotNull(valueRecord.get("md5Digest"), "md5Digest must be present");
-                assertNotNull(valueRecord.get("nodeId"), "nodeId must be a valid UUID string");
+                assertFalse(valueRecord.get("md5Digest").toString().isEmpty(), "md5Digest must be non-empty");
+                assertNotNull(valueRecord.get("nodeId"), "nodeId must be present");
+                assertDoesNotThrow(() -> UUID.fromString(valueRecord.get("nodeId").toString()),
+                        "nodeId must be a valid UUID");
+                assertNull(valueRecord.get("columns"),
+                        "columns is always null — agent does not populate changed column names");
 
                 // segpos header must be present
                 assertNotNull(rec.headers().lastHeader(Constants.SEGMENT_AND_POSITION),
@@ -252,7 +263,12 @@ public abstract class KafkaSingleNodeTests {
                         BinaryDecoder valueDecoder = DecoderFactory.get().binaryDecoder(rec.value(), null);
                         GenericRecord valueRecord = valueReader.read(null, valueDecoder);
                         assertNotNull(valueRecord.get("md5Digest"), "md5Digest must be present");
-                        assertNotNull(valueRecord.get("nodeId"), "nodeId must be a valid UUID string");
+                        assertFalse(valueRecord.get("md5Digest").toString().isEmpty(), "md5Digest must be non-empty");
+                        assertNotNull(valueRecord.get("nodeId"), "nodeId must be present");
+                        assertDoesNotThrow(() -> UUID.fromString(valueRecord.get("nodeId").toString()),
+                                "nodeId must be a valid UUID");
+                        assertNull(valueRecord.get("columns"),
+                                "columns is always null — agent does not populate changed column names");
                         received++;
                     }
                 }
