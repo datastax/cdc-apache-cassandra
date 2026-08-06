@@ -38,6 +38,11 @@ public class AgentTestUtil {
                     .orElse(System.getProperty("testPulsarImage") + ":" + System.getProperty("testPulsarImageTag"))
     ).asCompatibleSubstituteFor("pulsar");
 
+    public static final DockerImageName KAFKA_IMAGE = DockerImageName.parse(
+            Optional.ofNullable(System.getenv("KAFKA_IMAGE"))
+                    .orElse(System.getProperty("testKafkaImage") + ":" + System.getProperty("testKafkaImageTag"))
+    );
+
     public static String genericRecordToString(GenericRecord genericRecord) {
         StringBuilder sb = new StringBuilder("{");
         for (Field field : genericRecord.getFields()) {

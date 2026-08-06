@@ -55,9 +55,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Slf4j
 public abstract class KafkaSingleNodeTests {
 
-    /** The Confluent Platform version embedded in the Kafka testcontainers image. */
-    private static final DockerImageName KAFKA_IMAGE =
-            DockerImageName.parse("confluentinc/cp-kafka:7.4.0");
+    private static final DockerImageName KAFKA_IMAGE = AgentTestUtil.KAFKA_IMAGE;
 
     private static Network testNetwork;
     private static KafkaContainer kafkaContainer;

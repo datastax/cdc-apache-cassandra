@@ -49,6 +49,7 @@ jobs:
         module: ['agent', 'agent-c3', 'agent-c4', 'agent-dse4', 'connector']
         jdk: ['11', '17']
         pulsarImage: ['datastax/lunastreaming:2.10_3.4', 'apachepulsar/pulsar:2.10.3', 'apachepulsar/pulsar:2.11.0']
+        kafkaImage: ['confluentinc/cp-kafka:7.4.0']
     steps:
       - uses: actions/checkout@v6
       - name: Set up JDK ${{ matrix.jdk }}
@@ -81,13 +82,18 @@ jobs:
           PREV_IFS=$IFS
           IFS=':'
           read -ra PULSAR_FULL_IMAGE <<< "${{ matrix.pulsarImage }}"
+          read -ra KAFKA_FULL_IMAGE  <<< "${{ matrix.kafkaImage }}"
           IFS=$PREV_IFS
           PULSAR_IMAGE=${PULSAR_FULL_IMAGE[0]}
           PULSAR_IMAGE_TAG=${PULSAR_FULL_IMAGE[1]}
-                    
+          KAFKA_IMAGE=${KAFKA_FULL_IMAGE[0]}
+          KAFKA_IMAGE_TAG=${KAFKA_FULL_IMAGE[1]}
+
           ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
           -PtestPulsarImage=$PULSAR_IMAGE \
           -PtestPulsarImageTag=$PULSAR_IMAGE_TAG \
+          -PtestKafkaImage=$KAFKA_IMAGE \
+          -PtestKafkaImageTag=$KAFKA_IMAGE_TAG \
           ${{ matrix.module }}:test
 
   # Lean smoke test — runs on feature branches (agent + agent-c4, JDK 11, one Pulsar image).
@@ -102,6 +108,7 @@ jobs:
       matrix:
         module: ['agent', 'agent-c4']
         pulsarImage: ['datastax/lunastreaming:2.10_3.4']
+        kafkaImage: ['confluentinc/cp-kafka:7.4.0']
     steps:
       - uses: actions/checkout@v6
       - name: Set up JDK 11
@@ -134,11 +141,16 @@ jobs:
           PREV_IFS=$IFS
           IFS=':'
           read -ra PULSAR_FULL_IMAGE <<< "${{ matrix.pulsarImage }}"
+          read -ra KAFKA_FULL_IMAGE  <<< "${{ matrix.kafkaImage }}"
           IFS=$PREV_IFS
           PULSAR_IMAGE=${PULSAR_FULL_IMAGE[0]}
           PULSAR_IMAGE_TAG=${PULSAR_FULL_IMAGE[1]}
+          KAFKA_IMAGE=${KAFKA_FULL_IMAGE[0]}
+          KAFKA_IMAGE_TAG=${KAFKA_FULL_IMAGE[1]}
 
           ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
           -PtestPulsarImage=$PULSAR_IMAGE \
           -PtestPulsarImageTag=$PULSAR_IMAGE_TAG \
+          -PtestKafkaImage=$KAFKA_IMAGE \
+          -PtestKafkaImageTag=$KAFKA_IMAGE_TAG \
           ${{ matrix.module }}:test
