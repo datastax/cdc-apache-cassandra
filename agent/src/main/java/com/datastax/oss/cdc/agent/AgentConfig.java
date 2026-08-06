@@ -621,13 +621,21 @@ public class AgentConfig {
     /**
      * Returns the resolved value for the given configuration key, or {@code null} if
      * the key is not present. Keys match setting names (e.g. {@code "pulsarServiceUrl"},
-     * {@code "topicPrefix"}).
+     * {@code "topicPrefix"}) or raw file keys for unregistered entries.
      *
      * @param key the setting name to look up
      * @return the resolved value, or {@code null} if not found
      */
     public Object get(String key) {
         return properties.get(key);
+    }
+
+    /**
+     * Returns all keys present in the resolved properties map, including both registered
+     * setting names and raw file keys for unregistered entries.
+     */
+    public Iterable<String> propertyKeys() {
+        return properties.keySet();
     }
 
     /**
