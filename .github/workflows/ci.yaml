@@ -111,7 +111,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module: ['agent', 'agent-c4']
+        module: ['agent', 'agent-c4', 'agent-dse4']
         brokerImage:
           - 'pulsar|datastax/lunastreaming:2.10_3.4'
           - 'kafka|confluentinc/cp-kafka:7.4.0'
@@ -156,6 +156,6 @@ jobs:
             BROKER_FLAGS="-PbrokerType=kafka -PtestKafkaImage=$BROKER_IMAGE -PtestKafkaImageTag=$BROKER_IMAGE_TAG"
           fi
 
-          ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
+          ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
           $BROKER_FLAGS \
           ${{ matrix.module }}:test
