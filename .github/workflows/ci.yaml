@@ -92,9 +92,9 @@ jobs:
           BROKER_IMAGE_TAG=${BROKER_IMAGE_FULL##*:}
 
           if [ "$BROKER_TYPE" = "pulsar" ]; then
-            BROKER_FLAGS="-PtestPulsarImage=$BROKER_IMAGE -PtestPulsarImageTag=$BROKER_IMAGE_TAG"
+            BROKER_FLAGS="-PbrokerType=pulsar -PtestPulsarImage=$BROKER_IMAGE -PtestPulsarImageTag=$BROKER_IMAGE_TAG"
           else
-            BROKER_FLAGS="-PtestKafkaImage=$BROKER_IMAGE -PtestKafkaImageTag=$BROKER_IMAGE_TAG"
+            BROKER_FLAGS="-PbrokerType=kafka -PtestKafkaImage=$BROKER_IMAGE -PtestKafkaImageTag=$BROKER_IMAGE_TAG"
           fi
 
           ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
@@ -151,9 +151,9 @@ jobs:
           BROKER_IMAGE_TAG=${BROKER_IMAGE_FULL##*:}
 
           if [ "$BROKER_TYPE" = "pulsar" ]; then
-            BROKER_FLAGS="-PtestPulsarImage=$BROKER_IMAGE -PtestPulsarImageTag=$BROKER_IMAGE_TAG"
+            BROKER_FLAGS="-PbrokerType=pulsar -PtestPulsarImage=$BROKER_IMAGE -PtestPulsarImageTag=$BROKER_IMAGE_TAG"
           else
-            BROKER_FLAGS="-PtestKafkaImage=$BROKER_IMAGE -PtestKafkaImageTag=$BROKER_IMAGE_TAG"
+            BROKER_FLAGS="-PbrokerType=kafka -PtestKafkaImage=$BROKER_IMAGE -PtestKafkaImageTag=$BROKER_IMAGE_TAG"
           fi
 
           ./gradlew -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \

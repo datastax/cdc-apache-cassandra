@@ -94,6 +94,15 @@ test {
     systemProperty "testPulsarImageTag", testPulsarImageTag
     systemProperty "testKafkaImage", testKafkaImage
     systemProperty "testKafkaImageTag", testKafkaImageTag
+
+    // Run only the test classes matching the broker type supplied.
+    // Pass -PbrokerType=kafka or -PbrokerType=pulsar (default: pulsar).
+    def brokerType = project.hasProperty('brokerType') ? brokerType : 'pulsar'
+    if (brokerType == 'kafka') {
+        exclude '**/*Pulsar*'
+    } else {
+        exclude '**/*Kafka*'
+    }
 }
 
 dockerPrepare.dependsOn(jar, shadowJar)
