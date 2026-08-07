@@ -40,6 +40,113 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 
+/**
+ * Base class for Kafka-backed CDC mutation senders.
+ *
+ * <h3>Why Avro?</h3>
+ * Kafka has no built-in schema system — both key and value are raw {@code byte[]}.
+ * The PK key is not a single scalar; it can span multiple columns of mixed CQL types
+ * (e.g. {@code id text, bucket int, ts timeuuid}).  Some binary encoding is therefore
+ * required to pack multiple typed values into a single byte array.
+ *
+ * <p>Avro was chosen because it was already present in the classpath and already used
+ * by the Pulsar path ({@link AbstractPulsarMutationSender}) for exactly the same
+ * purpose — building a per-table primary-key schema via {@link MutationSenderAvroUtil}.
+ * Reusing it kept the Kafka path consistent with Pulsar and avoided introducing a
+ * second serialisation format (e.g. JSON or Protobuf) for the same data.
+ *
+ * <h3>Serialisation format</h3>
+ * Both key and value use Avro's {@code BinaryEncoder}, which writes <em>data bytes
+ * only</em> — no schema, no field names, no length prefix.  The bytes are compact
+ * but completely opaque without the schema:
+ * <pre>
+ *   "hello"  →  [0x0a, 0x68, 0x65, 0x6c, 0x6c, 0x6f]
+ *                ^^^^  ──────────────────────────────
+ *                zigzag-encoded length (5 → 10 = 0x0a)   UTF-8 bytes
+ * </pre>
+ * Producer (agent) and consumer must independently hold the <em>identical</em>
+ * schema object.  If they differ, the consumer silently mis-parses fields or throws
+ * {@code ArrayIndexOutOfBoundsException} — Kafka itself does not validate schemas.
+ *
+ * <p>This differs from self-describing alternatives:
+ * <ul>
+ *   <li><b>Avro Object Container File</b> — embeds schema JSON in the file header.</li>
+ *   <li><b>Confluent Schema Registry</b> — prepends a magic byte ({@code 0x00}) and a
+ *       4-byte schema ID; the registry resolves ID → schema at runtime.</li>
+ *   <li><b>Pulsar</b> — the broker stores and negotiates schemas transparently, so
+ *       {@link AbstractPulsarMutationSender} never handles this manually.</li>
+ * </ul>
+ *
+ * <h3>Key schema — and how consumers discover it</h3>
+ * The record <b>key</b> is the Avro-encoded primary key of the mutated row.
+ * The schema is built per-table by {@link #getAvroKeySchema} from the table's column
+ * definitions and cached in {@link #pkSchemas}.  Partition-key columns use their
+ * native Avro type (e.g. {@code STRING} for {@code text}); clustering-key columns
+ * are wrapped in a {@code ["null", type]} union because they are optional.
+ *
+ * <p><b>Consumers must reconstruct this schema independently</b> — the key bytes
+ * carry no schema information.  The intended approach (mirroring the existing Pulsar
+ * connector, {@code CassandraSource}) is for the consumer to connect to Cassandra
+ * and query the table's primary key columns from {@code system_schema.columns}, then
+ * apply the same type-mapping rules as {@link MutationSenderAvroUtil#getAvroKeySchema}
+ * to rebuild the identical Avro schema before decoding.  A consumer that hardcodes
+ * the schema for a specific table will break silently if that table's primary key
+ * definition ever changes.
+ *
+ * <p>Simple partition key — {@code CREATE TABLE ks1.tbl1 (id text PRIMARY KEY)}:
+ * <pre>
+ *   Avro schema fields: [{"name":"id", "type":"string"}]
+ *   key bytes → {"id": "hello"}
+ * </pre>
+ *
+ * <p>Composite key — {@code CREATE TABLE ks1.tbl2 (org text, id int, ts timeuuid,
+ * PRIMARY KEY ((org, id), ts))} where {@code (org, id)} is the partition key and
+ * {@code ts} is a clustering column:
+ * <pre>
+ *   Avro schema fields: [{"name":"org",  "type":"string"},   ← partition key, plain type
+ *                        {"name":"id",   "type":"int"},       ← partition key, plain type
+ *                        {"name":"ts",   "type":["null","string"]}]  ← clustering, nullable union
+ *   key bytes → {"org": "datastax", "id": 42, "ts": "550e8400-e29b-41d4-a716-446655440000"}
+ * </pre>
+ *
+ * <h3>Value schema</h3>
+ * The record <b>value</b> is the Avro-encoded {@link MutationValue}, using the
+ * static {@link #MUTATION_VALUE_SCHEMA}: {@code md5Digest} (nullable string),
+ * {@code nodeId} (nullable string), {@code columns} (nullable string array).
+ * Example:
+ * <pre>
+ *   value bytes → Avro record {"md5Digest": "a1b2...", "nodeId": "1111-...", "columns": null}
+ * </pre>
+ * {@code columns} is always {@code null} — the agent publishes a change pointer,
+ * not a full row image.  See {@link AbstractMutation#mutationValue()}.
+ *
+ * <p>Unlike the key schema, the value schema is <b>safe to hardcode on the consumer
+ * side</b>: it is table-independent (every topic produces the same {@link MutationValue}
+ * shape), deliberately minimal, and has been stable since the project's inception.
+ * Consumers only need to mirror {@link #MUTATION_VALUE_SCHEMA} — three nullable fields,
+ * no table metadata required.
+ *
+ * <h3>Schema stability and evolution risk</h3>
+ * This is a <em>dirty</em> CDC events topic: it carries only change pointers
+ * (PK + digest + nodeId), not full row data.  Both schemas are therefore
+ * intentionally minimal and stable — {@link MutationValue} has not changed since
+ * the project's inception and is not expected to change; the key schema is fixed by
+ * the table's own primary key definition.
+ *
+ * <p>If either schema ever changes, consumers compiled against the old schema
+ * would silently break.  Options if evolution becomes necessary:
+ * <ul>
+ *   <li>Integrate a Confluent (or other) Schema Registry and switch to
+ *       {@code KafkaAvroSerializer} — consumers resolve the schema by ID at runtime.</li>
+ *   <li>Prepend a 1-byte version tag so consumers can branch on format version.</li>
+ *   <li>For the value only: switch to JSON ({@code JsonEncoder}), which is
+ *       self-describing at the cost of larger messages.</li>
+ * </ul>
+ *
+ * @param <T> Cassandra table-metadata type (e.g. {@code TableMetadata} for C4,
+ *            {@code CFMetaData} for C3)
+ */
+
 @Slf4j
 public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T>, AutoCloseable {
 
