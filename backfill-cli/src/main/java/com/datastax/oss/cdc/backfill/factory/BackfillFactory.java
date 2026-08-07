@@ -19,6 +19,7 @@ package com.datastax.oss.cdc.backfill.factory;
 import com.datastax.oss.cdc.backfill.BackfillSettings;
 import com.datastax.oss.cdc.backfill.exporter.ExportedTable;
 import com.datastax.oss.cdc.backfill.exporter.TableExporter;
+import com.datastax.oss.cdc.backfill.importer.KafkaImporter;
 import com.datastax.oss.cdc.backfill.importer.PulsarImporter;
 
 public class BackfillFactory {
@@ -36,5 +37,10 @@ public class BackfillFactory {
     public PulsarImporter newPulsarImporter(ConnectorFactory connectorFactory, ExportedTable exportedTable) {
         return new PulsarImporter(connectorFactory, exportedTable,
                 new PulsarMutationSenderFactory(settings.importSettings));
+    }
+
+    public KafkaImporter newKafkaImporter(ConnectorFactory connectorFactory, ExportedTable exportedTable) {
+        return new KafkaImporter(connectorFactory, exportedTable,
+                new KafkaMutationSenderFactory(settings.importSettings));
     }
 }

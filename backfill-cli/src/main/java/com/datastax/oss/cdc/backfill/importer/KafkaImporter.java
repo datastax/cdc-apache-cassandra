@@ -18,21 +18,17 @@ package com.datastax.oss.cdc.backfill.importer;
 
 import com.datastax.oss.cdc.backfill.exporter.ExportedTable;
 import com.datastax.oss.cdc.backfill.factory.ConnectorFactory;
-import com.datastax.oss.cdc.backfill.factory.PulsarMutationSenderFactory;
+import com.datastax.oss.cdc.backfill.factory.KafkaMutationSenderFactory;
 
-public class PulsarImporter extends AbstractImporter {
+public class KafkaImporter extends AbstractImporter {
 
-    // Keep MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING accessible from existing test code
-    public static final int MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING =
-            AbstractImporter.MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING;
-
-    public PulsarImporter(ConnectorFactory connectorFactory, ExportedTable exportedTable,
-                          PulsarMutationSenderFactory mutationSenderFactory) {
-        super(connectorFactory, exportedTable, mutationSenderFactory.newPulsarMutationSender());
+    public KafkaImporter(ConnectorFactory connectorFactory, ExportedTable exportedTable,
+                         KafkaMutationSenderFactory mutationSenderFactory) {
+        super(connectorFactory, exportedTable, mutationSenderFactory.newKafkaMutationSender());
     }
 
     @Override
     protected String importerName() {
-        return "Pulsar";
+        return "Kafka";
     }
 }

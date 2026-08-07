@@ -99,7 +99,7 @@ test {
     // Pass -PbrokerType=kafka or -PbrokerType=pulsar (default: pulsar).
     def brokerType = project.hasProperty('brokerType') ? brokerType : 'pulsar'
     if (brokerType == 'kafka') {
-        exclude '**/*Pulsar*'
+        include '**/*Kafka*'
     } else {
         exclude '**/*Kafka*'
     }

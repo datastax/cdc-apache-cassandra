@@ -19,10 +19,19 @@ package com.datastax.oss.cdc.backfill.importer;
 import picocli.CommandLine;
 
 /**
- * Groups settings related to sending PK mutations to Pulsar's data topic.
+ * Groups settings related to sending PK mutations to the events topic (Pulsar or Kafka).
  * TODO: Leverage arg groups/order
  */
 public class ImportSettings {
+
+    @CommandLine.Option(
+            names = "--kafka-config-file",
+            description =
+                    "Path to a Kafka producer properties file. "
+                            + "Must contain at least 'bootstrapServers'. "
+                            + "Any standard Kafka producer property is accepted (security, SSL, SASL, etc.). "
+                            + "Required when --platform=KAFKA.")
+    public String kafkaConfigFile;
 
     @CommandLine.Option(
             names = "--pulsar-url",

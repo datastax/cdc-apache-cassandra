@@ -9,6 +9,7 @@ Project context for the `cassandra-source-connector` CDC pipeline.
 | [project.md](project.md) | Project overview, goals, architecture, and key modules |
 | [preferences.md](preferences.md) | Working standards, style preferences, and AI collaboration guidelines |
 | [kafka-support-plan.md](kafka-support-plan.md) | Planning document for adding Kafka support alongside existing Pulsar support |
+| [backfill-kafka-support-plan.md](backfill-kafka-support-plan.md) | Detailed design plan for adding Kafka support to the backfill CLI (KafkaImporter, factory, CLI options) |
 
 ## Quick orientation
 
