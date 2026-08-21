@@ -42,7 +42,7 @@ import static com.datastax.oss.cdc.agent.CommitLogReadHandlerImpl.RowType.DELETE
 
 /**
  * Handler that implements {@link CommitLogReadHandler} interface provided by Cassandra source code.
- *a
+ *
  * This handler implementation processes each {@link org.apache.cassandra.db.Mutation} and invokes one of the registered partition handler
  * for each {@link PartitionUpdate} in the {@link org.apache.cassandra.db.Mutation} (a mutation could have multiple partitions if it is a batch update),
  * which in turn makes one or more record via the {@link AbstractMutationMaker}.
