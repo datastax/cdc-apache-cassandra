@@ -13,30 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.datastax.oss.pulsar.source.converters;
+package com.datastax.oss.kafka.source.converters;
 
-import com.datastax.oss.cdc.NativeSchemaWrapper;
 import com.datastax.oss.cdc.converters.NativeJsonRowConverter;
-import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
-import com.datastax.oss.pulsar.source.Converter;
-import org.apache.avro.generic.GenericRecord;
-import org.apache.pulsar.common.schema.SchemaType;
+import com.datastax.oss.kafka.source.Converter;
 
 import java.util.List;
 
-public class NativeJsonConverter extends NativeJsonRowConverter implements Converter<byte[], GenericRecord, Row, byte[]> {
-    public final org.apache.pulsar.client.api.Schema<byte[]> pulsarSchema;
+public class NativeJsonConverter extends NativeJsonRowConverter implements Converter<byte[], byte[]> {
 
     public NativeJsonConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
         super(ksm, tm, columns);
-        this.pulsarSchema = new NativeSchemaWrapper(nativeSchema, SchemaType.JSON);
-    }
-
-    @Override
-    public org.apache.pulsar.client.api.Schema<byte[]> getSchema() {
-        return this.pulsarSchema;
     }
 }
