@@ -450,6 +450,15 @@ public class KafkaCassandraSourceTask extends SourceTask implements NoOpSchemaCh
             seekBackToBatchStart(firstOffsetInBatch);
             queryExecutor.backoffRetry(e);
             return Collections.emptyList();
+        } catch (RuntimeException e) {
+            // Unexpected, non-retryable failure (e.g. a malformed/corrupt record on the events
+            // topic). Unlike the CompletionException/AllNodesFailedException cases above, this
+            // is not treated as retryable: seek back so a subsequent restart resumes from this
+            // batch rather than skipping it, then rethrow so Kafka Connect surfaces the task as
+            // FAILED instead of silently looping.
+            log.error("Unrecoverable error:", e);
+            seekBackToBatchStart(firstOffsetInBatch);
+            throw e;
         }
     }
 

@@ -70,9 +70,9 @@ public class AdaptiveQueryExecutor {
      * Submits a task on the single-threaded executor selected by {@code key}'s hash, so that
      * all queries for the same mutation key are processed in submission order.
      */
-    public <T> Future<T> executeOrdered(Object key, Callable<T> task) {
+    public synchronized <T> Future<T> executeOrdered(Object key, Callable<T> task) {
         Preconditions.checkArgument(key != null, "message key should not be null");
-        int threadIdx = Math.abs(Objects.hashCode(key)) % queryExecutors.size();
+        int threadIdx = (Objects.hashCode(key) & Integer.MAX_VALUE) % queryExecutors.size();
         log.debug("Submit task key={} on thread={}/{}", key, threadIdx, queryExecutors.size());
         return queryExecutors.get(threadIdx).submit(task);
     }
@@ -89,7 +89,7 @@ public class AdaptiveQueryExecutor {
      * Grows or shrinks the executor pool based on this batch's mobile-average latency, if any
      * queries were recorded via {@link #recordQueryLatency}. Call once at the end of each batch.
      */
-    public void maybeAdjust() {
+    public synchronized void maybeAdjust() {
         if (batchTotalQuery.get() > 0) {
             adjustExecutors();
         }
@@ -123,7 +123,7 @@ public class AdaptiveQueryExecutor {
      * Decreases the executor pool by ~10% (at least one thread) in response to a CQL read
      * failure (e.g. read timeout, overload), independent of the mobile-average adjustment.
      */
-    public void decreaseOnError(Throwable throwable) {
+    public synchronized void decreaseOnError(Throwable throwable) {
         if (queryExecutors.size() > 1) {
             int numberOfThreadToRemove = Math.max(1, queryExecutors.size() / 10);
             for (int i = 0; i < numberOfThreadToRemove; i++) {
@@ -166,11 +166,11 @@ public class AdaptiveQueryExecutor {
         consecutiveUnavailableException = 0;
     }
 
-    public int size() {
+    public synchronized int size() {
         return queryExecutors.size();
     }
 
-    public void shutdown() {
+    public synchronized void shutdown() {
         for (ExecutorService thread : queryExecutors) {
             thread.shutdownNow();
         }
