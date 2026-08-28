@@ -16,7 +16,7 @@
 package com.datastax.oss.pulsar.source.converters;
 
 import com.datastax.oss.cdc.NativeSchemaWrapper;
-import com.datastax.oss.cdc.converters.NativeJsonRowConverter;
+import com.datastax.oss.cdc.converters.AvroRowConverter;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
@@ -27,12 +27,15 @@ import org.apache.pulsar.common.schema.SchemaType;
 
 import java.util.List;
 
-public class NativeJsonConverter extends NativeJsonRowConverter implements Converter<byte[], GenericRecord, Row, byte[]> {
+/**
+ * AVRO Converter providing support for logical types.
+ */
+public class PulsarAvroConverter extends AvroRowConverter implements Converter<byte[], GenericRecord, Row, List<Object>> {
     public final org.apache.pulsar.client.api.Schema<byte[]> pulsarSchema;
 
-    public NativeJsonConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
+    public PulsarAvroConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
         super(ksm, tm, columns);
-        this.pulsarSchema = new NativeSchemaWrapper(nativeSchema, SchemaType.JSON);
+        this.pulsarSchema = new NativeSchemaWrapper(nativeSchema, SchemaType.AVRO);
     }
 
     @Override

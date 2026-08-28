@@ -15,6 +15,7 @@
  */
 package com.datastax.oss.pulsar.source;
 
+import com.datastax.oss.cdc.AdaptiveQueryExecutor;
 import com.datastax.oss.cdc.CassandraClient;
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
 import com.datastax.oss.cdc.ConfigUtil;
@@ -22,20 +23,18 @@ import com.datastax.oss.cdc.Constants;
 import com.datastax.oss.cdc.CqlLogicalTypes;
 import com.datastax.oss.cdc.MutationCache;
 import com.datastax.oss.cdc.MutationValue;
+import com.datastax.oss.cdc.NoOpSchemaChangeListener;
 import com.datastax.oss.cdc.Version;
+import com.datastax.oss.cdc.converters.ConverterFactory;
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.Row;
-import com.datastax.oss.driver.api.core.metadata.schema.AggregateMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
-import com.datastax.oss.driver.api.core.metadata.schema.FunctionMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
-import com.datastax.oss.driver.api.core.metadata.schema.SchemaChangeListener;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
-import com.datastax.oss.driver.api.core.metadata.schema.ViewMetadata;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
-import com.datastax.oss.pulsar.source.converters.NativeAvroConverter;
-import com.datastax.oss.pulsar.source.converters.NativeJsonConverter;
+import com.datastax.oss.pulsar.source.converters.PulsarAvroConverter;
+import com.datastax.oss.pulsar.source.converters.PulsarJsonConverter;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -72,17 +71,11 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -96,7 +89,7 @@ import java.util.stream.Collectors;
         help = "The CassandraSource is used for moving data from Cassandra to Pulsar.",
         configClass = CassandraSourceConfig.class)
 @Slf4j
-public class CassandraSource implements Source<GenericRecord>, SchemaChangeListener {
+public class CassandraSource implements Source<GenericRecord>, NoOpSchemaChangeListener {
 
     /**
      * Metric name for the mutation cache hits.
@@ -163,35 +156,12 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     private Object emptyValue;
 
     /**
-     * Single threaded executors to fetch CQL rows.
-     * Protect from a race condition issue when processing the same PK in parallel.
-     * <p>
-     * The number of threads is adaptive to avoid overloading the source C* cluster,
-     * it depends ont the average query latency and timeouts.
+     * Adaptive-concurrency CQL read-back executor pool. Single threaded executors per key
+     * protect from a race condition issue when processing the same PK in parallel; the number
+     * of threads is adaptive to avoid overloading the source C* cluster, depending on the
+     * average query latency and timeouts.
      */
-    List<ExecutorService> queryExecutors;
-
-    /**
-     * Per batch total CQL latency
-     */
-    final AtomicLong batchTotalLatency = new AtomicLong(0);
-
-    /**
-     * Per batch total CQL queries
-     */
-    final AtomicLong batchTotalQuery = new AtomicLong(0);
-
-    /**
-     * Circular array of the last batch avg latencies use to compute the mobile average query latency.
-     */
-    long[] batchAvgLatencyList = new long[10];
-    int batchAvgLatencyHead = 0;
-    int batchAvgLatencyListSize = 0;
-
-    /**
-     * Number of consecutive unavailableException used to compute the exponential backoff.
-     */
-    long consecutiveUnavailableException = 0;
+    AdaptiveQueryExecutor queryExecutor;
 
     private ArrayBlockingQueue<CassandraRecord> buffer;
 
@@ -199,86 +169,8 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         // register AVRO logical types conversion
         SpecificData.get().addLogicalTypeConversion(new CqlLogicalTypes.CqlVarintConversion());
         SpecificData.get().addLogicalTypeConversion(new CqlLogicalTypes.CqlDecimalConversion());
-        SpecificData.get().addLogicalTypeConversion(new NativeAvroConverter.CqlDurationConversion());
+        SpecificData.get().addLogicalTypeConversion(new PulsarAvroConverter.CqlDurationConversion());
         SpecificData.get().addLogicalTypeConversion(new Conversions.UUIDConversion());
-    }
-
-    private <T> Future<T> executeOrdered(Object key, Callable<T> task) {
-        Preconditions.checkArgument(key != null, "message key should not be null");
-        Preconditions.checkState(queryExecutors != null, "queryExecutors should not be null");
-        int threadIdx = Math.abs(Objects.hashCode(key)) % queryExecutors.size();
-        log.debug("Submit task key={} on thread={}/{}", key, threadIdx, queryExecutors.size());
-        return queryExecutors.get(threadIdx).submit(task);
-    }
-
-    /**
-     * Adjust the number of threads depending on the mobile moving average of the read latency.
-     */
-    private void adjustExecutors() {
-        long batchAvgLatency = this.batchTotalLatency.get() / this.batchTotalQuery.get();
-        this.batchAvgLatencyList[this.batchAvgLatencyHead] = batchAvgLatency;
-        this.batchAvgLatencyHead = (this.batchAvgLatencyHead + 1) % this.batchAvgLatencyList.length;
-        this.batchAvgLatencyListSize = Math.min(batchAvgLatencyListSize + 1, this.batchAvgLatencyList.length);
-
-        long latencyTotal = 0;
-        for (int i = 0; i < this.batchAvgLatencyListSize; i++) {
-            log.debug("batchAvgLatencyList={}, batchAvgLatencyHead={}, batchAvgLatencyListSize={}, i={}",
-                    Arrays.toString(batchAvgLatencyList), batchAvgLatencyHead, batchAvgLatencyListSize, i);
-            latencyTotal += this.batchAvgLatencyList[i];
-        }
-        long mobileAvgLatency = latencyTotal / batchAvgLatencyListSize;
-        log.debug("mobileAvgLatency={}, batchAvgLatencyList={}", mobileAvgLatency, Arrays.toString(batchAvgLatencyList));
-        if (mobileAvgLatency < config.getQueryMinMobileAvgLatency() && queryExecutors.size() < config.getQueryExecutors()) {
-            queryExecutors.add(Executors.newSingleThreadExecutor());
-            log.info("mobileAvgLatency={}, increasing the query executor to {} threads", mobileAvgLatency, queryExecutors.size());
-        }
-        if (mobileAvgLatency > config.getQueryMaxMobileAvgLatency() && queryExecutors.size() > 1) {
-            queryExecutors.remove(queryExecutors.size() - 1).shutdown();
-            log.info("mobileAvgLatency={}, decreasing the query executor to {} threads", mobileAvgLatency, queryExecutors.size());
-        }
-    }
-
-    /**
-     * Decrease the number of thread by 10 percent because of the provided Exception.
-     *
-     * @param throwable
-     */
-    private void decreaseExecutors(Throwable throwable) {
-        if (queryExecutors.size() > 1) {
-            int numberOfThreadToRemove = Math.max(1, queryExecutors.size() / 10);
-            for (int i = 0; i < numberOfThreadToRemove; i++)
-                queryExecutors.remove(queryExecutors.size() - 1).shutdown();
-            log.warn("CQL read issue={}, decreasing the query executor to {} threads", throwable, queryExecutors.size());
-        } else {
-            log.warn("CQL read issue={} with only 1 executor threads, please consider limiting the source connector throughput to avoid overloading the Cassandra cluster", throwable);
-        }
-    }
-
-    private long waitInMs(long attempt) {
-        return Math.min(config.getQueryMaxBackoffInSec() * 1000, config.getQueryBackoffInMs() << attempt);
-    }
-
-    private long randomWaitInMs(long attempt) {
-        return ThreadLocalRandom.current().nextLong(0, waitInMs(attempt));
-    }
-
-    private void backoffRetry(Throwable throwable) {
-        consecutiveUnavailableException++;
-        long pauseInMs = randomWaitInMs(consecutiveUnavailableException);
-        log.warn("CQL availability issue={}, consecutiveUnavailableException={}, pausing {}ms before retrying",
-                throwable, consecutiveUnavailableException, pauseInMs);
-        try {
-            Thread.sleep(pauseInMs);
-        } catch (InterruptedException ex) {
-            log.warn("sleep interrupted:", ex);
-        }
-    }
-
-    private void initQueryExecutors() {
-        log.info("initQueryExecutors with {} treads", this.config.getQueryExecutors());
-        this.queryExecutors = new ArrayList<>(this.config.getQueryExecutors());
-        for (int i = 0; i < this.config.getQueryExecutors(); i++)
-            this.queryExecutors.add(Executors.newSingleThreadExecutor());
     }
 
     @Override
@@ -334,24 +226,13 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         Preconditions.checkArgument(tuple._1 != null, String.format(Locale.ROOT, "Keyspace %s does not exist", this.config.getKeyspaceName()));
         Preconditions.checkArgument(tuple._2 != null, String.format(Locale.ROOT, "Table %s.%s does not exist", this.config.getKeyspaceName(), this.config.getTableName()));
         this.keyConverter = createConverter(getKeyConverterClass(), tuple._1, tuple._2, tuple._2.getPrimaryKey());
-        this.mutationKeyConverter = new NativeAvroConverter(tuple._1, tuple._2, tuple._2.getPrimaryKey());
+        this.mutationKeyConverter = new PulsarAvroConverter(tuple._1, tuple._2, tuple._2.getPrimaryKey());
         setValueConverterAndQuery(tuple._1, tuple._2);
-    }
-
-    /**
-     * Check if the table has only primary key columns.
-     * @param tableMetadata the table metadata
-     * @return true if the table has only primary key columns, false otherwise
-     */
-    private boolean isPrimaryKeyOnlyTable(TableMetadata tableMetadata) {
-        // if the table has no columns other than the primary key, we can skip the value converter
-        return tableMetadata.getColumns().size() == tableMetadata.getPrimaryKey().size() &&
-                new HashSet<>(tableMetadata.getPrimaryKey()).containsAll(tableMetadata.getColumns().values());
     }
 
     synchronized void setValueConverterAndQuery(KeyspaceMetadata ksm, TableMetadata tableMetadata) {
         try {
-            boolean isPrimaryKeyOnlyTable = isPrimaryKeyOnlyTable(tableMetadata);
+            boolean isPrimaryKeyOnlyTable = CassandraClient.isPrimaryKeyOnlyTable(tableMetadata);
             List<ColumnMetadata> columns = tableMetadata.getColumns().values().stream()
                     // include primary keys in the json only output format options
                     // TODO: PERF: Infuse the key values instead of reading from DB https://github.com/datastax/cdc-apache-cassandra/issues/84
@@ -403,21 +284,19 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
     Class<?> getKeyConverterClass() {
         return this.config.getKeyConverterClass() == null
-                ? this.config.isJsonOutputFormat() ? NativeJsonConverter.class : NativeAvroConverter.class
+                ? this.config.isJsonOutputFormat() ? PulsarJsonConverter.class : PulsarAvroConverter.class
                 : this.config.getKeyConverterClass();
     }
 
     Class<?> getValueConverterClass() {
         return this.config.getValueConverterClass() == null
-                ? this.config.isJsonOutputFormat() ? NativeJsonConverter.class : NativeAvroConverter.class
+                ? this.config.isJsonOutputFormat() ? PulsarJsonConverter.class : PulsarAvroConverter.class
                 : this.config.getValueConverterClass();
     }
 
     Converter createConverter(Class<?> converterClass, KeyspaceMetadata ksm, TableMetadata tableMetadata, List<ColumnMetadata> columns)
             throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
-        return (Converter) converterClass
-                .getDeclaredConstructor(KeyspaceMetadata.class, TableMetadata.class, List.class)
-                .newInstance(ksm, tableMetadata, columns);
+        return ConverterFactory.create(converterClass, ksm, tableMetadata, columns);
     }
 
     CassandraRecord createRecord(ConverterAndQuery converterAndQueryFinal, CompletableFuture<KeyValue<Object, Object>> keyValue, Message<KeyValue<GenericRecord, MutationValue>> msg) {
@@ -433,11 +312,9 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             this.cassandraClient.close();
             this.cassandraClient = null;
         }
-        if (queryExecutors != null) {
-            for (ExecutorService thread : queryExecutors) {
-                thread.shutdownNow();
-            }
-            queryExecutors = null;
+        if (queryExecutor != null) {
+            queryExecutor.shutdown();
+            queryExecutor = null;
         }
     }
 
@@ -475,11 +352,11 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
     @SuppressWarnings("unchecked")
     private List<CassandraRecord> batchRead() throws Exception {
-        batchTotalLatency.set(0);
-        batchTotalQuery.set(0);
         List<CassandraRecord> newRecords = new ArrayList<>();
-        if (this.queryExecutors == null)
-            initQueryExecutors();
+        if (this.queryExecutor == null) {
+            this.queryExecutor = new AdaptiveQueryExecutor(config);
+        }
+        queryExecutor.beginBatch();
         try {
             maybeInitCassandraClient();
 
@@ -512,7 +389,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                 // we have to process sequentially the records from the same key
                 // otherwise our mutation cache will not be enough efficient
                 // in deduplicating mutations coming from different nodes
-                executeOrdered(msg.getKey(), () -> {
+                queryExecutor.executeOrdered(msg.getKey(), () -> {
                     try {
                         if (mutationCache.isMutationProcessed(msg.getKey(), mutationValue.getMd5Digest())) {
                             log.debug("Message key={} md5={} already processed", msg.getKey(), mutationValue.getMd5Digest());
@@ -525,7 +402,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                             sourceContext.recordMetric(CACHE_EVICTIONS, cacheStats.evictionCount());
                             sourceContext.recordMetric(CACHE_SIZE, mutationCache.estimatedSize());
                             sourceContext.recordMetric(QUERY_LATENCY, 0);
-                            sourceContext.recordMetric(QUERY_EXECUTORS, queryExecutors.size());
+                            sourceContext.recordMetric(QUERY_EXECUTORS, queryExecutor.size());
                             if (msg.hasProperty(Constants.WRITETIME))
                                 sourceContext.recordMetric(REPLICATION_LATENCY, System.currentTimeMillis() - (Long.parseLong(msg.getProperty(Constants.WRITETIME)) / 1000L));
                             return null;
@@ -546,9 +423,8 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
                         sourceContext.recordMetric(CACHE_SIZE, mutationCache.estimatedSize());
                         long end = System.currentTimeMillis();
                         sourceContext.recordMetric(QUERY_LATENCY, end - start);
-                        sourceContext.recordMetric(QUERY_EXECUTORS, queryExecutors.size());
-                        batchTotalLatency.addAndGet(end - start);
-                        batchTotalQuery.incrementAndGet();
+                        sourceContext.recordMetric(QUERY_EXECUTORS, queryExecutor.size());
+                        queryExecutor.recordQueryLatency(end - start);
                         if (msg.hasProperty(Constants.WRITETIME))
                             sourceContext.recordMetric(REPLICATION_LATENCY, end - (Long.parseLong(msg.getProperty(Constants.WRITETIME)) / 1000L));
                         Object value = tuple._1 == null ? this.emptyValue : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
@@ -588,10 +464,8 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             long duration = System.currentTimeMillis() - start;
             long throughput = duration > 0 ? (1000L * newRecords.size()) / duration : 0;
             log.debug("Query time for {} msg in {} ms throughput={} msg/s cacheHits={}", newRecords.size(), duration, throughput, cacheHits);
-            if (batchTotalQuery.get() > 0) {
-                adjustExecutors();
-            }
-            consecutiveUnavailableException = 0;
+            queryExecutor.maybeAdjust();
+            queryExecutor.resetBackoff();
             return usefulRecords;
         } catch (CompletionException e) {
             Throwable e2 = e.getCause();
@@ -602,7 +476,7 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
 
             if (e2 instanceof com.datastax.oss.driver.api.core.servererrors.ReadTimeoutException ||
                     e2 instanceof com.datastax.oss.driver.api.core.servererrors.OverloadedException) {
-                decreaseExecutors(e2);
+                queryExecutor.decreaseOnError(e2);
             } else if (e2 instanceof com.datastax.oss.driver.api.core.AllNodesFailedException) {
                 // just retry
             } else {
@@ -613,14 +487,14 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             for (CassandraRecord record : newRecords) {
                 negativeAcknowledge(consumer, record.getMutationMessage()); // fail every message in the buffer
             }
-            backoffRetry(e2);
+            queryExecutor.backoffRetry(e2);
             return Collections.emptyList();
         } catch (com.datastax.oss.driver.api.core.AllNodesFailedException e) {
             log.info("AllNodesFailedException:", e);
             for (CassandraRecord record : newRecords) {
                 negativeAcknowledge(consumer, record.getMutationMessage()); // fail every message in the buffer
             }
-            backoffRetry(e);
+            queryExecutor.backoffRetry(e);
             return Collections.emptyList();
         } catch (Throwable e) {
             log.error("Unrecoverable error:", e);
@@ -634,31 +508,6 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
     void negativeAcknowledge(final Consumer<KeyValue<GenericRecord, MutationValue>> consumer,
                              final Message<KeyValue<GenericRecord, MutationValue>> message) {
         consumer.negativeAcknowledge(message);
-    }
-
-    @Override
-    public void onKeyspaceCreated(@NonNull KeyspaceMetadata keyspace) {
-
-    }
-
-    @Override
-    public void onKeyspaceDropped(@NonNull KeyspaceMetadata keyspace) {
-
-    }
-
-    @Override
-    public void onKeyspaceUpdated(@NonNull KeyspaceMetadata current, @NonNull KeyspaceMetadata previous) {
-
-    }
-
-    @Override
-    public void onTableCreated(@NonNull TableMetadata table) {
-
-    }
-
-    @Override
-    public void onTableDropped(@NonNull TableMetadata table) {
-
     }
 
     @SneakyThrows
@@ -682,11 +531,6 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
         }
     }
 
-    @Override
-    public void onUserDefinedTypeDropped(@NonNull UserDefinedType type) {
-        log.debug("onUserDefinedTypeDropped {}", type);
-    }
-
     @SneakyThrows
     @Override
     public void onUserDefinedTypeUpdated(@NonNull UserDefinedType userDefinedType, @NonNull UserDefinedType userDefinedType1) {
@@ -695,51 +539,6 @@ public class CassandraSource implements Source<GenericRecord>, SchemaChangeListe
             KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(userDefinedType.getKeyspace()).get();
             setValueConverterAndQuery(ksm, ksm.getTable(config.getTableName()).get());
         }
-    }
-
-    @Override
-    public void onFunctionCreated(@NonNull FunctionMetadata function) {
-
-    }
-
-    @Override
-    public void onFunctionDropped(@NonNull FunctionMetadata function) {
-
-    }
-
-    @Override
-    public void onFunctionUpdated(@NonNull FunctionMetadata current, @NonNull FunctionMetadata previous) {
-
-    }
-
-    @Override
-    public void onAggregateCreated(@NonNull AggregateMetadata aggregate) {
-
-    }
-
-    @Override
-    public void onAggregateDropped(@NonNull AggregateMetadata aggregate) {
-
-    }
-
-    @Override
-    public void onAggregateUpdated(@NonNull AggregateMetadata current, @NonNull AggregateMetadata previous) {
-
-    }
-
-    @Override
-    public void onViewCreated(@NonNull ViewMetadata view) {
-
-    }
-
-    @Override
-    public void onViewDropped(@NonNull ViewMetadata view) {
-
-    }
-
-    @Override
-    public void onViewUpdated(@NonNull ViewMetadata current, @NonNull ViewMetadata previous) {
-
     }
 
     private interface CassandraRecord extends KVRecord {

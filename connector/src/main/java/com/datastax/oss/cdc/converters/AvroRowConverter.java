@@ -57,7 +57,13 @@ import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -65,12 +71,13 @@ import java.util.stream.Collectors;
  * bytes only, with no dependency on any messaging system's client API.
  */
 @Slf4j
-public class NativeAvroRowConverter extends AbstractNativeRowConverter<List<Object>> {
+public class AvroRowConverter extends AbstractRowConverter<List<Object>> {
 
-    public NativeAvroRowConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
+    public AvroRowConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
         super(ksm, tm, columns);
     }
 
+    @Override
     public byte[] toConnectData(Row row) {
         GenericRecord genericRecordBuilder = new GenericData.Record(nativeSchema);
         for(ColumnDefinition cm : row.getColumnDefinitions()) {
@@ -191,7 +198,7 @@ public class NativeAvroRowConverter extends AbstractNativeRowConverter<List<Obje
         try {
             SpecificDatumWriter<GenericRecord> datumWriter = new SpecificDatumWriter<>(schema);
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-            BinaryEncoder binaryEncoder = new EncoderFactory().binaryEncoder(byteArrayOutputStream, null);
+            BinaryEncoder binaryEncoder = EncoderFactory.get().binaryEncoder(byteArrayOutputStream, null);
             datumWriter.write(genericRecord, binaryEncoder);
             binaryEncoder.flush();
             return byteArrayOutputStream.toByteArray();
@@ -347,6 +354,7 @@ public class NativeAvroRowConverter extends AbstractNativeRowConverter<List<Obje
      * @param genericRecord
      * @return list of primary key column values
      */
+    @Override
     public List<Object> fromConnectData(GenericRecord genericRecord) {
         List<Object> pk = new ArrayList<>(tableMetadata.getPrimaryKey().size());
         for(ColumnMetadata cm : tableMetadata.getPrimaryKey()) {

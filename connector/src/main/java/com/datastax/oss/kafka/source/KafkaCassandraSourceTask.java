@@ -15,26 +15,25 @@
  */
 package com.datastax.oss.kafka.source;
 
+import com.datastax.oss.cdc.AdaptiveQueryExecutor;
 import com.datastax.oss.cdc.CassandraClient;
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
 import com.datastax.oss.cdc.CqlLogicalTypes;
 import com.datastax.oss.cdc.MutationCache;
 import com.datastax.oss.cdc.MutationValue;
+import com.datastax.oss.cdc.NoOpSchemaChangeListener;
 import com.datastax.oss.cdc.Version;
-import com.datastax.oss.cdc.converters.NativeAvroRowConverter;
+import com.datastax.oss.cdc.converters.AvroRowConverter;
+import com.datastax.oss.cdc.converters.ConverterFactory;
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.Row;
-import com.datastax.oss.driver.api.core.metadata.schema.AggregateMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
-import com.datastax.oss.driver.api.core.metadata.schema.FunctionMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
-import com.datastax.oss.driver.api.core.metadata.schema.SchemaChangeListener;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
-import com.datastax.oss.driver.api.core.metadata.schema.ViewMetadata;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
-import com.datastax.oss.kafka.source.converters.NativeAvroConverter;
-import com.datastax.oss.kafka.source.converters.NativeJsonConverter;
+import com.datastax.oss.kafka.source.converters.KafkaAvroConverter;
+import com.datastax.oss.kafka.source.converters.KafkaJsonConverter;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import edu.umd.cs.findbugs.annotations.NonNull;
@@ -65,7 +64,6 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -73,21 +71,15 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.UUID;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class KafkaCassandraSourceTask extends SourceTask implements SchemaChangeListener {
+public class KafkaCassandraSourceTask extends SourceTask implements NoOpSchemaChangeListener {
 
     CassandraSourceConnectorConfig config;
     volatile CassandraClient cassandraClient;
@@ -97,7 +89,7 @@ public class KafkaCassandraSourceTask extends SourceTask implements SchemaChange
     String heartbeatTopic;
     List<TopicPartition> assignedPartitions;
 
-    NativeAvroConverter mutationKeyConverter;
+    KafkaAvroConverter mutationKeyConverter;
     Converter<byte[], ?> keyConverter;
 
     Optional<Pattern> columnPattern = Optional.empty();
@@ -106,14 +98,7 @@ public class KafkaCassandraSourceTask extends SourceTask implements SchemaChange
     volatile ConverterAndQuery valueConverterAndQuery;
     private Object emptyValue;
 
-    List<ExecutorService> queryExecutors;
-
-    final AtomicLong batchTotalLatency = new AtomicLong(0);
-    final AtomicLong batchTotalQuery = new AtomicLong(0);
-    long[] batchAvgLatencyList = new long[10];
-    int batchAvgLatencyHead = 0;
-    int batchAvgLatencyListSize = 0;
-    long consecutiveUnavailableException = 0;
+    AdaptiveQueryExecutor queryExecutor;
 
     private static final org.apache.avro.Schema MUTATION_VALUE_SCHEMA;
 
@@ -134,7 +119,7 @@ public class KafkaCassandraSourceTask extends SourceTask implements SchemaChange
     public KafkaCassandraSourceTask() {
         SpecificData.get().addLogicalTypeConversion(new CqlLogicalTypes.CqlVarintConversion());
         SpecificData.get().addLogicalTypeConversion(new CqlLogicalTypes.CqlDecimalConversion());
-        SpecificData.get().addLogicalTypeConversion(new NativeAvroRowConverter.CqlDurationConversion());
+        SpecificData.get().addLogicalTypeConversion(new AvroRowConverter.CqlDurationConversion());
         SpecificData.get().addLogicalTypeConversion(new Conversions.UUIDConversion());
     }
 
@@ -217,20 +202,21 @@ public class KafkaCassandraSourceTask extends SourceTask implements SchemaChange
         Preconditions.checkArgument(tuple._1 != null, String.format(Locale.ROOT, "Keyspace %s does not exist", this.config.getKeyspaceName()));
         Preconditions.checkArgument(tuple._2 != null, String.format(Locale.ROOT, "Table %s.%s does not exist", this.config.getKeyspaceName(), this.config.getTableName()));
         this.keyConverter = createConverter(getKeyConverterClass(), tuple._1, tuple._2, tuple._2.getPrimaryKey());
-        this.mutationKeyConverter = new NativeAvroConverter(tuple._1, tuple._2, tuple._2.getPrimaryKey());
+        this.mutationKeyConverter = new KafkaAvroConverter(tuple._1, tuple._2, tuple._2.getPrimaryKey());
         setValueConverterAndQuery(tuple._1, tuple._2);
     }
 
-    private boolean isPrimaryKeyOnlyTable(TableMetadata tableMetadata) {
-        return tableMetadata.getColumns().size() == tableMetadata.getPrimaryKey().size() &&
-                new HashSet<>(tableMetadata.getPrimaryKey()).containsAll(tableMetadata.getColumns().values());
-    }
-
+    // TODO: schema evolution. This swaps the value converter/schema in place as soon as a
+    // Cassandra table alteration is observed (see onTableUpdated below), with no compatibility
+    // check (backward/forward/full) and no versioned publish to a schema registry. A downstream
+    // consumer reading the data topic with the previous Avro schema can break as soon as this
+    // runs, with no warning. Needs a registry (Confluent Schema Registry or Apicurio Registry,
+    // see the design doc's schema registry discussion) before this can be made safe.
     synchronized void setValueConverterAndQuery(KeyspaceMetadata ksm, TableMetadata tableMetadata) {
         try {
-            boolean isPrimaryKeyOnlyTable = isPrimaryKeyOnlyTable(tableMetadata);
+            boolean isPrimaryKeyOnlyTable = CassandraClient.isPrimaryKeyOnlyTable(tableMetadata);
             List<ColumnMetadata> columns = tableMetadata.getColumns().values().stream()
-                    .filter(c -> isPrimaryKeyOnlyTable || !tableMetadata.getPrimaryKey().contains(c))
+                    .filter(c -> config.isJsonOnlyOutputFormat() || isPrimaryKeyOnlyTable || !tableMetadata.getPrimaryKey().contains(c))
                     .filter(c -> !columnPattern.isPresent() || columnPattern.get().matcher(c.getName().asInternal()).matches())
                     .collect(Collectors.toList());
             List<ColumnMetadata> staticColumns = tableMetadata.getColumns().values().stream()
@@ -267,22 +253,19 @@ public class KafkaCassandraSourceTask extends SourceTask implements SchemaChange
 
     Class<?> getKeyConverterClass() {
         return this.config.getKeyConverterClass() == null
-                ? this.config.isJsonOutputFormat() ? NativeJsonConverter.class : NativeAvroConverter.class
+                ? this.config.isJsonOutputFormat() ? KafkaJsonConverter.class : KafkaAvroConverter.class
                 : this.config.getKeyConverterClass();
     }
 
     Class<?> getValueConverterClass() {
         return this.config.getValueConverterClass() == null
-                ? this.config.isJsonOutputFormat() ? NativeJsonConverter.class : NativeAvroConverter.class
+                ? this.config.isJsonOutputFormat() ? KafkaJsonConverter.class : KafkaAvroConverter.class
                 : this.config.getValueConverterClass();
     }
 
-    @SuppressWarnings("unchecked")
     Converter<byte[], ?> createConverter(Class<?> converterClass, KeyspaceMetadata ksm, TableMetadata tableMetadata, List<ColumnMetadata> columns)
             throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
-        return (Converter<byte[], ?>) converterClass
-                .getDeclaredConstructor(KeyspaceMetadata.class, TableMetadata.class, List.class)
-                .newInstance(ksm, tableMetadata, columns);
+        return ConverterFactory.create(converterClass, ksm, tableMetadata, columns);
     }
 
     @Override
@@ -297,81 +280,12 @@ public class KafkaCassandraSourceTask extends SourceTask implements SchemaChange
             this.cassandraClient.close();
             this.cassandraClient = null;
         }
-        if (queryExecutors != null) {
-            for (ExecutorService thread : queryExecutors) {
-                thread.shutdownNow();
-            }
-            queryExecutors = null;
+        if (queryExecutor != null) {
+            queryExecutor.shutdown();
+            queryExecutor = null;
         }
         if (this.consumer != null) {
             this.consumer.close();
-        }
-    }
-
-    private void initQueryExecutors() {
-        this.queryExecutors = new ArrayList<>(this.config.getQueryExecutors());
-        for (int i = 0; i < this.config.getQueryExecutors(); i++) {
-            this.queryExecutors.add(Executors.newSingleThreadExecutor());
-        }
-    }
-
-    private <T> Future<T> executeOrdered(Object key, Callable<T> task) {
-        Preconditions.checkArgument(key != null, "message key should not be null");
-        Preconditions.checkState(queryExecutors != null, "queryExecutors should not be null");
-        int threadIdx = Math.abs(Objects.hashCode(key)) % queryExecutors.size();
-        return queryExecutors.get(threadIdx).submit(task);
-    }
-
-    private void adjustExecutors() {
-        long batchAvgLatency = this.batchTotalLatency.get() / this.batchTotalQuery.get();
-        this.batchAvgLatencyList[this.batchAvgLatencyHead] = batchAvgLatency;
-        this.batchAvgLatencyHead = (this.batchAvgLatencyHead + 1) % this.batchAvgLatencyList.length;
-        this.batchAvgLatencyListSize = Math.min(batchAvgLatencyListSize + 1, this.batchAvgLatencyList.length);
-
-        long latencyTotal = 0;
-        for (int i = 0; i < this.batchAvgLatencyListSize; i++) {
-            latencyTotal += this.batchAvgLatencyList[i];
-        }
-        long mobileAvgLatency = latencyTotal / batchAvgLatencyListSize;
-        if (mobileAvgLatency < config.getQueryMinMobileAvgLatency() && queryExecutors.size() < config.getQueryExecutors()) {
-            queryExecutors.add(Executors.newSingleThreadExecutor());
-            log.info("mobileAvgLatency={}, increasing the query executor to {} threads", mobileAvgLatency, queryExecutors.size());
-        }
-        if (mobileAvgLatency > config.getQueryMaxMobileAvgLatency() && queryExecutors.size() > 1) {
-            queryExecutors.remove(queryExecutors.size() - 1).shutdown();
-            log.info("mobileAvgLatency={}, decreasing the query executor to {} threads", mobileAvgLatency, queryExecutors.size());
-        }
-    }
-
-    private void decreaseExecutors(Throwable throwable) {
-        if (queryExecutors.size() > 1) {
-            int numberOfThreadToRemove = Math.max(1, queryExecutors.size() / 10);
-            for (int i = 0; i < numberOfThreadToRemove; i++) {
-                queryExecutors.remove(queryExecutors.size() - 1).shutdown();
-            }
-            log.warn("CQL read issue={}, decreasing the query executor to {} threads", throwable, queryExecutors.size());
-        } else {
-            log.warn("CQL read issue={} with only 1 executor threads, please consider limiting the source connector throughput to avoid overloading the Cassandra cluster", throwable);
-        }
-    }
-
-    private long waitInMs(long attempt) {
-        return Math.min(config.getQueryMaxBackoffInSec() * 1000, config.getQueryBackoffInMs() << attempt);
-    }
-
-    private long randomWaitInMs(long attempt) {
-        return ThreadLocalRandom.current().nextLong(0, waitInMs(attempt));
-    }
-
-    private void backoffRetry(Throwable throwable) {
-        consecutiveUnavailableException++;
-        long pauseInMs = randomWaitInMs(consecutiveUnavailableException);
-        log.warn("CQL availability issue={}, consecutiveUnavailableException={}, pausing {}ms before retrying",
-                throwable, consecutiveUnavailableException, pauseInMs);
-        try {
-            Thread.sleep(pauseInMs);
-        } catch (InterruptedException ex) {
-            log.warn("sleep interrupted:", ex);
         }
     }
 
@@ -396,6 +310,12 @@ public class KafkaCassandraSourceTask extends SourceTask implements SchemaChange
                 columns);
     }
 
+    // TODO: schema evolution / schema registry support. Key and value are published as raw
+    // Avro/JSON bytes under Schema.BYTES_SCHEMA, bypassing Kafka Connect's converter framework
+    // entirely (see AbstractRowConverter). No schema ID is embedded and no registry (Confluent
+    // Schema Registry or Apicurio Registry) is involved, so downstream consumers must know the
+    // wire format out of band, and there is no compatibility check when the Cassandra table
+    // schema changes (see setValueConverterAndQuery/onTableUpdated below).
     private SourceRecord buildSourceRecord(ConsumerRecord<byte[], byte[]> rec, Object key, Object value) {
         TopicPartition tp = new TopicPartition(rec.topic(), rec.partition());
         return new SourceRecord(
@@ -431,11 +351,10 @@ public class KafkaCassandraSourceTask extends SourceTask implements SchemaChange
     @Override
     @SuppressWarnings("unchecked")
     public List<SourceRecord> poll() throws InterruptedException {
-        batchTotalLatency.set(0);
-        batchTotalQuery.set(0);
-        if (this.queryExecutors == null) {
-            initQueryExecutors();
+        if (this.queryExecutor == null) {
+            this.queryExecutor = new AdaptiveQueryExecutor(config);
         }
+        queryExecutor.beginBatch();
         try {
             maybeInitCassandraClient();
         } catch (Exception e) {
@@ -468,7 +387,7 @@ public class KafkaCassandraSourceTask extends SourceTask implements SchemaChange
                 ConverterAndQuery converterAndQueryFinal = this.valueConverterAndQuery;
 
                 CompletableFuture<SourceRecord> future = new CompletableFuture<>();
-                executeOrdered(cacheKey, () -> {
+                queryExecutor.executeOrdered(cacheKey, () -> {
                     try {
                         if (mutationCache.isMutationProcessed(cacheKey, mutationValue.getMd5Digest())) {
                             future.complete(buildHeartbeatRecord(rec));
@@ -483,8 +402,7 @@ public class KafkaCassandraSourceTask extends SourceTask implements SchemaChange
                                 getSelectStatement(converterAndQueryFinal, nonNullPkValues.size()),
                                 mutationValue.getMd5Digest());
                         long end = System.currentTimeMillis();
-                        batchTotalLatency.addAndGet(end - start);
-                        batchTotalQuery.incrementAndGet();
+                        queryExecutor.recordQueryLatency(end - start);
                         Object value = tuple._1 == null ? this.emptyValue : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
                         if (ConsistencyLevel.LOCAL_QUORUM.equals(tuple._2())
                                 && (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._3 != null && tuple._3.equals(mutationValue.getNodeId())))) {
@@ -507,10 +425,8 @@ public class KafkaCassandraSourceTask extends SourceTask implements SchemaChange
                     sourceRecords.add(sourceRecord);
                 }
             }
-            if (batchTotalQuery.get() > 0) {
-                adjustExecutors();
-            }
-            consecutiveUnavailableException = 0;
+            queryExecutor.maybeAdjust();
+            queryExecutor.resetBackoff();
             return sourceRecords;
         } catch (CompletionException e) {
             Throwable cause = e.getCause();
@@ -520,41 +436,21 @@ public class KafkaCassandraSourceTask extends SourceTask implements SchemaChange
             log.info("CompletionException cause:", cause);
             if (cause instanceof com.datastax.oss.driver.api.core.servererrors.ReadTimeoutException
                     || cause instanceof com.datastax.oss.driver.api.core.servererrors.OverloadedException) {
-                decreaseExecutors(cause);
+                queryExecutor.decreaseOnError(cause);
             } else if (cause instanceof com.datastax.oss.driver.api.core.AllNodesFailedException) {
                 // just retry
             } else {
                 throw e;
             }
             seekBackToBatchStart(firstOffsetInBatch);
-            backoffRetry(cause);
+            queryExecutor.backoffRetry(cause);
             return Collections.emptyList();
         } catch (com.datastax.oss.driver.api.core.AllNodesFailedException e) {
             log.info("AllNodesFailedException:", e);
             seekBackToBatchStart(firstOffsetInBatch);
-            backoffRetry(e);
+            queryExecutor.backoffRetry(e);
             return Collections.emptyList();
         }
-    }
-
-    @Override
-    public void onKeyspaceCreated(@NonNull KeyspaceMetadata keyspace) {
-    }
-
-    @Override
-    public void onKeyspaceDropped(@NonNull KeyspaceMetadata keyspace) {
-    }
-
-    @Override
-    public void onKeyspaceUpdated(@NonNull KeyspaceMetadata current, @NonNull KeyspaceMetadata previous) {
-    }
-
-    @Override
-    public void onTableCreated(@NonNull TableMetadata table) {
-    }
-
-    @Override
-    public void onTableDropped(@NonNull TableMetadata table) {
     }
 
     @SneakyThrows
@@ -578,11 +474,6 @@ public class KafkaCassandraSourceTask extends SourceTask implements SchemaChange
         }
     }
 
-    @Override
-    public void onUserDefinedTypeDropped(@NonNull UserDefinedType type) {
-        log.debug("onUserDefinedTypeDropped {}", type);
-    }
-
     @SneakyThrows
     @Override
     public void onUserDefinedTypeUpdated(@NonNull UserDefinedType userDefinedType, @NonNull UserDefinedType userDefinedType1) {
@@ -591,41 +482,5 @@ public class KafkaCassandraSourceTask extends SourceTask implements SchemaChange
             KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(userDefinedType.getKeyspace()).get();
             setValueConverterAndQuery(ksm, ksm.getTable(config.getTableName()).get());
         }
-    }
-
-    @Override
-    public void onFunctionCreated(@NonNull FunctionMetadata function) {
-    }
-
-    @Override
-    public void onFunctionDropped(@NonNull FunctionMetadata function) {
-    }
-
-    @Override
-    public void onFunctionUpdated(@NonNull FunctionMetadata current, @NonNull FunctionMetadata previous) {
-    }
-
-    @Override
-    public void onAggregateCreated(@NonNull AggregateMetadata aggregate) {
-    }
-
-    @Override
-    public void onAggregateDropped(@NonNull AggregateMetadata aggregate) {
-    }
-
-    @Override
-    public void onAggregateUpdated(@NonNull AggregateMetadata current, @NonNull AggregateMetadata previous) {
-    }
-
-    @Override
-    public void onViewCreated(@NonNull ViewMetadata view) {
-    }
-
-    @Override
-    public void onViewDropped(@NonNull ViewMetadata view) {
-    }
-
-    @Override
-    public void onViewUpdated(@NonNull ViewMetadata current, @NonNull ViewMetadata previous) {
     }
 }

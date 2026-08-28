@@ -50,7 +50,13 @@ import org.apache.avro.specific.SpecificData;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -58,15 +64,16 @@ import java.util.stream.Collectors;
  * any messaging system's client API.
  */
 @Slf4j
-public class NativeJsonRowConverter extends AbstractNativeRowConverter<byte[]> {
+public class JsonRowConverter extends AbstractRowConverter<byte[]> {
     private static final ObjectMapper mapper = new ObjectMapper();
 
     private static final JsonNodeFactory jsonNodeFactory = JsonNodeFactory.withExactBigDecimals(true);
 
-    public NativeJsonRowConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
+    public JsonRowConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
         super(ksm, tm, columns);
     }
 
+    @Override
     public byte[] toConnectData(Row row) {
         ObjectNode node = jsonNodeFactory.objectNode();
         for(ColumnDefinition cm : row.getColumnDefinitions()) {
@@ -226,6 +233,7 @@ public class NativeJsonRowConverter extends AbstractNativeRowConverter<byte[]> {
         }
     }
 
+    @Override
     public byte[] fromConnectData(GenericRecord genericRecord) {
         if (genericRecord == null) {
             return null;
@@ -377,7 +385,7 @@ public class NativeJsonRowConverter extends AbstractNativeRowConverter<byte[]> {
     }
 
     static {
-        logicalTypeConverters.put(CqlLogicalTypes.CQL_DECIMAL, new NativeJsonRowConverter.LogicalTypeConverter<BigDecimal>(
+        logicalTypeConverters.put(CqlLogicalTypes.CQL_DECIMAL, new JsonRowConverter.LogicalTypeConverter<BigDecimal>(
                 new Conversions.DecimalConversion()) {
 
             /**
@@ -396,7 +404,7 @@ public class NativeJsonRowConverter extends AbstractNativeRowConverter<byte[]> {
                 return bigDecimalToJsonNode((BigDecimal) value);
             }
         });
-        logicalTypeConverters.put(CqlLogicalTypes.CQL_DURATION, new NativeJsonRowConverter.LogicalTypeConverter<BigDecimal>(
+        logicalTypeConverters.put(CqlLogicalTypes.CQL_DURATION, new JsonRowConverter.LogicalTypeConverter<BigDecimal>(
                 new Conversions.DecimalConversion()) {
 
             /**

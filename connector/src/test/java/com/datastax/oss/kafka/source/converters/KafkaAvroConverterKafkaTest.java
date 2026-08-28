@@ -34,7 +34,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-class NativeAvroConverterKafkaTest {
+class KafkaAvroConverterKafkaTest {
 
     private static final CqlIdentifier KS = CqlIdentifier.fromInternal("ks1");
     private static final CqlIdentifier TABLE = CqlIdentifier.fromInternal("table1");
@@ -63,7 +63,7 @@ class NativeAvroConverterKafkaTest {
 
     @Test
     void should_build_schema_with_nullable_non_pk_fields() {
-        NativeAvroConverter converter = new NativeAvroConverter(keyspaceMetadata, tableMetadata,
+        KafkaAvroConverter converter = new KafkaAvroConverter(keyspaceMetadata, tableMetadata,
                 Arrays.asList(idColumn, nameColumn, createdAtColumn));
 
         Schema schema = converter.nativeSchema;
@@ -82,7 +82,7 @@ class NativeAvroConverterKafkaTest {
 
     @Test
     void should_round_trip_primary_key_via_from_connect_data() {
-        NativeAvroConverter mutationKeyConverter = new NativeAvroConverter(keyspaceMetadata, tableMetadata,
+        KafkaAvroConverter mutationKeyConverter = new KafkaAvroConverter(keyspaceMetadata, tableMetadata,
                 List.of(idColumn));
 
         GenericData.Record record = new GenericData.Record(mutationKeyConverter.nativeSchema);
@@ -102,7 +102,7 @@ class NativeAvroConverterKafkaTest {
         when(tsTable.getPartitionKey()).thenReturn(List.of(tsPk));
         when(tsTable.getPrimaryKey()).thenReturn(List.of(tsPk));
 
-        NativeAvroConverter mutationKeyConverter = new NativeAvroConverter(keyspaceMetadata, tsTable, List.of(tsPk));
+        KafkaAvroConverter mutationKeyConverter = new KafkaAvroConverter(keyspaceMetadata, tsTable, List.of(tsPk));
 
         Instant now = Instant.ofEpochMilli(1_700_000_000_000L);
         GenericData.Record record = new GenericData.Record(mutationKeyConverter.nativeSchema);

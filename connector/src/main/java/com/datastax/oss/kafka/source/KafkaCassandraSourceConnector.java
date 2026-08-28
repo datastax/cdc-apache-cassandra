@@ -63,6 +63,23 @@ public class KafkaCassandraSourceConnector extends SourceConnector {
         return taskConfigs(maxTasks, partitionCount);
     }
 
+    /**
+     * Splits the events topic's Kafka partitions round-robin across up to {@code maxTasks} tasks
+     * (fewer tasks than {@code maxTasks} if there are fewer partitions), and passes each task its
+     * partition list via {@link #INTERNAL_CONSUMER_PARTITIONS_CONFIG}. Each task then manually
+     * {@code assign()}s exactly those partitions (see {@code KafkaCassandraSourceTask#start})
+     * instead of joining a consumer group with {@code subscribe()}.
+     * <p>
+     * Per-key ordering is preserved because a given CQL primary key's mutations always land on
+     * the same events-topic partition ({@code Murmur3KafkaPartitioner}, keyed on the partition
+     * key), and this method never splits one partition's events across two tasks. That mirrors
+     * the ordering guarantee Pulsar gets from Key_Shared subscriptions, without needing a
+     * consumer group here.
+     * <p>
+     * This mapping is only recomputed when Kafka Connect calls {@code taskConfigs} again (e.g.
+     * the connector is reconfigured or {@code maxTasks} changes) — it does not react to the
+     * events topic's partition count changing while tasks are already running.
+     */
     List<Map<String, String>> taskConfigs(int maxTasks, int partitionCount) {
         List<List<Integer>> assignments = new ArrayList<>();
         for (int i = 0; i < Math.min(maxTasks, partitionCount); i++) {

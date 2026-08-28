@@ -18,7 +18,7 @@ package com.datastax.oss.kafka.source;
 import com.datastax.oss.cdc.CassandraClient;
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
 import com.datastax.oss.cdc.MutationCache;
-import com.datastax.oss.cdc.converters.NativeAvroRowConverter;
+import com.datastax.oss.cdc.converters.AvroRowConverter;
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
@@ -29,7 +29,7 @@ import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import com.datastax.oss.driver.api.core.type.DataTypes;
 import com.datastax.oss.driver.internal.core.metadata.schema.DefaultColumnMetadata;
 import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableMap;
-import com.datastax.oss.kafka.source.converters.NativeAvroConverter;
+import com.datastax.oss.kafka.source.converters.KafkaAvroConverter;
 import io.vavr.Tuple3;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
@@ -85,7 +85,7 @@ class KafkaCassandraSourceTaskKafkaTest {
     private CassandraClient cassandraClient;
     private KafkaConsumer<byte[], byte[]> consumer;
     private Converter<byte[], ?> valueConverter;
-    private NativeAvroConverter mutationKeyConverter;
+    private KafkaAvroConverter mutationKeyConverter;
     private UUID nodeId;
 
     @BeforeEach
@@ -100,7 +100,7 @@ class KafkaCassandraSourceTaskKafkaTest {
         KeyspaceMetadata keyspaceMetadata = mock(KeyspaceMetadata.class);
         when(keyspaceMetadata.getName()).thenReturn(KS);
 
-        mutationKeyConverter = new NativeAvroConverter(keyspaceMetadata, tableMetadata, List.of(idColumn));
+        mutationKeyConverter = new KafkaAvroConverter(keyspaceMetadata, tableMetadata, List.of(idColumn));
 
         nodeId = UUID.randomUUID();
         valueConverter = mock(Converter.class);
@@ -136,15 +136,15 @@ class KafkaCassandraSourceTaskKafkaTest {
 
     @AfterEach
     void tearDown() {
-        if (task.queryExecutors != null) {
-            task.queryExecutors.forEach(java.util.concurrent.ExecutorService::shutdownNow);
+        if (task.queryExecutor != null) {
+            task.queryExecutor.shutdown();
         }
     }
 
     private byte[] encodePrimaryKey(int id) {
         GenericData.Record record = new GenericData.Record(mutationKeyConverter.nativeSchema);
         record.put("id", id);
-        return NativeAvroRowConverter.serializeAvroGenericRecord(record, mutationKeyConverter.nativeSchema);
+        return AvroRowConverter.serializeAvroGenericRecord(record, mutationKeyConverter.nativeSchema);
     }
 
     private byte[] encodeMutationValue(String md5Digest, UUID nodeId) {
@@ -152,7 +152,7 @@ class KafkaCassandraSourceTaskKafkaTest {
         record.put("md5Digest", md5Digest);
         record.put("nodeId", nodeId.toString());
         record.put("columns", null);
-        return NativeAvroRowConverter.serializeAvroGenericRecord(record, MUTATION_VALUE_SCHEMA);
+        return AvroRowConverter.serializeAvroGenericRecord(record, MUTATION_VALUE_SCHEMA);
     }
 
     private ConsumerRecords<byte[], byte[]> singleRecordBatch(byte[] key, byte[] value, long offset) {

@@ -185,7 +185,7 @@ public class KafkaCassandraSourceTaskContainerTests {
                     table.getColumns().values().stream()
                             .filter(c -> !table.getPrimaryKey().contains(c))
                             .collect(java.util.stream.Collectors.toList());
-            org.apache.avro.Schema schema = new com.datastax.oss.cdc.converters.NativeAvroRowConverter(
+            org.apache.avro.Schema schema = new com.datastax.oss.cdc.converters.AvroRowConverter(
                     session.getMetadata().getKeyspace("ks1").get(), table, nonPkColumns).nativeSchema;
             BinaryDecoder decoder = DecoderFactory.get().binaryDecoder(bytes, null);
             GenericDatumReader<GenericRecord> reader = new GenericDatumReader<>(schema);

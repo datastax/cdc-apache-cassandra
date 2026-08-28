@@ -17,6 +17,7 @@ package com.datastax.oss.cdc.converters;
 
 import com.datastax.oss.cdc.CqlLogicalTypes;
 import com.datastax.oss.driver.api.core.CqlIdentifier;
+import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.data.TupleValue;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
@@ -35,6 +36,7 @@ import org.apache.avro.SchemaBuilder;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 
+import java.io.IOException;
 import java.net.InetAddress;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -44,20 +46,31 @@ import java.util.Map;
 
 /**
  * CQL-to-Avro schema mapping and row conversion shared by every platform's native converters
- * (Pulsar's {@code AbstractNativeConverter} and the Kafka Connect equivalent). Holds no
- * platform-specific schema wrapper; each platform's own converter adds that on top.
+ * (Pulsar's {@link com.datastax.oss.pulsar.source.converters.PulsarAvroConverter} /
+ * {@link com.datastax.oss.pulsar.source.converters.PulsarJsonConverter} and their Kafka Connect
+ * equivalents). Holds no platform-specific schema wrapper; each platform's own converter adds
+ * that on top.
  * @param <T> The desired type of the key representation. For example the Avro converter, the desired type is a List of
  *           PK columns to because to query C* table. However, the actual keys are copied as is from the mutation topic.
  *           In JSON only format, because the key will be embedded in the payload, the subclass may wish to convert to
  *           a serialized Jackson node or platform-native record type.
+ *
+ * TODO: schema evolution / schema registry support is asymmetric between platforms. On the
+ * Pulsar side, {@code PulsarAvroConverter}/{@code PulsarJsonConverter} wrap {@link #nativeSchema}
+ * in a {@code NativeSchemaWrapper} that Pulsar's broker-side schema registry manages natively
+ * (versioning, compatibility checks). On the Kafka side, {@code KafkaAvroConverter}/
+ * {@code KafkaJsonConverter} add no equivalent wrapper — {@link #nativeSchema} never leaves this
+ * process, and the Kafka Connect source publishes raw serialized bytes with no schema ID, no
+ * registry (Confluent Schema Registry or Apicurio Registry), and no compatibility checking. See
+ * {@code KafkaCassandraSourceTask#buildSourceRecord} and {@code #setValueConverterAndQuery}.
  */
 @Slf4j
-public abstract class AbstractNativeRowConverter<T> {
+public abstract class AbstractRowConverter<T> {
     public final Schema nativeSchema;
     public final TableMetadata tableMetadata;
     public final Map<String, Schema> subSchemas = new HashMap<>();
 
-    public AbstractNativeRowConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
+    public AbstractRowConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
         this.tableMetadata = tm;
         String keyspaceAndTable = ksm.getName() + "." + tm.getName();
         List<Schema.Field> fields = new ArrayList<>();
@@ -99,6 +112,20 @@ public abstract class AbstractNativeRowConverter<T> {
             }
         }
     }
+
+    /**
+     * Serializes a Cassandra row to its wire-format bytes (Avro or JSON) for publishing as a
+     * connect record's value. Always {@code byte[]} regardless of {@code T} — {@code T} only
+     * governs {@link #fromConnectData}, the unrelated key-decoding path below.
+     */
+    public abstract byte[] toConnectData(Row row);
+
+    /**
+     * Decodes an Avro-encoded primary key record (from the mutation topic) into this
+     * converter's key representation {@code T} — e.g. the ordered list of PK column values for
+     * Avro, or a serialized/platform-native record for JSON. Unrelated to {@link #toConnectData}.
+     */
+    public abstract T fromConnectData(GenericRecord genericRecord) throws IOException;
 
     protected boolean isSupportedCqlType(DataType dataType) {
         switch (dataType.getProtocolCode()) {

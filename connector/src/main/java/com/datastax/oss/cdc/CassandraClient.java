@@ -155,6 +155,14 @@ public class CassandraClient implements AutoCloseable {
     }
 
     /**
+     * @return true if the table has no columns other than the primary key, false otherwise.
+     */
+    public static boolean isPrimaryKeyOnlyTable(TableMetadata tableMetadata) {
+        return tableMetadata.getColumns().size() == tableMetadata.getPrimaryKey().size() &&
+                new HashSet<>(tableMetadata.getPrimaryKey()).containsAll(tableMetadata.getColumns().values());
+    }
+
+    /**
      * Build a SELECT prepared statement for the first <i>pkLength</i> primary key columns.
      * @param keyspaceName keyspace name
      * @param tableName table name

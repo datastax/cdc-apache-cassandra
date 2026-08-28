@@ -33,7 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-class NativeJsonConverterKafkaTest {
+class KafkaJsonConverterKafkaTest {
 
     private static final CqlIdentifier KS = CqlIdentifier.fromInternal("ks1");
     private static final CqlIdentifier TABLE = CqlIdentifier.fromInternal("table1");
@@ -58,7 +58,7 @@ class NativeJsonConverterKafkaTest {
 
     @Test
     void should_decode_avro_encoded_primary_key_to_json_bytes() throws Exception {
-        NativeJsonConverter converter = new NativeJsonConverter(keyspaceMetadata, tableMetadata, List.of(idColumn));
+        KafkaJsonConverter converter = new KafkaJsonConverter(keyspaceMetadata, tableMetadata, List.of(idColumn));
 
         GenericData.Record record = new GenericData.Record(converter.nativeSchema);
         record.put("id", 7);
