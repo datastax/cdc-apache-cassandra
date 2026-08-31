@@ -29,6 +29,7 @@ import edu.umd.cs.findbugs.annotations.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
+import org.apache.kafka.common.security.auth.SecurityProtocol;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -137,6 +138,15 @@ public class CassandraSourceConnectorConfig {
                     withDriverPrefix(METRICS_NODE_ENABLED),
                     withDriverPrefix(SSL_CIPHER_SUITES));
 
+    private static String[] validInternalConsumerSecurityProtocolValues() {
+        // "" (unset) is a valid value here: the internal consumer then falls back to the Kafka
+        // client's own default (PLAINTEXT).
+        List<String> values = new ArrayList<>();
+        values.add("");
+        values.addAll(SecurityProtocol.names());
+        return values.toArray(new String[0]);
+    }
+
     public static final ConfigDef GLOBAL_CONFIG_DEF =
             new ConfigDef()
                     .define(KEYSPACE_NAME_CONFIG,
@@ -194,6 +204,7 @@ public class CassandraSourceConnectorConfig {
                     .define(INTERNAL_CONSUMER_SECURITY_PROTOCOL_CONFIG,
                             ConfigDef.Type.STRING,
                             "",
+                            ConfigDef.ValidString.in(validInternalConsumerSecurityProtocolValues()),
                             ConfigDef.Importance.LOW,
                             "Security protocol for the internal Kafka consumer, e.g. SSL or SASL_SSL.",
                             "Kafka only", 4, ConfigDef.Width.NONE, "InternalConsumerSecurityProtocol")

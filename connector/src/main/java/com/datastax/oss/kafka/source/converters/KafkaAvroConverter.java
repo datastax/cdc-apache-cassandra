@@ -19,7 +19,6 @@ import com.datastax.oss.cdc.converters.AvroRowConverter;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
-import com.datastax.oss.kafka.source.Converter;
 
 import java.util.List;
 

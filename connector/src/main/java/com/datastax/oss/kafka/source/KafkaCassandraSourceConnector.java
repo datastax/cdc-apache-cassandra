@@ -79,6 +79,16 @@ public class KafkaCassandraSourceConnector extends SourceConnector {
      * This mapping is only recomputed when Kafka Connect calls {@code taskConfigs} again (e.g.
      * the connector is reconfigured or {@code maxTasks} changes) — it does not react to the
      * events topic's partition count changing while tasks are already running.
+     * <p>
+     * TODO: repartitioning the events topic today requires an operator to manually restart this
+     * connector so {@code taskConfigs} recomputes the split (see PR #262 review discussion);
+     * reassigning partitions to already-running tasks without an ownership conflict is non-trivial
+     * during a rolling restart, and repartitioning also reorders events, so a backfill is likely
+     * needed regardless. Also, scaling throughput by deploying a second, separately-named
+     * connector at the same {@code events.topic} is not supported: both would independently
+     * compute the same partition-to-task split and double-consume every event. The only supported
+     * scale-up path is raising {@code maxTasks} on this connector and adding more Connect worker
+     * pods to the same cluster.
      */
     List<Map<String, String>> taskConfigs(int maxTasks, int partitionCount) {
         List<List<Integer>> assignments = new ArrayList<>();

@@ -17,6 +17,8 @@ package com.datastax.oss.kafka.source;
 
 import com.datastax.oss.cdc.AgentTestUtil;
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
+import com.datastax.oss.cdc.ConverterAndQuery;
+import com.datastax.oss.cdc.converters.AvroRowConverter;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableMap;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
@@ -96,6 +98,7 @@ public class KafkaCassandraSourceTaskContainerTests {
             session.execute("CREATE KEYSPACE IF NOT EXISTS ks1 WITH replication = "
                     + "{'class':'SimpleStrategy','replication_factor':1}");
             session.execute("CREATE TABLE IF NOT EXISTS ks1.tbl1 (a text, b text, PRIMARY KEY (a)) WITH cdc=true");
+            session.execute("CREATE TABLE IF NOT EXISTS ks1.tbl_schema_evolve (a text, b text, PRIMARY KEY (a)) WITH cdc=true");
         }
     }
 
@@ -144,11 +147,84 @@ public class KafkaCassandraSourceTaskContainerTests {
             SourceRecord record = records.get(0);
             assertThat(record.topic()).isEqualTo("data-ks1.tbl1");
 
-            GenericRecord row = decodeAvro((byte[]) record.value());
+            GenericRecord row = decodeAvro("tbl1", (byte[]) record.value());
             assertThat(row.get("b").toString()).isEqualTo("world");
         } finally {
             task.stop();
         }
+    }
+
+    @Test
+    void should_pick_up_altered_column_and_still_decode_downstream_correctly() throws Exception {
+        String table = "tbl_schema_evolve";
+        String eventsTopic = "events-ks1." + table;
+        String outputTopic = "data-ks1." + table;
+
+        try (CqlSession session = cassandraContainer.getCqlSession()) {
+            session.execute("INSERT INTO ks1." + table + " (a, b) VALUES ('row1', 'before')");
+        }
+
+        KafkaConsumer<byte[], byte[]> consumer = createInternalConsumer(eventsTopic);
+        KafkaCassandraSourceTask task = new KafkaCassandraSourceTask();
+        task.config = new CassandraSourceConnectorConfig(ImmutableMap.<String, String>builder()
+                .put(CassandraSourceConnectorConfig.KEYSPACE_NAME_CONFIG, "ks1")
+                .put(CassandraSourceConnectorConfig.TABLE_NAME_CONFIG, table)
+                .put(CassandraSourceConnectorConfig.EVENTS_TOPIC_NAME_CONFIG, eventsTopic)
+                .put(CassandraSourceConnectorConfig.OUTPUT_TOPIC_CONFIG, outputTopic)
+                .put(CassandraSourceConnectorConfig.CONTACT_POINTS_OPT, cassandraContainer.getHost())
+                .put(CassandraSourceConnectorConfig.PORT_OPT,
+                        String.valueOf(cassandraContainer.getMappedPort(CassandraContainer.CQL_PORT)))
+                .put(CassandraSourceConnectorConfig.DC_OPT, cassandraContainer.getLocalDc())
+                .build());
+        task.mutationCache = new com.datastax.oss.cdc.MutationCache<>(3, 1000, Duration.ofMinutes(5));
+        task.eventsTopic = eventsTopic;
+        task.outputTopic = outputTopic;
+        task.consumer = consumer;
+
+        try {
+            List<SourceRecord> beforeAlter = pollUntilNonEmpty(task, 30);
+            assertThat(beforeAlter).hasSize(1);
+            GenericRecord rowBeforeAlter = decodeAvro(table, (byte[]) beforeAlter.get(0).value());
+            assertThat(rowBeforeAlter.get("b").toString()).isEqualTo("before");
+
+            try (CqlSession session = cassandraContainer.getCqlSession()) {
+                session.execute("ALTER TABLE ks1." + table + " ADD c text");
+            }
+            // The CQL driver's SchemaChangeListener fires asynchronously (schema agreement across
+            // the cluster) and swaps task.valueConverterAndQuery in place - wait for that swap
+            // rather than assuming it's immediate.
+            waitUntilValueConverterCovers(task, "c", 30);
+
+            try (CqlSession session = cassandraContainer.getCqlSession()) {
+                session.execute("INSERT INTO ks1." + table + " (a, b, c) VALUES ('row2', 'before2', 'after')");
+            }
+            List<SourceRecord> afterAlter = pollUntilNonEmpty(task, 30);
+            assertThat(afterAlter).hasSize(1);
+
+            // Simulates a downstream consumer: there is no schema ID embedded in the record (see
+            // the schema-evolution TODO on buildSourceRecord), so a real consumer has to know out
+            // of band to re-fetch the current table schema in order to decode a post-alter record.
+            GenericRecord rowAfterAlter = decodeAvro(table, (byte[]) afterAlter.get(0).value());
+            assertThat(rowAfterAlter.get("b").toString()).isEqualTo("before2");
+            assertThat(rowAfterAlter.get("c").toString()).isEqualTo("after");
+        } finally {
+            task.stop();
+        }
+    }
+
+    private void waitUntilValueConverterCovers(KafkaCassandraSourceTask task, String columnName, int timeoutSeconds) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + timeoutSeconds * 1000L;
+        while (System.currentTimeMillis() < deadline) {
+            ConverterAndQuery<?> valueConverterAndQuery = task.valueConverterAndQuery;
+            if (valueConverterAndQuery != null && valueConverterAndQuery.getConverter() instanceof AvroRowConverter) {
+                org.apache.avro.Schema schema = ((AvroRowConverter) valueConverterAndQuery.getConverter()).nativeSchema;
+                if (schema.getField(columnName) != null) {
+                    return;
+                }
+            }
+            Thread.sleep(200);
+        }
+        throw new AssertionError("Timed out waiting for value converter to pick up column " + columnName);
     }
 
     private KafkaConsumer<byte[], byte[]> createInternalConsumer(String eventsTopic) {
@@ -176,16 +252,16 @@ public class KafkaCassandraSourceTaskContainerTests {
         return Collections.emptyList();
     }
 
-    private GenericRecord decodeAvro(byte[] bytes) throws Exception {
+    private GenericRecord decodeAvro(String tableName, byte[] bytes) throws Exception {
         try (CqlSession session = cassandraContainer.getCqlSession()) {
             com.datastax.oss.driver.api.core.metadata.schema.TableMetadata table =
-                    session.getMetadata().getKeyspace("ks1").get().getTable("tbl1").get();
+                    session.getMetadata().getKeyspace("ks1").get().getTable(tableName).get();
             // the value converter's schema covers only non-primary-key columns (setValueConverterAndQuery)
             List<com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata> nonPkColumns =
                     table.getColumns().values().stream()
                             .filter(c -> !table.getPrimaryKey().contains(c))
                             .collect(java.util.stream.Collectors.toList());
-            org.apache.avro.Schema schema = new com.datastax.oss.cdc.converters.AvroRowConverter(
+            org.apache.avro.Schema schema = new AvroRowConverter(
                     session.getMetadata().getKeyspace("ks1").get(), table, nonPkColumns).nativeSchema;
             BinaryDecoder decoder = DecoderFactory.get().binaryDecoder(bytes, null);
             GenericDatumReader<GenericRecord> reader = new GenericDatumReader<>(schema);

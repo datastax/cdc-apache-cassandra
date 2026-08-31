@@ -18,6 +18,7 @@ package com.datastax.oss.kafka.source;
 import com.datastax.oss.cdc.AdaptiveQueryExecutor;
 import com.datastax.oss.cdc.CassandraClient;
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
+import com.datastax.oss.cdc.ConverterAndQuery;
 import com.datastax.oss.cdc.CqlLogicalTypes;
 import com.datastax.oss.cdc.MutationCache;
 import com.datastax.oss.cdc.MutationValue;
@@ -32,6 +33,7 @@ import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
+import com.datastax.oss.kafka.source.converters.Converter;
 import com.datastax.oss.kafka.source.converters.KafkaAvroConverter;
 import com.datastax.oss.kafka.source.converters.KafkaJsonConverter;
 import com.google.common.base.Preconditions;
@@ -73,7 +75,6 @@ import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -95,7 +96,7 @@ public class KafkaCassandraSourceTask extends SourceTask implements NoOpSchemaCh
     Optional<Pattern> columnPattern = Optional.empty();
     MutationCache<String> mutationCache;
 
-    volatile ConverterAndQuery valueConverterAndQuery;
+    volatile ConverterAndQuery<Converter<byte[], ?>> valueConverterAndQuery;
     private Object emptyValue;
 
     AdaptiveQueryExecutor queryExecutor;
@@ -214,26 +215,8 @@ public class KafkaCassandraSourceTask extends SourceTask implements NoOpSchemaCh
     // see the design doc's schema registry discussion) before this can be made safe.
     synchronized void setValueConverterAndQuery(KeyspaceMetadata ksm, TableMetadata tableMetadata) {
         try {
-            boolean isPrimaryKeyOnlyTable = CassandraClient.isPrimaryKeyOnlyTable(tableMetadata);
-            List<ColumnMetadata> columns = tableMetadata.getColumns().values().stream()
-                    .filter(c -> config.isJsonOnlyOutputFormat() || isPrimaryKeyOnlyTable || !tableMetadata.getPrimaryKey().contains(c))
-                    .filter(c -> !columnPattern.isPresent() || columnPattern.get().matcher(c.getName().asInternal()).matches())
-                    .collect(Collectors.toList());
-            List<ColumnMetadata> staticColumns = tableMetadata.getColumns().values().stream()
-                    .filter(ColumnMetadata::isStatic)
-                    .filter(c -> !tableMetadata.getPrimaryKey().contains(c))
-                    .filter(c -> !columnPattern.isPresent() || columnPattern.get().matcher(c.getName().asInternal()).matches())
-                    .collect(Collectors.toList());
-            log.info("Schema update for table {}.{} replicated columns={}", ksm.getName(), tableMetadata.getName(),
-                    columns.stream().map(c -> c.getName().asInternal()).collect(Collectors.toList()));
-            this.valueConverterAndQuery = new ConverterAndQuery(
-                    tableMetadata.getKeyspace().asInternal(),
-                    tableMetadata.getName().asInternal(),
-                    createConverter(getValueConverterClass(), ksm, tableMetadata, columns),
-                    cassandraClient.buildProjectionClause(columns),
-                    cassandraClient.buildProjectionClause(staticColumns),
-                    cassandraClient.buildPrimaryKeyClause(tableMetadata),
-                    new ConcurrentHashMap<>());
+            this.valueConverterAndQuery = ConverterAndQuery.forTable(
+                    config, columnPattern, cassandraClient, ksm, tableMetadata, getValueConverterClass(), log);
             this.emptyValue = config.isJsonOnlyOutputFormat() ? "{}".getBytes(StandardCharsets.UTF_8) : null;
         } catch (Exception e) {
             log.error("Unexpected error", e);
@@ -241,26 +224,18 @@ public class KafkaCassandraSourceTask extends SourceTask implements NoOpSchemaCh
         }
     }
 
-    synchronized PreparedStatement getSelectStatement(ConverterAndQuery valueConverterAndQuery, int whereClauseLength) {
-        return valueConverterAndQuery.getPreparedStatements().computeIfAbsent(whereClauseLength, k ->
-                cassandraClient.prepareSelect(
-                        valueConverterAndQuery.keyspaceName,
-                        valueConverterAndQuery.tableName,
-                        valueConverterAndQuery.getProjectionClause(whereClauseLength),
-                        valueConverterAndQuery.primaryKeyClause,
-                        k));
+    synchronized PreparedStatement getSelectStatement(ConverterAndQuery<Converter<byte[], ?>> valueConverterAndQuery, int whereClauseLength) {
+        return valueConverterAndQuery.prepareSelectStatement(cassandraClient, whereClauseLength);
     }
 
     Class<?> getKeyConverterClass() {
-        return this.config.getKeyConverterClass() == null
-                ? this.config.isJsonOutputFormat() ? KafkaJsonConverter.class : KafkaAvroConverter.class
-                : this.config.getKeyConverterClass();
+        return ConverterFactory.resolveConverterClass(
+                config.getKeyConverterClass(), config.isJsonOutputFormat(), KafkaJsonConverter.class, KafkaAvroConverter.class);
     }
 
     Class<?> getValueConverterClass() {
-        return this.config.getValueConverterClass() == null
-                ? this.config.isJsonOutputFormat() ? KafkaJsonConverter.class : KafkaAvroConverter.class
-                : this.config.getValueConverterClass();
+        return ConverterFactory.resolveConverterClass(
+                config.getValueConverterClass(), config.isJsonOutputFormat(), KafkaJsonConverter.class, KafkaAvroConverter.class);
     }
 
     Converter<byte[], ?> createConverter(Class<?> converterClass, KeyspaceMetadata ksm, TableMetadata tableMetadata, List<ColumnMetadata> columns)
@@ -342,6 +317,12 @@ public class KafkaCassandraSourceTask extends SourceTask implements NoOpSchemaCh
                 null);
     }
 
+    /**
+     * TODO: this retries the whole batch from its first offset on the next {@link #poll()}
+     * rather than nacking with a delay, so a persistently failing record spins the batch
+     * immediately instead of backing off. Consider a delayed-nack mechanism (e.g. Spring Kafka's
+     * {@code Acknowledgment.nack(Duration)}) for all failure/redelivery paths here.
+     */
     private void seekBackToBatchStart(Map<TopicPartition, Long> firstOffsetInBatch) {
         for (Map.Entry<TopicPartition, Long> entry : firstOffsetInBatch.entrySet()) {
             consumer.seek(entry.getKey(), entry.getValue());
@@ -384,7 +365,7 @@ public class KafkaCassandraSourceTask extends SourceTask implements NoOpSchemaCh
                     throw new RuntimeException("Cannot decode message at offset " + rec.offset(), e);
                 }
                 String cacheKey = Base64.getEncoder().encodeToString(rec.key());
-                ConverterAndQuery converterAndQueryFinal = this.valueConverterAndQuery;
+                ConverterAndQuery<Converter<byte[], ?>> converterAndQueryFinal = this.valueConverterAndQuery;
 
                 CompletableFuture<SourceRecord> future = new CompletableFuture<>();
                 queryExecutor.executeOrdered(cacheKey, () -> {

@@ -34,6 +34,12 @@ import java.util.concurrent.atomic.AtomicLong;
  * connectors: single-threaded-per-key executors (to serialize same-key reads so the mutation
  * cache stays effective), a pool size that grows/shrinks with the observed mobile-average CQL
  * latency, and exponential backoff-and-retry on Cassandra unavailability.
+ * <p>
+ * TODO: growing/shrinking the pool by adding/removing single-threaded executors is expensive
+ * (thread creation cost, back-and-forth churn under fluctuating latency) and shifts the
+ * key-hash-to-thread mapping on every resize, so a key's queries can briefly interleave across
+ * two executors during a resize. Consider replacing this with a fixed-size thread pool guarded
+ * by a semaphore whose permit count is adjusted dynamically based on latency instead.
  */
 @Slf4j
 public class AdaptiveQueryExecutor {
@@ -43,9 +49,9 @@ public class AdaptiveQueryExecutor {
 
     private final AtomicLong batchTotalLatency = new AtomicLong(0);
     private final AtomicLong batchTotalQuery = new AtomicLong(0);
-    private final long[] batchAvgLatencyList = new long[10];
+    private final long[] batchAvgLatencyMovingWindow = new long[10];
     private int batchAvgLatencyHead = 0;
-    private int batchAvgLatencyListSize = 0;
+    private int batchAvgLatencyMovingWindowSize = 0;
     private long consecutiveUnavailableException = 0;
 
     public AdaptiveQueryExecutor(CassandraSourceConnectorConfig config) {
@@ -73,7 +79,9 @@ public class AdaptiveQueryExecutor {
     public synchronized <T> Future<T> executeOrdered(Object key, Callable<T> task) {
         Preconditions.checkArgument(key != null, "message key should not be null");
         int threadIdx = (Objects.hashCode(key) & Integer.MAX_VALUE) % queryExecutors.size();
-        log.debug("Submit task key={} on thread={}/{}", key, threadIdx, queryExecutors.size());
+        if (log.isDebugEnabled()) {
+            log.debug("Submit task key={} on thread={}/{}", key, threadIdx, queryExecutors.size());
+        }
         return queryExecutors.get(threadIdx).submit(task);
     }
 
@@ -97,18 +105,22 @@ public class AdaptiveQueryExecutor {
 
     private void adjustExecutors() {
         long batchAvgLatency = this.batchTotalLatency.get() / this.batchTotalQuery.get();
-        this.batchAvgLatencyList[this.batchAvgLatencyHead] = batchAvgLatency;
-        this.batchAvgLatencyHead = (this.batchAvgLatencyHead + 1) % this.batchAvgLatencyList.length;
-        this.batchAvgLatencyListSize = Math.min(batchAvgLatencyListSize + 1, this.batchAvgLatencyList.length);
+        this.batchAvgLatencyMovingWindow[this.batchAvgLatencyHead] = batchAvgLatency;
+        this.batchAvgLatencyHead = (this.batchAvgLatencyHead + 1) % this.batchAvgLatencyMovingWindow.length;
+        this.batchAvgLatencyMovingWindowSize = Math.min(batchAvgLatencyMovingWindowSize + 1, this.batchAvgLatencyMovingWindow.length);
 
         long latencyTotal = 0;
-        for (int i = 0; i < this.batchAvgLatencyListSize; i++) {
-            log.debug("batchAvgLatencyList={}, batchAvgLatencyHead={}, batchAvgLatencyListSize={}, i={}",
-                    Arrays.toString(batchAvgLatencyList), batchAvgLatencyHead, batchAvgLatencyListSize, i);
-            latencyTotal += this.batchAvgLatencyList[i];
+        for (int i = 0; i < this.batchAvgLatencyMovingWindowSize; i++) {
+            if (log.isDebugEnabled()) {
+                log.debug("batchAvgLatencyMovingWindow={}, batchAvgLatencyHead={}, batchAvgLatencyMovingWindowSize={}, i={}",
+                        Arrays.toString(batchAvgLatencyMovingWindow), batchAvgLatencyHead, batchAvgLatencyMovingWindowSize, i);
+            }
+            latencyTotal += this.batchAvgLatencyMovingWindow[i];
         }
-        long mobileAvgLatency = latencyTotal / batchAvgLatencyListSize;
-        log.debug("mobileAvgLatency={}, batchAvgLatencyList={}", mobileAvgLatency, Arrays.toString(batchAvgLatencyList));
+        long mobileAvgLatency = latencyTotal / batchAvgLatencyMovingWindowSize;
+        if (log.isDebugEnabled()) {
+            log.debug("mobileAvgLatency={}, batchAvgLatencyMovingWindow={}", mobileAvgLatency, Arrays.toString(batchAvgLatencyMovingWindow));
+        }
         if (mobileAvgLatency < config.getQueryMinMobileAvgLatency() && queryExecutors.size() < config.getQueryExecutors()) {
             queryExecutors.add(Executors.newSingleThreadExecutor());
             log.info("mobileAvgLatency={}, increasing the query executor to {} threads", mobileAvgLatency, queryExecutors.size());

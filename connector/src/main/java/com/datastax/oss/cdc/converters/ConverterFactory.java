@@ -39,4 +39,12 @@ public final class ConverterFactory {
                 .getDeclaredConstructor(KeyspaceMetadata.class, TableMetadata.class, List.class)
                 .newInstance(ksm, tableMetadata, columns);
     }
+
+    /**
+     * Resolves a config-supplied converter class, falling back to the platform's own default
+     * Avro/Json converter when none was configured.
+     */
+    public static Class<?> resolveConverterClass(Class<?> configuredClass, boolean jsonOutputFormat, Class<?> jsonDefault, Class<?> avroDefault) {
+        return configuredClass == null ? (jsonOutputFormat ? jsonDefault : avroDefault) : configuredClass;
+    }
 }

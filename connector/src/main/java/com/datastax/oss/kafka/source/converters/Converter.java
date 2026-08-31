@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.datastax.oss.kafka.source;
+package com.datastax.oss.kafka.source.converters;
 
 import com.datastax.oss.driver.api.core.cql.Row;
 import org.apache.avro.generic.GenericRecord;

@@ -17,18 +17,22 @@ package com.datastax.oss.kafka.source;
 
 import com.datastax.oss.cdc.CassandraClient;
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
+import com.datastax.oss.cdc.ConverterAndQuery;
 import com.datastax.oss.cdc.MutationCache;
 import com.datastax.oss.cdc.converters.AvroRowConverter;
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.CqlIdentifier;
+import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.metadata.Metadata;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import com.datastax.oss.driver.api.core.type.DataTypes;
 import com.datastax.oss.driver.internal.core.metadata.schema.DefaultColumnMetadata;
 import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableMap;
+import com.datastax.oss.kafka.source.converters.Converter;
 import com.datastax.oss.kafka.source.converters.KafkaAvroConverter;
 import io.vavr.Tuple3;
 import org.apache.avro.Schema;
@@ -47,9 +51,11 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -112,7 +118,7 @@ class KafkaCassandraSourceTaskKafkaTest {
         consumer = mock(KafkaConsumer.class);
 
         ConcurrentMap<Integer, PreparedStatement> preparedStatements = new ConcurrentHashMap<>();
-        ConverterAndQuery converterAndQuery = new ConverterAndQuery(
+        ConverterAndQuery<Converter<byte[], ?>> converterAndQuery = new ConverterAndQuery<>(
                 "ks1", "table1", valueConverter, new CqlIdentifier[0], new CqlIdentifier[0], new CqlIdentifier[]{CqlIdentifier.fromInternal("id")}, preparedStatements);
 
         CassandraSourceConnectorConfig config = new CassandraSourceConnectorConfig(ImmutableMap.<String, String>builder()
@@ -209,5 +215,56 @@ class KafkaCassandraSourceTaskKafkaTest {
         List<SourceRecord> records = task.poll();
 
         assertThat(records).isEmpty();
+    }
+
+    @Test
+    void should_swap_value_converter_in_place_when_table_schema_changes() throws Exception {
+        ColumnMetadata idColumn = new DefaultColumnMetadata(KS, TABLE, CqlIdentifier.fromInternal("id"), DataTypes.INT, false);
+        ColumnMetadata nameColumn = new DefaultColumnMetadata(KS, TABLE, CqlIdentifier.fromInternal("name"), DataTypes.TEXT, false);
+        ColumnMetadata emailColumn = new DefaultColumnMetadata(KS, TABLE, CqlIdentifier.fromInternal("email"), DataTypes.TEXT, false);
+
+        TableMetadata tableBeforeAlter = mock(TableMetadata.class);
+        when(tableBeforeAlter.getKeyspace()).thenReturn(KS);
+        when(tableBeforeAlter.getName()).thenReturn(TABLE);
+        when(tableBeforeAlter.getPrimaryKey()).thenReturn(List.of(idColumn));
+        when(tableBeforeAlter.getColumns()).thenReturn(
+                ImmutableMap.of(idColumn.getName(), idColumn, nameColumn.getName(), nameColumn));
+
+        // Same table after an "ALTER TABLE ks1.table1 ADD email text"
+        TableMetadata tableAfterAlter = mock(TableMetadata.class);
+        when(tableAfterAlter.getKeyspace()).thenReturn(KS);
+        when(tableAfterAlter.getName()).thenReturn(TABLE);
+        when(tableAfterAlter.getPrimaryKey()).thenReturn(List.of(idColumn));
+        when(tableAfterAlter.getColumns()).thenReturn(ImmutableMap.of(
+                idColumn.getName(), idColumn, nameColumn.getName(), nameColumn, emailColumn.getName(), emailColumn));
+
+        KeyspaceMetadata keyspaceMetadata = mock(KeyspaceMetadata.class);
+        when(keyspaceMetadata.getName()).thenReturn(KS);
+        Metadata driverMetadata = mock(Metadata.class);
+        when(driverMetadata.getKeyspace(KS)).thenReturn(Optional.of(keyspaceMetadata));
+        CqlSession cqlSession = mock(CqlSession.class);
+        when(cqlSession.getMetadata()).thenReturn(driverMetadata);
+        when(cassandraClient.getCqlSession()).thenReturn(cqlSession);
+
+        task.setValueConverterAndQuery(keyspaceMetadata, tableBeforeAlter);
+        ConverterAndQuery<Converter<byte[], ?>> beforeAlter = task.valueConverterAndQuery;
+        assertThat(fieldNames(beforeAlter)).containsExactlyInAnyOrder("name");
+
+        // Simulates the CQL driver's SchemaChangeListener callback firing after the ALTER TABLE.
+        task.onTableUpdated(tableAfterAlter, tableBeforeAlter);
+
+        ConverterAndQuery<Converter<byte[], ?>> afterAlter = task.valueConverterAndQuery;
+        assertThat(fieldNames(afterAlter)).containsExactlyInAnyOrder("name", "email");
+
+        // The swap happens in place with no compatibility check: a reference captured before the
+        // alter (as poll() does via its local "converterAndQueryFinal") keeps pointing at the old,
+        // now-stale schema instead of being versioned or rejected. This is the gap tracked by the
+        // schema-evolution TODO on setValueConverterAndQuery.
+        assertThat(fieldNames(beforeAlter)).containsExactlyInAnyOrder("name");
+    }
+
+    private List<String> fieldNames(ConverterAndQuery<Converter<byte[], ?>> converterAndQuery) {
+        AvroRowConverter converter = (AvroRowConverter) converterAndQuery.getConverter();
+        return converter.nativeSchema.getFields().stream().map(Schema.Field::name).collect(Collectors.toList());
     }
 }
