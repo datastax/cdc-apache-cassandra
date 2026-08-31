@@ -1,0 +1,102 @@
+plugins {
+    id 'java-library'
+    id 'java'
+    id 'application'
+    id "com.github.johnrengelman.shadow"
+}
+
+application {
+    mainClass = "$mainClassName"
+}
+
+jar {
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    manifest {
+        attributes 'Premain-Class': "$mainClassName"
+        attributes 'Implementation-Version': project.version
+    }
+    zip64=true
+}
+
+tasks.jar.dependsOn project(':commons').jar
+tasks.jar.dependsOn project(':agent').jar
+
+compileJava {
+    // Remove -Werror to avoid issues with guava annotation warnings
+    options.compilerArgs = [ '-parameters', '-Xlint:all', '-Xlint:-processing', '-Xlint:-serial']
+}
+
+compileTestJava {
+    options.compilerArgs += '-parameters'
+}
+sourceSets {
+    // Make the compileOnly dependencies available when compiling/running tests
+    test.compileClasspath += configurations.compileClasspath
+    test.runtimeClasspath += configurations.compileClasspath
+}
+
+
+configurations {
+    custom
+}
+
+dependencies {
+    custom project(':commons')
+    custom project(':agent')
+
+    implementation project(':commons')
+    implementation project(':agent')
+
+    implementation("org.apache.avro:avro:${avroVersion}")
+    implementation("${pulsarGroup}:pulsar-client:${pulsarVersion}")
+
+    // Use local HCD dse-db JAR file
+    compileOnly files("${hcdHome}/resources/cassandra/lib/dse-db-${hcdDbVersion}.jar")
+    compileOnly files("${hcdHome}/resources/cassandra/lib/metrics-core-3.1.5.jar")
+    compileOnly files("${hcdHome}/resources/cassandra/lib/guava-33.4.0-jre.jar")
+
+    testCompileOnly files("${hcdHome}/resources/cassandra/lib/dse-db-${hcdDbVersion}.jar")
+    testCompileOnly files("${hcdHome}/resources/cassandra/lib/metrics-core-3.1.5.jar")
+    testCompileOnly files("${hcdHome}/resources/cassandra/lib/guava-33.4.0-jre.jar")
+
+    testImplementation files("${hcdHome}/resources/cassandra/lib/dse-db-${hcdDbVersion}.jar")
+    testImplementation files("${hcdHome}/resources/cassandra/lib/metrics-core-3.1.5.jar")
+    testImplementation files("${hcdHome}/resources/cassandra/lib/guava-33.4.0-jre.jar")
+
+    testImplementation "org.apache.cassandra:java-driver-core:${ossDriverVersion}"
+    testImplementation "org.apache.cassandra:java-driver-query-builder:${ossDriverVersion}"
+
+    testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
+    testImplementation project(':testcontainers')
+
+    testRuntimeOnly "org.slf4j:slf4j-api:${slf4jVersion}"
+    testRuntimeOnly "ch.qos.logback:logback-classic:${logbackVersion}"
+}
+
+test {
+    // Add dependency on jar task, since it will be main target for testing
+    dependsOn shadowJar
+
+    // Rearrange test classpath, add compiled JAR instead of main classes
+    classpath = project.sourceSets.test.output + configurations.testRuntimeClasspath + files(shadowJar.archiveFile)
+
+    useJUnitPlatform()
+
+    environment 'PULSAR_IMAGE', testPulsarImage + ':' + testPulsarImageTag
+    environment 'CASSANDRA_IMAGE', 'datastax/hcd:' + hcdVersion
+
+    systemProperty "buildDir", buildDir
+    systemProperty "projectVersion", project.version
+}
+
+shadowJar {
+    manifest {
+        inheritFrom project.tasks.jar.manifest
+    }
+    configurations = [project.configurations.custom]
+    // relocate AVRO because dse-db depends on avro 1.7.7
+    relocate 'org.apache.avro', 'com.datastax.oss.cdc.avro'
+}
+
+jar.enabled = true
+assemble.dependsOn(shadowJar)
