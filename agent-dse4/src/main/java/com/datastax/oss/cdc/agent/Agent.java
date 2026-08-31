@@ -59,7 +59,9 @@ public class Agent {
     static void startCdcAgent(String agentArgs) throws Exception {
         String agentVersion = Agent.class.getPackage().getImplementationVersion();
         log.info("Starting CDC agent v{}, cdc_raw_directory={}", agentVersion, DatabaseDescriptor.getCDCLogLocation());
-        AgentConfig config = AgentConfig.create(AgentConfig.Platform.PULSAR, agentArgs);
+        // Platform.ALL: the agent is provider-agnostic and accepts both Pulsar and Kafka
+        // parameters; the active provider is selected at runtime via 'messagingProvider'.
+        AgentConfig config = AgentConfig.create(AgentConfig.Platform.ALL, agentArgs);
 
         SegmentOffsetFileWriter segmentOffsetFileWriter = new SegmentOffsetFileWriter(config.cdcWorkingDir);
         segmentOffsetFileWriter.loadOffsets();

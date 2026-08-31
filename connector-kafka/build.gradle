@@ -1,0 +1,59 @@
+plugins {
+    id 'java'
+    id 'java-library'
+    id "com.github.johnrengelman.shadow"
+}
+
+description = 'Cassandra source connector for Kafka Connect'
+
+dependencies {
+    // Reuse the Cassandra query + AVRO/JSON conversion + dedup + config from the Pulsar connector.
+    // (NativeAvroConverter.toConnectData already returns raw AVRO bytes, provider-agnostic.)
+    implementation project(':connector')
+    implementation project(':commons')
+    implementation project(':messaging-api')
+    implementation project(':messaging-kafka')
+
+    compileOnly "org.projectlombok:lombok:${lombokVersion}"
+    annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+
+    // Kafka Connect plugin API + producer client for the data topic.
+    implementation "org.apache.kafka:connect-api:${kafkaVersion}"
+    implementation "org.apache.kafka:kafka-clients:${kafkaVersion}"
+
+    implementation "org.apache.avro:avro:${avroVersion}"
+    implementation "org.apache.cassandra:java-driver-core:${ossDriverVersion}"
+    implementation "io.vavr:vavr:${vavrVersion}"
+    implementation "org.slf4j:slf4j-api:${slf4jVersion}"
+
+    testImplementation "org.junit.jupiter:junit-jupiter-api:${junitJupiterVersion}"
+    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitJupiterVersion}"
+    testImplementation "org.apache.cassandra:java-driver-core:${ossDriverVersion}"
+    testImplementation "org.apache.cassandra:java-driver-query-builder:${ossDriverVersion}"
+    testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
+    testImplementation "org.testcontainers:kafka:${testContainersVersion}"
+    testImplementation project(':testcontainers')
+    testRuntimeOnly "ch.qos.logback:logback-classic:${logbackVersion}"
+}
+
+shadowJar {
+    archiveClassifier.set('')
+    // Merge SPI service files (messaging providers) when building the deployable plugin jar.
+    mergeServiceFiles()
+}
+
+assemble.dependsOn(shadowJar)
+
+test {
+    useJUnitPlatform()
+
+    // The e2e test runs the CDC agent inside the Cassandra container, so it needs the agent-c4
+    // shadow jar and the same buildDir/projectVersion the testcontainers helpers expect.
+    dependsOn project(':agent-c4').shadowJar
+
+    environment 'KAFKA_IMAGE', testKafkaImage + ':' + testKafkaImageTag
+    environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra4Version
+
+    systemProperty "buildDir", project(':agent-c4').buildDir
+    systemProperty "projectVersion", project.version
+}

@@ -38,11 +38,11 @@ public class CassandraToPulsarMigrator {
     public ExitStatus migrate() {
         ExitStatus status = this.exporter.exportTable();
         if (status == ExitStatus.STATUS_OK) {
-            LOGGER.info("Sending table records from disk to pulsar.");
+            LOGGER.info("Sending table records from disk to the messaging provider.");
             status = this.importer.importTable();
 
         } else {
-            LOGGER.error("Failed to export tables. Sending to Pulsar will be skipped.");
+            LOGGER.error("Failed to export tables. Sending to the messaging provider will be skipped.");
         }
         return status;
     }

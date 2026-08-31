@@ -56,6 +56,7 @@ import java.util.Map;
  */
 @Slf4j
 public abstract class AbstractNativeConverter<T> implements Converter<byte[], GenericRecord, Row, T> {
+
     public final org.apache.pulsar.client.api.Schema<byte[]> pulsarSchema;
     public final Schema nativeSchema;
     public final TableMetadata tableMetadata;

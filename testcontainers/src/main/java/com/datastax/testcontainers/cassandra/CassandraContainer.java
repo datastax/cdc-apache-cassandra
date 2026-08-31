@@ -30,6 +30,7 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.delegate.DatabaseDelegate;
 import org.testcontainers.ext.ScriptUtils;
 import org.testcontainers.ext.ScriptUtils.ScriptLoadException;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
@@ -252,6 +253,41 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
         return new CassandraDatabaseDelegate(this);
     }
 
+    /**
+     * Create a plain Cassandra/DSE node with no CDC agent installed. Useful for tools that connect
+     * to Cassandra directly over CQL (e.g. the backfill CLI, which exports table data via the
+     * driver and publishes mutations itself rather than relying on a node-side agent).
+     *
+     * @param configLocation the test-resource directory holding cassandra.yaml et al. (e.g. "c3"/"c4"/"dse4")
+     * @param cassandraVersion the Cassandra family ("c3"/"c4"/"dse4"), used for version-specific tweaks
+     */
+    public static CassandraContainer<?> createCassandraContainer(DockerImageName image,
+                                                                 Network network,
+                                                                 String configLocation,
+                                                                 int nodeIndex,
+                                                                 String cassandraVersion) {
+        CassandraContainer<?> cassandraContainer = new CassandraContainer<>(image)
+                .withCreateContainerCmdModifier(c -> c.withName("cassandra-" + nodeIndex))
+                .withNetwork(network)
+                .withConfigurationOverride(configLocation)
+                .withEnv("MAX_HEAP_SIZE", "1500m")
+                .withEnv("HEAP_NEWSIZE", "300m")
+                .withEnv("DS_LICENSE", "accept")
+                // The base container exposes the debug port (8000) alongside CQL (9042) and JMX
+                // (7199); the default strategy waits for ALL exposed ports, but a no-agent node never
+                // opens 8000 (only the JVM debug agent does). Wait on the CQL-readiness log line
+                // instead. This requires the mounted logback.xml to log to stdout (the c3/c4/dse4
+                // config overrides all enable the STDOUT appender).
+                .waitingFor(Wait.forLogMessage(".*Starting listening for CQL clients.*", 1)
+                        .withStartupTimeout(Duration.ofSeconds(180)))
+                .withStartupTimeout(Duration.ofSeconds(180));
+        if (nodeIndex > 1) {
+            cassandraContainer.withEnv("CASSANDRA_SEEDS", "cassandra-1");   // for Cassandra
+            cassandraContainer.withEnv("SEEDS", "cassandra-1");             // for DSE
+        }
+        return cassandraContainer;
+    }
+
     public static CassandraContainer<?> createCassandraContainerWithAgent(DockerImageName image,
                                                                           Network network,
                                                                           int nodeIndex,
@@ -260,6 +296,17 @@ public class CassandraContainer<SELF extends CassandraContainer<SELF>> extends G
         return createCassandraContainerWithAgent(image, network, nodeIndex, System.getProperty("buildDir"),
                 String.format("agent-%s", cassandraVersion),
                 String.format("pulsarServiceUrl=%s", pulsarServiceUrl),
+                cassandraVersion);
+    }
+
+    public static CassandraContainer<?> createCassandraContainerWithAgentKafka(DockerImageName image,
+                                                                               Network network,
+                                                                               int nodeIndex,
+                                                                               String cassandraVersion,
+                                                                               String kafkaBootstrapServers) {
+        return createCassandraContainerWithAgent(image, network, nodeIndex, System.getProperty("buildDir"),
+                String.format("agent-%s", cassandraVersion),
+                String.format("messagingProvider=kafka,kafkaBootstrapServers=%s", kafkaBootstrapServers),
                 cassandraVersion);
     }
 

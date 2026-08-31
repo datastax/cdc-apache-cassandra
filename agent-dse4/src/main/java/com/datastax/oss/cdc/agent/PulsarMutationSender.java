@@ -56,7 +56,7 @@ import java.util.Date;
 import java.util.UUID;
 
 @Slf4j
-public class PulsarMutationSender extends AbstractPulsarMutationSender<TableMetadata> {
+public class PulsarMutationSender extends AbstractMessagingMutationSender<TableMetadata> {
 
     private static final ImmutableMap<String, org.apache.avro.Schema> avroSchemaTypes = ImmutableMap.<String, org.apache.avro.Schema>builder()
             .put(UTF8Type.instance.asCQL3Type().toString(), org.apache.avro.Schema.create(org.apache.avro.Schema.Type.STRING))
@@ -111,6 +111,12 @@ public class PulsarMutationSender extends AbstractPulsarMutationSender<TableMeta
      */
     @Override
     public boolean isSupported(final AbstractMutation<TableMetadata> mutation) {
+        // Check if metadata is null (table may have been dropped)
+        if (mutation.metadata == null) {
+            log.warn("Table metadata is null for mutation key={}, table may have been dropped, skipping mutation", mutation.key());
+            return false;
+        }
+        
         if (!pkSchemas.containsKey(mutation.key())) {
             for (ColumnMetadata cm : mutation.metadata.primaryKeyColumns()) {
                 if (!avroSchemaTypes.containsKey(cm.type.asCQL3Type().toString())) {
