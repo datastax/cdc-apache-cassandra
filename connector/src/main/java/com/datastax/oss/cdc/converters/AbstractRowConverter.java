@@ -13,10 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.datastax.oss.pulsar.source.converters;
+package com.datastax.oss.cdc.converters;
 
 import com.datastax.oss.cdc.CqlLogicalTypes;
-import com.datastax.oss.cdc.NativeSchemaWrapper;
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.data.TupleValue;
@@ -31,14 +30,13 @@ import com.datastax.oss.driver.api.core.type.SetType;
 import com.datastax.oss.driver.api.core.type.TupleType;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
 import com.datastax.oss.protocol.internal.ProtocolConstants;
-import com.datastax.oss.pulsar.source.Converter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.pulsar.common.schema.SchemaType;
 
+import java.io.IOException;
 import java.net.InetAddress;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -47,21 +45,32 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * An abstract class for native schema converters. Pulsar schemas (Avro and JSON) are represented in Avro with the only
- * difference in the type field.
+ * CQL-to-Avro schema mapping and row conversion shared by every platform's native converters
+ * (Pulsar's {@link com.datastax.oss.pulsar.source.converters.PulsarAvroConverter} /
+ * {@link com.datastax.oss.pulsar.source.converters.PulsarJsonConverter} and their Kafka Connect
+ * equivalents). Holds no platform-specific schema wrapper; each platform's own converter adds
+ * that on top.
  * @param <T> The desired type of the key representation. For example the Avro converter, the desired type is a List of
  *           PK columns to because to query C* table. However, the actual keys are copied as is from the mutation topic.
  *           In JSON only format, because the key will be embedded in the payload, the subclass may wish to convert to
- *           pulsar's GenericRecord or serialized Jackson node
+ *           a serialized Jackson node or platform-native record type.
+ *
+ * TODO: schema evolution / schema registry support is asymmetric between platforms. On the
+ * Pulsar side, {@code PulsarAvroConverter}/{@code PulsarJsonConverter} wrap {@link #nativeSchema}
+ * in a {@code NativeSchemaWrapper} that Pulsar's broker-side schema registry manages natively
+ * (versioning, compatibility checks). On the Kafka side, {@code KafkaAvroConverter}/
+ * {@code KafkaJsonConverter} add no equivalent wrapper — {@link #nativeSchema} never leaves this
+ * process, and the Kafka Connect source publishes raw serialized bytes with no schema ID, no
+ * registry (Confluent Schema Registry or Apicurio Registry), and no compatibility checking. See
+ * {@code KafkaCassandraSourceTask#buildSourceRecord} and {@code #setValueConverterAndQuery}.
  */
 @Slf4j
-public abstract class AbstractNativeConverter<T> implements Converter<byte[], GenericRecord, Row, T> {
-    public final org.apache.pulsar.client.api.Schema<byte[]> pulsarSchema;
+public abstract class AbstractRowConverter<T> {
     public final Schema nativeSchema;
     public final TableMetadata tableMetadata;
     public final Map<String, Schema> subSchemas = new HashMap<>();
 
-    public AbstractNativeConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
+    public AbstractRowConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
         this.tableMetadata = tm;
         String keyspaceAndTable = ksm.getName() + "." + tm.getName();
         List<Schema.Field> fields = new ArrayList<>();
@@ -96,7 +105,6 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
             }
         }
         this.nativeSchema = Schema.createRecord(keyspaceAndTable, "Table " + keyspaceAndTable, ksm.getName().asInternal(), false, fields);
-        this.pulsarSchema = new NativeSchemaWrapper(nativeSchema, getSchemaType());
         if (log.isInfoEnabled()) {
             log.info("schema={}", this.nativeSchema);
             for(Map.Entry<String, Schema> entry : subSchemas.entrySet()) {
@@ -105,14 +113,21 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
         }
     }
 
-    abstract SchemaType getSchemaType();
+    /**
+     * Serializes a Cassandra row to its wire-format bytes (Avro or JSON) for publishing as a
+     * connect record's value. Always {@code byte[]} regardless of {@code T} — {@code T} only
+     * governs {@link #fromConnectData}, the unrelated key-decoding path below.
+     */
+    public abstract byte[] toConnectData(Row row);
 
-    @Override
-    public org.apache.pulsar.client.api.Schema<byte[]> getSchema() {
-        return this.pulsarSchema;
-    }
+    /**
+     * Decodes an Avro-encoded primary key record (from the mutation topic) into this
+     * converter's key representation {@code T} — e.g. the ordered list of PK column values for
+     * Avro, or a serialized/platform-native record for JSON. Unrelated to {@link #toConnectData}.
+     */
+    public abstract T fromConnectData(GenericRecord genericRecord) throws IOException;
 
-    boolean isSupportedCqlType(DataType dataType) {
+    protected boolean isSupportedCqlType(DataType dataType) {
         switch (dataType.getProtocolCode()) {
             case ProtocolConstants.DataType.ASCII:
             case ProtocolConstants.DataType.VARCHAR:
@@ -146,14 +161,14 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
         return false;
     }
 
-    Schema.Field fieldSchema(KeyspaceMetadata ksm,
+    protected Schema.Field fieldSchema(KeyspaceMetadata ksm,
                              String fieldName,
                              DataType dataType,
                              boolean optional) {
         return fieldSchema(ksm, fieldName, dataTypeSchema(ksm, dataType), optional);
     }
 
-    Schema.Field fieldSchema(KeyspaceMetadata ksm,
+    protected Schema.Field fieldSchema(KeyspaceMetadata ksm,
                              String fieldName,
                              Schema schema,
                              boolean optional) {
@@ -164,7 +179,7 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
         return fieldSchema;
     }
 
-    Schema dataTypeSchema(KeyspaceMetadata ksm, DataType dataType) {
+    protected Schema dataTypeSchema(KeyspaceMetadata ksm, DataType dataType) {
         switch(dataType.getProtocolCode()) {
             case ProtocolConstants.DataType.INET:
             case ProtocolConstants.DataType.ASCII:
@@ -223,7 +238,7 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
         }
     }
 
-    Schema buildUDTSchema(KeyspaceMetadata ksm, String typeName, boolean optional) {
+    protected Schema buildUDTSchema(KeyspaceMetadata ksm, String typeName, boolean optional) {
         UserDefinedType userDefinedType = ksm.getUserDefinedType(CqlIdentifier.fromCql(typeName.substring(typeName.indexOf(".") + 1)))
                 .orElseThrow(() -> new IllegalStateException("UDT " + typeName + " not found"));
         List<Schema.Field> fieldSchemas = new ArrayList<>();
@@ -242,7 +257,7 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
         return udtSchema;
     }
 
-    Schema buildTupleSchema(KeyspaceMetadata ksm, String typeName, TupleType tupleType, boolean optional) {
+    protected Schema buildTupleSchema(KeyspaceMetadata ksm, String typeName, TupleType tupleType, boolean optional) {
         List<Schema.Field> fieldSchemas = new ArrayList<>();
         int i = 0;
         for (DataType componentType : tupleType.getComponentTypes()) {
@@ -262,7 +277,7 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
         return tupleSchema;
     }
 
-    String stringify(DataType dataType, Object value) {
+    protected String stringify(DataType dataType, Object value) {
         switch (dataType.getProtocolCode()) {
             case ProtocolConstants.DataType.ASCII:
             case ProtocolConstants.DataType.VARCHAR:
@@ -288,21 +303,12 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
             case ProtocolConstants.DataType.INET:
                 return ((InetAddress)value).getHostAddress();
             case ProtocolConstants.DataType.UDT:
-                //TODO: convert UDT to a map
             default:
                 throw new UnsupportedOperationException("Unsupported type="+dataType.getProtocolCode()+" as key in a map");
         }
     }
 
-    /**
-     * Converts a collection value based on its type.
-     * If the value is an {@link Instant}, it is converted to its epoch millisecond representation.
-     * Otherwise, the value is returned as is.
-     *
-     * @param collectionValue the value to be marshaled; could be an {@link Instant} or any other object
-     * @return the marshaled value; an epoch millisecond representation if the input is an {@link Instant}, or the original value otherwise
-     */
-    Object marshalCollectionValue(Object collectionValue) {
+    protected Object marshalCollectionValue(Object collectionValue) {
         if (collectionValue instanceof Instant) {
             return ((Instant) collectionValue).toEpochMilli();
         }
@@ -312,15 +318,7 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
         return collectionValue;
     }
 
-    /**
-     * Converts a collection value based on its type.
-     * If the value is an {@link Instant}, it is converted to its epoch millisecond representation.
-     * Otherwise, the value is returned as is.
-     *
-     * @param entry the value to be marshaled;
-     * @return the marshaled value; an epoch millisecond representation if the input is an {@link Instant}, or the original value otherwise
-     */
-    Object marshalCollectionValue(Map.Entry<? super Object, ? super Object> entry) {
+    protected Object marshalCollectionValue(Map.Entry<? super Object, ? super Object> entry) {
         Object collectionValue = entry.getValue();
         if (collectionValue instanceof Instant) {
             return ((Instant) collectionValue).toEpochMilli();
@@ -331,7 +329,7 @@ public abstract class AbstractNativeConverter<T> implements Converter<byte[], Ge
         return collectionValue;
     }
 
-    GenericRecord buildTupleValue(TupleValue tupleValue) {
+    protected GenericRecord buildTupleValue(TupleValue tupleValue) {
         String typeName = tupleValue.getType().asCql(false, true);
         Schema tupleSchema = subSchemas.get(typeName);
         if (tupleSchema == null) {

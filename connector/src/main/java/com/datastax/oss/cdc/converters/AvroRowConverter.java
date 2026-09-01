@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.datastax.oss.pulsar.source.converters;
+package com.datastax.oss.cdc.converters;
 
 import com.datastax.oss.cdc.CqlLogicalTypes;
 import com.datastax.oss.driver.api.core.CqlIdentifier;
@@ -48,7 +48,6 @@ import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.specific.SpecificData;
 import org.apache.avro.specific.SpecificDatumWriter;
-import org.apache.pulsar.common.schema.SchemaType;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -58,22 +57,24 @@ import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * AVRO Converter providing support for logical types.
+ * AVRO row converter providing support for logical types. Platform-free: builds and reads Avro
+ * bytes only, with no dependency on any messaging system's client API.
  */
 @Slf4j
-public class NativeAvroConverter extends AbstractNativeConverter<List<Object>> {
+public class AvroRowConverter extends AbstractRowConverter<List<Object>> {
 
-    public NativeAvroConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
+    public AvroRowConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
         super(ksm, tm, columns);
-    }
-
-    @Override
-    SchemaType getSchemaType() {
-        return SchemaType.AVRO;
     }
 
     @Override
@@ -197,7 +198,7 @@ public class NativeAvroConverter extends AbstractNativeConverter<List<Object>> {
         try {
             SpecificDatumWriter<GenericRecord> datumWriter = new SpecificDatumWriter<>(schema);
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-            BinaryEncoder binaryEncoder = new EncoderFactory().binaryEncoder(byteArrayOutputStream, null);
+            BinaryEncoder binaryEncoder = EncoderFactory.get().binaryEncoder(byteArrayOutputStream, null);
             datumWriter.write(genericRecord, binaryEncoder);
             binaryEncoder.flush();
             return byteArrayOutputStream.toByteArray();

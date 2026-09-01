@@ -13,8 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.datastax.oss.pulsar.source.converters;
+package com.datastax.oss.kafka.source.converters;
 
+import com.datastax.oss.cdc.converters.JsonRowConverter;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
@@ -22,11 +23,16 @@ import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import java.util.List;
 
 /**
- * For BWC, AvroConverter is PulsarAvroConverter
+ * Unlike {@code PulsarJsonConverter}, this class adds no platform-specific state on top of
+ * {@link JsonRowConverter}: Kafka Connect's {@code SourceRecord} takes the raw JSON bytes
+ * directly under {@code Schema.BYTES_SCHEMA} (see {@code KafkaCassandraSourceTask#buildSourceRecord}),
+ * with no equivalent of Pulsar's {@code Schema<byte[]>}/{@code NativeSchemaWrapper} needed to
+ * hand the bytes to the client API. The subclass exists only so {@code Converter.class} tokens
+ * can select Avro vs. JSON encoding.
  */
-public class AvroConverter extends PulsarAvroConverter {
+public class KafkaJsonConverter extends JsonRowConverter implements Converter<byte[], byte[]> {
 
-    public AvroConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
+    public KafkaJsonConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
         super(ksm, tm, columns);
     }
 }

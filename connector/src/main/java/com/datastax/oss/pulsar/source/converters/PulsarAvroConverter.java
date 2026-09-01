@@ -15,18 +15,31 @@
  */
 package com.datastax.oss.pulsar.source.converters;
 
+import com.datastax.oss.cdc.NativeSchemaWrapper;
+import com.datastax.oss.cdc.converters.AvroRowConverter;
+import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
+import com.datastax.oss.pulsar.source.Converter;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.pulsar.common.schema.SchemaType;
 
 import java.util.List;
 
 /**
- * For BWC, AvroConverter is PulsarAvroConverter
+ * AVRO Converter providing support for logical types.
  */
-public class AvroConverter extends PulsarAvroConverter {
+public class PulsarAvroConverter extends AvroRowConverter implements Converter<byte[], GenericRecord, Row, List<Object>> {
+    public final org.apache.pulsar.client.api.Schema<byte[]> pulsarSchema;
 
-    public AvroConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
+    public PulsarAvroConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
         super(ksm, tm, columns);
+        this.pulsarSchema = new NativeSchemaWrapper(nativeSchema, SchemaType.AVRO);
+    }
+
+    @Override
+    public org.apache.pulsar.client.api.Schema<byte[]> getSchema() {
+        return this.pulsarSchema;
     }
 }

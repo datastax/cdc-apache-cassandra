@@ -29,6 +29,7 @@ import edu.umd.cs.findbugs.annotations.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
+import org.apache.kafka.common.security.auth.SecurityProtocol;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -54,6 +55,19 @@ public class CassandraSourceConnectorConfig {
     public static final String EVENTS_TOPIC_NAME_CONFIG = "events.topic";
     public static final String EVENTS_SUBSCRIPTION_NAME_CONFIG = "events.subscription.name";
     public static final String EVENTS_SUBSCRIPTION_TYPE_CONFIG = "events.subscription.type";
+
+    public static final String OUTPUT_TOPIC_CONFIG = "output.topic";
+    public static final String HEARTBEAT_TOPIC_CONFIG = "heartbeat.topic";
+
+    public static final String INTERNAL_CONSUMER_BOOTSTRAP_SERVERS_CONFIG = "internal.consumer.bootstrapServers";
+    public static final String INTERNAL_CONSUMER_GROUP_ID_CONFIG = "internal.consumer.groupId";
+    public static final String INTERNAL_CONSUMER_SECURITY_PROTOCOL_CONFIG = "internal.consumer.securityProtocol";
+    public static final String INTERNAL_CONSUMER_SSL_KEYSTORE_LOCATION_CONFIG = "internal.consumer.sslKeystoreLocation";
+    public static final String INTERNAL_CONSUMER_SSL_KEYSTORE_PASSWORD_CONFIG = "internal.consumer.sslKeystorePassword";
+    public static final String INTERNAL_CONSUMER_SSL_TRUSTSTORE_LOCATION_CONFIG = "internal.consumer.sslTruststoreLocation";
+    public static final String INTERNAL_CONSUMER_SSL_TRUSTSTORE_PASSWORD_CONFIG = "internal.consumer.sslTruststorePassword";
+    public static final String INTERNAL_CONSUMER_SASL_MECHANISM_CONFIG = "internal.consumer.saslMechanism";
+    public static final String INTERNAL_CONSUMER_SASL_JAAS_CONFIG_CONFIG = "internal.consumer.saslJaasConfig";
 
     public static final String BATCH_SIZE_CONFIG = "batch.size";
     public static final String QUERY_EXECUTORS_CONFIG = "query.executors";
@@ -124,6 +138,15 @@ public class CassandraSourceConnectorConfig {
                     withDriverPrefix(METRICS_NODE_ENABLED),
                     withDriverPrefix(SSL_CIPHER_SUITES));
 
+    private static String[] validInternalConsumerSecurityProtocolValues() {
+        // "" (unset) is a valid value here: the internal consumer then falls back to the Kafka
+        // client's own default (PLAINTEXT).
+        List<String> values = new ArrayList<>();
+        values.add("");
+        values.addAll(SecurityProtocol.names());
+        return values.toArray(new String[0]);
+    }
+
     public static final ConfigDef GLOBAL_CONFIG_DEF =
             new ConfigDef()
                     .define(KEYSPACE_NAME_CONFIG,
@@ -157,6 +180,78 @@ public class CassandraSourceConnectorConfig {
                             "The pulsar events topic subscription type, with a default set to Key_Shared (case sensitive) for a non-partitioned events topic." +
                             " If your events topic is partitioned, you should set subscription type to Failover",
                             "Pulsar only", 2, ConfigDef.Width.NONE, "SubscriptionType")
+                    .define(OUTPUT_TOPIC_CONFIG,
+                            ConfigDef.Type.STRING,
+                            "",
+                            ConfigDef.Importance.HIGH,
+                            "The Kafka topic to publish full rows to. Required for the Kafka Connect source connector; " +
+                            "Pulsar IO has no equivalent since its output topic is set at the Pulsar Function level.",
+                            "Kafka only", 1, ConfigDef.Width.NONE, "OutputTopic")
+                    .define(INTERNAL_CONSUMER_BOOTSTRAP_SERVERS_CONFIG,
+                            ConfigDef.Type.STRING,
+                            "localhost:9092",
+                            ConfigDef.Importance.HIGH,
+                            "Bootstrap servers for the internal Kafka consumer the source task uses to read the events topic.",
+                            "Kafka only", 2, ConfigDef.Width.NONE, "InternalConsumerBootstrapServers")
+                    .define(INTERNAL_CONSUMER_GROUP_ID_CONFIG,
+                            ConfigDef.Type.STRING,
+                            "cassandra-source",
+                            ConfigDef.Importance.LOW,
+                            "Client id prefix for the internal Kafka consumer. Not a consumer group in the coordinated sense: " +
+                            "each task manually assigns and seeks its own partitions, since Kafka Connect already owns offset " +
+                            "tracking for source tasks.",
+                            "Kafka only", 3, ConfigDef.Width.NONE, "InternalConsumerGroupId")
+                    .define(INTERNAL_CONSUMER_SECURITY_PROTOCOL_CONFIG,
+                            ConfigDef.Type.STRING,
+                            "",
+                            ConfigDef.ValidString.in(validInternalConsumerSecurityProtocolValues()),
+                            ConfigDef.Importance.LOW,
+                            "Security protocol for the internal Kafka consumer, e.g. SSL or SASL_SSL.",
+                            "Kafka only", 4, ConfigDef.Width.NONE, "InternalConsumerSecurityProtocol")
+                    .define(INTERNAL_CONSUMER_SSL_KEYSTORE_LOCATION_CONFIG,
+                            ConfigDef.Type.STRING,
+                            "",
+                            ConfigDef.Importance.LOW,
+                            "SSL keystore location for the internal Kafka consumer.",
+                            "Kafka only", 5, ConfigDef.Width.NONE, "InternalConsumerSslKeystoreLocation")
+                    .define(INTERNAL_CONSUMER_SSL_KEYSTORE_PASSWORD_CONFIG,
+                            ConfigDef.Type.PASSWORD,
+                            "",
+                            ConfigDef.Importance.LOW,
+                            "SSL keystore password for the internal Kafka consumer.",
+                            "Kafka only", 6, ConfigDef.Width.NONE, "InternalConsumerSslKeystorePassword")
+                    .define(INTERNAL_CONSUMER_SSL_TRUSTSTORE_LOCATION_CONFIG,
+                            ConfigDef.Type.STRING,
+                            "",
+                            ConfigDef.Importance.LOW,
+                            "SSL truststore location for the internal Kafka consumer.",
+                            "Kafka only", 7, ConfigDef.Width.NONE, "InternalConsumerSslTruststoreLocation")
+                    .define(INTERNAL_CONSUMER_SSL_TRUSTSTORE_PASSWORD_CONFIG,
+                            ConfigDef.Type.PASSWORD,
+                            "",
+                            ConfigDef.Importance.LOW,
+                            "SSL truststore password for the internal Kafka consumer.",
+                            "Kafka only", 8, ConfigDef.Width.NONE, "InternalConsumerSslTruststorePassword")
+                    .define(INTERNAL_CONSUMER_SASL_MECHANISM_CONFIG,
+                            ConfigDef.Type.STRING,
+                            "",
+                            ConfigDef.Importance.LOW,
+                            "SASL mechanism for the internal Kafka consumer, e.g. PLAIN or SCRAM-SHA-512.",
+                            "Kafka only", 9, ConfigDef.Width.NONE, "InternalConsumerSaslMechanism")
+                    .define(INTERNAL_CONSUMER_SASL_JAAS_CONFIG_CONFIG,
+                            ConfigDef.Type.PASSWORD,
+                            "",
+                            ConfigDef.Importance.LOW,
+                            "SASL JAAS config for the internal Kafka consumer.",
+                            "Kafka only", 10, ConfigDef.Width.NONE, "InternalConsumerSaslJaasConfig")
+                    .define(HEARTBEAT_TOPIC_CONFIG,
+                            ConfigDef.Type.STRING,
+                            "",
+                            ConfigDef.Importance.LOW,
+                            "Topic used to checkpoint the offset of a mutation the dedup cache already skipped, so " +
+                            "Kafka Connect's offset commit keeps advancing even when a poll batch is all duplicates. " +
+                            "Never carries row data, safe to leave unconsumed. Defaults to '<output.topic>-heartbeat'.",
+                            "Kafka only", 11, ConfigDef.Width.NONE, "HeartbeatTopic")
                     .define(BATCH_SIZE_CONFIG,
                             ConfigDef.Type.INT,
                             200,
@@ -607,6 +702,50 @@ public class CassandraSourceConnectorConfig {
 
     public String getEventsTopic() {
         return globalConfig.getString(EVENTS_TOPIC_NAME_CONFIG);
+    }
+
+    public String getOutputTopic() {
+        return globalConfig.getString(OUTPUT_TOPIC_CONFIG);
+    }
+
+    public String getHeartbeatTopic() {
+        return globalConfig.getString(HEARTBEAT_TOPIC_CONFIG);
+    }
+
+    public String getInternalConsumerBootstrapServers() {
+        return globalConfig.getString(INTERNAL_CONSUMER_BOOTSTRAP_SERVERS_CONFIG);
+    }
+
+    public String getInternalConsumerGroupId() {
+        return globalConfig.getString(INTERNAL_CONSUMER_GROUP_ID_CONFIG);
+    }
+
+    public String getInternalConsumerSecurityProtocol() {
+        return globalConfig.getString(INTERNAL_CONSUMER_SECURITY_PROTOCOL_CONFIG);
+    }
+
+    public String getInternalConsumerSslKeystoreLocation() {
+        return globalConfig.getString(INTERNAL_CONSUMER_SSL_KEYSTORE_LOCATION_CONFIG);
+    }
+
+    public String getInternalConsumerSslKeystorePassword() {
+        return globalConfig.getPassword(INTERNAL_CONSUMER_SSL_KEYSTORE_PASSWORD_CONFIG).value();
+    }
+
+    public String getInternalConsumerSslTruststoreLocation() {
+        return globalConfig.getString(INTERNAL_CONSUMER_SSL_TRUSTSTORE_LOCATION_CONFIG);
+    }
+
+    public String getInternalConsumerSslTruststorePassword() {
+        return globalConfig.getPassword(INTERNAL_CONSUMER_SSL_TRUSTSTORE_PASSWORD_CONFIG).value();
+    }
+
+    public String getInternalConsumerSaslMechanism() {
+        return globalConfig.getString(INTERNAL_CONSUMER_SASL_MECHANISM_CONFIG);
+    }
+
+    public String getInternalConsumerSaslJaasConfig() {
+        return globalConfig.getPassword(INTERNAL_CONSUMER_SASL_JAAS_CONFIG_CONFIG).value();
     }
 
     public Class<?> getKeyConverterClass() {

@@ -132,7 +132,7 @@ New Kafka-specific fields:
 Mirrors `CassandraSource` (Pulsar):
 
 - Holds a `KafkaConsumer<byte[], byte[]>` for the events topic
-- Deserialises the Avro key (same `NativeAvroConverter` / `NativeSchemaWrapper` path already in `commons`)
+- Deserialises the Avro key (shared `AvroRowConverter` path, extracted from Pulsar's `NativeSchemaWrapper` handling into `com.datastax.oss.cdc.converters`)
 - Queries Cassandra via `CassandraClient` (unchanged, already in `connector` module)
 - Publishes `SourceRecord` objects to the Kafka Connect framework
 - Reuses `MutationCache`, `ConverterAndQuery`, `Converter` implementations from `connector`
