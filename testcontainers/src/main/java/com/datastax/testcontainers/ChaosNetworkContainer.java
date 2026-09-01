@@ -40,12 +40,17 @@ public class ChaosNetworkContainer<SELF extends ChaosNetworkContainer<SELF>> ext
         super(PUMBA_IMAGE);
         setCommand("--log-level debug netem --tc-image " + PUMBA_TC_IMAGE + " --duration " + pause + " loss --percent 100 " + targetContainer);
         addFileSystemBind("/var/run/docker.sock", "/var/run/docker.sock", BindMode.READ_WRITE);
-        setWaitStrategy(Wait.forLogMessage(".*tc container created.*", 1)
+        // "netem command started" is the debug log pumba emits once the tc
+        // sidecar is running and packet loss is active (replaces the old
+        // "tc container created" message removed in pumba ~v1.2.x).
+        setWaitStrategy(Wait.forLogMessage(".*netem command started.*", 1)
                 .withStartupTimeout(Duration.ofSeconds(120)));
         withLogConsumer(o -> {
             final String line = o.getUtf8String();
             if (line != null) {
-                if (line.contains("stop netem for container")) {
+                // "stopping netem command on timeout/abort" replaces the old
+                // "stop netem for container" message removed in pumba ~v1.2.x.
+                if (line.contains("stopping netem command on")) {
                     chaosFinished.countDown();
                 }
             }
