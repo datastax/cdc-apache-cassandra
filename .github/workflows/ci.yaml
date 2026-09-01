@@ -5,11 +5,11 @@ on:
   pull_request:
     branches:
       - master
-      - feat/kafka-support
+      - feat/kafka-support*
   push:
     branches:
       - master
-      - feat/kafka-support
+      - feat/kafka-support*
     paths-ignore:
       - 'docs/**'
       - 'kubernetes/**'
@@ -111,7 +111,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module: ['agent', 'agent-c4', 'agent-dse4']
+        module: ['agent', 'agent-c4', 'agent-dse4', 'connector']
         brokerImage:
           - 'pulsar|datastax/lunastreaming:2.10_3.4'
           - 'kafka|confluentinc/cp-kafka:7.4.0'
