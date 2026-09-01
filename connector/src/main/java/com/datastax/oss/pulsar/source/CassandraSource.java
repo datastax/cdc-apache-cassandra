@@ -212,10 +212,27 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
                     .numThreads(this.config.getQueryExecutors())
                     .maxTasksInQueue(this.config.getQueryMaxTasksInQueue())
                     .build();
-            initCassandraClient();
+            initCassandraClientWithRetry();
         } catch (Throwable err) {
             log.error("Cannot open the connector:", err);
             throw new RuntimeException(err);
+        }
+    }
+
+    void initCassandraClientWithRetry() {
+        long consecutiveFailures = 0;
+        long deadlineMs = System.currentTimeMillis() + this.config.getQueryMaxBackoffInSec() * 1000;
+        while (true) {
+            try {
+                initCassandraClient();
+                return;
+            } catch (Throwable err) {
+                if (System.currentTimeMillis() >= deadlineMs) {
+                    throw new RuntimeException("Failed to initialize Cassandra client after " +
+                            this.config.getQueryMaxBackoffInSec() + "s, giving up", err);
+                }
+                consecutiveFailures = SourceUtil.backoffRetry(err, consecutiveFailures, this.config);
+            }
         }
     }
 

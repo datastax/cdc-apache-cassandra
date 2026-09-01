@@ -177,10 +177,23 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
                 .numThreads(config.getQueryExecutors())
                 .maxTasksInQueue(config.getQueryMaxTasksInQueue())
                 .build();
-        try {
-            initCassandraClient();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        initCassandraClientWithRetry();
+    }
+
+    void initCassandraClientWithRetry() {
+        long consecutiveFailures = 0;
+        long deadlineMs = System.currentTimeMillis() + this.config.getQueryMaxBackoffInSec() * 1000;
+        while (true) {
+            try {
+                initCassandraClient();
+                return;
+            } catch (Throwable err) {
+                if (System.currentTimeMillis() >= deadlineMs) {
+                    throw new RuntimeException("Failed to initialize Cassandra client after " +
+                            this.config.getQueryMaxBackoffInSec() + "s, giving up", err);
+                }
+                consecutiveFailures = SourceUtil.backoffRetry(err, consecutiveFailures, this.config);
+            }
         }
     }
 
