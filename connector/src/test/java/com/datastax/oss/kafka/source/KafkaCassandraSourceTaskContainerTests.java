@@ -19,6 +19,7 @@ import com.datastax.oss.cdc.AgentTestUtil;
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
 import com.datastax.oss.cdc.ConverterAndQuery;
 import com.datastax.oss.cdc.converters.AvroRowConverter;
+import org.apache.bookkeeper.common.util.OrderedExecutor;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableMap;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
@@ -139,6 +140,11 @@ public class KafkaCassandraSourceTaskContainerTests {
         task.eventsTopic = eventsTopic;
         task.outputTopic = "data-ks1.tbl1";
         task.consumer = consumer;
+        task.queryExecutor = OrderedExecutor.newBuilder()
+                .name("cdc-query-executor-it")
+                .numThreads(1)
+                .build();
+        task.initCassandraClient();
 
         try {
             List<SourceRecord> records = pollUntilNonEmpty(task, 30);
@@ -180,6 +186,11 @@ public class KafkaCassandraSourceTaskContainerTests {
         task.eventsTopic = eventsTopic;
         task.outputTopic = outputTopic;
         task.consumer = consumer;
+        task.queryExecutor = OrderedExecutor.newBuilder()
+                .name("cdc-query-executor-it")
+                .numThreads(1)
+                .build();
+        task.initCassandraClient();
 
         try {
             List<SourceRecord> beforeAlter = pollUntilNonEmpty(task, 30);
