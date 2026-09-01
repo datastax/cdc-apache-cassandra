@@ -15,8 +15,8 @@
  */
 package com.datastax.oss.pulsar.source;
 
-import com.datastax.oss.cdc.AdaptiveQueryExecutor;
 import com.datastax.oss.cdc.CassandraClient;
+import com.datastax.oss.cdc.SourceUtil;
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
 import com.datastax.oss.cdc.ConfigUtil;
 import com.datastax.oss.cdc.Constants;
@@ -24,7 +24,7 @@ import com.datastax.oss.cdc.ConverterAndQuery;
 import com.datastax.oss.cdc.CqlLogicalTypes;
 import com.datastax.oss.cdc.MutationCache;
 import com.datastax.oss.cdc.MutationValue;
-import com.datastax.oss.cdc.NoOpSchemaChangeListener;
+import com.datastax.oss.cdc.SourceSchemaChangeListener;
 import com.datastax.oss.cdc.Version;
 import com.datastax.oss.cdc.converters.ConverterFactory;
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
@@ -45,7 +45,6 @@ import edu.umd.cs.findbugs.annotations.NonNull;
 import io.vavr.Tuple2;
 import io.vavr.Tuple3;
 import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Conversions;
 import org.apache.avro.specific.SpecificData;
@@ -66,6 +65,8 @@ import org.apache.pulsar.io.core.Source;
 import org.apache.pulsar.io.core.SourceContext;
 import org.apache.pulsar.io.core.annotations.Connector;
 import org.apache.pulsar.io.core.annotations.IOType;
+
+import org.apache.bookkeeper.common.util.OrderedExecutor;
 
 import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.StandardCharsets;
@@ -89,7 +90,7 @@ import java.util.stream.Collectors;
         help = "The CassandraSource is used for moving data from Cassandra to Pulsar.",
         configClass = CassandraSourceConfig.class)
 @Slf4j
-public class CassandraSource implements Source<GenericRecord>, NoOpSchemaChangeListener {
+public class CassandraSource implements Source<GenericRecord>, SourceSchemaChangeListener {
 
     /**
      * Metric name for the mutation cache hits.
@@ -129,7 +130,7 @@ public class CassandraSource implements Source<GenericRecord>, NoOpSchemaChangeL
     SourceContext sourceContext;
     CassandraSourceConnectorConfig config;
     Consumer<KeyValue<GenericRecord, MutationValue>> consumer = null;
-    volatile CassandraClient cassandraClient;
+    CassandraClient cassandraClient;
 
     String dirtyTopicName;
     Converter mutationKeyConverter;
@@ -156,12 +157,13 @@ public class CassandraSource implements Source<GenericRecord>, NoOpSchemaChangeL
     private Object emptyValue;
 
     /**
-     * Adaptive-concurrency CQL read-back executor pool. Single threaded executors per key
-     * protect from a race condition issue when processing the same PK in parallel; the number
-     * of threads is adaptive to avoid overloading the source C* cluster, depending on the
-     * average query latency and timeouts.
+     * Fixed-size ordered executor. All tasks for the same key run in submission order,
+     * preventing out-of-order CQL read-backs for the same partition key.
+     * When the per-thread task queue is full a {@link java.util.concurrent.RejectedExecutionException}
+     * is thrown and treated as backpressure by nacking the batch and backing off.
      */
-    AdaptiveQueryExecutor queryExecutor;
+    private OrderedExecutor queryExecutor;
+    private long consecutiveUnavailableException = 0;
 
     private ArrayBlockingQueue<CassandraRecord> buffer;
 
@@ -200,23 +202,20 @@ public class CassandraSource implements Source<GenericRecord>, NoOpSchemaChangeL
                     this.config.getCacheMaxDigests(),
                     this.config.getCacheMaxCapacity(),
                     Duration.ofMillis(this.config.getCacheExpireAfterMs()));
-            log.info("Starting source connector topic={} subscription={} query.executors={}",
+            log.info("Starting source connector topic={} subscription={} query.executors={} maxTasksInQueue={}",
                     dirtyTopicName,
                     this.config.getEventsSubscriptionName(),
-                    this.config.getQueryExecutors());
+                    this.config.getQueryExecutors(),
+                    this.config.getQueryMaxTasksInQueue());
+            this.queryExecutor = OrderedExecutor.newBuilder()
+                    .name("cdc-query-executor")
+                    .numThreads(this.config.getQueryExecutors())
+                    .maxTasksInQueue(this.config.getQueryMaxTasksInQueue())
+                    .build();
+            initCassandraClient();
         } catch (Throwable err) {
             log.error("Cannot open the connector:", err);
             throw new RuntimeException(err);
-        }
-    }
-
-    void maybeInitCassandraClient() throws InvocationTargetException, NoSuchMethodException, IllegalAccessException, InstantiationException {
-        if (this.cassandraClient == null) {
-            synchronized (this) {
-                if (this.cassandraClient == null) {
-                    initCassandraClient();
-                }
-            }
         }
     }
 
@@ -230,7 +229,7 @@ public class CassandraSource implements Source<GenericRecord>, NoOpSchemaChangeL
         setValueConverterAndQuery(tuple._1, tuple._2);
     }
 
-    synchronized void setValueConverterAndQuery(KeyspaceMetadata ksm, TableMetadata tableMetadata) {
+    public synchronized void setValueConverterAndQuery(KeyspaceMetadata ksm, TableMetadata tableMetadata) {
         try {
             this.valueConverterAndQuery = ConverterAndQuery.forTable(
                     config, columnPattern, cassandraClient, ksm, tableMetadata, getValueConverterClass(), log);
@@ -284,7 +283,6 @@ public class CassandraSource implements Source<GenericRecord>, NoOpSchemaChangeL
         }
         if (queryExecutor != null) {
             queryExecutor.shutdown();
-            queryExecutor = null;
         }
     }
 
@@ -322,176 +320,134 @@ public class CassandraSource implements Source<GenericRecord>, NoOpSchemaChangeL
 
     @SuppressWarnings("unchecked")
     private List<CassandraRecord> batchRead() throws Exception {
-        List<CassandraRecord> newRecords = new ArrayList<>();
-        if (this.queryExecutor == null) {
-            this.queryExecutor = new AdaptiveQueryExecutor(config);
-        }
-        queryExecutor.beginBatch();
-        try {
-            maybeInitCassandraClient();
-
-            // we want to fill the buffer
-            // this method will block until we receive at least one record
-            while (newRecords.size() < this.config.getBatchSize()) {
-                final Message<KeyValue<GenericRecord, MutationValue>> msg = consumer.receive(1, TimeUnit.SECONDS);
-                if (msg == null) {
-                    if (!newRecords.isEmpty()) {
-                        if (log.isDebugEnabled()) {
-                            log.debug("no message received, buffer size {}", newRecords.size());
-                        }
-                        // no more records within the timeout, but we have at least one record
-                        break;
-                    } else {
-                        if (log.isDebugEnabled()) {
-                            log.debug("no message received");
-                        }
-                        continue;
-                    }
-                }
-                final KeyValue<GenericRecord, MutationValue> kv = msg.getValue();
-                final GenericRecord mutationKey = kv.getKey();
-                final MutationValue mutationValue = kv.getValue();
-
-                if (log.isDebugEnabled()) {
-                    log.debug("Message from producer={} msgId={} key={} value={} schema {}\n",
-                            msg.getProducerName(), msg.getMessageId(), kv.getKey(), kv.getValue(), msg.getReaderSchema().orElse(null));
-                }
-
-                List<Object> pk = (List<Object>) mutationKeyConverter.fromConnectData(mutationKey.getNativeObject());
-                // ensure the schema is the one used when building the struct.
-                final ConverterAndQuery<Converter> converterAndQueryFinal = this.valueConverterAndQuery;
-
-                CompletableFuture<KeyValue<Object, Object>> queryResult = new CompletableFuture<>();
-                // we have to process sequentially the records from the same key
-                // otherwise our mutation cache will not be enough efficient
-                // in deduplicating mutations coming from different nodes
-                queryExecutor.executeOrdered(msg.getKey(), () -> {
-                    try {
-                        if (mutationCache.isMutationProcessed(msg.getKey(), mutationValue.getMd5Digest())) {
+        while (true) {
+            List<CassandraRecord> newRecords = new ArrayList<>();
+            try {
+                // we want to fill the buffer
+                // this method will block until we receive at least one record
+                while (newRecords.size() < this.config.getBatchSize()) {
+                    final Message<KeyValue<GenericRecord, MutationValue>> msg = consumer.receive(1, TimeUnit.SECONDS);
+                    if (msg == null) {
+                        if (!newRecords.isEmpty()) {
                             if (log.isDebugEnabled()) {
-                                log.debug("Message key={} md5={} already processed", msg.getKey(), mutationValue.getMd5Digest());
+                                log.debug("no message received, buffer size {}", newRecords.size());
                             }
-                            // ignore duplicated mutation
-                            consumer.acknowledge(msg);
-                            queryResult.complete(null);
+                            // no more records within the timeout, but we have at least one record
+                            break;
+                        } else {
+                            if (log.isDebugEnabled()) {
+                                log.debug("no message received");
+                            }
+                            continue;
+                        }
+                    }
+                    final KeyValue<GenericRecord, MutationValue> kv = msg.getValue();
+                    final GenericRecord mutationKey = kv.getKey();
+                    final MutationValue mutationValue = kv.getValue();
+
+                    if (log.isDebugEnabled()) {
+                        log.debug("Message from producer={} msgId={} key={} value={} schema {}\n",
+                                msg.getProducerName(), msg.getMessageId(), kv.getKey(), kv.getValue(), msg.getReaderSchema().orElse(null));
+                    }
+
+                    List<Object> pk = (List<Object>) mutationKeyConverter.fromConnectData(mutationKey.getNativeObject());
+                    // ensure the schema is the one used when building the struct.
+                    final ConverterAndQuery<Converter> converterAndQueryFinal = this.valueConverterAndQuery;
+
+                    CompletableFuture<KeyValue<Object, Object>> queryResult = new CompletableFuture<>();
+                    // we have to process sequentially the records from the same key
+                    // otherwise our mutation cache will not be enough efficient
+                    // in deduplicating mutations coming from different nodes
+                    queryExecutor.executeOrdered(msg.getKey(), () -> {
+                        try {
+                            if (mutationCache.isMutationProcessed(msg.getKey(), mutationValue.getMd5Digest())) {
+                                if (log.isDebugEnabled()) {
+                                    log.debug("Message key={} md5={} already processed", msg.getKey(), mutationValue.getMd5Digest());
+                                }
+                                // ignore duplicated mutation
+                                consumer.acknowledge(msg);
+                                queryResult.complete(null);
+                                CacheStats cacheStats = mutationCache.stats();
+                                sourceContext.recordMetric(CACHE_HITS, cacheStats.hitCount());
+                                sourceContext.recordMetric(CACHE_MISSES, cacheStats.missCount());
+                                sourceContext.recordMetric(CACHE_EVICTIONS, cacheStats.evictionCount());
+                                sourceContext.recordMetric(CACHE_SIZE, mutationCache.estimatedSize());
+                                sourceContext.recordMetric(QUERY_LATENCY, 0);
+                                sourceContext.recordMetric(QUERY_EXECUTORS, config.getQueryExecutors());
+                                if (msg.hasProperty(Constants.WRITETIME))
+                                    sourceContext.recordMetric(REPLICATION_LATENCY, System.currentTimeMillis() - (Long.parseLong(msg.getProperty(Constants.WRITETIME)) / 1000L));
+                                return;
+                            }
+
+                            List<Object> nonNullPkValues = pk.stream().filter(e -> e != null).collect(Collectors.toList());
+                            long start = System.currentTimeMillis();
+                            Tuple3<Row, ConsistencyLevel, UUID> tuple = cassandraClient.selectRow(
+                                    nonNullPkValues,
+                                    mutationValue.getNodeId(),
+                                    Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE),
+                                    getSelectStatement(converterAndQueryFinal, nonNullPkValues.size()),
+                                    mutationValue.getMd5Digest());
                             CacheStats cacheStats = mutationCache.stats();
                             sourceContext.recordMetric(CACHE_HITS, cacheStats.hitCount());
                             sourceContext.recordMetric(CACHE_MISSES, cacheStats.missCount());
                             sourceContext.recordMetric(CACHE_EVICTIONS, cacheStats.evictionCount());
                             sourceContext.recordMetric(CACHE_SIZE, mutationCache.estimatedSize());
-                            sourceContext.recordMetric(QUERY_LATENCY, 0);
-                            sourceContext.recordMetric(QUERY_EXECUTORS, queryExecutor.size());
+                            long end = System.currentTimeMillis();
+                            sourceContext.recordMetric(QUERY_LATENCY, end - start);
+                            sourceContext.recordMetric(QUERY_EXECUTORS, config.getQueryExecutors());
                             if (msg.hasProperty(Constants.WRITETIME))
-                                sourceContext.recordMetric(REPLICATION_LATENCY, System.currentTimeMillis() - (Long.parseLong(msg.getProperty(Constants.WRITETIME)) / 1000L));
-                            return null;
-                        }
-
-                        List<Object> nonNullPkValues = pk.stream().filter(e -> e != null).collect(Collectors.toList());
-                        long start = System.currentTimeMillis();
-                        Tuple3<Row, ConsistencyLevel, UUID> tuple = cassandraClient.selectRow(
-                                nonNullPkValues,
-                                mutationValue.getNodeId(),
-                                Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE),
-                                getSelectStatement(converterAndQueryFinal, nonNullPkValues.size()),
-                                mutationValue.getMd5Digest());
-                        CacheStats cacheStats = mutationCache.stats();
-                        sourceContext.recordMetric(CACHE_HITS, cacheStats.hitCount());
-                        sourceContext.recordMetric(CACHE_MISSES, cacheStats.missCount());
-                        sourceContext.recordMetric(CACHE_EVICTIONS, cacheStats.evictionCount());
-                        sourceContext.recordMetric(CACHE_SIZE, mutationCache.estimatedSize());
-                        long end = System.currentTimeMillis();
-                        sourceContext.recordMetric(QUERY_LATENCY, end - start);
-                        sourceContext.recordMetric(QUERY_EXECUTORS, queryExecutor.size());
-                        queryExecutor.recordQueryLatency(end - start);
-                        if (msg.hasProperty(Constants.WRITETIME))
-                            sourceContext.recordMetric(REPLICATION_LATENCY, end - (Long.parseLong(msg.getProperty(Constants.WRITETIME)) / 1000L));
-                        Object value = tuple._1 == null ? this.emptyValue : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
-                        if (ConsistencyLevel.LOCAL_QUORUM.equals(tuple._2()) &&
-                                (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._3 != null && tuple._3.equals(mutationValue.getNodeId())))) {
-                            if (log.isDebugEnabled()) {
-                                log.debug("Caching mutation key={} md5={} pk={}", msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues);
+                                sourceContext.recordMetric(REPLICATION_LATENCY, end - (Long.parseLong(msg.getProperty(Constants.WRITETIME)) / 1000L));
+                            Object value = tuple._1 == null ? this.emptyValue : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
+                            if (ConsistencyLevel.LOCAL_QUORUM.equals(tuple._2()) &&
+                                    (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._3 != null && tuple._3.equals(mutationValue.getNodeId())))) {
+                                if (log.isDebugEnabled()) {
+                                    log.debug("Caching mutation key={} md5={} pk={}", msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues);
+                                }
+                                // cache the mutation digest if the coordinator is the source of this event.
+                                mutationCache.addMutationMd5(msg.getKey(), mutationValue.getMd5Digest());
+                            } else {
+                                if (log.isDebugEnabled()) {
+                                    log.debug("Not caching mutation key={} md5={} pk={} CL={} coordinator={}",
+                                            msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues, tuple._2(), tuple._3());
+                                }
                             }
-                            // cache the mutation digest if the coordinator is the source of this event.
-                            mutationCache.addMutationMd5(msg.getKey(), mutationValue.getMd5Digest());
-                        } else {
-                            if (log.isDebugEnabled()) {
-                                log.debug("Not caching mutation key={} md5={} pk={} CL={} coordinator={}",
-                                        msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues, tuple._2(), tuple._3());
-                            }
+                            Object key = config.isAvroOutputFormat() ? msg.getKeyBytes() : keyConverter.fromConnectData(mutationKey.getNativeObject());
+                            queryResult.complete(new KeyValue(key, value));
+                        } catch (Throwable err) {
+                            queryResult.completeExceptionally(err);
                         }
-                        Object key = config.isAvroOutputFormat() ? msg.getKeyBytes() : keyConverter.fromConnectData(mutationKey.getNativeObject());
-                        queryResult.complete(new KeyValue(key, value));
-                    } catch (Throwable err) {
-                        queryResult.completeExceptionally(err);
-                    }
-                    return null;
-                });
-                final CassandraRecord record = createRecord(converterAndQueryFinal, queryResult, msg);
-                newRecords.add(record);
-            }
-            Preconditions.checkState(!newRecords.isEmpty(), "Buffer cannot be empty here");
-            List<CassandraRecord> usefulRecords = new ArrayList<>(newRecords.size());
-            int cacheHits = 0;
-            long start = System.currentTimeMillis();
-            // wait for all queries to complete
-            for (CassandraRecord record : newRecords) {
-                KeyValue res = record.getQueryResult().join();
-                if (res != null) {
-                    // if the result is "null" the mutation has been discarded
-                    usefulRecords.add(record);
-                } else {
-                    cacheHits++;
+                    });
+                    final CassandraRecord record = createRecord(converterAndQueryFinal, queryResult, msg);
+                    newRecords.add(record);
                 }
+                Preconditions.checkState(!newRecords.isEmpty(), "Buffer cannot be empty here");
+                List<CassandraRecord> usefulRecords = new ArrayList<>(newRecords.size());
+                int cacheHits = 0;
+                long start = System.currentTimeMillis();
+                // wait for all queries to complete
+                for (CassandraRecord record : newRecords) {
+                    KeyValue res = record.getQueryResult().join();
+                    if (res != null) {
+                        // if the result is "null" the mutation has been discarded
+                        usefulRecords.add(record);
+                    } else {
+                        cacheHits++;
+                    }
+                }
+                long duration = System.currentTimeMillis() - start;
+                long throughput = duration > 0 ? (1000L * newRecords.size()) / duration : 0;
+                if (log.isDebugEnabled()) {
+                    log.debug("Query time for {} msg in {} ms throughput={} msg/s cacheHits={}", newRecords.size(), duration, throughput, cacheHits);
+                }
+                consecutiveUnavailableException = 0;
+                return usefulRecords;
+            } catch (Exception e) {
+                Throwable cause = e instanceof CompletionException && e.getCause() != null ? e.getCause() : e;
+                if (cause instanceof ExecutionException && cause.getCause() != null) cause = cause.getCause();
+                log.warn("Error processing batch, will retry:", cause);
+                consecutiveUnavailableException = SourceUtil.backoffRetry(cause, consecutiveUnavailableException, config);
             }
-            long duration = System.currentTimeMillis() - start;
-            long throughput = duration > 0 ? (1000L * newRecords.size()) / duration : 0;
-            if (log.isDebugEnabled()) {
-                log.debug("Query time for {} msg in {} ms throughput={} msg/s cacheHits={}", newRecords.size(), duration, throughput, cacheHits);
-            }
-            queryExecutor.maybeAdjust();
-            queryExecutor.resetBackoff();
-            return usefulRecords;
-        } catch (CompletionException e) {
-            Throwable e2 = e.getCause();
-            if (e2 instanceof ExecutionException) {
-                e2 = e2.getCause();
-            }
-            log.info("CompletionException cause:", e2);
-
-            if (e2 instanceof com.datastax.oss.driver.api.core.servererrors.ReadTimeoutException ||
-                    e2 instanceof com.datastax.oss.driver.api.core.servererrors.OverloadedException) {
-                queryExecutor.decreaseOnError(e2);
-            } else if (e2 instanceof com.datastax.oss.driver.api.core.AllNodesFailedException) {
-                // just retry
-            } else {
-                log.warn("Unexpected exception class=" + e.getClass() + " message=" + e.getMessage() + " cause={}" + e.getCause(), e);
-                throw e;
-            }
-
-            for (CassandraRecord record : newRecords) {
-                negativeAcknowledge(consumer, record.getMutationMessage()); // fail every message in the buffer
-            }
-            queryExecutor.backoffRetry(e2);
-            return Collections.emptyList();
-        } catch (com.datastax.oss.driver.api.core.AllNodesFailedException e) {
-            log.info("AllNodesFailedException:", e);
-            for (CassandraRecord record : newRecords) {
-                negativeAcknowledge(consumer, record.getMutationMessage()); // fail every message in the buffer
-            }
-            queryExecutor.backoffRetry(e);
-            return Collections.emptyList();
-        } catch (Throwable e) {
-            log.error("Unrecoverable error:", e);
-            for (CassandraRecord record : newRecords) {
-                negativeAcknowledge(consumer, record.getMutationMessage());
-            }
-            throw e;
         }
-    }
-
-    void negativeAcknowledge(final Consumer<KeyValue<GenericRecord, MutationValue>> consumer,
-                             final Message<KeyValue<GenericRecord, MutationValue>> message) {
-        consumer.negativeAcknowledge(message);
     }
 
     // TODO: schema evolution. Unlike the Kafka Connect connector, records here carry a real
@@ -503,36 +459,15 @@ public class CassandraSource implements Source<GenericRecord>, NoOpSchemaChangeL
     // topic's configured SchemaCompatibilityStrategy, not on anything the connector itself
     // verifies before publishing. A downstream consumer can still break if that topic-level
     // strategy allows more than the consumer can handle.
-    @SneakyThrows
-    @Override
-    public void onTableUpdated(@NonNull TableMetadata current, @NonNull TableMetadata previous) {
-        log.debug("onTableUpdated {} {}", current, previous);
-        if (current.getKeyspace().asInternal().equals(config.getKeyspaceName())
-                && current.getName().asInternal().equals(config.getTableName())) {
-            KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(current.getKeyspace()).get();
-            setValueConverterAndQuery(ksm, current);
-        }
-    }
 
-    @SneakyThrows
     @Override
-    public void onUserDefinedTypeCreated(@NonNull UserDefinedType type) {
-        log.debug("onUserDefinedTypeCreated {}", type);
-        if (type.getKeyspace().asInternal().equals(config.getKeyspaceName())) {
-            KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(type.getKeyspace()).get();
-            setValueConverterAndQuery(ksm, ksm.getTable(config.getTableName()).get());
-        }
-    }
+    public String getKeyspaceName() { return config.getKeyspaceName(); }
 
-    @SneakyThrows
     @Override
-    public void onUserDefinedTypeUpdated(@NonNull UserDefinedType userDefinedType, @NonNull UserDefinedType userDefinedType1) {
-        log.debug("onUserDefinedTypeUpdated {} {}", userDefinedType, userDefinedType1);
-        if (userDefinedType.getKeyspace().asCql(true).equals(config.getKeyspaceName())) {
-            KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(userDefinedType.getKeyspace()).get();
-            setValueConverterAndQuery(ksm, ksm.getTable(config.getTableName()).get());
-        }
-    }
+    public String getTableName() { return config.getTableName(); }
+
+    @Override
+    public CassandraClient getCassandraClient() { return cassandraClient; }
 
     private interface CassandraRecord extends KVRecord {
         /**

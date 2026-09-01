@@ -31,6 +31,7 @@ sourceSets {
 }
 
 dependencies {
+    implementation("org.apache.bookkeeper:bookkeeper-common:${bookkeeperVersion}")
     implementation project(':commons')
     implementation("com.github.ben-manes.caffeine:caffeine:${caffeineVersion}")
     implementation("io.vavr:vavr:${vavrVersion}")
