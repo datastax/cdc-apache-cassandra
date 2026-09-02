@@ -224,7 +224,6 @@ public abstract class PulsarCassandraSourceTests {
     }
 
     void deployConnector(String ksName, String tableName) throws IOException, InterruptedException {
-        waitForNodesUp(Duration.ofMinutes(3));
         String config = String.format(Locale.ROOT, "{\"%s\":\"%s\", \"%s\":\"%s\", \"%s\":\"%s\", \"%s\":\"%s\", \"%s\": \"%s\", \"%s\":\"%s\", \"%s\":\"%s\"}",
                 CassandraSourceConnectorConfig.CONTACT_POINTS_OPT, "cassandra-1",
                 CassandraSourceConnectorConfig.DC_OPT, "datacenter1",
@@ -1228,6 +1227,7 @@ public abstract class PulsarCassandraSourceTests {
         } finally {
             dumpFunctionLogs("cassandra-source-" + ksName + "-table1");
             undeployConnector(ksName, "table1");
+            waitForNodesUp(Duration.ofMinutes(3));
         }
     }
 
@@ -1266,6 +1266,10 @@ public abstract class PulsarCassandraSourceTests {
         } finally {
             dumpFunctionLogs("cassandra-source-" + ksName + "-table1");
             undeployConnector(ksName, "table1");
+            // The node this test knocked out can stay unreachable well after the chaos
+            // container itself reports cleanup done (see waitForNodesUp's javadoc) - wait here
+            // so the next test in the suite doesn't inherit a still-recovering cluster.
+            waitForNodesUp(Duration.ofMinutes(3));
         }
     }
 
