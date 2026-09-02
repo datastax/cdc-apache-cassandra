@@ -24,6 +24,7 @@ import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.data.CqlDuration;
 import com.datastax.oss.driver.api.core.data.TupleValue;
 import com.datastax.oss.driver.api.core.data.UdtValue;
+import com.datastax.oss.driver.api.core.metadata.NodeState;
 import com.datastax.oss.driver.api.core.type.DataTypes;
 import com.datastax.oss.driver.api.core.type.TupleType;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
@@ -204,7 +205,26 @@ public abstract class PulsarCassandraSourceTests {
         testTimestampInCollection("ks1");
     }
 
+    void waitForNodesUp(Duration timeout) throws InterruptedException {
+        try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+            long deadlineMs = System.currentTimeMillis() + timeout.toMillis();
+            while (true) {
+                boolean allUp = cqlSession.getMetadata().getNodes().values().stream()
+                        .allMatch(node -> node.getState() == NodeState.UP);
+                if (allUp) {
+                    return;
+                }
+                if (System.currentTimeMillis() >= deadlineMs) {
+                    log.warn("Timed out after {} waiting for all Cassandra nodes to be UP, proceeding anyway", timeout);
+                    return;
+                }
+                Thread.sleep(500);
+            }
+        }
+    }
+
     void deployConnector(String ksName, String tableName) throws IOException, InterruptedException {
+        waitForNodesUp(Duration.ofMinutes(3));
         String config = String.format(Locale.ROOT, "{\"%s\":\"%s\", \"%s\":\"%s\", \"%s\":\"%s\", \"%s\":\"%s\", \"%s\": \"%s\", \"%s\":\"%s\", \"%s\":\"%s\"}",
                 CassandraSourceConnectorConfig.CONTACT_POINTS_OPT, "cassandra-1",
                 CassandraSourceConnectorConfig.DC_OPT, "datacenter1",
