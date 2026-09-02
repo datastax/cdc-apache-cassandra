@@ -172,12 +172,12 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
         log.info("Starting Kafka source task eventsTopic={} outputTopic={} heartbeatTopic={} partitions={} query.executors={} maxTasksInQueue={}",
                 eventsTopic, outputTopic, heartbeatTopic, assignedPartitions,
                 config.getQueryExecutors(), config.getQueryMaxTasksInQueue());
+        initCassandraClientWithRetry();
         this.queryExecutor = OrderedExecutor.newBuilder()
                 .name("cdc-query-executor")
                 .numThreads(config.getQueryExecutors())
                 .maxTasksInQueue(config.getQueryMaxTasksInQueue())
                 .build();
-        initCassandraClientWithRetry();
     }
 
     private static final long INIT_RETRY_MAX_SINGLE_WAIT_MS = 5000L;

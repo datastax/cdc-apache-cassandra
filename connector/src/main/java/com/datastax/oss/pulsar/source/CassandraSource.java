@@ -207,12 +207,12 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
                     this.config.getEventsSubscriptionName(),
                     this.config.getQueryExecutors(),
                     this.config.getQueryMaxTasksInQueue());
+            initCassandraClientWithRetry();
             this.queryExecutor = OrderedExecutor.newBuilder()
                     .name("cdc-query-executor")
                     .numThreads(this.config.getQueryExecutors())
                     .maxTasksInQueue(this.config.getQueryMaxTasksInQueue())
                     .build();
-            initCassandraClientWithRetry();
         } catch (Throwable err) {
             log.error("Cannot open the connector:", err);
             throw new RuntimeException(err);
