@@ -219,6 +219,8 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
         }
     }
 
+    private static final long INIT_RETRY_MAX_SINGLE_WAIT_MS = 5000L;
+
     void initCassandraClientWithRetry() {
         long consecutiveFailures = 0;
         long deadlineMs = System.currentTimeMillis() + this.config.getQueryMaxBackoffInSec() * 1000;
@@ -231,7 +233,8 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
                     throw new RuntimeException("Failed to initialize Cassandra client after " +
                             this.config.getQueryMaxBackoffInSec() + "s, giving up", err);
                 }
-                consecutiveFailures = SourceUtil.backoffRetry(err, consecutiveFailures, this.config);
+                consecutiveFailures = SourceUtil.backoffRetry(err, consecutiveFailures, this.config,
+                        INIT_RETRY_MAX_SINGLE_WAIT_MS);
             }
         }
     }

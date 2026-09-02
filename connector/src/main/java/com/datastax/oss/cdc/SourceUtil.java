@@ -38,8 +38,22 @@ public final class SourceUtil {
      */
     public static long backoffRetry(Throwable throwable, long consecutiveUnavailableException,
                                     CassandraSourceConnectorConfig config) {
+        return backoffRetry(throwable, consecutiveUnavailableException, config,
+                config.getQueryMaxBackoffInSec() * 1000);
+    }
+
+    /**
+     * Same jittered-backoff strategy as above, but caps each individual sleep at
+     * {@code maxSingleWaitMs} instead of letting it grow all the way to {@code
+     * query.maxBackoffInSec}. Callers whose caller can be killed for going unresponsive too long
+     * (e.g. a Pulsar function instance, which is restarted if it doesn't yield control within its
+     * configured health-check interval) need to keep retrying frequently even while an overall
+     * give-up deadline measured in minutes/hours is still far off.
+     */
+    public static long backoffRetry(Throwable throwable, long consecutiveUnavailableException,
+                                    CassandraSourceConnectorConfig config, long maxSingleWaitMs) {
         consecutiveUnavailableException++;
-        long maxWait = Math.min(config.getQueryMaxBackoffInSec() * 1000,
+        long maxWait = Math.min(maxSingleWaitMs,
                 config.getQueryBackoffInMs() << consecutiveUnavailableException);
         long pauseInMs = ThreadLocalRandom.current().nextLong(0, Math.max(1, maxWait));
         log.warn("CQL availability issue={}, consecutiveUnavailableException={}, pausing {}ms before retrying",
