@@ -82,6 +82,25 @@ import java.util.stream.Collectors;
 @Slf4j
 public class KafkaCassandraSourceTask extends SourceTask implements SourceSchemaChangeListener {
 
+    /** Decoded, immutable fields for one consumed Kafka record. Decoded once and reused on retry. */
+    private static final class DecodedRecord {
+        final ConsumerRecord<byte[], byte[]> rec;
+        final GenericRecord mutationKeyRecord;
+        final MutationValue mutationValue;
+        final List<Object> pk;
+        final String cacheKey;
+
+        DecodedRecord(ConsumerRecord<byte[], byte[]> rec, GenericRecord mutationKeyRecord,
+                      MutationValue mutationValue, List<Object> pk, String cacheKey) {
+            this.rec = rec;
+            this.mutationKeyRecord = mutationKeyRecord;
+            this.mutationValue = mutationValue;
+            this.pk = pk;
+            this.cacheKey = cacheKey;
+        }
+    }
+
+
     CassandraSourceConnectorConfig config;
     CassandraClient cassandraClient;
     KafkaConsumer<byte[], byte[]> consumer;
@@ -359,7 +378,7 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
         }
 
         // Decode all consumed records and submit CQL queries up-front.
-        List<ConsumerRecord<byte[], byte[]>> consumedRecs = new ArrayList<>();
+        List<DecodedRecord> decodedRecs = new ArrayList<>();
         List<CompletableFuture<SourceRecord>> futures = new ArrayList<>();
         for (ConsumerRecord<byte[], byte[]> rec : records) {
             GenericRecord mutationKeyRecord;
@@ -373,16 +392,16 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
                 throw new RuntimeException("Cannot decode message at offset " + rec.offset(), e);
             }
             String cacheKey = Base64.getEncoder().encodeToString(rec.key());
-            ConverterAndQuery<Converter<byte[], ?>> converterAndQueryFinal = this.valueConverterAndQuery;
-            futures.add(submitCqlQuery(rec, mutationKeyRecord, mutationValue, pk, cacheKey, converterAndQueryFinal));
-            consumedRecs.add(rec);
+            DecodedRecord decoded = new DecodedRecord(rec, mutationKeyRecord, mutationValue, pk, cacheKey);
+            futures.add(submitCqlQuery(decoded, this.valueConverterAndQuery));
+            decodedRecs.add(decoded);
         }
 
         // Phase 2 – wait for CQL queries, retrying per-record on failure.
         // Records are already consumed; we must not re-poll on CQL failure.
         List<SourceRecord> sourceRecords = new ArrayList<>(futures.size());
         for (int i = 0; i < futures.size(); i++) {
-            SourceRecord sourceRecord = waitForCqlWithRetry(consumedRecs.get(i), futures, i);
+            SourceRecord sourceRecord = waitForCqlWithRetry(decodedRecs.get(i), futures, i);
             if (sourceRecord != null) {
                 sourceRecords.add(sourceRecord);
             }
@@ -397,37 +416,33 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
      */
     @SuppressWarnings("unchecked")
     private CompletableFuture<SourceRecord> submitCqlQuery(
-            ConsumerRecord<byte[], byte[]> rec,
-            GenericRecord mutationKeyRecord,
-            MutationValue mutationValue,
-            List<Object> pk,
-            String cacheKey,
+            DecodedRecord decoded,
             ConverterAndQuery<Converter<byte[], ?>> converterAndQueryFinal) {
         CompletableFuture<SourceRecord> future = new CompletableFuture<>();
         // we have to process sequentially the records from the same key
         // otherwise our mutation cache will not be enough efficient
         // in deduplicating mutations coming from different nodes
         try {
-            queryExecutor.executeOrdered(cacheKey, () -> {
+            queryExecutor.executeOrdered(decoded.cacheKey, () -> {
                 try {
-                    if (mutationCache.isMutationProcessed(cacheKey, mutationValue.getMd5Digest())) {
-                        future.complete(buildHeartbeatRecord(rec));
+                    if (mutationCache.isMutationProcessed(decoded.cacheKey, decoded.mutationValue.getMd5Digest())) {
+                        future.complete(buildHeartbeatRecord(decoded.rec));
                         return;
                     }
-                    List<Object> nonNullPkValues = pk.stream().filter(Objects::nonNull).collect(Collectors.toList());
+                    List<Object> nonNullPkValues = decoded.pk.stream().filter(Objects::nonNull).collect(Collectors.toList());
                     Tuple3<Row, ConsistencyLevel, UUID> tuple = cassandraClient.selectRow(
                             nonNullPkValues,
-                            mutationValue.getNodeId(),
+                            decoded.mutationValue.getNodeId(),
                             Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE),
                             getSelectStatement(converterAndQueryFinal, nonNullPkValues.size()),
-                            mutationValue.getMd5Digest());
+                            decoded.mutationValue.getMd5Digest());
                     Object value = tuple._1 == null ? this.emptyValue : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
                     if (ConsistencyLevel.LOCAL_QUORUM.equals(tuple._2())
-                            && (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._3 != null && tuple._3.equals(mutationValue.getNodeId())))) {
-                        mutationCache.addMutationMd5(cacheKey, mutationValue.getMd5Digest());
+                            && (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._3 != null && tuple._3.equals(decoded.mutationValue.getNodeId())))) {
+                        mutationCache.addMutationMd5(decoded.cacheKey, decoded.mutationValue.getMd5Digest());
                     }
-                    Object key = config.isAvroOutputFormat() ? rec.key() : keyConverter.fromConnectData(mutationKeyRecord);
-                    future.complete(buildSourceRecord(rec, key, value));
+                    Object key = config.isAvroOutputFormat() ? decoded.rec.key() : keyConverter.fromConnectData(decoded.mutationKeyRecord);
+                    future.complete(buildSourceRecord(decoded.rec, key, value));
                 } catch (Throwable err) {
                     future.completeExceptionally(err);
                 }
@@ -442,10 +457,14 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
      * Waits for one record's CQL query future forever, retrying on failure with jittered
      * back-off.  The Kafka record was already consumed; re-submits only the CQL query on
      * failure — never re-polls the events topic.
+     * <p>
+     * {@code decoded} is passed in from the caller so the immutable key/value bytes are decoded
+     * only once.  Only {@code this.valueConverterAndQuery} is re-read on each retry so that a
+     * schema change that arrived while the query was failing is picked up automatically.
      */
     @SuppressWarnings("unchecked")
     private SourceRecord waitForCqlWithRetry(
-            ConsumerRecord<byte[], byte[]> rec,
+            DecodedRecord decoded,
             List<CompletableFuture<SourceRecord>> futures,
             int index) throws InterruptedException {
         while (true) {
@@ -455,23 +474,14 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
                 Throwable cause = e.getCause() != null ? e.getCause() : e;
                 if (cause instanceof ExecutionException && cause.getCause() != null) cause = cause.getCause();
                 log.warn("CQL query failed for offset={}, retrying without re-consuming event topic:",
-                        rec.offset(), cause);
+                        decoded.rec.offset(), cause);
                 consecutiveUnavailableException =
                         SourceUtil.backoffRetry(cause, consecutiveUnavailableException, config);
 
                 // Re-submit only the CQL query; the Kafka record is already consumed.
-                GenericRecord mutationKeyRecord;
-                List<Object> pk;
-                MutationValue mutationValue;
-                try {
-                    mutationKeyRecord = decodeAvroRecord(rec.key(), mutationKeyConverter.nativeSchema);
-                    pk = mutationKeyConverter.fromConnectData(mutationKeyRecord);
-                    mutationValue = decodeMutationValue(rec.value());
-                } catch (IOException ioEx) {
-                    throw new RuntimeException("Cannot decode message at offset " + rec.offset(), ioEx);
-                }
-                String cacheKey = Base64.getEncoder().encodeToString(rec.key());
-                futures.set(index, submitCqlQuery(rec, mutationKeyRecord, mutationValue, pk, cacheKey, this.valueConverterAndQuery));
+                // Re-read valueConverterAndQuery so a schema change that arrived during the
+                // failure window is picked up for the retry.
+                futures.set(index, submitCqlQuery(decoded, this.valueConverterAndQuery));
             }
         }
     }

@@ -288,8 +288,13 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
         return ConverterFactory.create(converterClass, ksm, tableMetadata, columns);
     }
 
-    CassandraRecord createRecord(ConverterAndQuery<Converter> converterAndQueryFinal, CompletableFuture<KeyValue<Object, Object>> keyValue, Message<KeyValue<GenericRecord, MutationValue>> msg) {
-        final MyKVRecord kvRecord = new MyKVRecord(converterAndQueryFinal, keyValue, msg);
+    CassandraRecord createRecord(ConverterAndQuery<Converter> converterAndQueryFinal,
+                                 CompletableFuture<KeyValue<Object, Object>> keyValue,
+                                 Message<KeyValue<GenericRecord, MutationValue>> msg,
+                                 GenericRecord mutationKey,
+                                 MutationValue mutationValue,
+                                 List<Object> pk) {
+        final MyKVRecord kvRecord = new MyKVRecord(converterAndQueryFinal, keyValue, msg, mutationKey, mutationValue, pk);
 
         return config.isJsonOnlyOutputFormat() ? new JsonValueRecord(kvRecord) : kvRecord;
     }
@@ -380,7 +385,7 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
 
             CompletableFuture<KeyValue<Object, Object>> queryResult = submitCqlQuery(
                     msg, mutationKey, mutationValue, pk, converterAndQueryFinal);
-            final CassandraRecord record = createRecord(converterAndQueryFinal, queryResult, msg);
+            final CassandraRecord record = createRecord(converterAndQueryFinal, queryResult, msg, mutationKey, mutationValue, pk);
             newRecords.add(record);
         }
 
@@ -499,6 +504,18 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
      *
      * @return the resolved {@link KeyValue}, or {@code null} when the mutation was a cache-hit
      */
+    /**
+     * Waits for one record's CQL query future forever, retrying on failure with jittered
+     * back-off.  The event-topic message was already consumed, so re-submits only the CQL
+     * query — never re-consumes from the events topic.
+     * <p>
+     * The decoded {@code mutationKey}, {@code mutationValue}, and {@code pk} are stored in the
+     * record and reused on every retry to avoid redundant recomputation of immutable data.
+     * Only {@code this.valueConverterAndQuery} is re-read on each retry so that a schema change
+     * that arrived while the query was failing is picked up automatically.
+     *
+     * @return the resolved {@link KeyValue}, or {@code null} when the mutation was a cache-hit
+     */
     @SuppressWarnings("unchecked")
     private KeyValue waitForCqlWithRetry(CassandraRecord record) throws Exception {
         while (true) {
@@ -513,14 +530,14 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
                         SourceUtil.backoffRetry(cause, consecutiveUnavailableException, config);
 
                 // Re-submit only the CQL query; the event-topic message is already consumed.
-                final Message<KeyValue<GenericRecord, MutationValue>> msg = record.getMutationMessage();
-                final KeyValue<GenericRecord, MutationValue> kv = msg.getValue();
-                final GenericRecord mutationKey = kv.getKey();
-                final MutationValue mutationValue = kv.getValue();
-                final List<Object> pk = (List<Object>) mutationKeyConverter.fromConnectData(mutationKey.getNativeObject());
-                final ConverterAndQuery<Converter> converterAndQueryFinal = record.getConverterAndQuery();
-                record.replaceQueryResult(
-                        submitCqlQuery(msg, mutationKey, mutationValue, pk, converterAndQueryFinal));
+                // Re-read valueConverterAndQuery so a schema change that arrived during the
+                // failure window is picked up for the retry.
+                record.replaceQueryResult(submitCqlQuery(
+                        record.getMutationMessage(),
+                        record.getMutationKey(),
+                        record.getMutationValue(),
+                        record.getPk(),
+                        this.valueConverterAndQuery));
             }
         }
     }
@@ -561,6 +578,15 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
          */
         ConverterAndQuery<Converter> getConverterAndQuery();
 
+        /** @return the decoded mutation key, decoded once and reused on retry. */
+        GenericRecord getMutationKey();
+
+        /** @return the decoded mutation value, decoded once and reused on retry. */
+        MutationValue getMutationValue();
+
+        /** @return the primary-key values, computed once and reused on retry. */
+        List<Object> getPk();
+
         /**
          * Replaces the query-result future with a new one (used when retrying a failed CQL query
          * without re-consuming the event-topic message).
@@ -572,11 +598,22 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
         private final ConverterAndQuery<Converter> converterAndQueryFinal;
         private volatile CompletableFuture<KeyValue<Object, Object>> keyValue;
         private final Message<KeyValue<GenericRecord, MutationValue>> msg;
+        private final GenericRecord mutationKey;
+        private final MutationValue mutationValue;
+        private final List<Object> pk;
 
-        public MyKVRecord(ConverterAndQuery<Converter> converterAndQueryFinal, CompletableFuture<KeyValue<Object, Object>> keyValue, Message<KeyValue<GenericRecord, MutationValue>> msg) {
+        public MyKVRecord(ConverterAndQuery<Converter> converterAndQueryFinal,
+                          CompletableFuture<KeyValue<Object, Object>> keyValue,
+                          Message<KeyValue<GenericRecord, MutationValue>> msg,
+                          GenericRecord mutationKey,
+                          MutationValue mutationValue,
+                          List<Object> pk) {
             this.converterAndQueryFinal = converterAndQueryFinal;
             this.keyValue = keyValue;
             this.msg = msg;
+            this.mutationKey = mutationKey;
+            this.mutationValue = mutationValue;
+            this.pk = pk;
         }
 
         @Override
@@ -592,6 +629,21 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
         @Override
         public ConverterAndQuery<Converter> getConverterAndQuery() {
             return converterAndQueryFinal;
+        }
+
+        @Override
+        public GenericRecord getMutationKey() {
+            return mutationKey;
+        }
+
+        @Override
+        public MutationValue getMutationValue() {
+            return mutationValue;
+        }
+
+        @Override
+        public List<Object> getPk() {
+            return pk;
         }
 
         @Override
@@ -688,6 +740,21 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
         @Override
         public ConverterAndQuery<Converter> getConverterAndQuery() {
             return kvRecord.getConverterAndQuery();
+        }
+
+        @Override
+        public GenericRecord getMutationKey() {
+            return kvRecord.getMutationKey();
+        }
+
+        @Override
+        public MutationValue getMutationValue() {
+            return kvRecord.getMutationValue();
+        }
+
+        @Override
+        public List<Object> getPk() {
+            return kvRecord.getPk();
         }
 
         @Override
