@@ -40,6 +40,7 @@ import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.SchemaChangeListener;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
+import com.datastax.oss.driver.api.core.AllNodesFailedException;
 import com.datastax.oss.driver.api.core.servererrors.UnavailableException;
 import com.datastax.oss.driver.api.querybuilder.select.Select;
 import com.datastax.oss.driver.api.querybuilder.select.SelectFrom;
@@ -344,6 +345,25 @@ public class CassandraClient implements AutoCloseable {
                 });
     }
 
+    /**
+     * Returns {@code true} when {@code ex} represents a replica-unavailability error that warrants
+     * a consistency-level downgrade retry.  The driver can surface this either as a bare
+     * {@link UnavailableException} or as an {@link AllNodesFailedException} whose per-node error
+     * list contains at least one {@link UnavailableException} (the common case for a single-node
+     * cluster where all contacted replicas report unavailability).
+     */
+    static boolean isUnavailableError(Throwable ex) {
+        if (ex instanceof UnavailableException) {
+            return true;
+        }
+        if (ex instanceof AllNodesFailedException) {
+            return ((AllNodesFailedException) ex).getAllErrors().values().stream()
+                    .flatMap(List::stream)
+                    .anyMatch(t -> t instanceof UnavailableException);
+        }
+        return false;
+    }
+
     CompletionStage<Tuple2<AsyncResultSet, ConsistencyLevel>> executeWithDowngradeConsistencyRetry(
             CqlSession cqlSession,
             BoundStatement boundStatement,
@@ -355,7 +375,7 @@ public class CassandraClient implements AutoCloseable {
                 cqlSession.executeAsync(statement).thenApply(rx -> new Tuple2<>(rx, cl));
         return completionStage
                 .handle((r, ex) -> {
-                    if (ex == null || !(ex instanceof UnavailableException) || consistencyLevels.isEmpty()) {
+                    if (ex == null || !isUnavailableError(ex) || consistencyLevels.isEmpty()) {
                         log.debug("Executed CL={} statement={}", cl, statement.getPreparedStatement().getQuery());
                         return completionStage;
                     }
