@@ -15,8 +15,14 @@
  */
 package com.datastax.oss.cdc;
 
+import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
+import com.datastax.oss.driver.api.core.metadata.schema.SchemaChangeListener;
+import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
+import com.google.common.base.Preconditions;
+import io.vavr.Tuple2;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Locale;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -26,6 +32,60 @@ import java.util.concurrent.ThreadLocalRandom;
 public final class SourceUtil {
 
     private SourceUtil() {}
+
+    private static final long INIT_RETRY_MAX_SINGLE_WAIT_MS = 5000L;
+
+    /**
+     * Creates a {@link CassandraClient}, validates that the configured keyspace and table exist,
+     * and returns the client. Caller is responsible for converter setup after this returns.
+     *
+     * @param config          connector config
+     * @param applicationName driver application-name tag (connector-specific)
+     * @param listener        schema-change listener (typically {@code this} in the calling class)
+     * @return an initialised {@link CassandraClient} whose keyspace and table have been verified
+     */
+    public static CassandraClient initCassandraClient(CassandraSourceConnectorConfig config,
+                                                      String applicationName,
+                                                      SchemaChangeListener listener) {
+        CassandraClient client = new CassandraClient(config, Version.getVersion(), applicationName, listener);
+        Tuple2<KeyspaceMetadata, TableMetadata> tuple =
+                client.getTableMetadata(config.getKeyspaceName(), config.getTableName());
+        Preconditions.checkArgument(tuple._1 != null,
+                String.format(Locale.ROOT, "Keyspace %s does not exist", config.getKeyspaceName()));
+        Preconditions.checkArgument(tuple._2 != null,
+                String.format(Locale.ROOT, "Table %s.%s does not exist",
+                        config.getKeyspaceName(), config.getTableName()));
+        return client;
+    }
+
+    /**
+     * Calls {@link #initCassandraClient} in a retry loop with jittered backoff until either the
+     * call succeeds or the deadline derived from {@code config.getQueryMaxBackoffInSec()} is exceeded.
+     *
+     * @param config          connector config supplying backoff bounds
+     * @param applicationName driver application-name tag (connector-specific)
+     * @param listener        schema-change listener (typically {@code this} in the calling class)
+     * @return an initialised {@link CassandraClient}
+     * @throws RuntimeException wrapping the last failure if the deadline is exceeded
+     */
+    public static CassandraClient initCassandraClientWithRetry(CassandraSourceConnectorConfig config,
+                                                               String applicationName,
+                                                               SchemaChangeListener listener) {
+        long consecutiveFailures = 0;
+        long deadlineMs = System.currentTimeMillis() + config.getQueryMaxBackoffInSec() * 1000;
+        while (true) {
+            try {
+                return initCassandraClient(config, applicationName, listener);
+            } catch (Throwable err) {
+                if (System.currentTimeMillis() >= deadlineMs) {
+                    throw new RuntimeException("Failed to initialize Cassandra client after " +
+                            config.getQueryMaxBackoffInSec() + "s, giving up", err);
+                }
+                consecutiveFailures = backoffRetry(err, consecutiveFailures, config,
+                        INIT_RETRY_MAX_SINGLE_WAIT_MS);
+            }
+        }
+    }
 
     /**
      * Sleeps for an exponentially increasing randomised delay after a CQL availability failure,

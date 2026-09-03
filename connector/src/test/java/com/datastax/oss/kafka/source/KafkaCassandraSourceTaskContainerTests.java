@@ -144,7 +144,7 @@ public class KafkaCassandraSourceTaskContainerTests {
                 .name("cdc-query-executor-it")
                 .numThreads(1)
                 .build();
-        task.initCassandraClient();
+        task.initCassandraClientWithRetry();
 
         try {
             List<SourceRecord> records = pollUntilNonEmpty(task, 30);
@@ -190,7 +190,7 @@ public class KafkaCassandraSourceTaskContainerTests {
                 .name("cdc-query-executor-it")
                 .numThreads(1)
                 .build();
-        task.initCassandraClient();
+        task.initCassandraClientWithRetry();
 
         try {
             List<SourceRecord> beforeAlter = pollUntilNonEmpty(task, 30);

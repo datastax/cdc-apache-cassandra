@@ -200,26 +200,6 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
                 .build();
     }
 
-    private static final long INIT_RETRY_MAX_SINGLE_WAIT_MS = 5000L;
-
-    void initCassandraClientWithRetry() {
-        long consecutiveFailures = 0;
-        long deadlineMs = System.currentTimeMillis() + this.config.getQueryMaxBackoffInSec() * 1000;
-        while (true) {
-            try {
-                initCassandraClient();
-                return;
-            } catch (Throwable err) {
-                if (System.currentTimeMillis() >= deadlineMs) {
-                    throw new RuntimeException("Failed to initialize Cassandra client after " +
-                            this.config.getQueryMaxBackoffInSec() + "s, giving up", err);
-                }
-                consecutiveFailures = SourceUtil.backoffRetry(err, consecutiveFailures, this.config,
-                        INIT_RETRY_MAX_SINGLE_WAIT_MS);
-            }
-        }
-    }
-
     private Map<String, Object> sourcePartition(TopicPartition tp) {
         Map<String, Object> map = new HashMap<>();
         map.put("topic", tp.topic());
@@ -233,15 +213,18 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
         return map;
     }
 
-    void initCassandraClient() throws InvocationTargetException, NoSuchMethodException, IllegalAccessException, InstantiationException {
-        this.cassandraClient = new CassandraClient(this.config, Version.getVersion(),
-                Optional.ofNullable(config.getInstanceName()).orElse("kafka-cassandra-source-task"), this);
-        Tuple2<KeyspaceMetadata, TableMetadata> tuple = cassandraClient.getTableMetadata(this.config.getKeyspaceName(), this.config.getTableName());
-        Preconditions.checkArgument(tuple._1 != null, String.format(Locale.ROOT, "Keyspace %s does not exist", this.config.getKeyspaceName()));
-        Preconditions.checkArgument(tuple._2 != null, String.format(Locale.ROOT, "Table %s.%s does not exist", this.config.getKeyspaceName(), this.config.getTableName()));
-        this.keyConverter = createConverter(getKeyConverterClass(), tuple._1, tuple._2, tuple._2.getPrimaryKey());
-        this.mutationKeyConverter = new KafkaAvroConverter(tuple._1, tuple._2, tuple._2.getPrimaryKey());
-        setValueConverterAndQuery(tuple._1, tuple._2);
+    void initCassandraClientWithRetry() {
+        try {
+            this.cassandraClient = SourceUtil.initCassandraClientWithRetry(this.config,
+                    Optional.ofNullable(config.getInstanceName()).orElse("kafka-cassandra-source-task"), this);
+            Tuple2<KeyspaceMetadata, TableMetadata> tuple =
+                    this.cassandraClient.getTableMetadata(this.config.getKeyspaceName(), this.config.getTableName());
+            this.keyConverter = createConverter(getKeyConverterClass(), tuple._1, tuple._2, tuple._2.getPrimaryKey());
+            this.mutationKeyConverter = new KafkaAvroConverter(tuple._1, tuple._2, tuple._2.getPrimaryKey());
+            setValueConverterAndQuery(tuple._1, tuple._2);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     // TODO: schema evolution. This swaps the value converter/schema in place as soon as a
