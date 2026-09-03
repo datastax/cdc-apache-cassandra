@@ -20,8 +20,10 @@ import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 
+import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 // see https://github.com/alexei-led/pumba
 @Slf4j
@@ -30,17 +32,30 @@ public class ChaosNetworkContainer<SELF extends ChaosNetworkContainer<SELF>> ext
     public static final String PUMBA_IMAGE = Optional.ofNullable(System.getenv("PUMBA_IMAGE"))
             .orElse("gaiaadm/pumba:latest");
 
+    public static final String PUMBA_TC_IMAGE = Optional.ofNullable(System.getenv("PUMBA_TC_IMAGE"))
+            .orElse("ghcr.io/alexei-led/pumba-debian-nettools");
+
     private final CountDownLatch chaosFinished = new CountDownLatch(1);
+
+    /** Parsed duration in seconds, used as the await deadline in {@link #stop()}. */
+    private final long pauseSeconds;
 
     public ChaosNetworkContainer(String targetContainer, String pause) {
         super(PUMBA_IMAGE);
-        setCommand("--log-level debug netem --tc-image ghcr.io/alexei-led/pumba-debian-nettools --duration " + pause + " loss --percent 100 " + targetContainer);
+        this.pauseSeconds = parsePauseSeconds(pause);
+        setCommand("--log-level debug netem --tc-image " + PUMBA_TC_IMAGE + " --duration " + pause + " loss --percent 100 " + targetContainer);
         addFileSystemBind("/var/run/docker.sock", "/var/run/docker.sock", BindMode.READ_WRITE);
-        setWaitStrategy(Wait.forLogMessage(".*tc container created.*", 1));
+        // "netem command started" is the debug log pumba emits once the tc
+        // sidecar is running and packet loss is active (replaces the old
+        // "tc container created" message removed in pumba ~v1.2.x).
+        setWaitStrategy(Wait.forLogMessage(".*netem command started.*", 1)
+                .withStartupTimeout(Duration.ofSeconds(120)));
         withLogConsumer(o -> {
             final String line = o.getUtf8String();
             if (line != null) {
-                if (line.contains("stop netem for container")) {
+                // "stopping netem command on timeout/abort" replaces the old
+                // "stop netem for container" message removed in pumba ~v1.2.x.
+                if (line.contains("stopping netem command on")) {
                     chaosFinished.countDown();
                 }
             }
@@ -52,18 +67,47 @@ public class ChaosNetworkContainer<SELF extends ChaosNetworkContainer<SELF>> ext
     /**
      * The chaos command must be finished before the container stops.
      * If not, the chaos command will continue forever on the target container.
+     * <p>
+     * We wait up to {@code pauseSeconds + 30s} for the "stopping netem command on"
+     * log line before proceeding.  The extra 30 s covers pumba startup overhead and
+     * any log-stream flush delay.  If the deadline is reached without the latch
+     * firing (e.g. the final log line was lost when Docker closed the stream),
+     * we log a warning and continue — the container will be forcibly stopped by
+     * {@link GenericContainer#stop()} which also removes the tc rules.
      */
     @Override
     public void stop() {
-        log.info("requested stop for ChaosNetworkContainer, awaiting for chaos command to finish");
+        long timeoutSeconds = pauseSeconds + 30;
+        log.info("requested stop for ChaosNetworkContainer, awaiting up to {}s for chaos command to finish", timeoutSeconds);
         try {
-            chaosFinished.await();
+            boolean finished = chaosFinished.await(timeoutSeconds, TimeUnit.SECONDS);
+            if (!finished) {
+                log.warn("timed out waiting for pumba 'stopping netem command on' log line after {}s; " +
+                        "proceeding with container stop (tc rules will be removed by the container shutdown)", timeoutSeconds);
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-        log.info("chaos command finished, now stopping the container");
+        log.info("stopping ChaosNetworkContainer");
         super.stop();
     }
 
-
+    /**
+     * Parses a pumba/Go duration string into whole seconds.
+     * Supports the suffixes accepted by Go's {@code time.ParseDuration}:
+     * {@code ms}, {@code s}, {@code m}, {@code h}.
+     * Falls back to 300 s if the format is unrecognised.
+     */
+    private static long parsePauseSeconds(String pause) {
+        if (pause == null || pause.isEmpty()) return 300;
+        try {
+            if (pause.endsWith("ms")) return Math.max(1, Long.parseLong(pause.substring(0, pause.length() - 2)) / 1000);
+            if (pause.endsWith("h"))  return Long.parseLong(pause.substring(0, pause.length() - 1)) * 3600;
+            if (pause.endsWith("m"))  return Long.parseLong(pause.substring(0, pause.length() - 1)) * 60;
+            if (pause.endsWith("s"))  return Long.parseLong(pause.substring(0, pause.length() - 1));
+            return Long.parseLong(pause);
+        } catch (NumberFormatException e) {
+            return 300;
+        }
+    }
 }

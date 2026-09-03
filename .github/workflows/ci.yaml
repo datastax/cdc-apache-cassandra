@@ -5,11 +5,11 @@ on:
   pull_request:
     branches:
       - master
-      - feat/kafka-support
+      - feat/kafka-support*
   push:
     branches:
       - master
-      - feat/kafka-support
+      - feat/kafka-support*
     paths-ignore:
       - 'docs/**'
       - 'kubernetes/**'
@@ -71,13 +71,22 @@ jobs:
           version-file: gradle.properties
           version-file-extraction-pattern: '(?<=version=).+'
 
-      - name: Cache Docker layers
+      - name: Cache Docker images
         uses: actions/cache@v5
         with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          path: /tmp/docker-image-cache
+          key: ${{ runner.os }}-docker-${{ matrix.brokerImage }}-${{ hashFiles('**/gradle.properties') }}
           restore-keys: |
-            ${{ runner.os }}-buildx-
+            ${{ runner.os }}-docker-${{ matrix.brokerImage }}-
+
+      - name: Load cached Docker images
+        run: |
+          if [ -d /tmp/docker-image-cache ] && [ "$(ls /tmp/docker-image-cache/*.tar 2>/dev/null | wc -l)" -gt 0 ]; then
+            for f in /tmp/docker-image-cache/*.tar; do
+              echo "Loading $f"
+              docker load -i "$f"
+            done
+          fi
 
       - name: Test with Gradle
         env:
@@ -101,6 +110,49 @@ jobs:
           $BROKER_FLAGS \
           ${{ matrix.module }}:test
 
+      # backfill-cli isn't in the module matrix above: its unit tests are broker-agnostic and its
+      # e2e test needs the connector's nar, so it rides along on the connector matrix cell instead
+      # of running once per module.
+      - name: Test backfill-cli
+        if: matrix.module == 'connector'
+        env:
+          DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
+          DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
+        run: |
+          set -e
+          BROKER_ENTRY="${{ matrix.brokerImage }}"
+          BROKER_TYPE=${BROKER_ENTRY%%|*}
+          BROKER_IMAGE_FULL=${BROKER_ENTRY#*|}
+          BROKER_IMAGE=${BROKER_IMAGE_FULL%:*}
+          BROKER_IMAGE_TAG=${BROKER_IMAGE_FULL##*:}
+
+          if [ "$BROKER_TYPE" = "pulsar" ]; then
+            BROKER_FLAGS="-PbrokerType=pulsar -PtestPulsarImage=$BROKER_IMAGE -PtestPulsarImageTag=$BROKER_IMAGE_TAG"
+          else
+            BROKER_FLAGS="-PbrokerType=kafka -PtestKafkaImage=$BROKER_IMAGE -PtestKafkaImageTag=$BROKER_IMAGE_TAG"
+          fi
+
+          ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
+          $BROKER_FLAGS \
+          backfill-cli:test backfill-cli:e2eTest
+
+      - name: Save Docker images to cache
+        if: always()
+        run: |
+          mkdir -p /tmp/docker-image-cache
+          # Save all images pulled during this run that aren't already cached.
+          # Skipping <none> (dangling) and images smaller than 1MB (base scratch layers).
+          docker images --format '{{.Repository}}:{{.Tag}}' \
+            | grep -v '<none>' \
+            | while read img; do
+                safe=$(echo "$img" | tr '/:' '__')
+                dest="/tmp/docker-image-cache/${safe}.tar"
+                if [ ! -f "$dest" ]; then
+                  echo "Saving $img -> $dest"
+                  docker save "$img" -o "$dest"
+                fi
+              done
+
   # Lean smoke test — runs on feature branches (agent + agent-c4, JDK 11).
   test-feature:
     needs: build
@@ -111,7 +163,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module: ['agent', 'agent-c4', 'agent-dse4']
+        module: ['agent', 'agent-c4', 'agent-dse4', 'connector']
         brokerImage:
           - 'pulsar|datastax/lunastreaming:2.10_3.4'
           - 'kafka|confluentinc/cp-kafka:7.4.0'
@@ -130,13 +182,22 @@ jobs:
           version-file: gradle.properties
           version-file-extraction-pattern: '(?<=version=).+'
 
-      - name: Cache Docker layers
+      - name: Cache Docker images
         uses: actions/cache@v5
         with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          path: /tmp/docker-image-cache
+          key: ${{ runner.os }}-docker-${{ matrix.brokerImage }}-${{ hashFiles('**/gradle.properties') }}
           restore-keys: |
-            ${{ runner.os }}-buildx-
+            ${{ runner.os }}-docker-${{ matrix.brokerImage }}-
+
+      - name: Load cached Docker images
+        run: |
+          if [ -d /tmp/docker-image-cache ] && [ "$(ls /tmp/docker-image-cache/*.tar 2>/dev/null | wc -l)" -gt 0 ]; then
+            for f in /tmp/docker-image-cache/*.tar; do
+              echo "Loading $f"
+              docker load -i "$f"
+            done
+          fi
 
       - name: Test with Gradle
         env:
@@ -159,3 +220,44 @@ jobs:
           ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
           $BROKER_FLAGS \
           ${{ matrix.module }}:test
+
+      # backfill-cli isn't in the module matrix above: its unit tests are broker-agnostic and its
+      # e2e test needs the connector's nar, so it rides along on the connector matrix cell instead
+      # of running once per module.
+      - name: Test backfill-cli
+        if: matrix.module == 'connector'
+        env:
+          DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
+          DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
+        run: |
+          set -e
+          BROKER_ENTRY="${{ matrix.brokerImage }}"
+          BROKER_TYPE=${BROKER_ENTRY%%|*}
+          BROKER_IMAGE_FULL=${BROKER_ENTRY#*|}
+          BROKER_IMAGE=${BROKER_IMAGE_FULL%:*}
+          BROKER_IMAGE_TAG=${BROKER_IMAGE_FULL##*:}
+
+          if [ "$BROKER_TYPE" = "pulsar" ]; then
+            BROKER_FLAGS="-PbrokerType=pulsar -PtestPulsarImage=$BROKER_IMAGE -PtestPulsarImageTag=$BROKER_IMAGE_TAG"
+          else
+            BROKER_FLAGS="-PbrokerType=kafka -PtestKafkaImage=$BROKER_IMAGE -PtestKafkaImageTag=$BROKER_IMAGE_TAG"
+          fi
+
+          ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
+          $BROKER_FLAGS \
+          backfill-cli:test backfill-cli:e2eTest
+
+      - name: Save Docker images to cache
+        if: always()
+        run: |
+          mkdir -p /tmp/docker-image-cache
+          docker images --format '{{.Repository}}:{{.Tag}}' \
+            | grep -v '<none>' \
+            | while read img; do
+                safe=$(echo "$img" | tr '/:' '__')
+                dest="/tmp/docker-image-cache/${safe}.tar"
+                if [ ! -f "$dest" ]; then
+                  echo "Saving $img -> $dest"
+                  docker save "$img" -o "$dest"
+                fi
+              done

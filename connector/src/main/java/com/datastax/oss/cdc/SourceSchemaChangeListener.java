@@ -23,18 +23,26 @@ import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.ViewMetadata;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
 import edu.umd.cs.findbugs.annotations.NonNull;
+import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * {@link SchemaChangeListener} with default no-op bodies for every callback neither the Pulsar
- * nor the Kafka source connector acts on. Implementers only need to override the schema-change
- * events that actually affect query/converter state: {@code onTableUpdated},
- * {@code onUserDefinedTypeCreated}, {@code onUserDefinedTypeUpdated}.
+ * nor the Kafka source connector acts on, plus shared default implementations for the three
+ * callbacks that do affect query/converter state.
+ * <p>
+ * Implementers must provide {@link #getKeyspaceName()}, {@link #getTableName()},
+ * {@link #getCassandraClient()}, and {@link #setValueConverterAndQuery(KeyspaceMetadata, TableMetadata)}.
  */
-public interface NoOpSchemaChangeListener extends SchemaChangeListener {
+public interface SourceSchemaChangeListener extends SchemaChangeListener {
 
-    Logger LOG = LoggerFactory.getLogger(NoOpSchemaChangeListener.class);
+    Logger LOG = LoggerFactory.getLogger(SourceSchemaChangeListener.class);
+
+    String getKeyspaceName();
+    String getTableName();
+    CassandraClient getCassandraClient();
+    void setValueConverterAndQuery(KeyspaceMetadata ksm, TableMetadata tableMetadata);
 
     @Override
     default void onKeyspaceCreated(@NonNull KeyspaceMetadata keyspace) {
@@ -95,5 +103,36 @@ public interface NoOpSchemaChangeListener extends SchemaChangeListener {
 
     @Override
     default void onViewUpdated(@NonNull ViewMetadata current, @NonNull ViewMetadata previous) {
+    }
+
+    @SneakyThrows
+    @Override
+    default void onTableUpdated(@NonNull TableMetadata current, @NonNull TableMetadata previous) {
+        LOG.debug("onTableUpdated {} {}", current, previous);
+        if (current.getKeyspace().asInternal().equals(getKeyspaceName())
+                && current.getName().asInternal().equals(getTableName())) {
+            KeyspaceMetadata ksm = getCassandraClient().getCqlSession().getMetadata().getKeyspace(current.getKeyspace()).get();
+            setValueConverterAndQuery(ksm, current);
+        }
+    }
+
+    @SneakyThrows
+    @Override
+    default void onUserDefinedTypeCreated(@NonNull UserDefinedType type) {
+        LOG.debug("onUserDefinedTypeCreated {}", type);
+        if (type.getKeyspace().asInternal().equals(getKeyspaceName())) {
+            KeyspaceMetadata ksm = getCassandraClient().getCqlSession().getMetadata().getKeyspace(type.getKeyspace()).get();
+            setValueConverterAndQuery(ksm, ksm.getTable(getTableName()).get());
+        }
+    }
+
+    @SneakyThrows
+    @Override
+    default void onUserDefinedTypeUpdated(@NonNull UserDefinedType userDefinedType, @NonNull UserDefinedType userDefinedType1) {
+        LOG.debug("onUserDefinedTypeUpdated {} {}", userDefinedType, userDefinedType1);
+        if (userDefinedType.getKeyspace().asCql(true).equals(getKeyspaceName())) {
+            KeyspaceMetadata ksm = getCassandraClient().getCqlSession().getMetadata().getKeyspace(userDefinedType.getKeyspace()).get();
+            setValueConverterAndQuery(ksm, ksm.getTable(getTableName()).get());
+        }
     }
 }

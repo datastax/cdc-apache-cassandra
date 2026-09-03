@@ -15,14 +15,14 @@
  */
 package com.datastax.oss.kafka.source;
 
-import com.datastax.oss.cdc.AdaptiveQueryExecutor;
 import com.datastax.oss.cdc.CassandraClient;
+import com.datastax.oss.cdc.SourceUtil;
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
 import com.datastax.oss.cdc.ConverterAndQuery;
 import com.datastax.oss.cdc.CqlLogicalTypes;
 import com.datastax.oss.cdc.MutationCache;
 import com.datastax.oss.cdc.MutationValue;
-import com.datastax.oss.cdc.NoOpSchemaChangeListener;
+import com.datastax.oss.cdc.SourceSchemaChangeListener;
 import com.datastax.oss.cdc.Version;
 import com.datastax.oss.cdc.converters.AvroRowConverter;
 import com.datastax.oss.cdc.converters.ConverterFactory;
@@ -32,16 +32,13 @@ import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
-import com.datastax.oss.driver.api.core.type.UserDefinedType;
 import com.datastax.oss.kafka.source.converters.Converter;
 import com.datastax.oss.kafka.source.converters.KafkaAvroConverter;
 import com.datastax.oss.kafka.source.converters.KafkaJsonConverter;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
-import edu.umd.cs.findbugs.annotations.NonNull;
 import io.vavr.Tuple2;
 import io.vavr.Tuple3;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Conversions;
 import org.apache.avro.generic.GenericRecord;
@@ -53,9 +50,12 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.WakeupException;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
+
+import org.apache.bookkeeper.common.util.OrderedExecutor;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -80,10 +80,29 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class KafkaCassandraSourceTask extends SourceTask implements NoOpSchemaChangeListener {
+public class KafkaCassandraSourceTask extends SourceTask implements SourceSchemaChangeListener {
+
+    /** Decoded, immutable fields for one consumed Kafka record. Decoded once and reused on retry. */
+    private static final class DecodedRecord {
+        final ConsumerRecord<byte[], byte[]> rec;
+        final GenericRecord mutationKeyRecord;
+        final MutationValue mutationValue;
+        final List<Object> pk;
+        final String cacheKey;
+
+        DecodedRecord(ConsumerRecord<byte[], byte[]> rec, GenericRecord mutationKeyRecord,
+                      MutationValue mutationValue, List<Object> pk, String cacheKey) {
+            this.rec = rec;
+            this.mutationKeyRecord = mutationKeyRecord;
+            this.mutationValue = mutationValue;
+            this.pk = pk;
+            this.cacheKey = cacheKey;
+        }
+    }
+
 
     CassandraSourceConnectorConfig config;
-    volatile CassandraClient cassandraClient;
+    CassandraClient cassandraClient;
     KafkaConsumer<byte[], byte[]> consumer;
     String eventsTopic;
     String outputTopic;
@@ -99,7 +118,8 @@ public class KafkaCassandraSourceTask extends SourceTask implements NoOpSchemaCh
     volatile ConverterAndQuery<Converter<byte[], ?>> valueConverterAndQuery;
     private Object emptyValue;
 
-    AdaptiveQueryExecutor queryExecutor;
+    OrderedExecutor queryExecutor;
+    private long consecutiveUnavailableException = 0;
 
     private static final org.apache.avro.Schema MUTATION_VALUE_SCHEMA;
 
@@ -169,8 +189,15 @@ public class KafkaCassandraSourceTask extends SourceTask implements NoOpSchemaCh
                 config.getCacheMaxDigests(),
                 config.getCacheMaxCapacity(),
                 Duration.ofMillis(config.getCacheExpireAfterMs()));
-        log.info("Starting Kafka source task eventsTopic={} outputTopic={} heartbeatTopic={} partitions={} query.executors={}",
-                eventsTopic, outputTopic, heartbeatTopic, assignedPartitions, config.getQueryExecutors());
+        log.info("Starting Kafka source task eventsTopic={} outputTopic={} heartbeatTopic={} partitions={} query.executors={} maxTasksInQueue={}",
+                eventsTopic, outputTopic, heartbeatTopic, assignedPartitions,
+                config.getQueryExecutors(), config.getQueryMaxTasksInQueue());
+        initCassandraClientWithRetry();
+        this.queryExecutor = OrderedExecutor.newBuilder()
+                .name("cdc-query-executor")
+                .numThreads(config.getQueryExecutors())
+                .maxTasksInQueue(config.getQueryMaxTasksInQueue())
+                .build();
     }
 
     private Map<String, Object> sourcePartition(TopicPartition tp) {
@@ -186,25 +213,18 @@ public class KafkaCassandraSourceTask extends SourceTask implements NoOpSchemaCh
         return map;
     }
 
-    void maybeInitCassandraClient() throws InvocationTargetException, NoSuchMethodException, IllegalAccessException, InstantiationException {
-        if (this.cassandraClient == null) {
-            synchronized (this) {
-                if (this.cassandraClient == null) {
-                    initCassandraClient();
-                }
-            }
+    void initCassandraClientWithRetry() {
+        try {
+            this.cassandraClient = SourceUtil.initCassandraClientWithRetry(this.config,
+                    Optional.ofNullable(config.getInstanceName()).orElse("kafka-cassandra-source-task"), this);
+            Tuple2<KeyspaceMetadata, TableMetadata> tuple =
+                    this.cassandraClient.getTableMetadata(this.config.getKeyspaceName(), this.config.getTableName());
+            this.keyConverter = createConverter(getKeyConverterClass(), tuple._1, tuple._2, tuple._2.getPrimaryKey());
+            this.mutationKeyConverter = new KafkaAvroConverter(tuple._1, tuple._2, tuple._2.getPrimaryKey());
+            setValueConverterAndQuery(tuple._1, tuple._2);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
-    }
-
-    void initCassandraClient() throws InvocationTargetException, NoSuchMethodException, IllegalAccessException, InstantiationException {
-        this.cassandraClient = new CassandraClient(this.config, Version.getVersion(),
-                Optional.ofNullable(config.getInstanceName()).orElse("kafka-cassandra-source-task"), this);
-        Tuple2<KeyspaceMetadata, TableMetadata> tuple = cassandraClient.getTableMetadata(this.config.getKeyspaceName(), this.config.getTableName());
-        Preconditions.checkArgument(tuple._1 != null, String.format(Locale.ROOT, "Keyspace %s does not exist", this.config.getKeyspaceName()));
-        Preconditions.checkArgument(tuple._2 != null, String.format(Locale.ROOT, "Table %s.%s does not exist", this.config.getKeyspaceName(), this.config.getTableName()));
-        this.keyConverter = createConverter(getKeyConverterClass(), tuple._1, tuple._2, tuple._2.getPrimaryKey());
-        this.mutationKeyConverter = new KafkaAvroConverter(tuple._1, tuple._2, tuple._2.getPrimaryKey());
-        setValueConverterAndQuery(tuple._1, tuple._2);
     }
 
     // TODO: schema evolution. This swaps the value converter/schema in place as soon as a
@@ -213,7 +233,7 @@ public class KafkaCassandraSourceTask extends SourceTask implements NoOpSchemaCh
     // consumer reading the data topic with the previous Avro schema can break as soon as this
     // runs, with no warning. Needs a registry (Confluent Schema Registry or Apicurio Registry,
     // see the design doc's schema registry discussion) before this can be made safe.
-    synchronized void setValueConverterAndQuery(KeyspaceMetadata ksm, TableMetadata tableMetadata) {
+    public synchronized void setValueConverterAndQuery(KeyspaceMetadata ksm, TableMetadata tableMetadata) {
         try {
             this.valueConverterAndQuery = ConverterAndQuery.forTable(
                     config, columnPattern, cassandraClient, ksm, tableMetadata, getValueConverterClass(), log);
@@ -257,7 +277,6 @@ public class KafkaCassandraSourceTask extends SourceTask implements NoOpSchemaCh
         }
         if (queryExecutor != null) {
             queryExecutor.shutdown();
-            queryExecutor = null;
         }
         if (this.consumer != null) {
             this.consumer.close();
@@ -317,160 +336,145 @@ public class KafkaCassandraSourceTask extends SourceTask implements NoOpSchemaCh
                 null);
     }
 
-    /**
-     * TODO: this retries the whole batch from its first offset on the next {@link #poll()}
-     * rather than nacking with a delay, so a persistently failing record spins the batch
-     * immediately instead of backing off. Consider a delayed-nack mechanism (e.g. Spring Kafka's
-     * {@code Acknowledgment.nack(Duration)}) for all failure/redelivery paths here.
-     */
-    private void seekBackToBatchStart(Map<TopicPartition, Long> firstOffsetInBatch) {
-        for (Map.Entry<TopicPartition, Long> entry : firstOffsetInBatch.entrySet()) {
-            consumer.seek(entry.getKey(), entry.getValue());
-        }
-    }
-
     @Override
     @SuppressWarnings("unchecked")
     public List<SourceRecord> poll() throws InterruptedException {
-        if (this.queryExecutor == null) {
-            this.queryExecutor = new AdaptiveQueryExecutor(config);
+        // Phase 1 – consume from the events topic.
+        // Retry consumer.poll() forever on transient errors; nothing is consumed yet so
+        // re-polling is safe. WakeupException signals a deliberate shutdown and must not
+        // be swallowed.
+        ConsumerRecords<byte[], byte[]> records;
+        while (true) {
+            try {
+                records = consumer.poll(Duration.ofSeconds(1));
+                break;
+            } catch (WakeupException e) {
+                throw e;
+            } catch (Exception e) {
+                log.warn("consumer.poll() failed, retrying:", e);
+                consecutiveUnavailableException =
+                        SourceUtil.backoffRetry(e, consecutiveUnavailableException, config);
+            }
         }
-        queryExecutor.beginBatch();
-        try {
-            maybeInitCassandraClient();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-        ConsumerRecords<byte[], byte[]> records = consumer.poll(Duration.ofSeconds(1));
         if (records.isEmpty()) {
             return Collections.emptyList();
         }
 
-        Map<TopicPartition, Long> firstOffsetInBatch = new HashMap<>();
+        // Decode all consumed records and submit CQL queries up-front.
+        List<DecodedRecord> decodedRecs = new ArrayList<>();
         List<CompletableFuture<SourceRecord>> futures = new ArrayList<>();
+        for (ConsumerRecord<byte[], byte[]> rec : records) {
+            GenericRecord mutationKeyRecord;
+            List<Object> pk;
+            MutationValue mutationValue;
+            try {
+                mutationKeyRecord = decodeAvroRecord(rec.key(), mutationKeyConverter.nativeSchema);
+                pk = mutationKeyConverter.fromConnectData(mutationKeyRecord);
+                mutationValue = decodeMutationValue(rec.value());
+            } catch (IOException e) {
+                throw new RuntimeException("Cannot decode message at offset " + rec.offset(), e);
+            }
+            String cacheKey = Base64.getEncoder().encodeToString(rec.key());
+            DecodedRecord decoded = new DecodedRecord(rec, mutationKeyRecord, mutationValue, pk, cacheKey);
+            futures.add(submitCqlQuery(decoded, this.valueConverterAndQuery));
+            decodedRecs.add(decoded);
+        }
+
+        // Phase 2 – wait for CQL queries, retrying per-record on failure.
+        // Records are already consumed; we must not re-poll on CQL failure.
+        List<SourceRecord> sourceRecords = new ArrayList<>(futures.size());
+        for (int i = 0; i < futures.size(); i++) {
+            SourceRecord sourceRecord = waitForCqlWithRetry(decodedRecs.get(i), futures, i);
+            if (sourceRecord != null) {
+                sourceRecords.add(sourceRecord);
+            }
+        }
+        consecutiveUnavailableException = 0;
+        return sourceRecords;
+    }
+
+    /**
+     * Submits the CQL selectRow for one already-consumed Kafka record to the ordered executor
+     * and returns the future tracking its result.
+     */
+    @SuppressWarnings("unchecked")
+    private CompletableFuture<SourceRecord> submitCqlQuery(
+            DecodedRecord decoded,
+            ConverterAndQuery<Converter<byte[], ?>> converterAndQueryFinal) {
+        CompletableFuture<SourceRecord> future = new CompletableFuture<>();
+        // we have to process sequentially the records from the same key
+        // otherwise our mutation cache will not be enough efficient
+        // in deduplicating mutations coming from different nodes
         try {
-            for (ConsumerRecord<byte[], byte[]> rec : records) {
-                TopicPartition tp = new TopicPartition(rec.topic(), rec.partition());
-                firstOffsetInBatch.putIfAbsent(tp, rec.offset());
-
-                GenericRecord mutationKeyRecord;
-                List<Object> pk;
-                MutationValue mutationValue;
+            queryExecutor.executeOrdered(decoded.cacheKey, () -> {
                 try {
-                    mutationKeyRecord = decodeAvroRecord(rec.key(), mutationKeyConverter.nativeSchema);
-                    pk = mutationKeyConverter.fromConnectData(mutationKeyRecord);
-                    mutationValue = decodeMutationValue(rec.value());
-                } catch (IOException e) {
-                    throw new RuntimeException("Cannot decode message at offset " + rec.offset(), e);
-                }
-                String cacheKey = Base64.getEncoder().encodeToString(rec.key());
-                ConverterAndQuery<Converter<byte[], ?>> converterAndQueryFinal = this.valueConverterAndQuery;
-
-                CompletableFuture<SourceRecord> future = new CompletableFuture<>();
-                queryExecutor.executeOrdered(cacheKey, () -> {
-                    try {
-                        if (mutationCache.isMutationProcessed(cacheKey, mutationValue.getMd5Digest())) {
-                            future.complete(buildHeartbeatRecord(rec));
-                            return null;
-                        }
-                        List<Object> nonNullPkValues = pk.stream().filter(Objects::nonNull).collect(Collectors.toList());
-                        long start = System.currentTimeMillis();
-                        Tuple3<Row, ConsistencyLevel, UUID> tuple = cassandraClient.selectRow(
-                                nonNullPkValues,
-                                mutationValue.getNodeId(),
-                                Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE),
-                                getSelectStatement(converterAndQueryFinal, nonNullPkValues.size()),
-                                mutationValue.getMd5Digest());
-                        long end = System.currentTimeMillis();
-                        queryExecutor.recordQueryLatency(end - start);
-                        Object value = tuple._1 == null ? this.emptyValue : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
-                        if (ConsistencyLevel.LOCAL_QUORUM.equals(tuple._2())
-                                && (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._3 != null && tuple._3.equals(mutationValue.getNodeId())))) {
-                            mutationCache.addMutationMd5(cacheKey, mutationValue.getMd5Digest());
-                        }
-                        Object key = config.isAvroOutputFormat() ? rec.key() : keyConverter.fromConnectData(mutationKeyRecord);
-                        future.complete(buildSourceRecord(rec, key, value));
-                    } catch (Throwable err) {
-                        future.completeExceptionally(err);
+                    if (mutationCache.isMutationProcessed(decoded.cacheKey, decoded.mutationValue.getMd5Digest())) {
+                        future.complete(buildHeartbeatRecord(decoded.rec));
+                        return;
                     }
-                    return null;
-                });
-                futures.add(future);
-            }
-
-            List<SourceRecord> sourceRecords = new ArrayList<>(futures.size());
-            for (CompletableFuture<SourceRecord> future : futures) {
-                SourceRecord sourceRecord = future.join();
-                if (sourceRecord != null) {
-                    sourceRecords.add(sourceRecord);
+                    List<Object> nonNullPkValues = decoded.pk.stream().filter(Objects::nonNull).collect(Collectors.toList());
+                    Tuple3<Row, ConsistencyLevel, UUID> tuple = cassandraClient.selectRow(
+                            nonNullPkValues,
+                            decoded.mutationValue.getNodeId(),
+                            Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE),
+                            getSelectStatement(converterAndQueryFinal, nonNullPkValues.size()),
+                            decoded.mutationValue.getMd5Digest());
+                    Object value = tuple._1 == null ? this.emptyValue : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
+                    if (ConsistencyLevel.LOCAL_QUORUM.equals(tuple._2())
+                            && (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._3 != null && tuple._3.equals(decoded.mutationValue.getNodeId())))) {
+                        mutationCache.addMutationMd5(decoded.cacheKey, decoded.mutationValue.getMd5Digest());
+                    }
+                    Object key = config.isAvroOutputFormat() ? decoded.rec.key() : keyConverter.fromConnectData(decoded.mutationKeyRecord);
+                    future.complete(buildSourceRecord(decoded.rec, key, value));
+                } catch (Throwable err) {
+                    future.completeExceptionally(err);
                 }
+            });
+        } catch (Throwable err) {
+            future.completeExceptionally(err);
+        }
+        return future;
+    }
+
+    /**
+     * Waits for one record's CQL query future forever, retrying on failure with jittered
+     * back-off.  The Kafka record was already consumed; re-submits only the CQL query on
+     * failure — never re-polls the events topic.
+     * <p>
+     * {@code decoded} is passed in from the caller so the immutable key/value bytes are decoded
+     * only once.  Only {@code this.valueConverterAndQuery} is re-read on each retry so that a
+     * schema change that arrived while the query was failing is picked up automatically.
+     */
+    @SuppressWarnings("unchecked")
+    private SourceRecord waitForCqlWithRetry(
+            DecodedRecord decoded,
+            List<CompletableFuture<SourceRecord>> futures,
+            int index) throws InterruptedException {
+        while (true) {
+            try {
+                return futures.get(index).join();
+            } catch (CompletionException e) {
+                Throwable cause = e.getCause() != null ? e.getCause() : e;
+                if (cause instanceof ExecutionException && cause.getCause() != null) cause = cause.getCause();
+                log.warn("CQL query failed for offset={}, retrying without re-consuming event topic:",
+                        decoded.rec.offset(), cause);
+                consecutiveUnavailableException =
+                        SourceUtil.backoffRetry(cause, consecutiveUnavailableException, config);
+
+                // Re-submit only the CQL query; the Kafka record is already consumed.
+                // Re-read valueConverterAndQuery so a schema change that arrived during the
+                // failure window is picked up for the retry.
+                futures.set(index, submitCqlQuery(decoded, this.valueConverterAndQuery));
             }
-            queryExecutor.maybeAdjust();
-            queryExecutor.resetBackoff();
-            return sourceRecords;
-        } catch (CompletionException e) {
-            Throwable cause = e.getCause();
-            if (cause instanceof ExecutionException) {
-                cause = cause.getCause();
-            }
-            log.info("CompletionException cause:", cause);
-            if (cause instanceof com.datastax.oss.driver.api.core.servererrors.ReadTimeoutException
-                    || cause instanceof com.datastax.oss.driver.api.core.servererrors.OverloadedException) {
-                queryExecutor.decreaseOnError(cause);
-            } else if (cause instanceof com.datastax.oss.driver.api.core.AllNodesFailedException) {
-                // just retry
-            } else {
-                throw e;
-            }
-            seekBackToBatchStart(firstOffsetInBatch);
-            queryExecutor.backoffRetry(cause);
-            return Collections.emptyList();
-        } catch (com.datastax.oss.driver.api.core.AllNodesFailedException e) {
-            log.info("AllNodesFailedException:", e);
-            seekBackToBatchStart(firstOffsetInBatch);
-            queryExecutor.backoffRetry(e);
-            return Collections.emptyList();
-        } catch (RuntimeException e) {
-            // Unexpected, non-retryable failure (e.g. a malformed/corrupt record on the events
-            // topic). Unlike the CompletionException/AllNodesFailedException cases above, this
-            // is not treated as retryable: seek back so a subsequent restart resumes from this
-            // batch rather than skipping it, then rethrow so Kafka Connect surfaces the task as
-            // FAILED instead of silently looping.
-            log.error("Unrecoverable error:", e);
-            seekBackToBatchStart(firstOffsetInBatch);
-            throw e;
         }
     }
 
-    @SneakyThrows
     @Override
-    public void onTableUpdated(@NonNull TableMetadata current, @NonNull TableMetadata previous) {
-        log.debug("onTableUpdated {} {}", current, previous);
-        if (current.getKeyspace().asInternal().equals(config.getKeyspaceName())
-                && current.getName().asInternal().equals(config.getTableName())) {
-            KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(current.getKeyspace()).get();
-            setValueConverterAndQuery(ksm, current);
-        }
-    }
+    public String getKeyspaceName() { return config.getKeyspaceName(); }
 
-    @SneakyThrows
     @Override
-    public void onUserDefinedTypeCreated(@NonNull UserDefinedType type) {
-        log.debug("onUserDefinedTypeCreated {}", type);
-        if (type.getKeyspace().asInternal().equals(config.getKeyspaceName())) {
-            KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(type.getKeyspace()).get();
-            setValueConverterAndQuery(ksm, ksm.getTable(config.getTableName()).get());
-        }
-    }
+    public String getTableName() { return config.getTableName(); }
 
-    @SneakyThrows
     @Override
-    public void onUserDefinedTypeUpdated(@NonNull UserDefinedType userDefinedType, @NonNull UserDefinedType userDefinedType1) {
-        log.debug("onUserDefinedTypeUpdated {} {}", userDefinedType, userDefinedType1);
-        if (userDefinedType.getKeyspace().asCql(true).equals(config.getKeyspaceName())) {
-            KeyspaceMetadata ksm = cassandraClient.getCqlSession().getMetadata().getKeyspace(userDefinedType.getKeyspace()).get();
-            setValueConverterAndQuery(ksm, ksm.getTable(config.getTableName()).get());
-        }
-    }
+    public CassandraClient getCassandraClient() { return cassandraClient; }
 }

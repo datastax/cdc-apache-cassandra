@@ -71,6 +71,7 @@ public class CassandraSourceConnectorConfig {
 
     public static final String BATCH_SIZE_CONFIG = "batch.size";
     public static final String QUERY_EXECUTORS_CONFIG = "query.executors";
+    public static final String QUERY_MAX_TASKS_IN_QUEUE_CONFIG = "query.maxTasksInQueue";
     public static final String QUERY_MAX_MOBILE_AVG_LATENCY_CONFIG = "query.maxMobileAvgLatency";
     public static final String QUERY_MIN_MOBILE_AVG_LATENCY_CONFIG = "query.minMobileAvgLatency";
     public static final String QUERY_BACKOFF_IN_MS_CONFIG = "query.backoffInMs";
@@ -261,7 +262,15 @@ public class CassandraSourceConnectorConfig {
                             ConfigDef.Type.INT,
                             10,
                             ConfigDef.Importance.MEDIUM,
-                            "The initial and maximum number of threads to execute concurrent Cassandra queries")
+                            "The number of threads to execute concurrent Cassandra queries (fixed pool size)")
+                    .define(QUERY_MAX_TASKS_IN_QUEUE_CONFIG,
+                            ConfigDef.Type.INT,
+                            10000,
+                            ConfigDef.Range.atLeast(1),
+                            ConfigDef.Importance.MEDIUM,
+                            "Maximum number of pending CQL query tasks per executor thread. When this limit is reached " +
+                            "new submissions are rejected with a RejectedExecutionException, which the connector handles " +
+                            "as backpressure by pausing and retrying after a short delay.")
                     .define(QUERY_MAX_MOBILE_AVG_LATENCY_CONFIG,
                             ConfigDef.Type.LONG,
                             100L,
@@ -766,6 +775,10 @@ public class CassandraSourceConnectorConfig {
 
     public int getQueryExecutors() {
         return globalConfig.getInt(QUERY_EXECUTORS_CONFIG);
+    }
+
+    public int getQueryMaxTasksInQueue() {
+        return globalConfig.getInt(QUERY_MAX_TASKS_IN_QUEUE_CONFIG);
     }
 
     public int getPort() {

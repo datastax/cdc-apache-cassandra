@@ -21,9 +21,12 @@ import com.datastax.oss.driver.api.core.cql.BatchStatement;
 import com.datastax.oss.driver.api.core.cql.BatchStatementBuilder;
 import com.datastax.oss.driver.api.core.cql.BatchType;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.cql.SimpleStatement;
 import com.datastax.oss.driver.api.core.data.CqlDuration;
 import com.datastax.oss.driver.api.core.data.TupleValue;
 import com.datastax.oss.driver.api.core.data.UdtValue;
+import com.datastax.oss.driver.api.core.metadata.Node;
+import com.datastax.oss.driver.api.core.metadata.NodeState;
 import com.datastax.oss.driver.api.core.type.DataTypes;
 import com.datastax.oss.driver.api.core.type.TupleType;
 import com.datastax.oss.driver.api.core.type.UserDefinedType;
@@ -78,6 +81,7 @@ import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.net.InetSocketAddress;
 import java.util.stream.Collectors;
 
 import static com.datastax.oss.cdc.DataSpec.dataSpecMap;
@@ -202,6 +206,40 @@ public abstract class PulsarCassandraSourceTests {
     @Test
     public void testTimestampInCollection() throws InterruptedException, IOException {
         testTimestampInCollection("ks1");
+    }
+
+    void waitForNodesUp(Duration timeout) throws InterruptedException {
+        try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
+            long deadlineMs = System.currentTimeMillis() + timeout.toMillis();
+            while (true) {
+                boolean allUp = cqlSession.getMetadata().getNodes().values().stream()
+                        .allMatch(node -> node.getState() == NodeState.UP);
+                if (allUp) {
+                    return;
+                }
+                if (System.currentTimeMillis() >= deadlineMs) {
+                    log.warn("Timed out after {} waiting for all Cassandra nodes to be UP, proceeding anyway", timeout);
+                    return;
+                }
+                Thread.sleep(500);
+            }
+        }
+    }
+
+    /**
+     * The default load-balancing policy discovers and pools connections to every node in the
+     * cluster, not just the contact point - so a plain {@code cqlSession.execute(...)} can be
+     * coordinated by whichever node round-robin picks next. Tests that write through a chaos
+     * window need those writes pinned to a node known to stay reachable, or the client itself can
+     * hang for the full request timeout waiting on the node being chaos-tested, before the
+     * connector ever gets a chance to react.
+     */
+    static Node coordinatorNode(CqlSession session, CassandraContainer<?> container) {
+        InetSocketAddress endpoint = new InetSocketAddress(container.getHost(), container.getMappedPort(CassandraContainer.CQL_PORT));
+        return session.getMetadata().getNodes().values().stream()
+                .filter(node -> endpoint.equals(node.getEndPoint().resolve()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("No node found for endpoint " + endpoint));
     }
 
     void deployConnector(String ksName, String tableName) throws IOException, InterruptedException {
@@ -1182,10 +1220,10 @@ public abstract class PulsarCassandraSourceTests {
                 cqlSession.execute("INSERT INTO " + ksName + ".table1 (id, a) VALUES('1',1)");
 
                 deployConnector(ksName, "table1");
-
+                Node coordinator = coordinatorNode(cqlSession, cassandraContainer1);
                 chaosContainer.start();
-                cqlSession.execute("INSERT INTO " + ksName + ".table1 (id, a) VALUES('2',1)");
-                cqlSession.execute("INSERT INTO " + ksName + ".table1 (id, a) VALUES('3',1)");
+                cqlSession.execute(SimpleStatement.newInstance("INSERT INTO " + ksName + ".table1 (id, a) VALUES('2',1)").setNode(coordinator));
+                cqlSession.execute(SimpleStatement.newInstance("INSERT INTO " + ksName + ".table1 (id, a) VALUES('3',1)").setNode(coordinator));
             }
             try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
                 try (Consumer<GenericRecord> consumer = pulsarClient.newConsumer(org.apache.pulsar.client.api.Schema.AUTO_CONSUME())
@@ -1208,6 +1246,7 @@ public abstract class PulsarCassandraSourceTests {
         } finally {
             dumpFunctionLogs("cassandra-source-" + ksName + "-table1");
             undeployConnector(ksName, "table1");
+            waitForNodesUp(Duration.ofMinutes(3));
         }
     }
 
@@ -1246,6 +1285,10 @@ public abstract class PulsarCassandraSourceTests {
         } finally {
             dumpFunctionLogs("cassandra-source-" + ksName + "-table1");
             undeployConnector(ksName, "table1");
+            // The node this test knocked out can stay unreachable well after the chaos
+            // container itself reports cleanup done (see waitForNodesUp's javadoc) - wait here
+            // so the next test in the suite doesn't inherit a still-recovering cluster.
+            waitForNodesUp(Duration.ofMinutes(3));
         }
     }
 

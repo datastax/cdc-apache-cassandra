@@ -130,6 +130,11 @@ class KafkaCassandraSourceTaskKafkaTest {
 
         task = new KafkaCassandraSourceTask();
         task.config = config;
+        task.queryExecutor = org.apache.bookkeeper.common.util.OrderedExecutor.newBuilder()
+                .name("cdc-query-executor")
+                .numThreads(config.getQueryExecutors())
+                .maxTasksInQueue(config.getQueryMaxTasksInQueue())
+                .build();
         task.cassandraClient = cassandraClient;
         task.mutationCache = new MutationCache<>(3, 100, Duration.ofMinutes(1));
         task.mutationKeyConverter = mutationKeyConverter;
@@ -142,9 +147,7 @@ class KafkaCassandraSourceTaskKafkaTest {
 
     @AfterEach
     void tearDown() {
-        if (task.queryExecutor != null) {
-            task.queryExecutor.shutdown();
-        }
+        task.stop();
     }
 
     private byte[] encodePrimaryKey(int id) {
