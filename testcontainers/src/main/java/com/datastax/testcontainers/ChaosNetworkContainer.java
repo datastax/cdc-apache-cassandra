@@ -93,15 +93,18 @@ public class ChaosNetworkContainer<SELF extends ChaosNetworkContainer<SELF>> ext
     }
 
     /**
-     * Parses a pumba duration string (e.g. {@code "100s"}, {@code "2m"}) into seconds.
-     * Falls back to 300 if the format is unrecognised.
+     * Parses a pumba/Go duration string into whole seconds.
+     * Supports the suffixes accepted by Go's {@code time.ParseDuration}:
+     * {@code ms}, {@code s}, {@code m}, {@code h}.
+     * Falls back to 300 s if the format is unrecognised.
      */
     private static long parsePauseSeconds(String pause) {
         if (pause == null || pause.isEmpty()) return 300;
         try {
-            if (pause.endsWith("s")) return Long.parseLong(pause.substring(0, pause.length() - 1));
-            if (pause.endsWith("m")) return Long.parseLong(pause.substring(0, pause.length() - 1)) * 60;
-            if (pause.endsWith("h")) return Long.parseLong(pause.substring(0, pause.length() - 1)) * 3600;
+            if (pause.endsWith("ms")) return Math.max(1, Long.parseLong(pause.substring(0, pause.length() - 2)) / 1000);
+            if (pause.endsWith("h"))  return Long.parseLong(pause.substring(0, pause.length() - 1)) * 3600;
+            if (pause.endsWith("m"))  return Long.parseLong(pause.substring(0, pause.length() - 1)) * 60;
+            if (pause.endsWith("s"))  return Long.parseLong(pause.substring(0, pause.length() - 1));
             return Long.parseLong(pause);
         } catch (NumberFormatException e) {
             return 300;
