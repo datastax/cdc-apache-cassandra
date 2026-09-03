@@ -110,6 +110,32 @@ jobs:
           $BROKER_FLAGS \
           ${{ matrix.module }}:test
 
+      # backfill-cli isn't in the module matrix above: its unit tests are broker-agnostic and its
+      # e2e test needs the connector's nar, so it rides along on the connector matrix cell instead
+      # of running once per module.
+      - name: Test backfill-cli
+        if: matrix.module == 'connector'
+        env:
+          DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
+          DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
+        run: |
+          set -e
+          BROKER_ENTRY="${{ matrix.brokerImage }}"
+          BROKER_TYPE=${BROKER_ENTRY%%|*}
+          BROKER_IMAGE_FULL=${BROKER_ENTRY#*|}
+          BROKER_IMAGE=${BROKER_IMAGE_FULL%:*}
+          BROKER_IMAGE_TAG=${BROKER_IMAGE_FULL##*:}
+
+          if [ "$BROKER_TYPE" = "pulsar" ]; then
+            BROKER_FLAGS="-PbrokerType=pulsar -PtestPulsarImage=$BROKER_IMAGE -PtestPulsarImageTag=$BROKER_IMAGE_TAG"
+          else
+            BROKER_FLAGS="-PbrokerType=kafka -PtestKafkaImage=$BROKER_IMAGE -PtestKafkaImageTag=$BROKER_IMAGE_TAG"
+          fi
+
+          ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
+          $BROKER_FLAGS \
+          backfill-cli:test backfill-cli:e2eTest
+
       - name: Save Docker images to cache
         if: always()
         run: |
@@ -194,6 +220,32 @@ jobs:
           ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
           $BROKER_FLAGS \
           ${{ matrix.module }}:test
+
+      # backfill-cli isn't in the module matrix above: its unit tests are broker-agnostic and its
+      # e2e test needs the connector's nar, so it rides along on the connector matrix cell instead
+      # of running once per module.
+      - name: Test backfill-cli
+        if: matrix.module == 'connector'
+        env:
+          DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
+          DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
+        run: |
+          set -e
+          BROKER_ENTRY="${{ matrix.brokerImage }}"
+          BROKER_TYPE=${BROKER_ENTRY%%|*}
+          BROKER_IMAGE_FULL=${BROKER_ENTRY#*|}
+          BROKER_IMAGE=${BROKER_IMAGE_FULL%:*}
+          BROKER_IMAGE_TAG=${BROKER_IMAGE_FULL##*:}
+
+          if [ "$BROKER_TYPE" = "pulsar" ]; then
+            BROKER_FLAGS="-PbrokerType=pulsar -PtestPulsarImage=$BROKER_IMAGE -PtestPulsarImageTag=$BROKER_IMAGE_TAG"
+          else
+            BROKER_FLAGS="-PbrokerType=kafka -PtestKafkaImage=$BROKER_IMAGE -PtestKafkaImageTag=$BROKER_IMAGE_TAG"
+          fi
+
+          ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
+          $BROKER_FLAGS \
+          backfill-cli:test backfill-cli:e2eTest
 
       - name: Save Docker images to cache
         if: always()
