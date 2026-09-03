@@ -34,6 +34,7 @@ import org.apache.kafka.common.security.auth.SecurityProtocol;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.*;
 import java.util.function.Function;
@@ -47,6 +48,81 @@ import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.*;
 @SuppressWarnings("WeakerAccess")
 @Slf4j
 public class CassandraSourceConnectorConfig {
+
+    /**
+     * Returns the number of CPUs available to this JVM process, honouring the Linux cgroup CPU
+     * quota when present.
+     *
+     * <p><b>Kubernetes CPU limit vs. request:</b> this method reflects the pod's
+     * {@code resources.limits.cpu} value, <em>not</em> {@code resources.requests.cpu}.
+     * Only the CPU <em>limit</em> is enforced by the kernel via the CFS bandwidth controller
+     * ({@code cpu.cfs_quota_us} / {@code cpu.max}); the CPU <em>request</em> is used solely by
+     * the Kubernetes scheduler for bin-packing decisions and does not translate into any cgroup
+     * quota.
+     *
+     * <p><b>When no CPU limit is set on the pod</b> ({@code resources.limits.cpu} is absent),
+     * the kernel writes the "unlimited" sentinel into the cgroup — {@code "max <period>"} on
+     * cgroup v2, or {@code -1} for the quota on cgroup v1. Both cases are detected and skipped
+     * by this method, which then falls back to {@link Runtime#availableProcessors()}. On a
+     * bare-metal host or VM that value equals the total number of logical CPUs. Inside a
+     * container without a limit it still equals the host's CPU count, which may be much larger
+     * than what the pod actually gets scheduled on. Setting an explicit CPU limit in the pod spec
+     * is therefore recommended so that the default is well-bounded.
+     *
+     * <p><b>Why not just use {@link Runtime#availableProcessors()}?</b> This project targets
+     * <b>Java 8</b>. Container-awareness ({@code -XX:+UseContainerSupport}), which makes
+     * {@code availableProcessors()} respect the cgroup quota, was introduced in JDK 10 and
+     * back-ported only to JDK 8u191+, but is <em>not</em> enabled by default on JDK 8. Without
+     * this helper the default thread count would be derived from the host's total CPU count rather
+     * than the limit assigned to the pod.
+     *
+     * <p>Resolution order:
+     * <ol>
+     *   <li>cgroup v2 — {@code /sys/fs/cgroup/cpu.max} ({@code "<quota> <period>"} or
+     *       {@code "max <period>"} when unlimited)</li>
+     *   <li>cgroup v1 — {@code /sys/fs/cgroup/cpu/cpu.cfs_quota_us} +
+     *       {@code cpu.cfs_period_us} ({@code -1} when unlimited)</li>
+     *   <li>Fallback — {@link Runtime#availableProcessors()}</li>
+     * </ol>
+     */
+    static int availableCpus() {
+        // cgroup v2: /sys/fs/cgroup/cpu.max  →  "<quota> <period>"  or  "max <period>"
+        // When no CPU limit is set on the pod, the kernel writes "max <period>" (the literal
+        // string "max" as the quota). We skip that case and fall through to the next check.
+        try {
+            Path cgroupV2 = Paths.get("/sys/fs/cgroup/cpu.max");
+            if (Files.exists(cgroupV2)) {
+                String[] parts = new String(Files.readAllBytes(cgroupV2)).trim().split("\\s+");
+                if (parts.length == 2 && !parts[0].equalsIgnoreCase("max")) {
+                    long quota  = Long.parseLong(parts[0]);
+                    long period = Long.parseLong(parts[1]);
+                    if (quota > 0 && period > 0) {
+                        return Math.max(1, (int) Math.ceil((double) quota / period));
+                    }
+                }
+            }
+        } catch (Exception ignored) { /* fall through */ }
+
+        // cgroup v1: /sys/fs/cgroup/cpu/cpu.cfs_quota_us + cpu.cfs_period_us
+        // When no CPU limit is set on the pod, the kernel writes -1 as the quota (meaning
+        // "no throttling"). We skip that case and fall through to the JVM fallback.
+        try {
+            Path quotaPath  = Paths.get("/sys/fs/cgroup/cpu/cpu.cfs_quota_us");
+            Path periodPath = Paths.get("/sys/fs/cgroup/cpu/cpu.cfs_period_us");
+            if (Files.exists(quotaPath) && Files.exists(periodPath)) {
+                long quota  = Long.parseLong(new String(Files.readAllBytes(quotaPath)).trim());
+                long period = Long.parseLong(new String(Files.readAllBytes(periodPath)).trim());
+                if (quota > 0 && period > 0) {  // quota == -1 means no limit; skip
+                    return Math.max(1, (int) Math.ceil((double) quota / period));
+                }
+            }
+        } catch (Exception ignored) { /* fall through */ }
+
+        // No cgroup quota found (no CPU limit set, not running in a container, or unsupported
+        // cgroup layout). Fall back to the JVM's view of available processors. Note that inside
+        // a container without a CPU limit this will return the host's total CPU count.
+        return Runtime.getRuntime().availableProcessors();
+    }
 
     public static final String KEYSPACE_NAME_CONFIG = "keyspace";
     public static final String TABLE_NAME_CONFIG = "table";
@@ -70,12 +146,14 @@ public class CassandraSourceConnectorConfig {
     public static final String INTERNAL_CONSUMER_SASL_JAAS_CONFIG_CONFIG = "internal.consumer.saslJaasConfig";
 
     public static final String BATCH_SIZE_CONFIG = "batch.size";
+    public static final String BATCH_MAX_WAIT_MS_CONFIG = "batch.maxWaitMs";
     public static final String QUERY_EXECUTORS_CONFIG = "query.executors";
     public static final String QUERY_MAX_TASKS_IN_QUEUE_CONFIG = "query.maxTasksInQueue";
     public static final String QUERY_MAX_MOBILE_AVG_LATENCY_CONFIG = "query.maxMobileAvgLatency";
     public static final String QUERY_MIN_MOBILE_AVG_LATENCY_CONFIG = "query.minMobileAvgLatency";
     public static final String QUERY_BACKOFF_IN_MS_CONFIG = "query.backoffInMs";
     public static final String QUERY_MAX_BACKOFF_IN_SEC_CONFIG = "query.maxBackoffInSec";
+    public static final String QUERY_RATE_LIMIT_CONFIG = "query.rateLimit";
 
     public static final String CACHE_ONLY_IF_COORDINATOR_MATCH = "cache.only_if_coordinator_match";
     public static final String CACHE_MAX_DIGESTS_CONFIG = "cache.max.digest";
@@ -258,19 +336,31 @@ public class CassandraSourceConnectorConfig {
                             200,
                             ConfigDef.Importance.MEDIUM,
                             "The batch size for grouping mutations before sending them to the data topic")
+                    .define(BATCH_MAX_WAIT_MS_CONFIG,
+                            ConfigDef.Type.LONG,
+                            1000L,
+                            ConfigDef.Range.atLeast(1),
+                            ConfigDef.Importance.MEDIUM,
+                            "Maximum time in milliseconds to wait for a full batch before flushing a partial one. "
+                            + "Prevents indefinite blocking when the events topic is very low-throughput "
+                            + "(e.g. only a few messages per day). Once this deadline is exceeded the loop "
+                            + "breaks and whatever records have been collected so far are returned, "
+                            + "even if fewer than batch.size.")
                     .define(QUERY_EXECUTORS_CONFIG,
                             ConfigDef.Type.INT,
-                            10,
+                            availableCpus() * 2,
                             ConfigDef.Importance.MEDIUM,
-                            "The number of threads to execute concurrent Cassandra queries (fixed pool size)")
+                            "The number of threads to execute concurrent Cassandra queries (fixed pool size). "
+                            + "Defaults to 2x the CPUs assigned to this pod/process (see availableCpus()).")
                     .define(QUERY_MAX_TASKS_IN_QUEUE_CONFIG,
                             ConfigDef.Type.INT,
-                            10000,
+                            availableCpus() * 20,
                             ConfigDef.Range.atLeast(1),
                             ConfigDef.Importance.MEDIUM,
                             "Maximum number of pending CQL query tasks per executor thread. When this limit is reached " +
                             "new submissions are rejected with a RejectedExecutionException, which the connector handles " +
-                            "as backpressure by pausing and retrying after a short delay.")
+                            "as backpressure by pausing and retrying after a short delay. " +
+                            "Defaults to 20x the CPUs assigned to this pod/process (see availableCpus()).")
                     .define(QUERY_MAX_MOBILE_AVG_LATENCY_CONFIG,
                             ConfigDef.Type.LONG,
                             100L,
@@ -292,6 +382,14 @@ public class CassandraSourceConnectorConfig {
                             3600L,
                             ConfigDef.Importance.MEDIUM,
                             "Maximum backoff delay in seconds when there is not enough Cassandra replicas to perform the query")
+                    .define(QUERY_RATE_LIMIT_CONFIG,
+                            ConfigDef.Type.DOUBLE,
+                            0.0,
+                            ConfigDef.Range.atLeast(0),
+                            ConfigDef.Importance.MEDIUM,
+                            "Maximum rate of Cassandra CQL queries per second across all executor threads. "
+                            + "Set to a positive value to cap the query throughput and protect the Cassandra cluster "
+                            + "from overload. A value of 0 (the default) disables the rate limiter.")
                     .define(CACHE_MAX_DIGESTS_CONFIG,
                             ConfigDef.Type.LONG,
                             "3",
@@ -769,6 +867,10 @@ public class CassandraSourceConnectorConfig {
         return globalConfig.getInt(BATCH_SIZE_CONFIG);
     }
 
+    public long getBatchMaxWaitMs() {
+        return globalConfig.getLong(BATCH_MAX_WAIT_MS_CONFIG);
+    }
+
     public String getEventsSubscriptionType() {
         return globalConfig.getString(EVENTS_SUBSCRIPTION_TYPE_CONFIG);
     }
@@ -803,6 +905,10 @@ public class CassandraSourceConnectorConfig {
 
     public long getQueryMaxBackoffInSec() {
         return globalConfig.getLong(QUERY_MAX_BACKOFF_IN_SEC_CONFIG);
+    }
+
+    public double getQueryRateLimit() {
+        return globalConfig.getDouble(QUERY_RATE_LIMIT_CONFIG);
     }
 
     public boolean getCacheOnlyIfCoordinatorMatch() {

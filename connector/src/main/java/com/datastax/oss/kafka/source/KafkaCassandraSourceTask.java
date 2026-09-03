@@ -37,6 +37,7 @@ import com.datastax.oss.kafka.source.converters.KafkaAvroConverter;
 import com.datastax.oss.kafka.source.converters.KafkaJsonConverter;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.RateLimiter;
 import io.vavr.Tuple2;
 import io.vavr.Tuple3;
 import lombok.extern.slf4j.Slf4j;
@@ -89,6 +90,7 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
         final MutationValue mutationValue;
         final List<Object> pk;
         final String cacheKey;
+        CompletableFuture<SourceRecord> queryResult;
 
         DecodedRecord(ConsumerRecord<byte[], byte[]> rec, GenericRecord mutationKeyRecord,
                       MutationValue mutationValue, List<Object> pk, String cacheKey) {
@@ -120,6 +122,12 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
 
     OrderedExecutor queryExecutor;
     private long consecutiveUnavailableException = 0;
+
+    /**
+     * Optional rate limiter for Cassandra CQL queries.
+     * {@code null} when {@code query.rateLimit} is 0 (disabled).
+     */
+    private RateLimiter queryRateLimiter;
 
     private static final org.apache.avro.Schema MUTATION_VALUE_SCHEMA;
 
@@ -198,6 +206,11 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
                 .numThreads(config.getQueryExecutors())
                 .maxTasksInQueue(config.getQueryMaxTasksInQueue())
                 .build();
+        double rateLimit = config.getQueryRateLimit();
+        if (rateLimit > 0) {
+            this.queryRateLimiter = RateLimiter.create(rateLimit);
+            log.info("Cassandra query rate limiter enabled: {} queries/sec", rateLimit);
+        }
     }
 
     private Map<String, Object> sourcePartition(TopicPartition tp) {
@@ -362,7 +375,6 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
 
         // Decode all consumed records and submit CQL queries up-front.
         List<DecodedRecord> decodedRecs = new ArrayList<>();
-        List<CompletableFuture<SourceRecord>> futures = new ArrayList<>();
         for (ConsumerRecord<byte[], byte[]> rec : records) {
             GenericRecord mutationKeyRecord;
             List<Object> pk;
@@ -376,15 +388,15 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
             }
             String cacheKey = Base64.getEncoder().encodeToString(rec.key());
             DecodedRecord decoded = new DecodedRecord(rec, mutationKeyRecord, mutationValue, pk, cacheKey);
-            futures.add(submitCqlQuery(decoded, this.valueConverterAndQuery));
+            decoded.queryResult = submitCqlQuery(decoded, this.valueConverterAndQuery);
             decodedRecs.add(decoded);
         }
 
         // Phase 2 – wait for CQL queries, retrying per-record on failure.
         // Records are already consumed; we must not re-poll on CQL failure.
-        List<SourceRecord> sourceRecords = new ArrayList<>(futures.size());
-        for (int i = 0; i < futures.size(); i++) {
-            SourceRecord sourceRecord = waitForCqlWithRetry(decodedRecs.get(i), futures, i);
+        List<SourceRecord> sourceRecords = new ArrayList<>(decodedRecs.size());
+        for (DecodedRecord decoded : decodedRecs) {
+            SourceRecord sourceRecord = waitForCqlWithRetry(decoded);
             if (sourceRecord != null) {
                 sourceRecords.add(sourceRecord);
             }
@@ -408,6 +420,9 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
         try {
             queryExecutor.executeOrdered(decoded.cacheKey, () -> {
                 try {
+                    if (queryRateLimiter != null) {
+                        queryRateLimiter.acquire();
+                    }
                     if (mutationCache.isMutationProcessed(decoded.cacheKey, decoded.mutationValue.getMd5Digest())) {
                         future.complete(buildHeartbeatRecord(decoded.rec));
                         return;
@@ -446,13 +461,10 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
      * schema change that arrived while the query was failing is picked up automatically.
      */
     @SuppressWarnings("unchecked")
-    private SourceRecord waitForCqlWithRetry(
-            DecodedRecord decoded,
-            List<CompletableFuture<SourceRecord>> futures,
-            int index) throws InterruptedException {
+    private SourceRecord waitForCqlWithRetry(DecodedRecord decoded) throws InterruptedException {
         while (true) {
             try {
-                return futures.get(index).join();
+                return decoded.queryResult.join();
             } catch (CompletionException e) {
                 Throwable cause = e.getCause() != null ? e.getCause() : e;
                 if (cause instanceof ExecutionException && cause.getCause() != null) cause = cause.getCause();
@@ -464,7 +476,7 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
                 // Re-submit only the CQL query; the Kafka record is already consumed.
                 // Re-read valueConverterAndQuery so a schema change that arrived during the
                 // failure window is picked up for the retry.
-                futures.set(index, submitCqlQuery(decoded, this.valueConverterAndQuery));
+                decoded.queryResult = submitCqlQuery(decoded, this.valueConverterAndQuery);
             }
         }
     }
