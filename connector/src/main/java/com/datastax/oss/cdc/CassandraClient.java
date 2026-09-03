@@ -59,6 +59,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
@@ -351,8 +352,16 @@ public class CassandraClient implements AutoCloseable {
      * {@link UnavailableException} or as an {@link AllNodesFailedException} whose per-node error
      * list contains at least one {@link UnavailableException} (the common case for a single-node
      * cluster where all contacted replicas report unavailability).
+     * <p>
+     * {@link CompletionException} wrappers are unwrapped before the check because
+     * {@link java.util.concurrent.CompletableFuture} wraps upstream exceptions in
+     * {@code CompletionException} when propagating them through {@code thenApply} / {@code thenCompose}
+     * chains, so the actual driver exception arrives here one level deeper than expected.
      */
     static boolean isUnavailableError(Throwable ex) {
+        if (ex instanceof CompletionException && ex.getCause() != null) {
+            ex = ex.getCause();
+        }
         if (ex instanceof UnavailableException) {
             return true;
         }
