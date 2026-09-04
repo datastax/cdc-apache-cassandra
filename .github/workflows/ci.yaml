@@ -49,13 +49,41 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module: ['agent', 'agent-c3', 'agent-c4', 'agent-dse4', 'connector']
+        module: ['agent', 'agent-c3', 'agent-c4', 'agent-dse4']
         jdk: ['11', '17']
         brokerImage:
           - 'pulsar|datastax/lunastreaming:2.10_3.4'
           - 'pulsar|apachepulsar/pulsar:2.10.3'
           - 'pulsar|apachepulsar/pulsar:2.11.0'
           - 'kafka|confluentinc/cp-kafka:7.4.0'
+        #
+        include:
+          - { module: connector, jdk: '11', brokerImage: 'kafka|confluentinc/cp-kafka:7.4.0', runBackfillCli: true }
+          - { module: connector, jdk: '17', brokerImage: 'kafka|confluentinc/cp-kafka:7.4.0', runBackfillCli: true }
+          - { module: connector, jdk: '11', brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4', testFilter: '--tests com.datastax.oss.pulsar.source.PulsarCassandraSourceTests --tests com.datastax.oss.cdc.CassandraSourceConnectorConfigTest --tests com.datastax.oss.cdc.MutationCacheTests', runBackfillCli: true }
+          - { module: connector, jdk: '11', brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4', testFilter: '--tests com.datastax.oss.pulsar.source.JsonOnlyCassandraSourceTests' }
+          - { module: connector, jdk: '11', brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4', testFilter: '--tests com.datastax.oss.pulsar.source.JsonKeyValueCassandraSourceTests' }
+          - { module: connector, jdk: '11', brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4', testFilter: '--tests com.datastax.oss.pulsar.source.AvroKeyValueCassandraSourceTests' }
+          - { module: connector, jdk: '17', brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4', testFilter: '--tests com.datastax.oss.pulsar.source.PulsarCassandraSourceTests --tests com.datastax.oss.cdc.CassandraSourceConnectorConfigTest --tests com.datastax.oss.cdc.MutationCacheTests', runBackfillCli: true }
+          - { module: connector, jdk: '17', brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4', testFilter: '--tests com.datastax.oss.pulsar.source.JsonOnlyCassandraSourceTests' }
+          - { module: connector, jdk: '17', brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4', testFilter: '--tests com.datastax.oss.pulsar.source.JsonKeyValueCassandraSourceTests' }
+          - { module: connector, jdk: '17', brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4', testFilter: '--tests com.datastax.oss.pulsar.source.AvroKeyValueCassandraSourceTests' }
+          - { module: connector, jdk: '11', brokerImage: 'pulsar|apachepulsar/pulsar:2.10.3', testFilter: '--tests com.datastax.oss.pulsar.source.PulsarCassandraSourceTests --tests com.datastax.oss.cdc.CassandraSourceConnectorConfigTest --tests com.datastax.oss.cdc.MutationCacheTests', runBackfillCli: true }
+          - { module: connector, jdk: '11', brokerImage: 'pulsar|apachepulsar/pulsar:2.10.3', testFilter: '--tests com.datastax.oss.pulsar.source.JsonOnlyCassandraSourceTests' }
+          - { module: connector, jdk: '11', brokerImage: 'pulsar|apachepulsar/pulsar:2.10.3', testFilter: '--tests com.datastax.oss.pulsar.source.JsonKeyValueCassandraSourceTests' }
+          - { module: connector, jdk: '11', brokerImage: 'pulsar|apachepulsar/pulsar:2.10.3', testFilter: '--tests com.datastax.oss.pulsar.source.AvroKeyValueCassandraSourceTests' }
+          - { module: connector, jdk: '17', brokerImage: 'pulsar|apachepulsar/pulsar:2.10.3', testFilter: '--tests com.datastax.oss.pulsar.source.PulsarCassandraSourceTests --tests com.datastax.oss.cdc.CassandraSourceConnectorConfigTest --tests com.datastax.oss.cdc.MutationCacheTests', runBackfillCli: true }
+          - { module: connector, jdk: '17', brokerImage: 'pulsar|apachepulsar/pulsar:2.10.3', testFilter: '--tests com.datastax.oss.pulsar.source.JsonOnlyCassandraSourceTests' }
+          - { module: connector, jdk: '17', brokerImage: 'pulsar|apachepulsar/pulsar:2.10.3', testFilter: '--tests com.datastax.oss.pulsar.source.JsonKeyValueCassandraSourceTests' }
+          - { module: connector, jdk: '17', brokerImage: 'pulsar|apachepulsar/pulsar:2.10.3', testFilter: '--tests com.datastax.oss.pulsar.source.AvroKeyValueCassandraSourceTests' }
+          - { module: connector, jdk: '11', brokerImage: 'pulsar|apachepulsar/pulsar:2.11.0', testFilter: '--tests com.datastax.oss.pulsar.source.PulsarCassandraSourceTests --tests com.datastax.oss.cdc.CassandraSourceConnectorConfigTest --tests com.datastax.oss.cdc.MutationCacheTests', runBackfillCli: true }
+          - { module: connector, jdk: '11', brokerImage: 'pulsar|apachepulsar/pulsar:2.11.0', testFilter: '--tests com.datastax.oss.pulsar.source.JsonOnlyCassandraSourceTests' }
+          - { module: connector, jdk: '11', brokerImage: 'pulsar|apachepulsar/pulsar:2.11.0', testFilter: '--tests com.datastax.oss.pulsar.source.JsonKeyValueCassandraSourceTests' }
+          - { module: connector, jdk: '11', brokerImage: 'pulsar|apachepulsar/pulsar:2.11.0', testFilter: '--tests com.datastax.oss.pulsar.source.AvroKeyValueCassandraSourceTests' }
+          - { module: connector, jdk: '17', brokerImage: 'pulsar|apachepulsar/pulsar:2.11.0', testFilter: '--tests com.datastax.oss.pulsar.source.PulsarCassandraSourceTests --tests com.datastax.oss.cdc.CassandraSourceConnectorConfigTest --tests com.datastax.oss.cdc.MutationCacheTests', runBackfillCli: true }
+          - { module: connector, jdk: '17', brokerImage: 'pulsar|apachepulsar/pulsar:2.11.0', testFilter: '--tests com.datastax.oss.pulsar.source.JsonOnlyCassandraSourceTests' }
+          - { module: connector, jdk: '17', brokerImage: 'pulsar|apachepulsar/pulsar:2.11.0', testFilter: '--tests com.datastax.oss.pulsar.source.JsonKeyValueCassandraSourceTests' }
+          - { module: connector, jdk: '17', brokerImage: 'pulsar|apachepulsar/pulsar:2.11.0', testFilter: '--tests com.datastax.oss.pulsar.source.AvroKeyValueCassandraSourceTests' }
     steps:
       - uses: actions/checkout@v6
       - name: Set up JDK ${{ matrix.jdk }}
@@ -108,13 +136,16 @@ jobs:
 
           ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
           $BROKER_FLAGS \
-          ${{ matrix.module }}:test
+          ${{ matrix.module }}:test ${{ matrix.testFilter }}
 
       # backfill-cli isn't in the module matrix above: its unit tests are broker-agnostic and its
       # e2e test needs the connector's nar, so it rides along on the connector matrix cell instead
-      # of running once per module.
+      # of running once per module. Gated on runBackfillCli (set on exactly one pulsar cell per
+      # jdk/image and the kafka cell) rather than module == 'connector', since connector's pulsar
+      # suite is now split across 4 cells and running this repeatedly would waste time without
+      # adding coverage.
       - name: Test backfill-cli
-        if: matrix.module == 'connector'
+        if: matrix.runBackfillCli == true
         env:
           DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
           DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
@@ -163,10 +194,35 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module: ['agent', 'agent-c4', 'agent-dse4', 'connector']
+        module: ['agent', 'agent-c4', 'agent-dse4']
         brokerImage:
           - 'pulsar|datastax/lunastreaming:2.10_3.4'
           - 'kafka|confluentinc/cp-kafka:7.4.0'
+        # connector's pulsar suite is split across 4 cells below instead of joining the cross
+        # product above: JsonOnlyCassandraSourceTests/JsonKeyValueCassandraSourceTests/
+        # AvroKeyValueCassandraSourceTests each `extends PulsarCassandraSourceTests`, so a single
+        # "connector, pulsar" cell was re-running the same ~10 container/chaos scenarios 4x
+        # serially in one JVM (measured: ~104 of ~120 total minutes in one job). Splitting them
+        # into separate runners removes that serialization; it can't be parallelized with Gradle
+        # test forks in one job instead because CassandraContainer hardcodes container names
+        # (cassandra-1/cassandra-2), so concurrent classes in one job would collide.
+        include:
+          - module: connector
+            brokerImage: 'kafka|confluentinc/cp-kafka:7.4.0'
+            runBackfillCli: true
+          - module: connector
+            brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4'
+            testFilter: '--tests com.datastax.oss.pulsar.source.PulsarCassandraSourceTests --tests com.datastax.oss.cdc.CassandraSourceConnectorConfigTest --tests com.datastax.oss.cdc.MutationCacheTests'
+            runBackfillCli: true
+          - module: connector
+            brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4'
+            testFilter: '--tests com.datastax.oss.pulsar.source.JsonOnlyCassandraSourceTests'
+          - module: connector
+            brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4'
+            testFilter: '--tests com.datastax.oss.pulsar.source.JsonKeyValueCassandraSourceTests'
+          - module: connector
+            brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4'
+            testFilter: '--tests com.datastax.oss.pulsar.source.AvroKeyValueCassandraSourceTests'
     steps:
       - uses: actions/checkout@v6
       - name: Set up JDK 11
@@ -219,13 +275,15 @@ jobs:
 
           ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
           $BROKER_FLAGS \
-          ${{ matrix.module }}:test
+          ${{ matrix.module }}:test ${{ matrix.testFilter }}
 
       # backfill-cli isn't in the module matrix above: its unit tests are broker-agnostic and its
       # e2e test needs the connector's nar, so it rides along on the connector matrix cell instead
-      # of running once per module.
+      # of running once per module. Gated on runBackfillCli (set on exactly one pulsar cell and
+      # the kafka cell) rather than module == 'connector', since connector's pulsar suite is now
+      # split across 4 cells and running this 4x would waste time without adding coverage.
       - name: Test backfill-cli
-        if: matrix.module == 'connector'
+        if: matrix.runBackfillCli == true
         env:
           DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
           DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
