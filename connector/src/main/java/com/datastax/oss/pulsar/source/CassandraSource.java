@@ -40,6 +40,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.RateLimiter;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import io.vavr.Tuple2;
 import io.vavr.Tuple3;
@@ -164,6 +165,12 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
     private OrderedExecutor queryExecutor;
     private long consecutiveUnavailableException = 0;
 
+    /**
+     * Optional rate limiter for Cassandra CQL queries.
+     * {@code null} when {@code query.rateLimit} is 0 (disabled).
+     */
+    private RateLimiter queryRateLimiter;
+
     private ArrayBlockingQueue<CassandraRecord> buffer;
 
     public CassandraSource() {
@@ -212,6 +219,11 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
                     .numThreads(this.config.getQueryExecutors())
                     .maxTasksInQueue(this.config.getQueryMaxTasksInQueue())
                     .build();
+            double rateLimit = this.config.getQueryRateLimit();
+            if (rateLimit > 0) {
+                this.queryRateLimiter = RateLimiter.create(rateLimit);
+                log.info("Cassandra query rate limiter enabled: {} queries/sec", rateLimit);
+            }
         } catch (Throwable err) {
             log.error("Cannot open the connector:", err);
             throw new RuntimeException(err);
@@ -276,8 +288,7 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
                                  GenericRecord mutationKey,
                                  MutationValue mutationValue,
                                  List<Object> pk) {
-        final MyKVRecord kvRecord = new MyKVRecord(converterAndQueryFinal, keyValue, msg, mutationKey, mutationValue, pk);
-
+        MyKVRecord kvRecord = new MyKVRecord(converterAndQueryFinal, keyValue, msg, mutationKey, mutationValue, pk);
         return config.isJsonOnlyOutputFormat() ? new JsonValueRecord(kvRecord) : kvRecord;
     }
 
@@ -327,8 +338,25 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
         // Phase 1 – consume from the events topic.
         // If consumer.receive() throws we retry the entire consume loop forever (safe: no message
         // has been delivered yet, so re-polling does not double-consume anything).
+         //
+        // Two conditions bound the loop:
+        //   1. batch.size      — stop once we have enough records (normal high-throughput path).
+        //   2. batch.maxWaitMs — stop once the wall-clock deadline is reached, but only when at
+        //                        least one record has been collected. This prevents indefinite
+        //                        blocking on very low-throughput topics (e.g. 1 msg/day): without
+        //                        this deadline the loop would keep spinning on empty receive()
+        //                        timeouts and never flush the partial batch. We never break on an
+        //                        empty batch so that the caller's retry loop in maybeBatchRead()
+        //                        is not triggered unnecessarily.
         List<CassandraRecord> newRecords = new ArrayList<>();
+        final long batchDeadlineMs = System.currentTimeMillis() + this.config.getBatchMaxWaitMs();
         while (newRecords.size() < this.config.getBatchSize()) {
+            if (!newRecords.isEmpty() && System.currentTimeMillis() >= batchDeadlineMs) {
+                if (log.isDebugEnabled()) {
+                    log.debug("batch.maxWaitMs deadline reached, flushing partial batch of {} record(s)", newRecords.size());
+                }
+                break;
+            }
             final Message<KeyValue<GenericRecord, MutationValue>> msg;
             try {
                 msg = consumer.receive(1, TimeUnit.SECONDS);
@@ -416,6 +444,9 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
         try {
             queryExecutor.executeOrdered(msg.getKey(), () -> {
                 try {
+                    if (queryRateLimiter != null) {
+                        queryRateLimiter.acquire();
+                    }
                     if (mutationCache.isMutationProcessed(msg.getKey(), mutationValue.getMd5Digest())) {
                         if (log.isDebugEnabled()) {
                             log.debug("Message key={} md5={} already processed", msg.getKey(), mutationValue.getMd5Digest());
