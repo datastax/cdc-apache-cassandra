@@ -16,9 +16,12 @@
 package com.datastax.oss.kafka.source.converters;
 
 import com.datastax.oss.cdc.converters.AvroRowConverter;
+import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
+import io.confluent.kafka.serializers.KafkaAvroSerializer;
+import org.apache.avro.generic.GenericRecord;
 
 import java.util.List;
 
@@ -27,12 +30,39 @@ import java.util.List;
  * {@link AvroRowConverter}: Kafka Connect's {@code SourceRecord} takes the raw Avro bytes
  * directly under {@code Schema.BYTES_SCHEMA} (see {@code KafkaCassandraSourceTask#buildSourceRecord}),
  * with no equivalent of Pulsar's {@code Schema<byte[]>}/{@code NativeSchemaWrapper} needed to
- * hand the bytes to the client API. The subclass exists only so {@code Converter.class} tokens
- * can select Avro vs. JSON encoding.
+ * hand the bytes to the client API. The subclass exists so {@code Converter.class} tokens can
+ * select Avro vs. JSON encoding, and to optionally publish through a Confluent Schema Registry.
+ *
+ * <p>{@link #enableSchemaRegistry} is a setter rather than a constructor argument because every
+ * converter (Pulsar and Kafka alike) is instantiated reflectively through the shared, platform-free
+ * {@code ConverterFactory} with a fixed {@code (KeyspaceMetadata, TableMetadata, List<ColumnMetadata>)}
+ * constructor; {@code KafkaCassandraSourceTask} calls it right after construction instead.
  */
 public class KafkaAvroConverter extends AvroRowConverter implements Converter<byte[], List<Object>> {
 
+    private volatile KafkaAvroSerializer schemaRegistrySerializer;
+    private volatile String outputTopic;
+
     public KafkaAvroConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
         super(ksm, tm, columns);
+    }
+
+    /**
+     * Switches this converter to publish through a Confluent Schema Registry: {@code serializer}
+     * registers {@link #nativeSchema} under the {@code <outputTopic>-value} subject (subject to
+     * the registry's own compatibility mode) and prepends the Confluent wire-format header
+     * (magic byte + 4-byte schema id) instead of writing raw Avro bytes.
+     */
+    public void enableSchemaRegistry(KafkaAvroSerializer serializer, String outputTopic) {
+        this.schemaRegistrySerializer = serializer;
+        this.outputTopic = outputTopic;
+    }
+
+    @Override
+    public byte[] toConnectData(Row row) {
+        GenericRecord record = buildGenericRecord(row);
+        return schemaRegistrySerializer != null
+                ? schemaRegistrySerializer.serialize(outputTopic, record)
+                : serializeAvroGenericRecord(record, nativeSchema);
     }
 }

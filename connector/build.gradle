@@ -38,6 +38,7 @@ dependencies {
     implementation "org.apache.cassandra:java-driver-core:${ossDriverVersion}"
     implementation "org.apache.cassandra:java-driver-query-builder:${ossDriverVersion}"
     implementation("org.apache.kafka:connect-api:${kafkaVersion}")
+    implementation("io.confluent:kafka-avro-serializer:${confluentVersion}")
     implementation("com.google.guava:guava:${guavaVersion}")
     implementation("com.datastax.oss:messaging-connectors-commons-core:${messagingConnectorsCommonsVersion}")
     implementation("org.apache.avro:avro:${avroVersion}")

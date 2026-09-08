@@ -69,6 +69,14 @@ public class CassandraSourceConnectorConfig {
     public static final String INTERNAL_CONSUMER_SASL_MECHANISM_CONFIG = "internal.consumer.saslMechanism";
     public static final String INTERNAL_CONSUMER_SASL_JAAS_CONFIG_CONFIG = "internal.consumer.saslJaasConfig";
 
+    // Confluent Schema Registry, used to version the data topic's Avro value schema across
+    // Cassandra table alterations (see design doc "Schema Registry Dependency"). Optional: an
+    // empty url leaves the connector's prior behavior unchanged (raw Avro bytes, no registry).
+    public static final String SCHEMA_REGISTRY_URL_CONFIG = "schema.registry.url";
+    public static final String SCHEMA_REGISTRY_AUTO_REGISTER_SCHEMAS_CONFIG = "schema.registry.autoRegisterSchemas";
+    public static final String SCHEMA_REGISTRY_BASIC_AUTH_CREDENTIALS_SOURCE_CONFIG = "schema.registry.basicAuth.credentialsSource";
+    public static final String SCHEMA_REGISTRY_BASIC_AUTH_USER_INFO_CONFIG = "schema.registry.basicAuth.userInfo";
+
     public static final String BATCH_SIZE_CONFIG = "batch.size";
     public static final String QUERY_EXECUTORS_CONFIG = "query.executors";
     public static final String QUERY_MAX_TASKS_IN_QUEUE_CONFIG = "query.maxTasksInQueue";
@@ -253,6 +261,39 @@ public class CassandraSourceConnectorConfig {
                             "Kafka Connect's offset commit keeps advancing even when a poll batch is all duplicates. " +
                             "Never carries row data, safe to leave unconsumed. Defaults to '<output.topic>-heartbeat'.",
                             "Kafka only", 11, ConfigDef.Width.NONE, "HeartbeatTopic")
+                    .define(SCHEMA_REGISTRY_URL_CONFIG,
+                            ConfigDef.Type.STRING,
+                            "",
+                            ConfigDef.Importance.MEDIUM,
+                            "Confluent Schema Registry URL (e.g. http://localhost:8081), comma-separated for multiple " +
+                            "instances. Only used for the Avro output formats (key-value-avro, the default). When set, " +
+                            "the data topic's value is published in Confluent wire format (magic byte + schema id) and " +
+                            "each Cassandra table alteration registers a new schema version, so a registry-configured " +
+                            "compatibility mode rejects breaking changes instead of silently swapping the schema. When " +
+                            "unset, the value is published as raw Avro bytes with no registry involved (prior behavior).",
+                            "Schema Registry", 1, ConfigDef.Width.NONE, "SchemaRegistryUrl")
+                    .define(SCHEMA_REGISTRY_AUTO_REGISTER_SCHEMAS_CONFIG,
+                            ConfigDef.Type.BOOLEAN,
+                            true,
+                            ConfigDef.Importance.LOW,
+                            "Whether the connector registers a new schema version with the registry automatically. " +
+                            "Set to false if schema publication is managed out of band and the registry should instead " +
+                            "reject any table alteration whose schema wasn't pre-registered.",
+                            "Schema Registry", 2, ConfigDef.Width.NONE, "SchemaRegistryAutoRegisterSchemas")
+                    .define(SCHEMA_REGISTRY_BASIC_AUTH_CREDENTIALS_SOURCE_CONFIG,
+                            ConfigDef.Type.STRING,
+                            "",
+                            ConfigDef.Importance.LOW,
+                            "Confluent Schema Registry basic auth credentials source, e.g. USER_INFO or SASL_INHERIT. " +
+                            "Left empty, no basic auth is configured.",
+                            "Schema Registry", 3, ConfigDef.Width.NONE, "SchemaRegistryBasicAuthCredentialsSource")
+                    .define(SCHEMA_REGISTRY_BASIC_AUTH_USER_INFO_CONFIG,
+                            ConfigDef.Type.PASSWORD,
+                            "",
+                            ConfigDef.Importance.LOW,
+                            "Confluent Schema Registry basic auth credentials, as '<username>:<password>'. Only used " +
+                            "when " + SCHEMA_REGISTRY_BASIC_AUTH_CREDENTIALS_SOURCE_CONFIG + " is set to USER_INFO.",
+                            "Schema Registry", 4, ConfigDef.Width.NONE, "SchemaRegistryBasicAuthUserInfo")
                     .define(BATCH_SIZE_CONFIG,
                             ConfigDef.Type.INT,
                             200,
@@ -755,6 +796,26 @@ public class CassandraSourceConnectorConfig {
 
     public String getInternalConsumerSaslJaasConfig() {
         return globalConfig.getPassword(INTERNAL_CONSUMER_SASL_JAAS_CONFIG_CONFIG).value();
+    }
+
+    public String getSchemaRegistryUrl() {
+        return globalConfig.getString(SCHEMA_REGISTRY_URL_CONFIG);
+    }
+
+    public boolean isSchemaRegistryEnabled() {
+        return !StringUtil.isEmpty(getSchemaRegistryUrl());
+    }
+
+    public boolean getSchemaRegistryAutoRegisterSchemas() {
+        return globalConfig.getBoolean(SCHEMA_REGISTRY_AUTO_REGISTER_SCHEMAS_CONFIG);
+    }
+
+    public String getSchemaRegistryBasicAuthCredentialsSource() {
+        return globalConfig.getString(SCHEMA_REGISTRY_BASIC_AUTH_CREDENTIALS_SOURCE_CONFIG);
+    }
+
+    public String getSchemaRegistryBasicAuthUserInfo() {
+        return globalConfig.getPassword(SCHEMA_REGISTRY_BASIC_AUTH_USER_INFO_CONFIG).value();
     }
 
     public Class<?> getKeyConverterClass() {

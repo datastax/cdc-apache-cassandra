@@ -55,13 +55,14 @@ import java.util.Map;
  *           In JSON only format, because the key will be embedded in the payload, the subclass may wish to convert to
  *           a serialized Jackson node or platform-native record type.
  *
- * TODO: schema evolution / schema registry support is asymmetric between platforms. On the
- * Pulsar side, {@code PulsarAvroConverter}/{@code PulsarJsonConverter} wrap {@link #nativeSchema}
- * in a {@code NativeSchemaWrapper} that Pulsar's broker-side schema registry manages natively
- * (versioning, compatibility checks). On the Kafka side, {@code KafkaAvroConverter}/
- * {@code KafkaJsonConverter} add no equivalent wrapper — {@link #nativeSchema} never leaves this
- * process, and the Kafka Connect source publishes raw serialized bytes with no schema ID, no
- * registry (Confluent Schema Registry or Apicurio Registry), and no compatibility checking. See
+ * Schema evolution / schema registry support is asymmetric between platforms, by nature of each
+ * platform's own schema story. On the Pulsar side, {@code PulsarAvroConverter}/
+ * {@code PulsarJsonConverter} wrap {@link #nativeSchema} in a {@code NativeSchemaWrapper} that
+ * Pulsar's broker-side schema registry manages natively (versioning, compatibility checks). On
+ * the Kafka side, {@code KafkaAvroConverter} optionally registers {@link #nativeSchema} with a
+ * Confluent Schema Registry (see {@code KafkaCassandraSourceTask#schemaRegistrySerializer},
+ * wired from {@code schema.registry.url}) and publishes Confluent wire-format bytes instead of
+ * raw Avro; {@code KafkaJsonConverter} needs no such registry since JSON is self-describing. See
  * {@code KafkaCassandraSourceTask#buildSourceRecord} and {@code #setValueConverterAndQuery}.
  */
 @Slf4j
