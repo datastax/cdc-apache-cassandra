@@ -78,6 +78,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -172,6 +173,9 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
                 ? outputTopic + "-heartbeat"
                 : config.getHeartbeatTopic();
 
+        Preconditions.checkArgument(config.isAvroOutputFormat() || !config.isSchemaRegistryEnabled(),
+                "schema.registry.url is only supported with the Avro output format (key-value-avro); "
+                        + "either unset it or switch value.converter to an Avro converter");
         if (config.isAvroOutputFormat() && config.isSchemaRegistryEnabled()) {
             this.schemaRegistrySerializer = new KafkaAvroSerializer();
             this.schemaRegistrySerializer.configure(SchemaRegistryProperties.build(config), false);
@@ -257,7 +261,7 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
         try {
             this.valueConverterAndQuery = ConverterAndQuery.forTable(
                     config, columnPattern, cassandraClient, ksm, tableMetadata, getValueConverterClass(), log);
-            if (schemaRegistrySerializer != null && this.valueConverterAndQuery.getConverter() instanceof KafkaAvroConverter) {
+            if (config.isSchemaRegistryEnabled() && this.valueConverterAndQuery.getConverter() instanceof KafkaAvroConverter) {
                 ((KafkaAvroConverter) this.valueConverterAndQuery.getConverter())
                         .enableSchemaRegistry(schemaRegistrySerializer, outputTopic);
             }
@@ -295,12 +299,13 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
     @Override
     public void close() {
         log.info("Stopping Kafka source task");
+        if (queryExecutor != null) {
+            queryExecutor.shutdown();
+            queryExecutor.forceShutdown(30, TimeUnit.SECONDS);
+        }
         if (this.cassandraClient != null) {
             this.cassandraClient.close();
             this.cassandraClient = null;
-        }
-        if (queryExecutor != null) {
-            queryExecutor.shutdown();
         }
         if (this.consumer != null) {
             this.consumer.close();
