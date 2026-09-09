@@ -38,6 +38,7 @@ import com.datastax.oss.kafka.source.converters.KafkaJsonConverter;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.RateLimiter;
+import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.vavr.Tuple2;
 import io.vavr.Tuple3;
 import lombok.extern.slf4j.Slf4j;
@@ -77,6 +78,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -119,6 +121,7 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
 
     volatile ConverterAndQuery<Converter<byte[], ?>> valueConverterAndQuery;
     private Object emptyValue;
+    private KafkaAvroSerializer schemaRegistrySerializer;
 
     OrderedExecutor queryExecutor;
     private long consecutiveUnavailableException = 0;
@@ -169,6 +172,14 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
         this.heartbeatTopic = com.google.common.base.Strings.isNullOrEmpty(config.getHeartbeatTopic())
                 ? outputTopic + "-heartbeat"
                 : config.getHeartbeatTopic();
+
+        Preconditions.checkArgument(config.isAvroOutputFormat() || !config.isSchemaRegistryEnabled(),
+                "schema.registry.url is only supported with the Avro output format (key-value-avro); "
+                        + "either unset it or switch value.converter to an Avro converter");
+        if (config.isAvroOutputFormat() && config.isSchemaRegistryEnabled()) {
+            this.schemaRegistrySerializer = new KafkaAvroSerializer();
+            this.schemaRegistrySerializer.configure(SchemaRegistryProperties.build(config), false);
+        }
 
         Properties consumerProps = InternalConsumerProperties.build(config);
         consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, config.getInternalConsumerGroupId());
@@ -240,16 +251,20 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
         }
     }
 
-    // TODO: schema evolution. This swaps the value converter/schema in place as soon as a
-    // Cassandra table alteration is observed (see onTableUpdated below), with no compatibility
-    // check (backward/forward/full) and no versioned publish to a schema registry. A downstream
-    // consumer reading the data topic with the previous Avro schema can break as soon as this
-    // runs, with no warning. Needs a registry (Confluent Schema Registry or Apicurio Registry,
-    // see the design doc's schema registry discussion) before this can be made safe.
+    // This swaps the value converter/schema in place as soon as a Cassandra table alteration is
+    // observed (see onTableUpdated below). When schema.registry.url is configured (see
+    // schemaRegistrySerializer, built in start()), the new Avro schema is registered with the
+    // Confluent Schema Registry below, so an incompatible change is rejected by the registry's
+    // own compatibility mode (RestClientException) instead of being silently swapped in; without
+    // a registry configured, this remains the prior unchecked swap-in-place behavior.
     public synchronized void setValueConverterAndQuery(KeyspaceMetadata ksm, TableMetadata tableMetadata) {
         try {
             this.valueConverterAndQuery = ConverterAndQuery.forTable(
                     config, columnPattern, cassandraClient, ksm, tableMetadata, getValueConverterClass(), log);
+            if (config.isSchemaRegistryEnabled() && this.valueConverterAndQuery.getConverter() instanceof KafkaAvroConverter) {
+                ((KafkaAvroConverter) this.valueConverterAndQuery.getConverter())
+                        .enableSchemaRegistry(schemaRegistrySerializer, outputTopic);
+            }
             this.emptyValue = config.isJsonOnlyOutputFormat() ? "{}".getBytes(StandardCharsets.UTF_8) : null;
         } catch (Exception e) {
             log.error("Unexpected error", e);
@@ -284,15 +299,20 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
     @Override
     public void close() {
         log.info("Stopping Kafka source task");
+        if (queryExecutor != null) {
+            queryExecutor.shutdown();
+            queryExecutor.forceShutdown(30, TimeUnit.SECONDS);
+        }
         if (this.cassandraClient != null) {
             this.cassandraClient.close();
             this.cassandraClient = null;
         }
-        if (queryExecutor != null) {
-            queryExecutor.shutdown();
-        }
         if (this.consumer != null) {
             this.consumer.close();
+        }
+        if (this.schemaRegistrySerializer != null) {
+            this.schemaRegistrySerializer.close();
+            this.schemaRegistrySerializer = null;
         }
     }
 
@@ -317,12 +337,15 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
                 columns);
     }
 
-    // TODO: schema evolution / schema registry support. Key and value are published as raw
-    // Avro/JSON bytes under Schema.BYTES_SCHEMA, bypassing Kafka Connect's converter framework
-    // entirely (see AbstractRowConverter). No schema ID is embedded and no registry (Confluent
-    // Schema Registry or Apicurio Registry) is involved, so downstream consumers must know the
-    // wire format out of band, and there is no compatibility check when the Cassandra table
-    // schema changes (see setValueConverterAndQuery/onTableUpdated below).
+    // Key and value are published under Schema.BYTES_SCHEMA, bypassing Kafka Connect's converter
+    // framework entirely (see AbstractRowConverter) - downstream consumers read the raw bytes
+    // directly rather than through a registered Connect converter. When schema.registry.url is
+    // configured, the Avro value bytes are in Confluent wire format (see
+    // KafkaAvroConverter#enableSchemaRegistry), so a standard KafkaAvroDeserializer can decode
+    // them. The key is always the PK's raw Avro bytes with no registry wrapping: unlike the
+    // value, its schema is fixed by the table's primary key definition and cannot evolve without
+    // dropping the table (see AbstractKafkaMutationSender's schema-stability discussion), so
+    // there is no schema-evolution problem to solve for it.
     private SourceRecord buildSourceRecord(ConsumerRecord<byte[], byte[]> rec, Object key, Object value) {
         TopicPartition tp = new TopicPartition(rec.topic(), rec.partition());
         return new SourceRecord(

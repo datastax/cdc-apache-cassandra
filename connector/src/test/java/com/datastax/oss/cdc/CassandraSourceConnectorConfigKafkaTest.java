@@ -77,6 +77,37 @@ class CassandraSourceConnectorConfigKafkaTest {
     }
 
     @Test
+    void should_default_schema_registry_settings_to_disabled() {
+        CassandraSourceConnectorConfig config = new CassandraSourceConnectorConfig(requiredSettings());
+
+        assertThat(config.getSchemaRegistryUrl()).isEqualTo("");
+        assertThat(config.isSchemaRegistryEnabled()).isFalse();
+        assertThat(config.getSchemaRegistryAutoRegisterSchemas()).isTrue();
+        assertThat(config.getSchemaRegistryBasicAuthCredentialsSource()).isEqualTo("");
+        assertThat(config.getSchemaRegistryBasicAuthUserInfo()).isEqualTo("");
+    }
+
+    @Test
+    void should_override_schema_registry_settings() {
+        Map<String, String> props =
+                ImmutableMap.<String, String>builder()
+                        .putAll(requiredSettings())
+                        .put(SCHEMA_REGISTRY_URL_CONFIG, "http://schema-registry:8081")
+                        .put(SCHEMA_REGISTRY_AUTO_REGISTER_SCHEMAS_CONFIG, "false")
+                        .put(SCHEMA_REGISTRY_BASIC_AUTH_CREDENTIALS_SOURCE_CONFIG, "USER_INFO")
+                        .put(SCHEMA_REGISTRY_BASIC_AUTH_USER_INFO_CONFIG, "user:pass")
+                        .build();
+
+        CassandraSourceConnectorConfig config = new CassandraSourceConnectorConfig(props);
+
+        assertThat(config.getSchemaRegistryUrl()).isEqualTo("http://schema-registry:8081");
+        assertThat(config.isSchemaRegistryEnabled()).isTrue();
+        assertThat(config.getSchemaRegistryAutoRegisterSchemas()).isFalse();
+        assertThat(config.getSchemaRegistryBasicAuthCredentialsSource()).isEqualTo("USER_INFO");
+        assertThat(config.getSchemaRegistryBasicAuthUserInfo()).isEqualTo("user:pass");
+    }
+
+    @Test
     void should_leave_pulsar_only_settings_untouched() {
         CassandraSourceConnectorConfig config = new CassandraSourceConnectorConfig(requiredSettings());
 

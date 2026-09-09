@@ -79,6 +79,15 @@ public class AvroRowConverter extends AbstractRowConverter<List<Object>> {
 
     @Override
     public byte[] toConnectData(Row row) {
+        return serializeAvroGenericRecord(buildGenericRecord(row), nativeSchema);
+    }
+
+    /**
+     * Builds the Avro record for a row without serializing it, so callers that need the record
+     * itself (e.g. a Confluent {@code KafkaAvroSerializer}, which registers the schema and
+     * prepends its own wire-format header) don't have to re-parse {@link #toConnectData}'s bytes.
+     */
+    public GenericRecord buildGenericRecord(Row row) {
         GenericRecord genericRecordBuilder = new GenericData.Record(nativeSchema);
         for(ColumnDefinition cm : row.getColumnDefinitions()) {
             String fieldName = cm.getName().toString();
@@ -191,7 +200,7 @@ public class AvroRowConverter extends AbstractRowConverter<List<Object>> {
                 }
             }
         }
-        return serializeAvroGenericRecord(genericRecordBuilder, nativeSchema);
+        return genericRecordBuilder;
     }
 
     public static byte[] serializeAvroGenericRecord(org.apache.avro.generic.GenericRecord genericRecord, org.apache.avro.Schema schema) {
