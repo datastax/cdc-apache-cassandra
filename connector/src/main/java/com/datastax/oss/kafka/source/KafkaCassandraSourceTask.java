@@ -121,7 +121,7 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
 
     volatile ConverterAndQuery<Converter<byte[], ?>> valueConverterAndQuery;
     private Object emptyValue;
-    private KafkaAvroSerializer schemaRegistrySerializer;
+    KafkaAvroSerializer schemaRegistrySerializer;
 
     OrderedExecutor queryExecutor;
     private long consecutiveUnavailableException = 0;
