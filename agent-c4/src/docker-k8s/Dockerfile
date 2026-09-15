@@ -1,0 +1,4 @@
+ARG MGMT_API_VERSION
+FROM k8ssandra/cass-management-api:${MGMT_API_VERSION}
+ARG BUILD_VERSION
+COPY agent-c4-${BUILD_VERSION}-all.jar /
