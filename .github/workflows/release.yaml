@@ -219,11 +219,11 @@ jobs:
           docker build \
             --build-arg MGMT_API_VERSION=6.8.61 \
             --build-arg BUILD_VERSION=${{ env.CURRENT_VERSION }} \
-            -t "$REGISTRY/datastax/cdc-dse:${{ env.CURRENT_VERSION }}" \
-            -t "$REGISTRY/datastax/cdc-dse:latest" \
+            -t "$REGISTRY/datastax/cdc:${{ env.CURRENT_VERSION }}-dse" \
+            -t "$REGISTRY/datastax/cdc:latest-dse" \
             /tmp/ctx-dse4
-          docker push "$REGISTRY/datastax/cdc-dse:${{ env.CURRENT_VERSION }}"
-          docker push "$REGISTRY/datastax/cdc-dse:latest"
+          docker push "$REGISTRY/datastax/cdc:${{ env.CURRENT_VERSION }}-dse"
+          docker push "$REGISTRY/datastax/cdc:latest-dse"
 
       - name: Build and push backfill-cli admin image
         run: |
@@ -232,9 +232,9 @@ jobs:
           docker build \
             --build-arg JRE_IMAGE_TAG=17-jre-jammy \
             --build-arg BUILD_VERSION=${{ env.CURRENT_VERSION }} \
-            -t "$REGISTRY/datastax/cdc-admin:${{ env.CURRENT_VERSION }}" \
-            -t "$REGISTRY/datastax/cdc-admin:latest" \
+            -t "$REGISTRY/datastax/cdc:${{ env.CURRENT_VERSION }}-admin" \
+            -t "$REGISTRY/datastax/cdc:latest-admin" \
             /tmp/ctx-admin
-          docker push "$REGISTRY/datastax/cdc-admin:${{ env.CURRENT_VERSION }}"
-          docker push "$REGISTRY/datastax/cdc-admin:latest"
+          docker push "$REGISTRY/datastax/cdc:${{ env.CURRENT_VERSION }}-admin"
+          docker push "$REGISTRY/datastax/cdc:latest-admin"
 
