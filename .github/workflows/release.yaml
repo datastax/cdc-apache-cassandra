@@ -29,6 +29,18 @@ jobs:
           DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
         run: ./gradlew assemble -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD
 
+      # Hands the three jars publish-images needs to that job, so it doesn't need its own
+      # DSE_REPO_USERNAME/PASSWORD (and doesn't redo this build) just to get at agent-dse4's jar.
+      - name: Upload jars for image publishing
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-jars
+          path: |
+            agent-c4/build/libs/agent-c4-${{ env.CURRENT_VERSION }}-all.jar
+            agent-dse4/build/libs/agent-dse4-${{ env.CURRENT_VERSION }}-all.jar
+            backfill-cli/build/libs/backfill-cli-${{ env.CURRENT_VERSION }}-all.jar
+          retention-days: 1
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -143,4 +155,73 @@ jobs:
           asset_path: backfill-cli/build/libs/pulsar-cassandra-admin-${{ env.CURRENT_VERSION }}-nar.nar
           asset_name: pulsar-cassandra-admin-${{ env.CURRENT_VERSION }}-nar.nar
           asset_content_type: application/java-archive
+  publish-images:
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY: 765730767431.dkr.ecr.us-east-2.amazonaws.com
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Get project version
+        uses: HardNorth/github-version-generate@v1.4.0
+        with:
+          version-source: file
+          version-file: gradle.properties
+          version-file-extraction-pattern: '(?<=version=).+'
+
+      - name: Download jars from build
+        uses: actions/download-artifact@v4
+        with:
+          name: agent-jars
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.ECR_REGION || 'us-east-2' }}
+      - name: Log in to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registries: "765730767431"
+
+      - name: Build and push agent-c4 (OSS Cassandra) image
+        run: |
+          mkdir -p /tmp/ctx-c4
+          cp agent-c4/build/libs/agent-c4-${{ env.CURRENT_VERSION }}-all.jar agent-c4/src/docker-k8s/Dockerfile /tmp/ctx-c4/
+          docker build \
+            --build-arg MGMT_API_VERSION=4.1.12 \
+            --build-arg BUILD_VERSION=${{ env.CURRENT_VERSION }} \
+            -t "$REGISTRY/datastax/cdc:${{ env.CURRENT_VERSION }}" \
+            -t "$REGISTRY/datastax/cdc:latest" \
+            /tmp/ctx-c4
+          docker push "$REGISTRY/datastax/cdc:${{ env.CURRENT_VERSION }}"
+          docker push "$REGISTRY/datastax/cdc:latest"
+
+      - name: Build and push agent-dse4 (DSE) image
+        run: |
+          mkdir -p /tmp/ctx-dse4
+          cp agent-dse4/build/libs/agent-dse4-${{ env.CURRENT_VERSION }}-all.jar agent-dse4/src/docker-k8s/Dockerfile /tmp/ctx-dse4/
+          docker build \
+            --build-arg MGMT_API_VERSION=6.8.61 \
+            --build-arg BUILD_VERSION=${{ env.CURRENT_VERSION }} \
+            -t "$REGISTRY/datastax/cdc-dse:${{ env.CURRENT_VERSION }}" \
+            -t "$REGISTRY/datastax/cdc-dse:latest" \
+            /tmp/ctx-dse4
+          docker push "$REGISTRY/datastax/cdc-dse:${{ env.CURRENT_VERSION }}"
+          docker push "$REGISTRY/datastax/cdc-dse:latest"
+
+      - name: Build and push backfill-cli admin image
+        run: |
+          mkdir -p /tmp/ctx-admin
+          cp backfill-cli/build/libs/backfill-cli-${{ env.CURRENT_VERSION }}-all.jar backfill-cli/src/docker/Dockerfile /tmp/ctx-admin/
+          docker build \
+            --build-arg JRE_IMAGE_TAG=17-jre-jammy \
+            --build-arg BUILD_VERSION=${{ env.CURRENT_VERSION }} \
+            -t "$REGISTRY/datastax/cdc-admin:${{ env.CURRENT_VERSION }}" \
+            -t "$REGISTRY/datastax/cdc-admin:latest" \
+            /tmp/ctx-admin
+          docker push "$REGISTRY/datastax/cdc-admin:${{ env.CURRENT_VERSION }}"
+          docker push "$REGISTRY/datastax/cdc-admin:latest"
 
