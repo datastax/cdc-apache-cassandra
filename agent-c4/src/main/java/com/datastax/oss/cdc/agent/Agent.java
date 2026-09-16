@@ -40,6 +40,7 @@ public class Agent {
     private static void startAsync(String agentArgs, Instrumentation inst) {
         Thread thread = new Thread(() -> {
             try {
+                waitForSeedProviderOnClasspath();
                 main(agentArgs, inst);
             } catch (Exception e) {
                 log.error("error:", e);
@@ -47,6 +48,17 @@ public class Agent {
             }
         }, "cdc-agent-init");
         thread.start();
+    }
+
+    private static void waitForSeedProviderOnClasspath() throws InterruptedException {
+        for (int i = 0; i < 30; i++) {
+            try {
+                Class.forName("org.apache.cassandra.locator.K8SeedProvider", false, Agent.class.getClassLoader());
+                return;
+            } catch (ClassNotFoundException e) {
+                Thread.sleep(200);
+            }
+        }
     }
 
     static void main(String agentArgs, Instrumentation inst) throws Exception {
