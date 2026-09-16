@@ -17,6 +17,7 @@ package com.datastax.oss.cdc.agent;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.cassandra.config.DatabaseDescriptor;
+import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.service.StorageService;
 
@@ -28,32 +29,50 @@ import java.util.concurrent.Executors;
 public class Agent {
     public static void premain(String agentArgs, Instrumentation inst) {
         log.info("[Agent] In premain method");
-        try {
-            main(agentArgs, inst);
-        } catch(Exception e) {
-            log.error("error:", e);
-            System.exit(-1);
-        }
+        startAsync(agentArgs, inst);
     }
 
     public static void agentmain(String agentArgs, Instrumentation inst) {
         log.info("[Agent] In agentmain method");
-        try {
-            main(agentArgs, inst);
-        } catch(Exception e) {
-            log.error("error:", e);
-            System.exit(-1);
-        }
+        startAsync(agentArgs, inst);
+    }
+
+    private static void startAsync(String agentArgs, Instrumentation inst) {
+        Thread thread = new Thread(() -> {
+            try {
+                main(agentArgs, inst);
+            } catch (Exception e) {
+                log.error("error:", e);
+                System.exit(-1);
+            }
+        }, "cdc-agent-init");
+        thread.start();
     }
 
     static void main(String agentArgs, Instrumentation inst) throws Exception {
-        DatabaseDescriptor.daemonInitialization();
+        daemonInitializationWithRetry();
         if (DatabaseDescriptor.isCDCEnabled() == false) {
             log.error("cdc_enabled=false in your cassandra configuration, CDC agent not started.");
         } else if (DatabaseDescriptor.getCDCLogLocation() == null) {
             log.error("cdc_raw_directory=null in your cassandra configuration, CDC agent not started.");
         } else {
             startCdcAgent(agentArgs);
+        }
+    }
+    private static void daemonInitializationWithRetry() throws InterruptedException {
+        int attempts = 0;
+        while (true) {
+            try {
+                DatabaseDescriptor.daemonInitialization();
+                return;
+            } catch (ConfigurationException e) {
+                attempts++;
+                if (attempts >= 30) {
+                    throw e;
+                }
+                log.warn("DatabaseDescriptor.daemonInitialization() failed (attempt {}/30), retrying: {}", attempts, e.getMessage());
+                Thread.sleep(1000);
+            }
         }
     }
 
