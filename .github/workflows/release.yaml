@@ -31,7 +31,7 @@ jobs:
           DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
         run: ./gradlew assemble -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD
 
-      # Hands the three jars publish-images needs to that job, so it doesn't need its own
+      # Hands publish-images the jars it needs, so it doesn't need its own
       # DSE_REPO_USERNAME/PASSWORD (and doesn't redo this build) just to get at agent-dse4's jar.
       - name: Upload jars for image publishing
         uses: actions/upload-artifact@v4
@@ -41,6 +41,8 @@ jobs:
             agent-c4/build/libs/agent-c4-${{ env.CURRENT_VERSION }}-all.jar
             agent-dse4/build/libs/agent-dse4-${{ env.CURRENT_VERSION }}-all.jar
             backfill-cli/build/libs/backfill-cli-${{ env.CURRENT_VERSION }}-all.jar
+            connector/build/libs/pulsar-cassandra-source-${{ env.CURRENT_VERSION }}.jar
+            connector/build/libs/pulsar-cassandra-source-${{ env.CURRENT_VERSION }}.nar
           retention-days: 1
 
       - name: Create Release
@@ -237,4 +239,22 @@ jobs:
             /tmp/ctx-admin
           docker push "$REGISTRY/datastax/cdc:${{ env.CURRENT_VERSION }}-admin"
           docker push "$REGISTRY/datastax/cdc:latest-admin"
+
+      - name: Build and push cassandra-source-connect (Kafka Connect worker) image
+        run: |
+          mkdir -p /tmp/ctx-connect/bundled-dependencies
+          cp connector/build/libs/pulsar-cassandra-source-${{ env.CURRENT_VERSION }}.jar connector/src/docker-k8s/Dockerfile /tmp/ctx-connect/
+          # Only the .nar bundles the connector's runtime dependencies (plain jar has none) --
+          # see the comment on the "Upload jars for image publishing" step in the build job.
+          unzip -oq connector/build/libs/pulsar-cassandra-source-${{ env.CURRENT_VERSION }}.nar \
+            "META-INF/bundled-dependencies/*.jar" -d /tmp/nar-deps
+          mv /tmp/nar-deps/META-INF/bundled-dependencies/*.jar /tmp/ctx-connect/bundled-dependencies/
+          docker build \
+            --build-arg KAFKA_IMAGE_TAG=3.9.2 \
+            --build-arg BUILD_VERSION=${{ env.CURRENT_VERSION }} \
+            -t "$REGISTRY/datastax/cdc:${{ env.CURRENT_VERSION }}-connect" \
+            -t "$REGISTRY/datastax/cdc:latest-connect" \
+            /tmp/ctx-connect
+          docker push "$REGISTRY/datastax/cdc:${{ env.CURRENT_VERSION }}-connect"
+          docker push "$REGISTRY/datastax/cdc:latest-connect"
 
