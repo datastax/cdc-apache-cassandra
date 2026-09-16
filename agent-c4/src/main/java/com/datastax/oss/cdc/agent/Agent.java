@@ -22,6 +22,7 @@ import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.service.StorageService;
 
 import java.lang.instrument.Instrumentation;
+import java.lang.reflect.Field;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -40,7 +41,7 @@ public class Agent {
     private static void startAsync(String agentArgs, Instrumentation inst) {
         Thread thread = new Thread(() -> {
             try {
-                waitForSeedProviderOnClasspath();
+                waitForCassandraOwnInitialization();
                 main(agentArgs, inst);
             } catch (Exception e) {
                 log.error("error:", e);
@@ -49,15 +50,22 @@ public class Agent {
         }, "cdc-agent-init");
         thread.start();
     }
-
-    private static void waitForSeedProviderOnClasspath() throws InterruptedException {
-        for (int i = 0; i < 30; i++) {
-            try {
-                Class.forName("org.apache.cassandra.locator.K8SeedProvider", false, Agent.class.getClassLoader());
+    private static void waitForCassandraOwnInitialization() throws InterruptedException {
+        for (int i = 0; i < 300; i++) {
+            if (isDatabaseDescriptorConfigured()) {
                 return;
-            } catch (ClassNotFoundException e) {
-                Thread.sleep(200);
             }
+            Thread.sleep(100);
+        }
+    }
+
+    private static boolean isDatabaseDescriptorConfigured() {
+        try {
+            Field confField = DatabaseDescriptor.class.getDeclaredField("conf");
+            confField.setAccessible(true);
+            return confField.get(null) != null;
+        } catch (ReflectiveOperationException e) {
+            return false;
         }
     }
 
