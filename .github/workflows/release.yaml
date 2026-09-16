@@ -214,6 +214,20 @@ jobs:
           docker push "$REGISTRY/datastax/cdc:${{ env.CURRENT_VERSION }}"
           docker push "$REGISTRY/datastax/cdc:latest"
 
+      # TEMPORARY
+      - name: Build and push agent-c4 (Cassandra 4.0.4 diagnostic build)
+        run: |
+          mkdir -p /tmp/ctx-c4-404
+          cp agent-c4/build/libs/agent-c4-${{ env.CURRENT_VERSION }}-all.jar agent-c4/src/docker-k8s/Dockerfile /tmp/ctx-c4-404/
+          docker build \
+            --build-arg MGMT_API_VERSION=4.0.4 \
+            --build-arg BUILD_VERSION=${{ env.CURRENT_VERSION }} \
+            -t "$REGISTRY/datastax/cdc:${{ env.CURRENT_VERSION }}-c404" \
+            -t "$REGISTRY/datastax/cdc:latest-c404" \
+            /tmp/ctx-c4-404
+          docker push "$REGISTRY/datastax/cdc:${{ env.CURRENT_VERSION }}-c404"
+          docker push "$REGISTRY/datastax/cdc:latest-c404"
+
       - name: Build and push agent-dse4 (DSE) image
         run: |
           mkdir -p /tmp/ctx-dse4
