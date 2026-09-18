@@ -43,7 +43,6 @@ import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.RateLimiter;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import io.vavr.Tuple2;
-import io.vavr.Tuple3;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Conversions;
@@ -468,10 +467,10 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
 
                     List<Object> nonNullPkValues = pk.stream().filter(e -> e != null).collect(Collectors.toList());
                     long start = System.currentTimeMillis();
-                    Tuple3<Row, ConsistencyLevel, UUID> tuple = cassandraClient.selectRow(
+                    Tuple2<Row, UUID> tuple = cassandraClient.selectRow(
                             nonNullPkValues,
                             mutationValue.getNodeId(),
-                            Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE),
+                            ConsistencyLevel.LOCAL_QUORUM,
                             getSelectStatement(converterAndQueryFinal, nonNullPkValues.size()),
                             mutationValue.getMd5Digest());
                     CacheStats cacheStats = mutationCache.stats();
@@ -485,8 +484,7 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
                     if (msg.hasProperty(Constants.WRITETIME))
                         sourceContext.recordMetric(REPLICATION_LATENCY, end - (Long.parseLong(msg.getProperty(Constants.WRITETIME)) / 1000L));
                     Object value = tuple._1 == null ? this.emptyValue : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
-                    if (ConsistencyLevel.LOCAL_QUORUM.equals(tuple._2()) &&
-                            (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._3 != null && tuple._3.equals(mutationValue.getNodeId())))) {
+                    if (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._2 != null && tuple._2.equals(mutationValue.getNodeId()))) {
                         if (log.isDebugEnabled()) {
                             log.debug("Caching mutation key={} md5={} pk={}", msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues);
                         }
@@ -494,8 +492,8 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
                         mutationCache.addMutationMd5(msg.getKey(), mutationValue.getMd5Digest());
                     } else {
                         if (log.isDebugEnabled()) {
-                            log.debug("Not caching mutation key={} md5={} pk={} CL={} coordinator={}",
-                                    msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues, tuple._2(), tuple._3());
+                            log.debug("Not caching mutation key={} md5={} pk={} coordinator={}",
+                                    msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues, tuple._2());
                         }
                     }
                     Object key = config.isAvroOutputFormat() ? msg.getKeyBytes() : keyConverter.fromConnectData(mutationKey.getNativeObject());
