@@ -413,7 +413,7 @@ public class KafkaCassandraSourceTaskContainerTests {
     @MethodSource("schemaRegistries")
     void should_register_new_schema_version_after_table_alter(
             String registryUrl, String registryName) throws Exception {
-        String table = "tbl_schema_registry_evolve_" + registryName;
+        String table = "tbl_schema_registry_evolve_" + registryName + "_confluent";
         String eventsTopic = "events-ks1." + table;
         String outputTopic = "data-ks1." + table;
 
