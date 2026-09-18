@@ -1212,7 +1212,7 @@ public abstract class PulsarCassandraSourceTests {
     @Test
     public void testReadTimeout() throws InterruptedException, IOException {
         final String ksName = "ksx";
-        try(ChaosNetworkContainer<?> chaosContainer = new ChaosNetworkContainer<>(cassandraContainer2.getContainerName(), "100s")) {
+        try(ChaosNetworkContainer<?> chaosContainer = new ChaosNetworkContainer<>(cassandraContainer2.getContainerName(), "10s")) {
             try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
                 cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName +
                         " WITH replication = {'class':'SimpleStrategy','replication_factor':'2'};");
@@ -1253,7 +1253,7 @@ public abstract class PulsarCassandraSourceTests {
     @Test
     public void testConnectionFailure() throws InterruptedException, IOException {
         final String ksName = "ksx2";
-        try (ChaosNetworkContainer<?> chaosContainer = new ChaosNetworkContainer<>(cassandraContainer1.getContainerName(), "100s")) {
+        try (ChaosNetworkContainer<?> chaosContainer = new ChaosNetworkContainer<>(cassandraContainer1.getContainerName(), "10s")) {
             try (CqlSession cqlSession = cassandraContainer1.getCqlSession()) {
                 cqlSession.execute("CREATE KEYSPACE IF NOT EXISTS " + ksName +
                         " WITH replication = {'class':'SimpleStrategy','replication_factor':'2'};");
