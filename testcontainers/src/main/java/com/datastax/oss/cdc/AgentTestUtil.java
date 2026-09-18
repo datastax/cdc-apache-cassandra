@@ -35,8 +35,13 @@ public class AgentTestUtil {
     public static final DockerImageName PULSAR_IMAGE = resolveImage(
             "PULSAR_IMAGE", "testPulsarImage", "testPulsarImageTag", "pulsar");
 
-    public static final DockerImageName KAFKA_IMAGE = resolveImage(
-            "KAFKA_IMAGE", "testKafkaImage", "testKafkaImageTag", null);
+    // Used with org.testcontainers.containers.KafkaContainer (legacy, canonical image = confluentinc/cp-kafka).
+    public static final DockerImageName CONFLUENT_KAFKA_IMAGE = resolveImage(
+            "CONFLUENT_KAFKA_IMAGE", "testConfluentKafkaImage", "testConfluentKafkaImageTag", null);
+
+    // Used with org.testcontainers.kafka.KafkaContainer (1.20+, canonical image = apache/kafka).
+    public static final DockerImageName OSS_KAFKA_IMAGE = resolveImage(
+            "OSS_KAFKA_IMAGE", "testOssKafkaImage", "testOssKafkaImageTag", null);
 
     private static DockerImageName resolveImage(String envVar, String imageProp, String tagProp,
                                                 String compatSubstituteFor) {
