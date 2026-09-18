@@ -59,7 +59,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Slf4j
 public abstract class KafkaSingleNodeTests {
 
-    private static final DockerImageName KAFKA_IMAGE = AgentTestUtil.KAFKA_IMAGE;
+    private static final DockerImageName KAFKA_IMAGE = AgentTestUtil.CONFLUENT_KAFKA_IMAGE;
     public static final String CONTAINER_KAFKA_CONFIG_PATH = "/etc/cassandra/cdc-kafka.conf";
 
     private static Network testNetwork;

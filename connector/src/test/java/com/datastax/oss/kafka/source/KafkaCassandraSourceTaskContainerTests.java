@@ -33,8 +33,6 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.BinaryDecoder;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
@@ -45,7 +43,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.testcontainers.containers.KafkaContainer;
+import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
@@ -60,7 +58,6 @@ import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.stream.Stream;
@@ -79,7 +76,11 @@ public class KafkaCassandraSourceTaskContainerTests {
     private static final String CONTAINER_KAFKA_CONFIG_PATH = "/etc/cassandra/cdc-kafka.conf";
 
     private static Network testNetwork;
-    private static KafkaContainer kafkaContainer;
+    // cp-kafka uses the legacy KafkaContainer (org.testcontainers.containers) whose startup
+    // script calls /etc/confluent/docker/run. The new KafkaContainer (org.testcontainers.kafka)
+    // calls /etc/kafka/docker/run, which only exists in apache/kafka images.
+    private static org.testcontainers.containers.KafkaContainer confluentKafkaContainer;
+    private static KafkaContainer ossKafkaContainer;
     private static CassandraContainer<?> cassandraContainer;
     private static ConfluentSchemaRegistryContainer confluentSchemaRegistryContainer;
     private static ApicurioSchemaRegistryContainer apicurioSchemaRegistryContainer;
@@ -87,15 +88,19 @@ public class KafkaCassandraSourceTaskContainerTests {
     @BeforeAll
     static void startContainers() throws Exception {
         testNetwork = Network.newNetwork();
-        kafkaContainer = new KafkaContainer(AgentTestUtil.KAFKA_IMAGE)
+        confluentKafkaContainer = new org.testcontainers.containers.KafkaContainer(AgentTestUtil.CONFLUENT_KAFKA_IMAGE)
                 .withNetwork(testNetwork)
-                .withNetworkAliases("kafka");
-        kafkaContainer.start();
+                .withNetworkAliases("kafka-confluent");
+        confluentKafkaContainer.start();
+        ossKafkaContainer = new KafkaContainer(AgentTestUtil.OSS_KAFKA_IMAGE)
+                .withNetwork(testNetwork)
+                .withNetworkAliases("kafka-oss");
+        ossKafkaContainer.start();
 
         File kafkaConf = File.createTempFile("cdc-kafka-agent-", ".conf");
         kafkaConf.deleteOnExit();
         try (FileWriter fw = new FileWriter(kafkaConf)) {
-            fw.write("bootstrapServers=kafka:9092\n");
+            fw.write("bootstrapServers=kafka-confluent:9092\n");
         }
 
         String agentParams = String.format(
@@ -113,16 +118,20 @@ public class KafkaCassandraSourceTaskContainerTests {
         try (CqlSession session = cassandraContainer.getCqlSession()) {
             session.execute("CREATE KEYSPACE IF NOT EXISTS ks1 WITH replication = "
                     + "{'class':'SimpleStrategy','replication_factor':1}");
-            session.execute("CREATE TABLE IF NOT EXISTS ks1.tbl1 (a text, b text, PRIMARY KEY (a)) WITH cdc=true");
-            session.execute("CREATE TABLE IF NOT EXISTS ks1.tbl_schema_evolve (a text, b text, PRIMARY KEY (a)) WITH cdc=true");
-            // One table per (registry-test, registry-implementation) pair: the two schema
-            // registry tests below each run once per registry via @ParameterizedTest, and each
-            // invocation needs its own topic so the two runs of the same test don't read each
-            // other's events off the same events-ks1.<table> topic.
-            session.execute("CREATE TABLE IF NOT EXISTS ks1.tbl_schema_registry_confluent (a text, b text, PRIMARY KEY (a)) WITH cdc=true");
-            session.execute("CREATE TABLE IF NOT EXISTS ks1.tbl_schema_registry_apicurio (a text, b text, PRIMARY KEY (a)) WITH cdc=true");
-            session.execute("CREATE TABLE IF NOT EXISTS ks1.tbl_schema_registry_evolve_confluent (a text, b text, PRIMARY KEY (a)) WITH cdc=true");
-            session.execute("CREATE TABLE IF NOT EXISTS ks1.tbl_schema_registry_evolve_apicurio (a text, b text, PRIMARY KEY (a)) WITH cdc=true");
+            session.execute("CREATE TABLE IF NOT EXISTS ks1.tbl1_confluent (a text, b text, PRIMARY KEY (a)) WITH cdc=true");
+            session.execute("CREATE TABLE IF NOT EXISTS ks1.tbl1_oss (a text, b text, PRIMARY KEY (a)) WITH cdc=true");
+            session.execute("CREATE TABLE IF NOT EXISTS ks1.tbl_schema_evolve_confluent (a text, b text, PRIMARY KEY (a)) WITH cdc=true");
+            session.execute("CREATE TABLE IF NOT EXISTS ks1.tbl_schema_evolve_oss (a text, b text, PRIMARY KEY (a)) WITH cdc=true");
+            // One table per (registry × kafka-platform) pair so that no two parameterized
+            // invocations share the same events-ks1.<table> topic.
+            session.execute("CREATE TABLE IF NOT EXISTS ks1.tbl_schema_registry_confluent_confluent (a text, b text, PRIMARY KEY (a)) WITH cdc=true");
+            session.execute("CREATE TABLE IF NOT EXISTS ks1.tbl_schema_registry_confluent_oss (a text, b text, PRIMARY KEY (a)) WITH cdc=true");
+            session.execute("CREATE TABLE IF NOT EXISTS ks1.tbl_schema_registry_apicurio_confluent (a text, b text, PRIMARY KEY (a)) WITH cdc=true");
+            session.execute("CREATE TABLE IF NOT EXISTS ks1.tbl_schema_registry_apicurio_oss (a text, b text, PRIMARY KEY (a)) WITH cdc=true");
+            session.execute("CREATE TABLE IF NOT EXISTS ks1.tbl_schema_registry_evolve_confluent_confluent (a text, b text, PRIMARY KEY (a)) WITH cdc=true");
+            session.execute("CREATE TABLE IF NOT EXISTS ks1.tbl_schema_registry_evolve_confluent_oss (a text, b text, PRIMARY KEY (a)) WITH cdc=true");
+            session.execute("CREATE TABLE IF NOT EXISTS ks1.tbl_schema_registry_evolve_apicurio_confluent (a text, b text, PRIMARY KEY (a)) WITH cdc=true");
+            session.execute("CREATE TABLE IF NOT EXISTS ks1.tbl_schema_registry_evolve_apicurio_oss (a text, b text, PRIMARY KEY (a)) WITH cdc=true");
         }
 
         // Two registries, run against the same tests via schemaRegistries() below. Apicurio is
@@ -135,7 +144,7 @@ public class KafkaCassandraSourceTaskContainerTests {
         confluentSchemaRegistryContainer = new ConfluentSchemaRegistryContainer(
                 DockerImageName.parse("confluentinc/cp-schema-registry:7.4.0"))
                 .withNetworkAlias("schema-registry-confluent", testNetwork)
-                .withKafkaBootstrapServers("kafka:9092");
+                .withKafkaBootstrapServers("kafka-confluent:9092");
         confluentSchemaRegistryContainer.start();
 
         apicurioSchemaRegistryContainer = new ApicurioSchemaRegistryContainer(
@@ -158,6 +167,25 @@ public class KafkaCassandraSourceTaskContainerTests {
                 Arguments.of(apicurioSchemaRegistryContainer.getSchemaRegistryUrl(), "apicurio"));
     }
 
+    // Same pattern as schemaRegistries(): passes bootstrap servers as a plain String rather than
+    // the container itself to avoid JUnit 5.10+ auto-closing shared static containers between
+    // parameterized invocations.
+    private static Stream<Arguments> kafkaContainers() {
+        return Stream.of(
+                Arguments.of(confluentKafkaContainer.getBootstrapServers(), "confluent"),
+                Arguments.of(ossKafkaContainer.getBootstrapServers(), "oss"));
+    }
+
+    // Cartesian product of both registries × both Kafka platforms: 4 invocations per test.
+    // Arguments: (registryUrl, registryName, bootstrapServers, kafkaPlatform)
+    private static Stream<Arguments> schemaRegistriesAndKafkaContainers() {
+        return Stream.of(
+                Arguments.of(confluentSchemaRegistryContainer.getSchemaRegistryUrl(), "confluent", confluentKafkaContainer.getBootstrapServers(), "confluent"),
+                Arguments.of(confluentSchemaRegistryContainer.getSchemaRegistryUrl(), "confluent", ossKafkaContainer.getBootstrapServers(),       "oss"),
+                Arguments.of(apicurioSchemaRegistryContainer.getSchemaRegistryUrl(),  "apicurio",  confluentKafkaContainer.getBootstrapServers(), "confluent"),
+                Arguments.of(apicurioSchemaRegistryContainer.getSchemaRegistryUrl(),  "apicurio",  ossKafkaContainer.getBootstrapServers(),       "oss"));
+    }
+
     @AfterAll
     static void stopContainers() {
         if (confluentSchemaRegistryContainer != null) {
@@ -169,29 +197,36 @@ public class KafkaCassandraSourceTaskContainerTests {
         if (cassandraContainer != null) {
             cassandraContainer.close();
         }
-        if (kafkaContainer != null) {
-            kafkaContainer.close();
+        if (confluentKafkaContainer != null) {
+            confluentKafkaContainer.close();
+        }
+        if (ossKafkaContainer != null) {
+            ossKafkaContainer.close();
         }
         if (testNetwork != null) {
             testNetwork.close();
         }
     }
 
-    @Test
-    void should_read_back_row_inserted_after_cdc_event() throws Exception {
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("kafkaContainers")
+    void should_read_back_row_inserted_after_cdc_event(String bootstrapServers, String kafkaPlatform) throws Exception {
+        String table = "tbl1_" + kafkaPlatform;
+        String eventsTopic = "events-ks1." + table;
+        String outputTopic = "data-ks1." + table;
+
         try (CqlSession session = cassandraContainer.getCqlSession()) {
-            session.execute("INSERT INTO ks1.tbl1 (a, b) VALUES ('hello', 'world')");
+            session.execute("INSERT INTO ks1." + table + " (a, b) VALUES ('hello', 'world')");
         }
 
-        String eventsTopic = "events-ks1.tbl1";
-        KafkaConsumer<byte[], byte[]> consumer = createInternalConsumer(eventsTopic);
+        KafkaConsumer<byte[], byte[]> consumer = createInternalConsumer(bootstrapServers, eventsTopic);
 
         KafkaCassandraSourceTask task = new KafkaCassandraSourceTask();
         task.config = new CassandraSourceConnectorConfig(ImmutableMap.<String, String>builder()
                 .put(CassandraSourceConnectorConfig.KEYSPACE_NAME_CONFIG, "ks1")
-                .put(CassandraSourceConnectorConfig.TABLE_NAME_CONFIG, "tbl1")
+                .put(CassandraSourceConnectorConfig.TABLE_NAME_CONFIG, table)
                 .put(CassandraSourceConnectorConfig.EVENTS_TOPIC_NAME_CONFIG, eventsTopic)
-                .put(CassandraSourceConnectorConfig.OUTPUT_TOPIC_CONFIG, "data-ks1.tbl1")
+                .put(CassandraSourceConnectorConfig.OUTPUT_TOPIC_CONFIG, outputTopic)
                 .put(CassandraSourceConnectorConfig.CONTACT_POINTS_OPT, cassandraContainer.getHost())
                 .put(CassandraSourceConnectorConfig.PORT_OPT,
                         String.valueOf(cassandraContainer.getMappedPort(CassandraContainer.CQL_PORT)))
@@ -199,7 +234,7 @@ public class KafkaCassandraSourceTaskContainerTests {
                 .build());
         task.mutationCache = new com.datastax.oss.cdc.MutationCache<>(3, 1000, Duration.ofMinutes(5));
         task.eventsTopic = eventsTopic;
-        task.outputTopic = "data-ks1.tbl1";
+        task.outputTopic = outputTopic;
         task.consumer = consumer;
         task.queryExecutor = OrderedExecutor.newBuilder()
                 .name("cdc-query-executor-it")
@@ -212,18 +247,19 @@ public class KafkaCassandraSourceTaskContainerTests {
 
             assertThat(records).hasSize(1);
             SourceRecord record = records.get(0);
-            assertThat(record.topic()).isEqualTo("data-ks1.tbl1");
+            assertThat(record.topic()).isEqualTo(outputTopic);
 
-            GenericRecord row = decodeAvro("tbl1", (byte[]) record.value());
+            GenericRecord row = decodeAvro(table, (byte[]) record.value());
             assertThat(row.get("b").toString()).isEqualTo("world");
         } finally {
             task.stop();
         }
     }
 
-    @Test
-    void should_pick_up_altered_column_and_still_decode_downstream_correctly() throws Exception {
-        String table = "tbl_schema_evolve";
+    @ParameterizedTest(name = "{1}")
+    @MethodSource("kafkaContainers")
+    void should_pick_up_altered_column_and_still_decode_downstream_correctly(String bootstrapServers, String kafkaPlatform) throws Exception {
+        String table = "tbl_schema_evolve_" + kafkaPlatform;
         String eventsTopic = "events-ks1." + table;
         String outputTopic = "data-ks1." + table;
 
@@ -231,7 +267,7 @@ public class KafkaCassandraSourceTaskContainerTests {
             session.execute("INSERT INTO ks1." + table + " (a, b) VALUES ('row1', 'before')");
         }
 
-        KafkaConsumer<byte[], byte[]> consumer = createInternalConsumer(eventsTopic);
+        KafkaConsumer<byte[], byte[]> consumer = createInternalConsumer(bootstrapServers, eventsTopic);
         KafkaCassandraSourceTask task = new KafkaCassandraSourceTask();
         task.config = new CassandraSourceConnectorConfig(ImmutableMap.<String, String>builder()
                 .put(CassandraSourceConnectorConfig.KEYSPACE_NAME_CONFIG, "ks1")
@@ -284,11 +320,11 @@ public class KafkaCassandraSourceTaskContainerTests {
         }
     }
 
-    @ParameterizedTest(name = "{1}")
-    @MethodSource("schemaRegistries")
+    @ParameterizedTest(name = "{1}-registry/{3}-kafka")
+    @MethodSource("schemaRegistriesAndKafkaContainers")
     void should_register_schema_in_real_registry_and_decode_via_its_rest_api(
-            String registryUrl, String registryName) throws Exception {
-        String table = "tbl_schema_registry_" + registryName;
+            String registryUrl, String registryName, String bootstrapServers, String kafkaPlatform) throws Exception {
+        String table = "tbl_schema_registry_" + registryName + "_" + kafkaPlatform;
         String eventsTopic = "events-ks1." + table;
         String outputTopic = "data-ks1." + table;
 
@@ -296,7 +332,7 @@ public class KafkaCassandraSourceTaskContainerTests {
             session.execute("INSERT INTO ks1." + table + " (a, b) VALUES ('hello', 'world')");
         }
 
-        KafkaConsumer<byte[], byte[]> consumer = createInternalConsumer(eventsTopic);
+        KafkaConsumer<byte[], byte[]> consumer = createInternalConsumer(bootstrapServers, eventsTopic);
         KafkaCassandraSourceTask task = new KafkaCassandraSourceTask();
         task.config = new CassandraSourceConnectorConfig(ImmutableMap.<String, String>builder()
                 .put(CassandraSourceConnectorConfig.KEYSPACE_NAME_CONFIG, "ks1")
@@ -377,7 +413,7 @@ public class KafkaCassandraSourceTaskContainerTests {
     @MethodSource("schemaRegistries")
     void should_register_new_schema_version_after_table_alter(
             String registryUrl, String registryName) throws Exception {
-        String table = "tbl_schema_registry_evolve_" + registryName;
+        String table = "tbl_schema_registry_evolve_" + registryName + "_confluent";
         String eventsTopic = "events-ks1." + table;
         String outputTopic = "data-ks1." + table;
 
@@ -385,7 +421,7 @@ public class KafkaCassandraSourceTaskContainerTests {
             session.execute("INSERT INTO ks1." + table + " (a, b) VALUES ('row1', 'before')");
         }
 
-        KafkaConsumer<byte[], byte[]> consumer = createInternalConsumer(eventsTopic);
+        KafkaConsumer<byte[], byte[]> consumer = createInternalConsumer(confluentKafkaContainer.getBootstrapServers(), eventsTopic);
         KafkaCassandraSourceTask task = new KafkaCassandraSourceTask();
         task.config = new CassandraSourceConnectorConfig(ImmutableMap.<String, String>builder()
                 .put(CassandraSourceConnectorConfig.KEYSPACE_NAME_CONFIG, "ks1")
@@ -487,9 +523,9 @@ public class KafkaCassandraSourceTaskContainerTests {
         throw new AssertionError("Timed out waiting for value converter to pick up column " + columnName);
     }
 
-    private KafkaConsumer<byte[], byte[]> createInternalConsumer(String eventsTopic) {
+    private KafkaConsumer<byte[], byte[]> createInternalConsumer(String bootstrapServers, String eventsTopic) {
         Properties props = new Properties();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaContainer.getBootstrapServers());
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ConsumerConfig.CLIENT_ID_CONFIG, "kafka-cassandra-source-task-it");
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
