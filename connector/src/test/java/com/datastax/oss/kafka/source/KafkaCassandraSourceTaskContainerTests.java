@@ -100,7 +100,7 @@ public class KafkaCassandraSourceTaskContainerTests {
         File kafkaConf = File.createTempFile("cdc-kafka-agent-", ".conf");
         kafkaConf.deleteOnExit();
         try (FileWriter fw = new FileWriter(kafkaConf)) {
-            fw.write("bootstrapServers=kafka:9092\n");
+            fw.write("bootstrapServers=kafka-confluent:9092\n");
         }
 
         String agentParams = String.format(
@@ -144,7 +144,7 @@ public class KafkaCassandraSourceTaskContainerTests {
         confluentSchemaRegistryContainer = new ConfluentSchemaRegistryContainer(
                 DockerImageName.parse("confluentinc/cp-schema-registry:7.4.0"))
                 .withNetworkAlias("schema-registry-confluent", testNetwork)
-                .withKafkaBootstrapServers("kafka:9092");
+                .withKafkaBootstrapServers("kafka-confluent:9092");
         confluentSchemaRegistryContainer.start();
 
         apicurioSchemaRegistryContainer = new ApicurioSchemaRegistryContainer(
