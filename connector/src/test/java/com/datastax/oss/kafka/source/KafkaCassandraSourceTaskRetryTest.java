@@ -24,7 +24,7 @@ import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.kafka.source.converters.Converter;
-import io.vavr.Tuple3;
+import io.vavr.Tuple2;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.avro.generic.GenericData;
@@ -146,12 +146,12 @@ public class KafkaCassandraSourceTaskRetryTest {
         UUID nodeId = UUID.randomUUID();
 
         AtomicInteger callCount = new AtomicInteger(0);
-        when(mockClient.selectRow(anyList(), any(), anyList(), any(), anyString()))
+        when(mockClient.selectRow(anyList(), any(), any(ConsistencyLevel.class), any(), anyString()))
                 .thenAnswer(inv -> {
                     if (callCount.incrementAndGet() == 1) {
                         throw new RuntimeException("Simulated CQL failure");
                     }
-                    return new Tuple3<>(mockRow, ConsistencyLevel.LOCAL_QUORUM, nodeId);
+                    return new Tuple2<>(mockRow, nodeId);
                 });
 
         // Converter returns non-null bytes for the row.
@@ -170,7 +170,7 @@ public class KafkaCassandraSourceTaskRetryTest {
 
         assertNotNull(result, "Expected a SourceRecord after one retry");
         assertEquals("output-topic", result.topic());
-        verify(mockClient, times(2)).selectRow(anyList(), any(), anyList(), any(), anyString());
+        verify(mockClient, times(2)).selectRow(anyList(), any(), any(ConsistencyLevel.class), any(), anyString());
     }
 
     /**
@@ -183,12 +183,12 @@ public class KafkaCassandraSourceTaskRetryTest {
         UUID nodeId = UUID.randomUUID();
 
         AtomicInteger callCount = new AtomicInteger(0);
-        when(mockClient.selectRow(anyList(), any(), anyList(), any(), anyString()))
+        when(mockClient.selectRow(anyList(), any(), any(ConsistencyLevel.class), any(), anyString()))
                 .thenAnswer(inv -> {
                     if (callCount.incrementAndGet() < 4) {
                         throw new RuntimeException("Simulated CQL failure #" + callCount.get());
                     }
-                    return new Tuple3<>(mockRow, ConsistencyLevel.LOCAL_QUORUM, nodeId);
+                    return new Tuple2<>(mockRow, nodeId);
                 });
 
         @SuppressWarnings("unchecked")
@@ -201,7 +201,7 @@ public class KafkaCassandraSourceTaskRetryTest {
         SourceRecord result = invokeWaitForCqlWithRetry(decoded);
 
         assertNotNull(result, "Expected a SourceRecord after multiple retries");
-        verify(mockClient, times(4)).selectRow(anyList(), any(), anyList(), any(), anyString());
+        verify(mockClient, times(4)).selectRow(anyList(), any(), any(ConsistencyLevel.class), any(), anyString());
     }
 
     /**
@@ -226,7 +226,7 @@ public class KafkaCassandraSourceTaskRetryTest {
         // Should be a heartbeat (non-null, sent to heartbeat topic).
         assertNotNull(result, "Expected a heartbeat record for cache hit");
         assertEquals("output-topic-heartbeat", result.topic());
-        verify(mockClient, times(0)).selectRow(anyList(), any(), anyList(), any(), anyString());
+        verify(mockClient, times(0)).selectRow(anyList(), any(), any(ConsistencyLevel.class), any(), anyString());
     }
 
     /**
@@ -237,8 +237,8 @@ public class KafkaCassandraSourceTaskRetryTest {
     void null_row_produces_source_record_with_null_value() throws Exception {
         UUID nodeId = UUID.randomUUID();
         // selectRow returns null row (row was deleted)
-        when(mockClient.selectRow(anyList(), any(), anyList(), any(), anyString()))
-                .thenReturn(new Tuple3<>(null, ConsistencyLevel.LOCAL_QUORUM, nodeId));
+        when(mockClient.selectRow(anyList(), any(), any(ConsistencyLevel.class), any(), anyString()))
+                .thenReturn(new Tuple2<>(null, nodeId));
 
         DecodedRecordProxy decoded = buildDecodedRecord(nodeId, "digest-delete");
         decoded.setQueryResult(invokeSubmitCqlQuery(decoded, mockCaq));
@@ -247,7 +247,7 @@ public class KafkaCassandraSourceTaskRetryTest {
 
         assertNotNull(result, "Expected a SourceRecord even for a deleted row");
         assertNull(result.value(), "Value should be null (emptyValue) for a deleted row");
-        verify(mockClient, times(1)).selectRow(anyList(), any(), anyList(), any(), anyString());
+        verify(mockClient, times(1)).selectRow(anyList(), any(), any(ConsistencyLevel.class), any(), anyString());
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────────

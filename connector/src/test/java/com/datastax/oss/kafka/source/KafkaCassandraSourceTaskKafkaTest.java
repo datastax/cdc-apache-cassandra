@@ -34,7 +34,7 @@ import com.datastax.oss.driver.internal.core.metadata.schema.DefaultColumnMetada
 import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableMap;
 import com.datastax.oss.kafka.source.converters.Converter;
 import com.datastax.oss.kafka.source.converters.KafkaAvroConverter;
-import io.vavr.Tuple3;
+import io.vavr.Tuple2;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -176,8 +176,8 @@ class KafkaCassandraSourceTaskKafkaTest {
         byte[] key = encodePrimaryKey(1);
         byte[] value = encodeMutationValue("digest-1", nodeId);
         when(consumer.poll(any(Duration.class))).thenReturn(singleRecordBatch(key, value, 10L));
-        when(cassandraClient.selectRow(anyList(), any(), anyList(), any(), any()))
-                .thenReturn(new Tuple3<>(mock(Row.class), ConsistencyLevel.LOCAL_QUORUM, nodeId));
+        when(cassandraClient.selectRow(anyList(), any(), any(ConsistencyLevel.class), any(), any()))
+                .thenReturn(new Tuple2<>(mock(Row.class), nodeId));
 
         List<SourceRecord> records = task.poll();
 
@@ -207,7 +207,7 @@ class KafkaCassandraSourceTaskKafkaTest {
         assertThat(record.value()).isNull();
         assertThat(record.key()).isEqualTo(key);
         assertThat(record.sourceOffset().get("offset")).isEqualTo(21L);
-        verify(cassandraClient, never()).selectRow(anyList(), any(), anyList(), any(), any());
+        verify(cassandraClient, never()).selectRow(anyList(), any(), any(ConsistencyLevel.class), any(), any());
     }
 
     @Test
