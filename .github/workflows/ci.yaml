@@ -56,10 +56,13 @@ jobs:
           - 'pulsar|apachepulsar/pulsar:2.10.3'
           - 'pulsar|apachepulsar/pulsar:2.11.0'
           - 'kafka|confluentinc/cp-kafka:7.4.0'
+          - 'kafka-oss|apache/kafka:4.3.1'
         #
         include:
           - { module: connector, jdk: '11', brokerImage: 'kafka|confluentinc/cp-kafka:7.4.0', runBackfillCli: true }
           - { module: connector, jdk: '17', brokerImage: 'kafka|confluentinc/cp-kafka:7.4.0', runBackfillCli: true }
+          - { module: connector, jdk: '11', brokerImage: 'kafka-oss|apache/kafka:4.3.1' }
+          - { module: connector, jdk: '17', brokerImage: 'kafka-oss|apache/kafka:4.3.1' }
           - { module: connector, jdk: '11', brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4', testFilter: '--tests com.datastax.oss.pulsar.source.PulsarCassandraSourceTests --tests com.datastax.oss.cdc.CassandraSourceConnectorConfigTest --tests com.datastax.oss.cdc.MutationCacheTests', runBackfillCli: true }
           - { module: connector, jdk: '11', brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4', testFilter: '--tests com.datastax.oss.pulsar.source.JsonOnlyCassandraSourceTests' }
           - { module: connector, jdk: '11', brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4', testFilter: '--tests com.datastax.oss.pulsar.source.JsonKeyValueCassandraSourceTests' }
@@ -130,6 +133,8 @@ jobs:
 
           if [ "$BROKER_TYPE" = "pulsar" ]; then
             BROKER_FLAGS="-PbrokerType=pulsar -PtestPulsarImage=$BROKER_IMAGE -PtestPulsarImageTag=$BROKER_IMAGE_TAG"
+          elif [ "$BROKER_TYPE" = "kafka-oss" ]; then
+            BROKER_FLAGS="-PbrokerType=kafka -PtestOssKafkaImage=$BROKER_IMAGE -PtestOssKafkaImageTag=$BROKER_IMAGE_TAG"
           else
             BROKER_FLAGS="-PbrokerType=kafka -PtestConfluentKafkaImage=$BROKER_IMAGE -PtestConfluentKafkaImageTag=$BROKER_IMAGE_TAG"
           fi
@@ -159,6 +164,8 @@ jobs:
 
           if [ "$BROKER_TYPE" = "pulsar" ]; then
             BROKER_FLAGS="-PbrokerType=pulsar -PtestPulsarImage=$BROKER_IMAGE -PtestPulsarImageTag=$BROKER_IMAGE_TAG"
+          elif [ "$BROKER_TYPE" = "kafka-oss" ]; then
+            BROKER_FLAGS="-PbrokerType=kafka -PtestOssKafkaImage=$BROKER_IMAGE -PtestOssKafkaImageTag=$BROKER_IMAGE_TAG"
           else
             BROKER_FLAGS="-PbrokerType=kafka -PtestConfluentKafkaImage=$BROKER_IMAGE -PtestConfluentKafkaImageTag=$BROKER_IMAGE_TAG"
           fi
@@ -198,6 +205,7 @@ jobs:
         brokerImage:
           - 'pulsar|datastax/lunastreaming:2.10_3.4'
           - 'kafka|confluentinc/cp-kafka:7.4.0'
+          - 'kafka-oss|apache/kafka:4.3.1'
         # connector's pulsar suite is split across 4 cells below instead of joining the cross
         # product above: JsonOnlyCassandraSourceTests/JsonKeyValueCassandraSourceTests/
         # AvroKeyValueCassandraSourceTests each `extends PulsarCassandraSourceTests`, so a single
@@ -210,6 +218,8 @@ jobs:
           - module: connector
             brokerImage: 'kafka|confluentinc/cp-kafka:7.4.0'
             runBackfillCli: true
+          - module: connector
+            brokerImage: 'kafka-oss|apache/kafka:4.3.1'
           - module: connector
             brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4'
             testFilter: '--tests com.datastax.oss.pulsar.source.PulsarCassandraSourceTests --tests com.datastax.oss.cdc.CassandraSourceConnectorConfigTest --tests com.datastax.oss.cdc.MutationCacheTests'
@@ -269,6 +279,8 @@ jobs:
 
           if [ "$BROKER_TYPE" = "pulsar" ]; then
             BROKER_FLAGS="-PbrokerType=pulsar -PtestPulsarImage=$BROKER_IMAGE -PtestPulsarImageTag=$BROKER_IMAGE_TAG"
+          elif [ "$BROKER_TYPE" = "kafka-oss" ]; then
+            BROKER_FLAGS="-PbrokerType=kafka -PtestOssKafkaImage=$BROKER_IMAGE -PtestOssKafkaImageTag=$BROKER_IMAGE_TAG"
           else
             BROKER_FLAGS="-PbrokerType=kafka -PtestConfluentKafkaImage=$BROKER_IMAGE -PtestConfluentKafkaImageTag=$BROKER_IMAGE_TAG"
           fi
@@ -297,6 +309,8 @@ jobs:
 
           if [ "$BROKER_TYPE" = "pulsar" ]; then
             BROKER_FLAGS="-PbrokerType=pulsar -PtestPulsarImage=$BROKER_IMAGE -PtestPulsarImageTag=$BROKER_IMAGE_TAG"
+          elif [ "$BROKER_TYPE" = "kafka-oss" ]; then
+            BROKER_FLAGS="-PbrokerType=kafka -PtestOssKafkaImage=$BROKER_IMAGE -PtestOssKafkaImageTag=$BROKER_IMAGE_TAG"
           else
             BROKER_FLAGS="-PbrokerType=kafka -PtestConfluentKafkaImage=$BROKER_IMAGE -PtestConfluentKafkaImageTag=$BROKER_IMAGE_TAG"
           fi
