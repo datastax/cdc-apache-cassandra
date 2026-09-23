@@ -211,13 +211,12 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
         putIfPresent(props, config, "sasl.mechanism",    "saslMechanism");
         putIfPresent(props, config, "sasl.jaas.config",  "saslJaasConfig");
 
-        // Pass through any remaining properties from the config file directly.
+        // Pass through all remaining properties from the config file directly.
         // config.get() returns unrecognised file keys stored under their original names.
-        // Anything that looks like a Kafka producer property (contains ".") is forwarded.
-        // This lets operators set arbitrary producer configs (compression.type, acks, etc.)
+        // This lets operators set arbitrary producer configs (acks, compression.type, etc.)
         // without requiring AgentConfig changes.
         for (String key : config.propertyKeys()) {
-            if (key.contains(".") && !props.containsKey(key)) {
+            if (!props.containsKey(key)) {
                 props.put(key, config.get(key).toString());
             }
         }
@@ -234,8 +233,13 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
                     Murmur3KafkaPartitioner.class.getName());
         }
 
-        this.producer = new KafkaProducer<byte[], byte[]>(props);
+        this.producer = buildProducer(props);
         log.info("Kafka producer connected to {}", props.get(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG));
+    }
+
+    /** Visible for testing — subclasses may override to inject a mock producer. */
+    protected Producer<byte[], byte[]> buildProducer(Properties props) {
+        return new KafkaProducer<>(props);
     }
 
     private static void putIfPresent(Properties props, AgentConfig config, String kafkaKey, String configKey) {

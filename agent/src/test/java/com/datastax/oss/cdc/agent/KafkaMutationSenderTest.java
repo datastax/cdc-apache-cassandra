@@ -29,9 +29,12 @@ import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
+import java.io.FileWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
+import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Semaphore;
@@ -172,6 +175,39 @@ public class KafkaMutationSenderTest {
     @Test
     void topicName_usesPrefixAndKey() {
         assertEquals("events-ks.tbl", sender.topicName(mutation("ks", "tbl", "pk1", 1L, 0)));
+    }
+
+    // -------------------------------------------------------------------------
+    // initialize — config file pass-through
+    // -------------------------------------------------------------------------
+
+    @Test
+    void initialize_passthroughForwardsDottedAndNonDottedKeys() throws Exception {
+        // Write a temp config file with both a dotted key (compression.type)
+        // and a non-dotted key (acks) — the old code silently dropped non-dotted ones.
+        File tmpFile = File.createTempFile("kafka-test-", ".properties");
+        tmpFile.deleteOnExit();
+        try (FileWriter w = new FileWriter(tmpFile)) {
+            w.write("bootstrapServers=localhost:9092\n");
+            w.write("acks=all\n");
+            w.write("compression.type=lz4\n");
+        }
+
+        AgentConfig cfg = AgentConfig.create(AgentConfig.Platform.KAFKA,
+                "topicPrefix=events-,kafkaConfigFile=" + tmpFile.getAbsolutePath());
+
+        Properties captured = new Properties();
+        TestKafkaMutationSender capturingSender = new TestKafkaMutationSender(cfg) {
+            @Override
+            protected org.apache.kafka.clients.producer.Producer<byte[], byte[]> buildProducer(Properties props) {
+                captured.putAll(props);
+                return mockProducer;
+            }
+        };
+        capturingSender.initialize(cfg);
+
+        assertEquals("all",  captured.getProperty("acks"),             "acks (no dot) must be forwarded");
+        assertEquals("lz4",  captured.getProperty("compression.type"), "compression.type (dotted) must be forwarded");
     }
 
     // -------------------------------------------------------------------------

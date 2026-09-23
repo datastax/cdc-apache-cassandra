@@ -170,7 +170,7 @@ Additional agent-level Kafka settings (set in the same properties file or inline
 | `saslMechanism` | — | e.g. `PLAIN`, `SCRAM-SHA-256`. |
 | `saslJaasConfig` | — | Full JAAS config string. |
 
-Any dotted Kafka producer property (e.g. `compression.type`, `acks`) present in the config file is forwarded directly to the `KafkaProducer`.
+Any Kafka producer property not explicitly handled above (e.g. `acks`, `compression.type`, `max.block.ms`) is forwarded directly to the `KafkaProducer`.
 
 ---
 
