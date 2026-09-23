@@ -1,7 +1,7 @@
 # Kafka Support — Planning Document
 
-**Branch**: `feat/kafka-support`  
-**Status**: Draft
+**Branch**: `feat/kafka-support`
+**Status**: Implemented
 
 ---
 
@@ -101,18 +101,19 @@ Platform detection: read a new `CDC_PLATFORM` env var or a `platform` agent para
 
 ## 4. Connector-side changes
 
-### 4.1 New Gradle module: `kafka-connector`
+### 4.1 Kafka connector — implemented in `connector` module
 
-Mirrors the `connector` module (which is the Pulsar source).
+The Kafka connector lives inside the existing `connector` module (not a separate module as originally planned):
 
 ```
-kafka-connector/
-  build.gradle
-  src/main/java/com/datastax/oss/kafka/source/
-    KafkaCassandraSourceConnector.java   # implements Connector
-    KafkaCassandraSourceTask.java        # implements SourceTask
-    KafkaCassandraSourceConfig.java      # wraps CassandraSourceConnectorConfig
-  src/test/...
+connector/src/main/java/com/datastax/oss/kafka/source/
+  KafkaCassandraSourceConnector.java
+  KafkaCassandraSourceTask.java
+  SchemaRegistryProperties.java
+  InternalConsumerProperties.java
+  converters/
+    KafkaAvroConverter.java
+    KafkaJsonConverter.java
 ```
 
 #### Configuration
@@ -156,15 +157,14 @@ Value: `{"offset": <kafka-offset>}`.
 
 | Module | Change |
 |--------|--------|
-| `commons` | Add Avro serialisation utility extracted from `AbstractPulsarMutationSender` (optional, avoids duplication) |
-| `agent` | Add `AbstractKafkaMutationSender`, add `KAFKA` to `Platform` enum, add Kafka `Setting<>` entries in `AgentConfig` |
-| `agent-c3` | Add `KafkaMutationSender`, update `Agent.java` |
-| `agent-c4` | Add `KafkaMutationSender`, update `Agent.java` |
-| `agent-dse4` | Add `KafkaMutationSender`, update `Agent.java` |
-| `connector` | No change (Pulsar source, untouched) |
-| `kafka-connector` *(new)* | `KafkaCassandraSourceConnector`, `KafkaCassandraSourceTask`, `KafkaCassandraSourceConfig` |
-| `settings.gradle` | Add `include 'kafka-connector'` |
-| `testcontainers` | Add `KafkaContainer` wrapper, add `KafkaSingleNodeTests` / `KafkaDualNodeTests` base classes |
+| `commons` | `MutationSenderAvroUtil` extracted — shared Avro logic for both senders |
+| `agent` | `AbstractKafkaMutationSender` added, `KAFKA` in `Platform` enum, `kafkaConfigFile` setting, `MutationSenderAvroUtil` |
+| `agent-c3` | `KafkaMutationSender` added, `Agent.java` updated |
+| `agent-c4` | `KafkaMutationSender` added, `Agent.java` updated |
+| `agent-dse4` | `KafkaMutationSender` added, `Agent.java` updated |
+| `connector` | Kafka connector added alongside Pulsar: `KafkaCassandraSourceConnector`, `KafkaCassandraSourceTask`, `KafkaAvroConverter`, `KafkaJsonConverter`, `SchemaRegistryProperties`, `InternalConsumerProperties`. `AdaptiveQueryExecutor` removed — replaced by BookKeeper `OrderedExecutor`. `io.confluent:kafka-avro-serializer` dependency added. |
+| `backfill-cli` | `KafkaImporter`, `KafkaMutationSenderFactory`, `AbstractImporter` added; `--platform` and `--kafka-config-file` CLI options added |
+| `testcontainers` | Kafka test utilities added |
 
 ---
 
@@ -197,23 +197,11 @@ Value: `{"offset": <kafka-offset>}`.
 
 ---
 
-## 9. Open questions
+## 9. Resolved decisions
 
-1. **Schema Registry**: Should the Kafka connector optionally support Confluent Schema Registry for Avro schemas on the data topic? Start without it; add as a follow-up.
-2. **Exactly-once semantics**: Kafka Connect idempotent producers + transactional consumers? Defer to follow-up; start with at-least-once (same as Pulsar today).
-3. **Topic naming**: Pulsar uses `topicPrefix` + `keyspace.table`. Kafka topic names cannot contain `.` safely in all environments. Should we replace `.` with `_` or make the separator configurable? **Proposed default**: replace `.` with `-` and document it.
-4. **agent-dse4**: Is the DSE4 agent in scope for this first Kafka pass?
-5. **NAR vs JAR**: The Pulsar connector is packaged as a `.nar`. The Kafka connector should be packaged as a fat JAR (shadow jar). Confirm packaging requirements.
-
----
-
-## 10. Suggested implementation order
-
-1. `AgentConfig`: add `KAFKA` platform + Kafka settings
-2. `agent`: add `AbstractKafkaMutationSender`
-3. `agent-c4`: add `KafkaMutationSender` + update `Agent.java`
-4. `agent-c3`: same
-5. `kafka-connector` module: scaffold + `KafkaCassandraSourceConnector` + `KafkaCassandraSourceTask`
-6. `testcontainers`: add Kafka test utilities
-7. `agent-c4` integration tests with Kafka
-8. `connector` Pulsar regression test run
+1. **Schema Registry**: ✅ Implemented. Uses `io.confluent:kafka-avro-serializer` client. Any registry implementing the Confluent Schema Registry API is supported (Confluent Platform, Apicurio, etc.). Opt-in via `schema.registry.url`; when unset, raw Avro bytes are published (prior behaviour preserved).
+2. **Exactly-once semantics**: Deferred. At-least-once only for now.
+3. **Topic naming**: `.` retained in topic names — left to operators to handle environment constraints.
+4. **agent-dse4**: In scope — `KafkaMutationSender` added.
+5. **NAR vs JAR**: Kafka connector packaged inside the existing `connector` module JAR/NAR; no separate module created.
+6. **`AdaptiveQueryExecutor`**: Removed. Replaced by BookKeeper `OrderedExecutor` (fixed thread pool, per-key ordering) in `KafkaCassandraSourceTask`. `CassandraSource` (Pulsar) also migrated away from it.
