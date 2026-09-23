@@ -83,16 +83,18 @@ Default is `PULSAR` when omitted.
 
 ### Platform-prefix scoping
 
-A single properties file can carry settings for both platforms using prefixes:
+Each platform uses its own config file. Keys are written **without** the platform prefix — the agent prepends it internally when matching against registered settings (e.g. file key `bootstrapServers` → setting `kafkaBootstrapServers`). Unrecognised keys pass through as-is, so any standard producer property (e.g. `compression.type`, `acks`) reaches the underlying client unchanged.
 
+**`kafka.properties`** (pointed to by `kafkaConfigFile`):
 ```properties
-# cdc.properties — shared by both platforms
-topicPrefix=events-
-pulsar.pulsarServiceUrl=pulsar://broker:6650
-kafka.bootstrapServers=broker:9092
+bootstrapServers=broker:9092
+batchDelayInMs=5
 ```
 
-Keys prefixed with `pulsar.` are applied only when `platform=PULSAR`; keys prefixed with `kafka.` only when `platform=KAFKA`.
+**`pulsar.properties`** (pointed to by `pulsarConfigFile`):
+```properties
+serviceUrl=pulsar://broker:6650
+```
 
 ### Common settings (all platforms)
 
