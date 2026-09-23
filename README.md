@@ -64,11 +64,12 @@ Cassandra node
 
 ## CDC Agent configuration
 
-The agent is attached to Cassandra via the `-javaagent` JVM flag. Configuration can be supplied as inline key=value pairs, via a properties file, or via environment variables (lowest to highest precedence):
+The agent is attached to Cassandra via the `-javaagent` JVM flag. Configuration is resolved in this order (lowest to highest precedence):
 
-1. Defaults / environment variables
-2. Properties file (named by `configFile` or `kafkaConfigFile` agent arg)
-3. Inline agent args string
+1. Built-in defaults
+2. Environment variables (e.g. `CDC_TOPIC_PREFIX`, `CDC_KAFKA_CONFIG_FILE`)
+3. Properties file — `pulsarConfigFile` (Pulsar) or `kafkaConfigFile` (Kafka)
+4. Inline agent args string (highest precedence, overrides all of the above)
 
 ### Platform selection
 
@@ -262,7 +263,7 @@ The key is always serialized as raw Avro bytes regardless of registry configurat
 
 ### Failure handling and retry
 
-The source connector never drops an event message on a Cassandra error. All Cassandra failures are treated as transient — the connector negatively acknowledges the affected batch and retries it indefinitely until Cassandra becomes available again. There is no dead-letter queue and no maximum retry count.
+The source connector never drops an event message on a Cassandra error. All Cassandra failures are treated as transient — the connector retries indefinitely until Cassandra becomes available again. There is no dead-letter queue and no maximum retry count.
 
 On each consecutive failure the connector waits for a randomized exponential delay before the next attempt, starting at `query.backoffInMs` (default `100` ms) and capped at `query.maxBackoffInSec` (default `3600` s / 1 hour). The counter resets after every successfully completed batch.
 
