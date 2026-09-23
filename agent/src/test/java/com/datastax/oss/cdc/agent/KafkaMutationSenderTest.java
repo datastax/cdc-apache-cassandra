@@ -196,18 +196,10 @@ public class KafkaMutationSenderTest {
         AgentConfig cfg = AgentConfig.create(AgentConfig.Platform.KAFKA,
                 "topicPrefix=events-,kafkaConfigFile=" + tmpFile.getAbsolutePath());
 
-        Properties captured = new Properties();
-        TestKafkaMutationSender capturingSender = new TestKafkaMutationSender(cfg) {
-            @Override
-            protected org.apache.kafka.clients.producer.Producer<byte[], byte[]> buildProducer(Properties props) {
-                captured.putAll(props);
-                return mockProducer;
-            }
-        };
-        capturingSender.initialize(cfg);
+        Properties props = sender.buildProducerProperties(cfg);
 
-        assertEquals("all",  captured.getProperty("acks"),             "acks (no dot) must be forwarded");
-        assertEquals("lz4",  captured.getProperty("compression.type"), "compression.type (dotted) must be forwarded");
+        assertEquals("all",  props.getProperty("acks"),             "acks (no dot) must be forwarded");
+        assertEquals("lz4",  props.getProperty("compression.type"), "compression.type (dotted) must be forwarded");
     }
 
     // -------------------------------------------------------------------------

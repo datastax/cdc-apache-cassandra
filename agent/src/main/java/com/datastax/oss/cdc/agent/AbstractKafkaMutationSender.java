@@ -176,6 +176,13 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
 
     @Override
     public void initialize(AgentConfig config) {
+        Properties props = buildProducerProperties(config);
+        this.producer = new KafkaProducer<>(props);
+        log.info("Kafka producer connected to {}", props.get(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG));
+    }
+
+    /** Package-private for testing. Builds the producer Properties from AgentConfig. */
+    Properties buildProducerProperties(AgentConfig config) {
         Properties props = new Properties();
 
         // Required
@@ -221,6 +228,11 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
             }
         }
 
+        if (useMurmur3Partitioner) {
+            props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG,
+                    Murmur3KafkaPartitioner.class.getName());
+        }
+
         int maxPending = 1000;
         Object mp = config.get("maxPendingMessages");
         if (mp != null) {
@@ -228,18 +240,7 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
         }
         this.pendingSemaphore = new Semaphore(maxPending);
 
-        if (useMurmur3Partitioner) {
-            props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG,
-                    Murmur3KafkaPartitioner.class.getName());
-        }
-
-        this.producer = buildProducer(props);
-        log.info("Kafka producer connected to {}", props.get(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG));
-    }
-
-    /** Visible for testing — subclasses may override to inject a mock producer. */
-    protected Producer<byte[], byte[]> buildProducer(Properties props) {
-        return new KafkaProducer<>(props);
+        return props;
     }
 
     private static void putIfPresent(Properties props, AgentConfig config, String kafkaKey, String configKey) {
