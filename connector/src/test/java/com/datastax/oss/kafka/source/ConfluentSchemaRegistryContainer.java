@@ -55,17 +55,6 @@ public class ConfluentSchemaRegistryContainer extends GenericContainer<Confluent
     }
 
     /**
-     * Sets the Kafka bootstrap-servers URI used by the schema registry's Kafka store.
-     *
-     * @param bootstrapServers host:port pair, e.g. {@code "kafka-confluent:9092"} — the
-     *                         {@code PLAINTEXT://} protocol prefix is added automatically.
-     */
-    public ConfluentSchemaRegistryContainer withKafkaBootstrapServers(String bootstrapServers) {
-        withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "PLAINTEXT://" + bootstrapServers);
-        return this;
-    }
-
-    /**
      * Sets the full Kafka bootstrap-servers URI (protocol included) used by the schema registry's
      * Kafka store. Use this when the inter-container listener is not named {@code PLAINTEXT} —
      * e.g. {@code "PLAINTEXT_INTERNAL://kafka-oss:9092"}.

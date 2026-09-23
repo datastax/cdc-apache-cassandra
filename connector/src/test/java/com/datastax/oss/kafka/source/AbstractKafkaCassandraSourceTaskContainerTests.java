@@ -15,7 +15,6 @@
  */
 package com.datastax.oss.kafka.source;
 
-import com.datastax.oss.cdc.AgentTestUtil;
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
 import com.datastax.oss.cdc.ConverterAndQuery;
 import com.datastax.oss.cdc.converters.AvroRowConverter;
@@ -148,25 +147,7 @@ public abstract class AbstractKafkaCassandraSourceTaskContainerTests {
     // ---------------------------------------------------------------------------
 
     @BeforeAll
-    static void startContainers() throws Exception {
-        // NOTE: JUnit 5 resolves @BeforeAll on the most-derived class first, then walks up. Both
-        // the abstract and the concrete class share the same static field namespace when accessed
-        // via the concrete class's ClassLoader, so the static fields above are written here and
-        // read by the concrete subclass's test methods without any casting.
-        //
-        // However, because this method is static and abstract methods are instance methods, we use
-        // a helper that the concrete subclass overrides at the instance level. JUnit @BeforeAll on
-        // a non-static (instance) method requires @TestInstance(PER_CLASS), which would prevent
-        // static field sharing. The workaround: the concrete subclass @BeforeAll calls a static
-        // helper defined there, which calls the abstract instance methods via a temporary instance.
-        //
-        // In practice the concrete subclass overrides startContainers() entirely (see
-        // KafkaCassandraSourceTaskContainerTests) because @BeforeAll cannot be abstract or
-        // overridden in a purely static way. The shared logic is therefore factored into the
-        // protected static startContainersImpl(AbstractKafkaCassandraSourceTaskContainerTests)
-        // helper below, which the concrete subclass calls, passing `new ConcreteClass()` as the
-        // delegate solely to resolve the abstract methods.
-    }
+    static void startContainers() throws Exception {}
 
     /**
      * Shared setup logic. Concrete subclasses call this from their own {@code @BeforeAll} static
@@ -214,6 +195,7 @@ public abstract class AbstractKafkaCassandraSourceTaskContainerTests {
             session.execute("CREATE KEYSPACE IF NOT EXISTS ks1 WITH replication = "
                     + "{'class':'SimpleStrategy','replication_factor':1}");
             session.execute("CREATE TABLE IF NOT EXISTS ks1.tbl1 (a text, b text, PRIMARY KEY (a)) WITH cdc=true");
+            session.execute("CREATE TABLE IF NOT EXISTS ks1.tbl_delete (a text, b text, PRIMARY KEY (a)) WITH cdc=true");
             session.execute("CREATE TABLE IF NOT EXISTS ks1.tbl_schema_evolve (a text, b text, PRIMARY KEY (a)) WITH cdc=true");
             // One table per registry type so that no two parameterized invocations share the same topic.
             session.execute("CREATE TABLE IF NOT EXISTS ks1.tbl_schema_registry_confluent (a text, b text, PRIMARY KEY (a)) WITH cdc=true");
@@ -319,6 +301,66 @@ public abstract class AbstractKafkaCassandraSourceTaskContainerTests {
 
             GenericRecord row = decodeAvro(table, (byte[]) record.value());
             assertThat(row.get("b").toString()).isEqualTo("world");
+        } finally {
+            task.stop();
+        }
+    }
+
+    @org.junit.jupiter.api.Test
+    void should_emit_tombstone_when_row_is_deleted() throws Exception {
+        String table = "tbl_delete";
+        String eventsTopic = "events-ks1." + table;
+        String outputTopic = "data-ks1." + table;
+
+        try (CqlSession session = cassandraContainer.getCqlSession()) {
+            session.execute("INSERT INTO ks1." + table + " (a, b) VALUES ('to-delete', 'present')");
+        }
+
+        KafkaConsumer<byte[], byte[]> consumer = createInternalConsumer(kafkaHandle.bootstrapServers(), eventsTopic);
+        KafkaCassandraSourceTask task = new KafkaCassandraSourceTask();
+        task.config = new CassandraSourceConnectorConfig(ImmutableMap.<String, String>builder()
+                .put(CassandraSourceConnectorConfig.KEYSPACE_NAME_CONFIG, "ks1")
+                .put(CassandraSourceConnectorConfig.TABLE_NAME_CONFIG, table)
+                .put(CassandraSourceConnectorConfig.EVENTS_TOPIC_NAME_CONFIG, eventsTopic)
+                .put(CassandraSourceConnectorConfig.OUTPUT_TOPIC_CONFIG, outputTopic)
+                .put(CassandraSourceConnectorConfig.CONTACT_POINTS_OPT, cassandraContainer.getHost())
+                .put(CassandraSourceConnectorConfig.PORT_OPT,
+                        String.valueOf(cassandraContainer.getMappedPort(CassandraContainer.CQL_PORT)))
+                .put(CassandraSourceConnectorConfig.DC_OPT, cassandraContainer.getLocalDc())
+                .build());
+        task.mutationCache = new com.datastax.oss.cdc.MutationCache<>(3, 1000, Duration.ofMinutes(5));
+        task.eventsTopic = eventsTopic;
+        task.outputTopic = outputTopic;
+        task.consumer = consumer;
+        task.queryExecutor = OrderedExecutor.newBuilder()
+                .name("cdc-query-executor-it")
+                .numThreads(1)
+                .build();
+        task.initCassandraClientWithRetry();
+
+        try {
+            // Step 1: consume the INSERT event — confirms the row was visible before deletion.
+            List<SourceRecord> insertRecords = pollUntilNonEmpty(task, 30);
+            assertThat(insertRecords).hasSize(1);
+            assertThat(insertRecords.get(0).value()).isNotNull();
+            GenericRecord insertedRow = decodeAvro(table, (byte[]) insertRecords.get(0).value());
+            assertThat(insertedRow.get("b").toString()).isEqualTo("present");
+
+            // Step 2: delete the row — fires a second CDC event.
+            try (CqlSession session = cassandraContainer.getCqlSession()) {
+                session.execute("DELETE FROM ks1." + table + " WHERE a = 'to-delete'");
+            }
+
+            // Step 3: poll until the task emits a tombstone (value == null) for the deleted key.
+            // The task's selectRow reads back the key, finds no row, and emits a SourceRecord
+            // with key populated (for log-compaction) and value null.
+            // We poll until tombstone rather than asserting batch size because the DELETE CDC
+            // event and any retry heartbeats may arrive in mixed batches.
+            SourceRecord tombstone = pollUntilTombstone(task, outputTopic, 30);
+            assertThat(tombstone).as("Expected a tombstone SourceRecord within 30s of DELETE").isNotNull();
+            assertThat(tombstone.topic()).isEqualTo(outputTopic);
+            assertThat(tombstone.key()).isNotNull();
+            assertThat(tombstone.value()).isNull();
         } finally {
             task.stop();
         }
@@ -617,6 +659,26 @@ public abstract class AbstractKafkaCassandraSourceTaskContainerTests {
             }
         }
         return Collections.emptyList();
+    }
+
+    /**
+     * Polls the task until a {@link org.apache.kafka.connect.source.SourceRecord} with a
+     * {@code null} value (tombstone) appears on {@code expectedOutputTopic}, or the timeout elapses.
+     * Skips heartbeat records (topic != expectedOutputTopic) and non-tombstone records transparently.
+     *
+     * @return the first tombstone record found, or {@code null} if the timeout elapsed.
+     */
+    protected SourceRecord pollUntilTombstone(KafkaCassandraSourceTask task,
+            String expectedOutputTopic, int timeoutSeconds) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + timeoutSeconds * 1000L;
+        while (System.currentTimeMillis() < deadline) {
+            for (SourceRecord record : task.poll()) {
+                if (expectedOutputTopic.equals(record.topic()) && record.value() == null) {
+                    return record;
+                }
+            }
+        }
+        return null;
     }
 
     protected GenericRecord decodeAvro(String tableName, byte[] bytes) throws Exception {
