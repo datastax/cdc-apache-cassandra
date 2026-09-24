@@ -531,7 +531,12 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
     private KeyValue waitForCqlWithRetry(CassandraRecord record) throws Exception {
         while (true) {
             try {
-                return record.getQueryResult().join();
+                KeyValue result = record.getQueryResult().join();
+                // Reset backoff counter on each per-record success so that a high counter
+                // accumulated during a chaos/outage window does not carry over to subsequent
+                // records in the same batch, compounding the recovery delay.
+                consecutiveUnavailableException = 0;
+                return result;
             } catch (CompletionException e) {
                 Throwable cause = e.getCause() != null ? e.getCause() : e;
                 if (cause instanceof ExecutionException && cause.getCause() != null) cause = cause.getCause();
