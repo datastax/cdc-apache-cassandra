@@ -40,7 +40,6 @@ import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.RateLimiter;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.vavr.Tuple2;
-import io.vavr.Tuple3;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Conversions;
 import org.apache.avro.generic.GenericRecord;
@@ -451,15 +450,14 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
                         return;
                     }
                     List<Object> nonNullPkValues = decoded.pk.stream().filter(Objects::nonNull).collect(Collectors.toList());
-                    Tuple3<Row, ConsistencyLevel, UUID> tuple = cassandraClient.selectRow(
+                    Tuple2<Row, UUID> tuple = cassandraClient.selectRow(
                             nonNullPkValues,
                             decoded.mutationValue.getNodeId(),
-                            Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE),
+                            ConsistencyLevel.LOCAL_QUORUM,
                             getSelectStatement(converterAndQueryFinal, nonNullPkValues.size()),
                             decoded.mutationValue.getMd5Digest());
                     Object value = tuple._1 == null ? this.emptyValue : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
-                    if (ConsistencyLevel.LOCAL_QUORUM.equals(tuple._2())
-                            && (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._3 != null && tuple._3.equals(decoded.mutationValue.getNodeId())))) {
+                    if (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._2 != null && tuple._2.equals(decoded.mutationValue.getNodeId()))) {
                         mutationCache.addMutationMd5(decoded.cacheKey, decoded.mutationValue.getMd5Digest());
                     }
                     Object key = config.isAvroOutputFormat() ? decoded.rec.key() : keyConverter.fromConnectData(decoded.mutationKeyRecord);

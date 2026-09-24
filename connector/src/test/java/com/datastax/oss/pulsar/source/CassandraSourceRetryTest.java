@@ -23,7 +23,7 @@ import com.datastax.oss.cdc.MutationValue;
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.Row;
-import io.vavr.Tuple3;
+import io.vavr.Tuple2;
 import org.apache.bookkeeper.common.util.OrderedExecutor;
 import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.Message;
@@ -156,12 +156,12 @@ public class CassandraSourceRetryTest {
         UUID nodeId = UUID.randomUUID();
 
         AtomicInteger callCount = new AtomicInteger(0);
-        when(mockClient.selectRow(anyList(), any(), anyList(), any(), anyString()))
+        when(mockClient.selectRow(anyList(), any(), any(ConsistencyLevel.class), any(), anyString()))
                 .thenAnswer(inv -> {
                     if (callCount.incrementAndGet() == 1) {
                         throw new RuntimeException("Simulated CQL failure");
                     }
-                    return new Tuple3<>(mockRow, ConsistencyLevel.LOCAL_QUORUM, nodeId);
+                    return new Tuple2<>(mockRow, nodeId);
                 });
 
         @SuppressWarnings("unchecked")
@@ -175,7 +175,7 @@ public class CassandraSourceRetryTest {
 
         assertNotNull(result, "Expected a KeyValue result after one retry");
         assertNotNull(result.getValue(), "Value should be the converted row bytes");
-        verify(mockClient, times(2)).selectRow(anyList(), any(), anyList(), any(), anyString());
+        verify(mockClient, times(2)).selectRow(anyList(), any(), any(ConsistencyLevel.class), any(), anyString());
     }
 
     /**
@@ -188,12 +188,12 @@ public class CassandraSourceRetryTest {
         UUID nodeId = UUID.randomUUID();
 
         AtomicInteger callCount = new AtomicInteger(0);
-        when(mockClient.selectRow(anyList(), any(), anyList(), any(), anyString()))
+        when(mockClient.selectRow(anyList(), any(), any(ConsistencyLevel.class), any(), anyString()))
                 .thenAnswer(inv -> {
                     if (callCount.incrementAndGet() < 4) {
                         throw new RuntimeException("Simulated CQL failure #" + callCount.get());
                     }
-                    return new Tuple3<>(mockRow, ConsistencyLevel.LOCAL_QUORUM, nodeId);
+                    return new Tuple2<>(mockRow, nodeId);
                 });
 
         @SuppressWarnings("unchecked")
@@ -206,7 +206,7 @@ public class CassandraSourceRetryTest {
         KeyValue<Object, Object> result = invokeWaitForCqlWithRetry(proxy);
 
         assertNotNull(result, "Expected a KeyValue result after multiple retries");
-        verify(mockClient, times(4)).selectRow(anyList(), any(), anyList(), any(), anyString());
+        verify(mockClient, times(4)).selectRow(anyList(), any(), any(ConsistencyLevel.class), any(), anyString());
     }
 
     /**
@@ -228,7 +228,7 @@ public class CassandraSourceRetryTest {
         KeyValue<Object, Object> result = invokeWaitForCqlWithRetry(proxy);
 
         assertNull(result, "Cache hit must return null (duplicate-mutation sentinel)");
-        verify(mockClient, times(0)).selectRow(anyList(), any(), anyList(), any(), anyString());
+        verify(mockClient, times(0)).selectRow(anyList(), any(), any(ConsistencyLevel.class), any(), anyString());
         // The consumer must acknowledge the duplicate message so the offset advances.
         verify(mockConsumer, times(1)).acknowledge(any(Message.class));
     }
@@ -241,8 +241,8 @@ public class CassandraSourceRetryTest {
     @Test
     void null_row_produces_key_value_with_null_value() throws Exception {
         UUID nodeId = UUID.randomUUID();
-        when(mockClient.selectRow(anyList(), any(), anyList(), any(), anyString()))
-                .thenReturn(new Tuple3<>(null, ConsistencyLevel.LOCAL_QUORUM, nodeId));
+        when(mockClient.selectRow(anyList(), any(), any(ConsistencyLevel.class), any(), anyString()))
+                .thenReturn(new Tuple2<>(null, nodeId));
 
         RecordProxy proxy = buildRecord(nodeId, "digest-delete");
         proxy.setQueryResult(invokeSubmitCqlQuery(proxy));
@@ -251,7 +251,7 @@ public class CassandraSourceRetryTest {
 
         assertNotNull(result, "Expected a KeyValue wrapper even for a deleted row");
         assertNull(result.getValue(), "Value should be null (emptyValue) for a deleted row");
-        verify(mockClient, times(1)).selectRow(anyList(), any(), anyList(), any(), anyString());
+        verify(mockClient, times(1)).selectRow(anyList(), any(), any(ConsistencyLevel.class), any(), anyString());
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────────
