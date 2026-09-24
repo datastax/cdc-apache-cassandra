@@ -123,7 +123,7 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
     KafkaAvroSerializer schemaRegistrySerializer;
 
     OrderedExecutor queryExecutor;
-    private long consecutiveUnavailableException = 0;
+    private long consecutiveUnavailableExceptionCount = 0;
 
     /**
      * Optional rate limiter for Cassandra CQL queries.
@@ -387,8 +387,8 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
                 throw e;
             } catch (Exception e) {
                 log.warn("consumer.poll() failed, retrying:", e);
-                consecutiveUnavailableException =
-                        SourceUtil.backoffRetry(e, consecutiveUnavailableException, config);
+                consecutiveUnavailableExceptionCount =
+                        SourceUtil.backoffRetry(e, consecutiveUnavailableExceptionCount, config);
             }
         }
         if (records.isEmpty()) {
@@ -423,7 +423,7 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
                 sourceRecords.add(sourceRecord);
             }
         }
-        consecutiveUnavailableException = 0;
+        consecutiveUnavailableExceptionCount = 0;
         return sourceRecords;
     }
 
@@ -489,15 +489,15 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
                 // Reset backoff counter on each per-record success so that a high counter
                 // accumulated during a chaos/outage window does not carry over to subsequent
                 // records in the same batch, compounding the recovery delay.
-                consecutiveUnavailableException = 0;
+                consecutiveUnavailableExceptionCount = 0;
                 return result;
             } catch (CompletionException e) {
                 Throwable cause = e.getCause() != null ? e.getCause() : e;
                 if (cause instanceof ExecutionException && cause.getCause() != null) cause = cause.getCause();
                 log.warn("CQL query failed for offset={}, retrying without re-consuming event topic:",
                         decoded.rec.offset(), cause);
-                consecutiveUnavailableException =
-                        SourceUtil.backoffRetry(cause, consecutiveUnavailableException, config);
+                consecutiveUnavailableExceptionCount =
+                        SourceUtil.backoffRetry(cause, consecutiveUnavailableExceptionCount, config);
 
                 // Re-submit only the CQL query; the Kafka record is already consumed.
                 // Re-read valueConverterAndQuery so a schema change that arrived during the

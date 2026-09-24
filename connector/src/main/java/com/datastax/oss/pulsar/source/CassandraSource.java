@@ -162,7 +162,7 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
      * is thrown and treated as backpressure by nacking the batch and backing off.
      */
     private OrderedExecutor queryExecutor;
-    private long consecutiveUnavailableException = 0;
+    private long consecutiveUnavailableExceptionCount = 0;
 
     /**
      * Optional rate limiter for Cassandra CQL queries.
@@ -361,8 +361,8 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
                 msg = consumer.receive(1, TimeUnit.SECONDS);
             } catch (Exception e) {
                 log.warn("consumer.receive() failed, retrying:", e);
-                consecutiveUnavailableException =
-                        SourceUtil.backoffRetry(e, consecutiveUnavailableException, config);
+                consecutiveUnavailableExceptionCount =
+                        SourceUtil.backoffRetry(e, consecutiveUnavailableExceptionCount, config);
                 continue;
             }
             if (msg == null) {
@@ -421,7 +421,7 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
             log.debug("Query time for {} msg in {} ms throughput={} msg/s cacheHits={}",
                     newRecords.size(), duration, throughput, cacheHits);
         }
-        consecutiveUnavailableException = 0;
+        consecutiveUnavailableExceptionCount = 0;
         return usefulRecords;
     }
 
@@ -535,15 +535,15 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
                 // Reset backoff counter on each per-record success so that a high counter
                 // accumulated during a chaos/outage window does not carry over to subsequent
                 // records in the same batch, compounding the recovery delay.
-                consecutiveUnavailableException = 0;
+                consecutiveUnavailableExceptionCount = 0;
                 return result;
             } catch (CompletionException e) {
                 Throwable cause = e.getCause() != null ? e.getCause() : e;
                 if (cause instanceof ExecutionException && cause.getCause() != null) cause = cause.getCause();
                 log.warn("CQL query failed for msgId={}, retrying without re-consuming event topic:",
                         record.getMutationMessage().getMessageId(), cause);
-                consecutiveUnavailableException =
-                        SourceUtil.backoffRetry(cause, consecutiveUnavailableException, config);
+                consecutiveUnavailableExceptionCount =
+                        SourceUtil.backoffRetry(cause, consecutiveUnavailableExceptionCount, config);
 
                 // Re-submit only the CQL query; the event-topic message is already consumed.
                 // Re-read valueConverterAndQuery so a schema change that arrived during the

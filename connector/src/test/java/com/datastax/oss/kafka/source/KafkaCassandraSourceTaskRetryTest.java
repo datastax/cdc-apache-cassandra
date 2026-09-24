@@ -120,8 +120,8 @@ public class KafkaCassandraSourceTaskRetryTest {
         when(keyConverter.fromConnectData(any(GenericRecord.class))).thenReturn(new byte[]{1, 2, 3});
         setField(task, "keyConverter", keyConverter);
 
-        // consecutiveUnavailableException counter
-        setField(task, "consecutiveUnavailableException", 0L);
+        // consecutiveUnavailableExceptionCount counter
+        setField(task, "consecutiveUnavailableExceptionCount", 0L);
 
         // output + heartbeat topics
         setField(task, "outputTopic", "output-topic");
@@ -248,6 +248,35 @@ public class KafkaCassandraSourceTaskRetryTest {
         assertNotNull(result, "Expected a SourceRecord even for a deleted row");
         assertNull(result.value(), "Value should be null (emptyValue) for a deleted row");
         verify(mockClient, times(1)).selectRow(anyList(), any(), any(ConsistencyLevel.class), any(), anyString());
+    }
+
+    /**
+     * Verifies that consecutiveUnavailableExceptionCount is reset to 0 upon successful CQL execution in waitForCqlWithRetry,
+     * ensuring that failure counts accumulated previously do not carry over.
+     */
+    @Test
+    void resets_consecutive_unavailable_exception_count_on_success() throws Exception {
+        Row mockRow = mock(Row.class);
+        UUID nodeId = UUID.randomUUID();
+
+        when(mockClient.selectRow(anyList(), any(), any(ConsistencyLevel.class), any(), anyString()))
+                .thenReturn(new Tuple2<>(mockRow, nodeId));
+
+        @SuppressWarnings("unchecked")
+        Converter<byte[], ?> valueConverter = (Converter<byte[], ?>) mockCaq.getConverter();
+        when(valueConverter.toConnectData(mockRow)).thenReturn(new byte[]{10, 20});
+
+        // Artificially simulate that previous retries had set consecutiveUnavailableExceptionCount to a non-zero value
+        setField(task, "consecutiveUnavailableExceptionCount", 5L);
+
+        DecodedRecordProxy decoded = buildDecodedRecord(nodeId, "digest-reset");
+        decoded.setQueryResult(invokeSubmitCqlQuery(decoded, mockCaq));
+
+        SourceRecord result = invokeWaitForCqlWithRetry(decoded);
+
+        assertNotNull(result, "Expected a SourceRecord result");
+        long count = (long) getField(task, "consecutiveUnavailableExceptionCount");
+        assertEquals(0L, count, "consecutiveUnavailableExceptionCount should be reset to 0 after success");
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────────

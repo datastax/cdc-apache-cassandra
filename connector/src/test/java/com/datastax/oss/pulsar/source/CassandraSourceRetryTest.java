@@ -49,6 +49,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
@@ -124,7 +125,7 @@ public class CassandraSourceRetryTest {
         when(mockKeyConverter.fromConnectData(any())).thenReturn(new byte[]{1, 2, 3});
         setField(source, "keyConverter", mockKeyConverter);
 
-        setField(source, "consecutiveUnavailableException", 0L);
+        setField(source, "consecutiveUnavailableExceptionCount", 0L);
 
         // Mock the Pulsar consumer (only needed for acknowledge() on cache hits).
         mockConsumer = mock(Consumer.class);
@@ -252,6 +253,35 @@ public class CassandraSourceRetryTest {
         assertNotNull(result, "Expected a KeyValue wrapper even for a deleted row");
         assertNull(result.getValue(), "Value should be null (emptyValue) for a deleted row");
         verify(mockClient, times(1)).selectRow(anyList(), any(), any(ConsistencyLevel.class), any(), anyString());
+    }
+
+    /**
+     * Verifies that consecutiveUnavailableExceptionCount is reset to 0 upon successful CQL execution in waitForCqlWithRetry,
+     * ensuring that failure counts accumulated previously do not carry over.
+     */
+    @Test
+    void resets_consecutive_unavailable_exception_count_on_success() throws Exception {
+        Row mockRow = mock(Row.class);
+        UUID nodeId = UUID.randomUUID();
+
+        when(mockClient.selectRow(anyList(), any(), any(ConsistencyLevel.class), any(), anyString()))
+                .thenReturn(new Tuple2<>(mockRow, nodeId));
+
+        @SuppressWarnings("unchecked")
+        Converter valueConverter = mockCaq.getConverter();
+        when(valueConverter.toConnectData(mockRow)).thenReturn(new byte[]{10, 20});
+
+        // Artificially simulate that previous retries had set consecutiveUnavailableExceptionCount to a non-zero value
+        setField(source, "consecutiveUnavailableExceptionCount", 5L);
+
+        RecordProxy proxy = buildRecord(nodeId, "digest-reset");
+        proxy.setQueryResult(invokeSubmitCqlQuery(proxy));
+
+        KeyValue<Object, Object> result = invokeWaitForCqlWithRetry(proxy);
+
+        assertNotNull(result, "Expected a KeyValue result");
+        long count = (long) getField(source, "consecutiveUnavailableExceptionCount");
+        assertEquals(0L, count, "consecutiveUnavailableExceptionCount should be reset to 0 after success");
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────────
