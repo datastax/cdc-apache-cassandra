@@ -24,7 +24,7 @@ For a given table, the change event's key is an AVRO record that contains a fiel
 
 Create a {cass-short} table to test this behavior:
 
-[source,bash]
+[source,cql]
 ----
 CREATE KEYSPACE ks1 WITH replication = {'class': 'NetworkTopologyStrategy', 'us-east1': '3'}  AND durable_writes = true;
 
@@ -49,7 +49,7 @@ CREATE TABLE ks1.tbl1 (
 
 Insert a row:
 
-[source,bash]
+[source,cql]
 ----
 INSERT INTO ks1.tbl1 (key, c1) VALUES (`3`, `bob3`)
 ----
@@ -58,7 +58,7 @@ When an `INSERT` statement is executed, the {cdc_agent} catches the mutation fro
 
 Here is a JSON representation of the AVRO Record for the message key:
 
-[source,bash]
+[source,json]
 ----
 {
   "key": "3"
@@ -67,7 +67,7 @@ Here is a JSON representation of the AVRO Record for the message key:
 
 And a JSON representation of the AVRO Record for the message payload:
 
-[source,bash]
+[source,json]
 ----
 {
   "c1": "bob3"

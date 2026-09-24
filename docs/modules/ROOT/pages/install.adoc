@@ -29,19 +29,9 @@ Depending on the workloads of the CDC enabled {cass-short} tables, you might nee
 . Download the `cassandra-source-agents` tar file from the {product-repo}/releases[{product-short} GitHub repository].
 The following files are available in the tar file:
 +
-[cols=2]
-|===
-|{cass-short} type |JAR file
-
-|{cass} 3.x
-|`agent-c3-**VERSION**-all.jar`
-
-|{cass} 4.x
-|`agent-c4-**VERSION**-all.jar`
-
-|{dse-short} 6.8.16 or later
-|`agent-dse4-**VERSION**-all.jar`
-|===
+* {cass} 3.x: `agent-c3-**VERSION**-all.jar`
+* {cass} 4.x: `agent-c4-**VERSION**-all.jar`
+* {dse-short} 6.8.16 or later: `agent-dse4-**VERSION**-all.jar`
 
 . Extract the files from the tar with the following command:
 +
@@ -98,7 +88,7 @@ Without the change agent to process the CDC data, the space used grows until it 
 
 Here is an example set of configurations for the `cassandra.yaml` file:
 
-[source,bash]
+[source,yaml]
 ----
 cdc_enabled: true
 commitlog_sync_period_in_ms: 2000
@@ -148,26 +138,27 @@ Here is an example:
 [source,bash,subs="+quotes"]
 ----
 pulsar-admin source create \
---name cassandra-source-1 \
---archive /path/to/pulsar-cassandra-source-**VERSION**.nar \
---tenant public \
---namespace default \
---destination-topic-name public/default/data-ks1.table1 \
---parallelism 1 \
---source-config '{
-    "events.topic": "persistent://public/default/events-ks1.table1",
-    "keyspace": "ks1",
-    "table": "table1",
-    "contactPoints": "localhost",
-    "port": 9042,
-    "loadBalancing.localDc": "DC1",
-    "auth.provider": "PLAIN",
-    "auth.username": "**USERNAME**",
-    "auth.password": "**PASSWORD**"
-}'
+  --name cassandra-source-1 \
+  --archive /path/to/pulsar-cassandra-source-**VERSION**.nar \
+  --tenant public \
+  --namespace default \
+  --destination-topic-name public/default/data-ks1.table1 \
+  --parallelism 1 \
+  --source-config '{
+      "events.topic": "persistent://public/default/events-ks1.table1",
+      "keyspace": "ks1",
+      "table": "table1",
+      "contactPoints": "localhost",
+      "port": 9042,
+      "loadBalancing.localDc": "DC1",
+      "auth.provider": "PLAIN",
+      "auth.username": "**USERNAME**",
+      "auth.password": "**PASSWORD**"
+  }'
 ----
 
 Then check your connector is in the running state with no errors:
+
 [source,bash]
 ----
 pulsar-admin source status --name cassandra-source-1
@@ -181,7 +172,7 @@ For all configuration options, see the other information on this page.
 
 Once the change agent is installed and the connector is running, you can enable or disable CDC on table using the following commands:
 
-[source,bash]
+[source,cql]
 ----
 CREATE TABLE foo (a int, b text, PRIMARY KEY(a)) WITH cdc=true;
 ALTER TABLE foo WITH cdc=true;
