@@ -92,13 +92,13 @@ public final class SourceUtil {
      * then increments and returns the updated consecutive-failure counter.
      *
      * @param throwable                      the cause of the failure, used only for logging
-     * @param consecutiveUnavailableException current consecutive-failure count (before this call)
+     * @param consecutiveUnavailableExceptionCount current consecutive-failure count (before this call)
      * @param config                          connector config supplying backoff bounds
      * @return the new consecutive-failure count (caller should store this)
      */
-    public static long backoffRetry(Throwable throwable, long consecutiveUnavailableException,
+    public static long backoffRetry(Throwable throwable, long consecutiveUnavailableExceptionCount,
                                     CassandraSourceConnectorConfig config) {
-        return backoffRetry(throwable, consecutiveUnavailableException, config,
+        return backoffRetry(throwable, consecutiveUnavailableExceptionCount, config,
                 config.getQueryMaxBackoffInSec() * 1000);
     }
 
@@ -110,19 +110,19 @@ public final class SourceUtil {
      * configured health-check interval) need to keep retrying frequently even while an overall
      * give-up deadline measured in minutes/hours is still far off.
      */
-    public static long backoffRetry(Throwable throwable, long consecutiveUnavailableException,
+    public static long backoffRetry(Throwable throwable, long consecutiveUnavailableExceptionCount,
                                     CassandraSourceConnectorConfig config, long maxSingleWaitMs) {
-        consecutiveUnavailableException++;
+        consecutiveUnavailableExceptionCount++;
         long maxWait = Math.min(maxSingleWaitMs,
-                config.getQueryBackoffInMs() << consecutiveUnavailableException);
+                config.getQueryBackoffInMs() << consecutiveUnavailableExceptionCount);
         long pauseInMs = ThreadLocalRandom.current().nextLong(0, Math.max(1, maxWait));
-        log.warn("CQL availability issue={}, consecutiveUnavailableException={}, pausing {}ms before retrying",
-                throwable, consecutiveUnavailableException, pauseInMs);
+        log.warn("CQL availability issue={}, consecutiveUnavailableExceptionCount={}, pausing {}ms before retrying",
+                throwable, consecutiveUnavailableExceptionCount, pauseInMs);
         try {
             Thread.sleep(pauseInMs);
         } catch (InterruptedException ex) {
             log.warn("sleep interrupted:", ex);
         }
-        return consecutiveUnavailableException;
+        return consecutiveUnavailableExceptionCount;
     }
 }
