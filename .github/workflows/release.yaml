@@ -210,23 +210,12 @@ jobs:
             --build-arg BUILD_VERSION=${{ env.CURRENT_VERSION }} \
             -t "$REGISTRY/datastax/cdc:${{ env.CURRENT_VERSION }}" \
             -t "$REGISTRY/datastax/cdc:latest" \
+            -t "$REGISTRY/datastax/cdc:${{ github.ref_name }}" \
             /tmp/ctx-c4
           docker push "$REGISTRY/datastax/cdc:${{ env.CURRENT_VERSION }}"
           docker push "$REGISTRY/datastax/cdc:latest"
+          docker push "$REGISTRY/datastax/cdc:${{ github.ref_name }}"
 
-      # TEMPORARY
-      - name: Build and push agent-c4 (Cassandra 4.0.4 diagnostic build)
-        run: |
-          mkdir -p /tmp/ctx-c4-404
-          cp agent-c4/build/libs/agent-c4-${{ env.CURRENT_VERSION }}-all.jar agent-c4/src/docker-k8s/Dockerfile /tmp/ctx-c4-404/
-          docker build \
-            --build-arg MGMT_API_VERSION=4.0.4 \
-            --build-arg BUILD_VERSION=${{ env.CURRENT_VERSION }} \
-            -t "$REGISTRY/datastax/cdc:${{ env.CURRENT_VERSION }}-c404" \
-            -t "$REGISTRY/datastax/cdc:latest-c404" \
-            /tmp/ctx-c4-404
-          docker push "$REGISTRY/datastax/cdc:${{ env.CURRENT_VERSION }}-c404"
-          docker push "$REGISTRY/datastax/cdc:latest-c404"
 
       - name: Build and push agent-dse4 (DSE) image
         run: |
@@ -237,9 +226,11 @@ jobs:
             --build-arg BUILD_VERSION=${{ env.CURRENT_VERSION }} \
             -t "$REGISTRY/datastax/cdc:${{ env.CURRENT_VERSION }}-dse" \
             -t "$REGISTRY/datastax/cdc:latest-dse" \
+            -t "$REGISTRY/datastax/cdc:${{ github.ref_name }}-dse" \
             /tmp/ctx-dse4
           docker push "$REGISTRY/datastax/cdc:${{ env.CURRENT_VERSION }}-dse"
           docker push "$REGISTRY/datastax/cdc:latest-dse"
+          docker push "$REGISTRY/datastax/cdc:${{ github.ref_name }}-dse"
 
       - name: Build and push backfill-cli admin image
         run: |
@@ -250,9 +241,11 @@ jobs:
             --build-arg BUILD_VERSION=${{ env.CURRENT_VERSION }} \
             -t "$REGISTRY/datastax/cdc:${{ env.CURRENT_VERSION }}-admin" \
             -t "$REGISTRY/datastax/cdc:latest-admin" \
+            -t "$REGISTRY/datastax/cdc:${{ github.ref_name }}-admin" \
             /tmp/ctx-admin
           docker push "$REGISTRY/datastax/cdc:${{ env.CURRENT_VERSION }}-admin"
           docker push "$REGISTRY/datastax/cdc:latest-admin"
+          docker push "$REGISTRY/datastax/cdc:${{ github.ref_name }}-admin"
 
       - name: Build and push cassandra-source-connect (Kafka Connect worker) image
         run: |
@@ -268,7 +261,9 @@ jobs:
             --build-arg BUILD_VERSION=${{ env.CURRENT_VERSION }} \
             -t "$REGISTRY/datastax/cdc:${{ env.CURRENT_VERSION }}-connect" \
             -t "$REGISTRY/datastax/cdc:latest-connect" \
+            -t "$REGISTRY/datastax/cdc:${{ github.ref_name }}-connect" \
             /tmp/ctx-connect
           docker push "$REGISTRY/datastax/cdc:${{ env.CURRENT_VERSION }}-connect"
           docker push "$REGISTRY/datastax/cdc:latest-connect"
+          docker push "$REGISTRY/datastax/cdc:${{ github.ref_name }}-connect"
 
