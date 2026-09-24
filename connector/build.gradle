@@ -133,18 +133,55 @@ test {
 
     useJUnitPlatform()
 
+    // Stream all test output to the console (container logs, CDC agent output, etc.).
+    // Failed tests additionally print a clear banner with the full assertion message.
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        showStandardStreams = true
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showExceptions = true
+        showCauses = true
+        showStackTraces = true
+    }
+
+    // On failure: print a prominent banner + the assertion message so it stands out
+    // from the surrounding container log noise.
+    afterTest { descriptor, result ->
+        if (result.resultType == TestResult.ResultType.FAILURE) {
+            println "\n════════════════════════════════════════"
+            println "FAILED: ${descriptor.className} > ${descriptor.name}"
+            if (result.exception) {
+                println result.exception.message ?: result.exception.toString()
+            }
+            println "════════════════════════════════════════\n"
+        }
+    }
+
+    // Print a summary line after the whole test suite finishes.
+    afterSuite { descriptor, result ->
+        if (descriptor.parent == null) {
+            def status = result.resultType == TestResult.ResultType.SUCCESS ? "✓ PASSED" : "✗ FAILED"
+            println "\n${status} — ${result.testCount} tests: " +
+                    "${result.successfulTestCount} passed, " +
+                    "${result.failedTestCount} failed, " +
+                    "${result.skippedTestCount} skipped"
+        }
+    }
+
     environment 'PULSAR_IMAGE', testPulsarImage + ':' + testPulsarImageTag
     environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra4Version
 
     systemProperty "connectorBuildDir", buildDir
     systemProperty "agentBuildDir", project(':agent-c4').buildDir
     systemProperty "projectVersion", project.version
-    systemProperty "testKafkaImage", testKafkaImage
-    systemProperty "testKafkaImageTag", testKafkaImageTag
+    systemProperty "testConfluentKafkaImage", testConfluentKafkaImage
+    systemProperty "testConfluentKafkaImageTag", testConfluentKafkaImageTag
+    systemProperty "testOssKafkaImage", testOssKafkaImage
+    systemProperty "testOssKafkaImageTag", testOssKafkaImageTag
 
     // Run only the test classes matching the broker type supplied.
     // Pass -PbrokerType=kafka or -PbrokerType=pulsar (default: pulsar).
-    def brokerType = project.hasProperty('brokerType') ? brokerType : 'pulsar'
+    def brokerType = project.hasProperty('brokerType') ? project.property('brokerType') : 'pulsar'
     if (brokerType == 'kafka') {
         include '**/*Kafka*'
     } else {
