@@ -1,0 +1,161 @@
+# Kafka / Confluent Support
+
+> This is the implementation/developer reference. The user-facing documentation is published in the
+> Antora site at `docs/modules/ROOT/pages/kafka.adoc` ("Stream CDC to Kafka"). Keep the two in sync
+> when behavior changes.
+
+This project historically streamed Cassandra CDC mutations only to Apache Pulsar. It now ships a
+**provider-agnostic messaging abstraction** (`messaging-api`, with `messaging-pulsar` and
+`messaging-kafka` implementations) so the **CDC agent can publish change events to either Apache
+Pulsar or Apache Kafka / Confluent**, selected at runtime — with no change to the existing Pulsar
+behaviour or wire format.
+
+## Architecture
+
+```
+Cassandra node ──► CDC agent ──► MessagingClient (SPI)
+                                   ├─ PulsarMessagingClient ──► Pulsar events topic
+                                   └─ KafkaMessagingClient  ──► Kafka  events topic
+```
+
+The provider is chosen by the `messagingProvider` agent parameter. The messaging client is
+discovered via Java's `ServiceLoader` (`META-INF/services/...MessagingClientProvider`), so the agent
+jar simply needs both provider modules on its classpath (they already are).
+
+## Enabling Kafka on the agent
+
+Add the agent as a `-javaagent` with `messagingProvider=kafka` and the Kafka bootstrap servers:
+
+```
+-javaagent:/path/agent-c4-<version>-all.jar=messagingProvider=kafka,kafkaBootstrapServers=broker1:9092\,broker2:9092
+```
+
+### Agent Kafka parameters
+
+| Parameter | Env var | Default | Description |
+|-----------|---------|---------|-------------|
+| `messagingProvider` | `CDC_MESSAGING_PROVIDER` | `pulsar` | `pulsar` or `kafka`. |
+| `kafkaBootstrapServers` | `CDC_KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka bootstrap servers. |
+| `kafkaAcks` | `CDC_KAFKA_ACKS` | `all` | Producer `acks`. |
+| `kafkaCompressionType` | `CDC_KAFKA_COMPRESSION_TYPE` | `none` | `none`/`gzip`/`snappy`/`lz4`/`zstd`. |
+| `kafkaBatchSize` | `CDC_KAFKA_BATCH_SIZE` | `16384` | Producer `batch.size`. |
+| `kafkaLingerMs` | `CDC_KAFKA_LINGER_MS` | `0` | Producer `linger.ms`. |
+| `kafkaMaxInFlightRequests` | `CDC_KAFKA_MAX_IN_FLIGHT_REQUESTS` | `5` | `max.in.flight.requests.per.connection`. |
+| `kafkaSchemaRegistryUrl` | `CDC_KAFKA_SCHEMA_REGISTRY_URL` | _(unset)_ | Confluent Schema Registry URL — see serialization below. |
+
+SSL/TLS parameters (`sslKeystorePath`, `sslTruststorePath`, `useKeyStoreTls`, …) are shared with the
+Pulsar configuration and are mapped to the equivalent Kafka client SSL settings.
+
+The Pulsar parameters (`pulsarServiceUrl`, `pulsarBatchDelayInMs`, …) continue to work unchanged when
+`messagingProvider=pulsar` (the default).
+
+## Serialization (configurable)
+
+The agent publishes each event as `key = <primary key>`, `value = MutationValue`, with the
+`writetime`, `segpos` and `token` carried as Kafka record headers. Two serialization modes are
+supported and selected automatically:
+
+- **Registry-less (default)** — when no `kafkaSchemaRegistryUrl` is set. The primary key and
+  `MutationValue` are encoded as **raw Avro binary**. This works against plain Apache Kafka with no
+  Schema Registry. Consumers decode the value with the canonical `MutationValue` Avro schema
+  (`com.datastax.oss.cdc.MutationValueCodec`).
+- **Confluent Schema Registry** — when `kafkaSchemaRegistryUrl` is set. The key and value are
+  serialized with `KafkaAvroSerializer` and schemas are auto-registered under
+  `<topic>-key` / `<topic>-value`.
+
+> Note: the registry-less path is the fully exercised default. With the Schema Registry path,
+> primary keys that use the custom CQL logical types `varint`/`decimal` are a known limitation
+> (standard types, including `uuid`, are handled).
+
+## Topic naming
+
+Identical to the Pulsar convention: events are published to `${topicPrefix}<keyspace>.<table>`
+(default prefix `events-`), e.g. `events-myks.users`.
+
+## Testing & CI
+
+- Agent → Kafka is covered by `KafkaSingleNodeC4Tests` (Testcontainers, `confluentinc/cp-kafka`).
+  These tests are tagged `@Tag("kafka")` and run in the dedicated `test-kafka` CI job (or locally
+  with `-PkafkaTests`); they are excluded from the default/Pulsar test runs.
+- The messaging modules have unit tests (`MutationValueCodecTest`, `RawAvroSerdeTest`,
+  `KafkaMessagingClientTest`, provider SPI discovery, `ProducerConfigBuilderTest`).
+
+### Local integration testing note
+
+The Testcontainers docker-java client defaults to Docker Engine API `1.32`, which newer Docker
+engines reject. Pass `-Papi.version=1.43` to force a supported version (CI does this). On Docker
+Desktop you may also need `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock`.
+
+## Source connector (events → Cassandra → data)
+
+The pipeline is complete for Kafka via a **Kafka Connect sink connector** in the `connector-kafka`
+module: `com.datastax.oss.kafka.sink.CassandraSinkConnector`. It consumes the `events-*` topic,
+de-duplicates mutations, queries Cassandra for the current row, and publishes the row to the
+`data-*` topic. It reuses the proven Cassandra query + AVRO/JSON conversion + de-duplication logic
+from the Pulsar connector (`CassandraClient`, `NativeAvroConverter`/`NativeJsonConverter`,
+`MutationCache`), so the output format matches.
+
+### Deploying
+
+Build the plugin jar with `./gradlew :connector-kafka:shadowJar` and put it on the Kafka Connect
+`plugin.path`. Example connector configuration:
+
+```json
+{
+  "name": "cassandra-source-ks1-table1",
+  "config": {
+    "connector.class": "com.datastax.oss.kafka.sink.CassandraSinkConnector",
+    "tasks.max": "1",
+    "topics": "events-ks1.table1",
+    "key.converter": "org.apache.kafka.connect.converters.ByteArrayConverter",
+    "value.converter": "org.apache.kafka.connect.converters.ByteArrayConverter",
+    "keyspace": "ks1",
+    "table": "table1",
+    "contactPoints": "cassandra-host",
+    "port": "9042",
+    "loadBalancing.localDc": "datacenter1",
+    "kafka.bootstrap.servers": "broker:9092",
+    "data.topic.prefix": "data-",
+    "outputFormat": "key-value-avro"
+  }
+}
+```
+
+- The data topic is `<data.topic.prefix><keyspace>.<table>` (e.g. `data-ks1.table1`).
+- The data record key reuses the event key bytes (the AVRO primary key); the value is the AVRO/JSON
+  row, or `null` (tombstone) for a delete.
+- `outputFormat` accepts `key-value-avro` (default) and `key-value-json`.
+- Cassandra connection / cache / SSL / auth settings reuse the same keys as the Pulsar connector
+  (delegated to `CassandraSourceConnectorConfig`).
+
+### Tested
+
+`CassandraKafkaSinkE2ETest` validates the full pipeline end-to-end (agent → events → connector →
+data) for both AVRO and JSON output, and runs in the `test-kafka` CI job.
+
+## Back-fill (CLI)
+
+The `backfill-cli` can seed historical (pre-CDC) rows into the Kafka pipeline, not just Pulsar.
+Pass `--messaging-provider=kafka` and `--kafka-bootstrap-servers=...` (plus optional
+`--kafka-schema-registry-url` / producer tunables). The CLI exports the table with DSBulk and
+publishes a mutation per row to `events-<keyspace>.<table>`, which the Kafka sink connector then
+consumes into `data-<keyspace>.<table>`.
+
+Run the backfill CLI as the **standalone shadow JAR** for Kafka — the `pulsar-admin` CLI-extension
+(NAR) form is Pulsar-specific (there is no Kafka admin extension host). The core engine
+(`TableExporter` + `PulsarImporter` + the provider-agnostic `AbstractMessagingMutationSender`) is
+shared with the Pulsar path; only `ImportSettings` (the `--kafka-*` options) and the
+`PulsarMutationSenderFactory` provider mapping differ.
+
+Tested by `BackfillCLIKafkaE2ETest` (`@Tag("kafka")`): runs the backfill JAR with
+`--messaging-provider=kafka` against Kafka + Cassandra, then runs the Kafka sink in-process to
+validate the data topic — the Kafka counterpart of `BackfillCLIE2ETests`. CI runs it in the
+`test-kafka` job of `backfill-ci.yaml` across the `kafkaImage` x `cassandraFamily` matrix.
+
+### Known follow-ups
+
+- Confluent Schema Registry output for the data topic (the agent already supports registry input;
+  the connector currently reads/writes registry-less raw AVRO).
+- Adaptive query-executor pool / batching parity with the Pulsar connector (the sink processes
+  records sequentially per `put()` batch).
+- JSON-only output format (key embedded in the value) and custom key/value converter classes.

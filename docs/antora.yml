@@ -32,7 +32,12 @@ asciidoc:
     pulsar-reg: 'Apache Pulsar(TM)'
     pulsar: 'Apache Pulsar'
     pulsar-short: 'Pulsar'
+    kafka-reg: 'Apache Kafka(R)'
+    kafka: 'Apache Kafka'
+    kafka-short: 'Kafka'
+    confluent: 'Confluent'
 
     # Attributes used in auto-generated content - Do not change the attribute name
     csc_pulsar_first: 'DataStax Cassandra Source Connector (CSC) for Apache Pulsar(TM)'
     csc_pulsar: 'CSC for Pulsar'
+    csc_kafka: 'Cassandra Sink Connector for Kafka'

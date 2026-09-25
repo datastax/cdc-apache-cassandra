@@ -16,28 +16,26 @@
 
 package com.datastax.oss.cdc.backfill.e2e;
 
+import lombok.extern.slf4j.Slf4j;
+
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
+import org.apache.pulsar.client.api.PulsarClient;
+import org.apache.pulsar.client.api.Consumer;
+import org.apache.pulsar.client.api.SubscriptionType;
+import org.apache.pulsar.client.api.SubscriptionInitialPosition;
+import org.apache.pulsar.client.api.Schema;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.Version;
 import com.datastax.oss.driver.api.core.data.CqlDuration;
 import com.datastax.oss.dsbulk.tests.utils.FileUtils;
 import com.datastax.testcontainers.PulsarContainer;
 import com.datastax.testcontainers.cassandra.CassandraContainer;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
-import org.apache.pulsar.client.api.Consumer;
-import org.apache.pulsar.client.api.Message;
-import org.apache.pulsar.client.api.PulsarClient;
-import org.apache.pulsar.client.api.SubscriptionInitialPosition;
-import org.apache.pulsar.client.api.SubscriptionMode;
-import org.apache.pulsar.client.api.SubscriptionType;
 import org.apache.pulsar.client.api.schema.Field;
 import org.apache.pulsar.client.api.schema.GenericRecord;
 import org.apache.pulsar.common.schema.KeyValue;
-import org.apache.pulsar.common.schema.SchemaType;
 import org.apache.pulsar.shade.org.apache.avro.Conversion;
 import org.apache.pulsar.shade.org.apache.avro.LogicalType;
-import org.apache.pulsar.shade.org.apache.avro.Schema;
 import org.apache.pulsar.shade.org.apache.avro.SchemaBuilder;
 import org.apache.pulsar.shade.org.apache.avro.generic.GenericArray;
 import org.apache.pulsar.shade.org.apache.avro.generic.GenericData;
@@ -244,21 +242,24 @@ public class BackfillCLIE2ETests {
             deployConnector(ksName, "table1");
             runBackfillAsync(ksName, "table1");
 
-            try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
-                Map<String, Integer> mutationTable1 = new HashMap<>();
-                try (Consumer<GenericRecord> consumer = pulsarClient.newConsumer(org.apache.pulsar.client.api.Schema.AUTO_CONSUME())
+            try (PulsarClient pulsarClient = PulsarClient.builder()
+                    .serviceUrl(pulsarContainer.getPulsarBrokerUrl())
+                    .build()) {
+
+                try (Consumer<GenericRecord> consumer = pulsarClient.newConsumer(Schema.AUTO_CONSUME())
                         .topic(String.format(Locale.ROOT, "data-%s.table1", ksName))
                         .subscriptionName("sub1")
                         .subscriptionType(SubscriptionType.Key_Shared)
-                        .subscriptionMode(SubscriptionMode.Durable)
                         .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                         .subscribe()) {
-                    Message<GenericRecord> msg;
+
+                    Map<String, Integer> mutationTable1 = new HashMap<>();
+                    org.apache.pulsar.client.api.Message<GenericRecord> msg;
                     while ((msg = consumer.receive(90, TimeUnit.SECONDS)) != null &&
                             mutationTable1.values().stream().count() < 100) {
                         GenericRecord record = msg.getValue();
-                        assertEquals(SchemaType.KEY_VALUE, record.getSchemaType());
-                        GenericRecord key = getKey(msg);
+                        assertEquals(org.apache.pulsar.common.schema.SchemaType.KEY_VALUE, record.getSchemaType());
+                        GenericRecord key = getKeyFromMessage(msg);
                         GenericRecord value = getValue(record);
                         assertEquals((Integer) 0, mutationTable1.computeIfAbsent(getAndAssertKeyFieldAsString(key, "id"), k -> 0));
                         assertEquals(1, value.getField("a"));
@@ -273,7 +274,7 @@ public class BackfillCLIE2ETests {
 
                     // make sure no more messages are received
                     while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null) {
-                        Object key = getKey(msg);
+                        GenericRecord key = getKeyFromMessage(msg);
                         fail("Received more messages than expected. Unwanted key: " + key);
                     }
                 }
@@ -332,21 +333,24 @@ public class BackfillCLIE2ETests {
             deployConnector(ksName, "table2");
             runBackfillAsync(ksName, "table2");
 
-            try (PulsarClient pulsarClient = PulsarClient.builder().serviceUrl(pulsarContainer.getPulsarBrokerUrl()).build()) {
-                try (Consumer<GenericRecord> consumer = pulsarClient.newConsumer(org.apache.pulsar.client.api.Schema.AUTO_CONSUME())
+            try (PulsarClient pulsarClient = PulsarClient.builder()
+                    .serviceUrl(pulsarContainer.getPulsarBrokerUrl())
+                    .build()) {
+
+                try (Consumer<GenericRecord> consumer = pulsarClient.newConsumer(Schema.AUTO_CONSUME())
                         .topic(String.format(Locale.ROOT, "data-%s.table2", ksName))
                         .subscriptionName("sub1")
                         .subscriptionType(SubscriptionType.Key_Shared)
-                        .subscriptionMode(SubscriptionMode.Durable)
                         .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                         .subscribe()) {
+
                     int mutationTable2Count = 0;
-                    Message<GenericRecord> msg;
+                    org.apache.pulsar.client.api.Message<GenericRecord> msg;
                     while ((msg = consumer.receive(120, TimeUnit.SECONDS)) != null && mutationTable2Count < 1) {
                         GenericRecord genericRecord = msg.getValue();
                         mutationTable2Count++;
-                        assertEquals(SchemaType.KEY_VALUE, genericRecord.getSchemaType());
-                        GenericRecord key = getKey(msg);
+                        assertEquals(org.apache.pulsar.common.schema.SchemaType.KEY_VALUE, genericRecord.getSchemaType());
+                        GenericRecord key = getKeyFromMessage(msg);
                         GenericRecord value = getValue(genericRecord);
 
                         // check primary key fields
@@ -367,7 +371,7 @@ public class BackfillCLIE2ETests {
 
                     // make sure no more messages are received
                     while ((msg = consumer.receive(30, TimeUnit.SECONDS)) != null) {
-                        Object key = getKey(msg);
+                        GenericRecord key = getKeyFromMessage(msg);
                         fail("Received more messages than expected. Unwanted key: " + key);
                     }
                 }
@@ -518,7 +522,7 @@ public class BackfillCLIE2ETests {
             case "setofudt": {
                 for (int i = 0; i < ga.size(); i++) {
                     GenericData.Record gr = (GenericData.Record) ga.get(i);
-                    for (Schema.Field f : gr.getSchema().getFields()) {
+                    for (org.apache.pulsar.shade.org.apache.avro.Schema.Field f : gr.getSchema().getFields()) {
                         assertField(f.name(), gr.get(f.name()));
                     }
                 }
@@ -628,7 +632,7 @@ public class BackfillCLIE2ETests {
         return map;
     }
 
-    private GenericRecord getKey(Message<GenericRecord> msg) {
+    private GenericRecord getKeyFromMessage(org.apache.pulsar.client.api.Message<GenericRecord> msg) {
         Object nativeObject = msg.getValue().getNativeObject();
         return ((KeyValue<GenericRecord, GenericRecord>)nativeObject).getKey();
     }
@@ -660,13 +664,15 @@ public class BackfillCLIE2ETests {
 
         public static final String CQL_VARINT = "cql_varint";
         public static final CqlVarintLogicalType CQL_VARINT_LOGICAL_TYPE = new CqlVarintLogicalType();
-        public static final Schema varintType = CQL_VARINT_LOGICAL_TYPE.addToSchema(Schema.create(Schema.Type.BYTES));
+        public static final org.apache.pulsar.shade.org.apache.avro.Schema varintType =
+            CQL_VARINT_LOGICAL_TYPE.addToSchema(org.apache.pulsar.shade.org.apache.avro.Schema.create(
+                org.apache.pulsar.shade.org.apache.avro.Schema.Type.BYTES));
 
         public static final String CQL_DECIMAL = "cql_decimal";
         public static final String CQL_DECIMAL_BIGINT = "bigint";
         public static final String CQL_DECIMAL_SCALE = "scale";
         public static final CqlDecimalLogicalType CQL_DECIMAL_LOGICAL_TYPE = new CqlDecimalLogicalType();
-        public static final Schema decimalType = CQL_DECIMAL_LOGICAL_TYPE.addToSchema(
+        public static final org.apache.pulsar.shade.org.apache.avro.Schema decimalType = CQL_DECIMAL_LOGICAL_TYPE.addToSchema(
                 SchemaBuilder.record(CQL_DECIMAL)
                         .fields()
                         .name(CQL_DECIMAL_BIGINT).type().bytesType().noDefault()
@@ -679,7 +685,7 @@ public class BackfillCLIE2ETests {
         public static final String CQL_DURATION_DAYS = "days";
         public static final String CQL_DURATION_NANOSECONDS = "nanoseconds";
         public static final CqlDurationLogicalType CQL_DURATION_LOGICAL_TYPE = new CqlDurationLogicalType();
-        public static final Schema durationType = CQL_DURATION_LOGICAL_TYPE.addToSchema(
+        public static final org.apache.pulsar.shade.org.apache.avro.Schema durationType = CQL_DURATION_LOGICAL_TYPE.addToSchema(
                 SchemaBuilder.record(CQL_DURATION)
                         .fields()
                         .name(CQL_DURATION_MONTHS).type().intType().noDefault()
@@ -694,10 +700,10 @@ public class BackfillCLIE2ETests {
             }
 
             @Override
-            public void validate(Schema schema) {
+            public void validate(org.apache.pulsar.shade.org.apache.avro.Schema schema) {
                 super.validate(schema);
                 // validate the type
-                if (schema.getType() != Schema.Type.RECORD) {
+                if (schema.getType() != org.apache.pulsar.shade.org.apache.avro.Schema.Type.RECORD) {
                     throw new IllegalArgumentException("Logical type cql_duration must be backed by a record");
                 }
             }
@@ -709,10 +715,10 @@ public class BackfillCLIE2ETests {
             }
 
             @Override
-            public void validate(Schema schema) {
+            public void validate(org.apache.pulsar.shade.org.apache.avro.Schema schema) {
                 super.validate(schema);
                 // validate the type
-                if (schema.getType() != Schema.Type.BYTES) {
+                if (schema.getType() != org.apache.pulsar.shade.org.apache.avro.Schema.Type.BYTES) {
                     throw new IllegalArgumentException("Logical type cql_varint must be backed by bytes");
                 }
             }
@@ -724,10 +730,10 @@ public class BackfillCLIE2ETests {
             }
 
             @Override
-            public void validate(Schema schema) {
+            public void validate(org.apache.pulsar.shade.org.apache.avro.Schema schema) {
                 super.validate(schema);
                 // validate the type
-                if (schema.getType() != Schema.Type.RECORD) {
+                if (schema.getType() != org.apache.pulsar.shade.org.apache.avro.Schema.Type.RECORD) {
                     throw new IllegalArgumentException("Logical type cql_decimal must be backed by a record");
                 }
             }
@@ -745,14 +751,14 @@ public class BackfillCLIE2ETests {
             }
 
             @Override
-            public BigInteger fromBytes(ByteBuffer value, Schema schema, LogicalType type) {
+            public BigInteger fromBytes(ByteBuffer value, org.apache.pulsar.shade.org.apache.avro.Schema schema, LogicalType type) {
                 byte[] arr = new byte[value.remaining()];
                 value.duplicate().get(arr);
                 return new BigInteger(arr);
             }
 
             @Override
-            public ByteBuffer toBytes(BigInteger value, Schema schema, LogicalType type) {
+            public ByteBuffer toBytes(BigInteger value, org.apache.pulsar.shade.org.apache.avro.Schema schema, LogicalType type) {
                 return ByteBuffer.wrap(value.toByteArray());
             }
         }
@@ -769,7 +775,7 @@ public class BackfillCLIE2ETests {
             }
 
             @Override
-            public BigDecimal fromRecord(IndexedRecord value, Schema schema, LogicalType type) {
+            public BigDecimal fromRecord(IndexedRecord value, org.apache.pulsar.shade.org.apache.avro.Schema schema, LogicalType type) {
                 ByteBuffer bb = (ByteBuffer) value.get(0);
                 byte[] bytes = new byte[bb.remaining()];
                 bb.duplicate().get(bytes);
@@ -778,7 +784,7 @@ public class BackfillCLIE2ETests {
             }
 
             @Override
-            public IndexedRecord toRecord(BigDecimal value, Schema schema, LogicalType type) {
+            public IndexedRecord toRecord(BigDecimal value, org.apache.pulsar.shade.org.apache.avro.Schema schema, LogicalType type) {
                 return new GenericRecordBuilder(decimalType)
                         .set(CQL_DECIMAL_BIGINT, ByteBuffer.wrap(value.unscaledValue().toByteArray()))
                         .set(CQL_DECIMAL_SCALE, value.scale())
@@ -798,12 +804,12 @@ public class BackfillCLIE2ETests {
             }
 
             @Override
-            public CqlDuration fromRecord(IndexedRecord value, Schema schema, LogicalType type) {
+            public CqlDuration fromRecord(IndexedRecord value, org.apache.pulsar.shade.org.apache.avro.Schema schema, LogicalType type) {
                 return CqlDuration.newInstance((int) value.get(0), (int) value.get(1), (long) value.get(2));
             }
 
             @Override
-            public IndexedRecord toRecord(CqlDuration value, Schema schema, LogicalType type) {
+            public IndexedRecord toRecord(CqlDuration value, org.apache.pulsar.shade.org.apache.avro.Schema schema, LogicalType type) {
                 org.apache.pulsar.shade.org.apache.avro.generic.GenericRecord record = new GenericData.Record(durationType);
                 record.put(CQL_DURATION_MONTHS, value.getMonths());
                 record.put(CQL_DURATION_DAYS, value.getDays());
@@ -813,4 +819,3 @@ public class BackfillCLIE2ETests {
         }
     }
 }
-

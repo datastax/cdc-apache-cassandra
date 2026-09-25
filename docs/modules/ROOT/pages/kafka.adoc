@@ -1,0 +1,193 @@
+= Stream CDC to {kafka}
+
+{product-short} can stream {cass-short} change events to either {pulsar-reg} (the default) or {kafka-reg} / {confluent}.
+The streaming platform is selected at runtime with a single agent parameter, with no change to the existing {pulsar-short} behavior or wire format.
+
+This page explains how to configure the {cdc_agent} for {kafka-short}, the two serialization modes, security, and how to consume the change events with the {csc_kafka}.
+
+== Choose a streaming provider
+
+The {cdc_agent} publishes change events to the same per-table events topic regardless of provider.
+The provider is selected with the `messagingProvider` parameter:
+
+[cols="1,3"]
+|===
+| `messagingProvider` | Behavior
+
+| `pulsar` (default)
+| Publish to {pulsar-short}. All `pulsar*` parameters apply. This is the default when the parameter is unset, preserving existing deployments.
+
+| `kafka`
+| Publish to {kafka-short} / {confluent}. The `kafka*` parameters apply.
+|===
+
+The value is matched case-insensitively (`kafka`, `Kafka`, and `KAFKA` are equivalent).
+An unrecognized value is rejected at agent startup with an error that lists the supported values, rather than silently falling back to {pulsar-short}.
+
+[NOTE]
+====
+Both provider implementations are bundled in the agent JAR, so no extra download is required to use {kafka-short} — only the `messagingProvider` and `kafka*` parameters.
+====
+
+== Enable {kafka-short} on the agent
+
+Start the {cass-short} node with the {cdc_agent} as a `-javaagent`, setting `messagingProvider=kafka` and the {kafka-short} bootstrap servers.
+Because the agent parameter list is comma-separated, escape the comma between multiple bootstrap servers with a backslash:
+
+[source,bash,subs="+quotes"]
+----
+export JVM_EXTRA_OPTS="-javaagent:/path/to/agent-c4-**VERSION**-all.jar=messagingProvider=kafka,kafkaBootstrapServers=broker1:9092\,broker2:9092"
+----
+
+Equivalently, using the system environment variables in `cassandra-env.sh`:
+
+[source,bash,subs="+quotes"]
+----
+export CDC_MESSAGING_PROVIDER="kafka"
+export CDC_KAFKA_BOOTSTRAP_SERVERS="broker1:9092,broker2:9092"
+----
+
+The full list of `kafka*` parameters, their defaults, and environment-variable names is in xref:install.adoc#agentParams[Change Agent Parameters] and xref:stringMappings.adoc[CDC Change Agent Parameter Mappings].
+
+If `messagingProvider=kafka` and `kafkaBootstrapServers` is missing, the agent fails fast at startup with a clear error instead of a deferred client-side failure.
+
+== Serialization modes
+
+The agent publishes each event as `key = <primary key>` and `value = MutationValue`, with the `writetime`, `segpos`, and `token` carried as {kafka-short} record headers.
+Two serialization modes are supported and selected automatically based on whether a schema registry is configured:
+
+[cols="1,3"]
+|===
+| Mode | When used
+
+| Registry-less raw Avro (default)
+| When `kafkaSchemaRegistryUrl` is *not* set. The primary key and `MutationValue` are encoded as raw Avro binary. This works against plain {kafka-reg} with no schema registry. Consumers decode the value with the canonical `MutationValue` Avro schema (`com.datastax.oss.cdc.MutationValueCodec`).
+
+| {confluent} Schema Registry
+| When `kafkaSchemaRegistryUrl` is set to an `http(s)` URL. The key and value are serialized with the {confluent} `KafkaAvroSerializer`, and schemas are auto-registered under `<topic>-key` and `<topic>-value`.
+|===
+
+To enable the {confluent} Schema Registry mode, add the registry URL:
+
+[source,bash,subs="+quotes"]
+----
+export CDC_MESSAGING_PROVIDER="kafka"
+export CDC_KAFKA_BOOTSTRAP_SERVERS="broker:9092"
+export CDC_KAFKA_SCHEMA_REGISTRY_URL="http://schema-registry:8081"
+----
+
+The `kafkaSchemaRegistryUrl` must be a well-formed `http://` or `https://` URL; an invalid value is rejected at startup.
+
+[NOTE]
+====
+The registry-less path is the default and is the more fully exercised mode.
+In {confluent} Schema Registry mode, primary keys that use the custom CQL logical types `varint` and `decimal` are a known limitation; standard types, including `uuid`, are handled.
+====
+
+== Producer tuning
+
+The {kafka-short} producer can be tuned with the following parameters (defaults shown).
+See xref:install.adoc#agentParams[Change Agent Parameters] for the complete reference.
+
+[cols="2,3,1"]
+|===
+| Parameter | Description | Default
+
+| `kafkaAcks` | Producer `acks` (`0`, `1`, or `all`). | `all`
+| `kafkaCompressionType` | Compression: `none`, `gzip`, `snappy`, `lz4`, or `zstd`. | `none`
+| `kafkaBatchSize` | Producer `batch.size` in bytes. | `16384`
+| `kafkaLingerMs` | Producer `linger.ms`. | `0`
+| `kafkaMaxInFlightRequests` | `max.in.flight.requests.per.connection`. | `5`
+|===
+
+== Security (SSL/TLS and SASL)
+
+The SSL/TLS parameters are shared with the {pulsar-short} configuration and are mapped to the equivalent {kafka-short} client settings.
+Setting a keystore or truststore enables TLS:
+
+[source,bash,subs="+quotes"]
+----
+export CDC_MESSAGING_PROVIDER="kafka"
+export CDC_KAFKA_BOOTSTRAP_SERVERS="broker:9093"
+export CDC_USE_KEYSTORE_TLS="true"
+export CDC_SSL_TRUSTSTORE_PATH="/path/to/truststore.jks"
+export CDC_SSL_TRUSTSTORE_PASSWORD="**PASSWORD**"
+export CDC_SSL_KEYSTORE_PATH="/path/to/keystore.jks"
+export CDC_SSL_KEYSTORE_PASSWORD="**PASSWORD**"
+----
+
+SASL authentication is derived from the shared authentication parameters: the security protocol becomes `SASL_SSL` or `SASL_PLAINTEXT` depending on whether TLS is configured, and the SASL mechanism (`PLAIN` or `SCRAM`) is inferred from the configured authentication plugin.
+
+== Topic naming and data flow
+
+Topic naming follows the same convention as {pulsar-short}: events are published to `${topicPrefix}<keyspace>.<table>` (default prefix `events-`), for example `events-myks.users`.
+
+The end-to-end pipeline mirrors the {pulsar-short} flow:
+
+. The {cdc_agent} on each {cass-short} node reads the commit log and publishes a change event to the per-table `events-<keyspace>.<table>` topic.
+. The {csc_kafka} consumes the events topic, de-duplicates mutations, queries {cass-short} for the current row, and publishes the row to the `data-<keyspace>.<table>` topic.
+. A `null` value on the data topic represents a delete (tombstone).
+
+== Deploy the {csc_kafka}
+
+The {kafka-short} side of the pipeline is a {kafka-short} Connect sink connector: `com.datastax.oss.kafka.sink.CassandraSinkConnector`.
+It reuses the same {cass-short} query, Avro/JSON conversion, and de-duplication logic as the {csc_pulsar}, so the output format matches.
+
+Build the connector plugin and place it on the {kafka-short} Connect `plugin.path`:
+
+[source,bash]
+----
+./gradlew :connector-kafka:shadowJar
+----
+
+Deploy one connector per CDC-enabled table. Example configuration:
+
+[source,json]
+----
+{
+  "name": "cassandra-source-ks1-table1",
+  "config": {
+    "connector.class": "com.datastax.oss.kafka.sink.CassandraSinkConnector",
+    "tasks.max": "1",
+    "topics": "events-ks1.table1",
+    "key.converter": "org.apache.kafka.connect.converters.ByteArrayConverter",
+    "value.converter": "org.apache.kafka.connect.converters.ByteArrayConverter",
+    "keyspace": "ks1",
+    "table": "table1",
+    "contactPoints": "cassandra-host",
+    "port": "9042",
+    "loadBalancing.localDc": "datacenter1",
+    "kafka.bootstrap.servers": "broker:9092",
+    "data.topic.prefix": "data-",
+    "outputFormat": "key-value-avro"
+  }
+}
+----
+
+* The data topic is `<data.topic.prefix><keyspace>.<table>` (for example, `data-ks1.table1`).
+* The data record key reuses the event key bytes (the Avro primary key); the value is the Avro/JSON row, or `null` (tombstone) for a delete.
+* `outputFormat` accepts `key-value-avro` (default) and `key-value-json`.
+* {cass-short} connection, cache, SSL, and authentication settings reuse the same keys as the {csc_pulsar}.
+
+== Back-fill historical data to {kafka-short}
+
+CDC only streams changes that occur *after* it is enabled, so rows written before then are not in the data topic. The xref:ROOT:backfill-cli.adoc[backfill CLI] seeds that historical data, and supports {kafka-short} via `--messaging-provider=kafka`:
+
+[source,bash,subs="+attributes"]
+----
+java -jar backfill-cli-{version}-all.jar \
+  --messaging-provider kafka \
+  --kafka-bootstrap-servers broker:9092 \
+  --data-dir target/export --export-host 127.0.0.1:9042 \
+  --keyspace ks1 --table table1
+----
+
+The CLI exports the table with {dsbulk} and publishes a mutation per row to `events-<keyspace>.<table>`, where the {csc_kafka} picks them up exactly as it does live change events. Run the backfill CLI as the standalone JAR for {kafka-short} (the `pulsar-admin` extension form is {pulsar-short}-only). See xref:ROOT:backfill-cli.adoc[] for all parameters.
+
+== Limitations and follow-ups
+
+* {confluent} Schema Registry output for the *data* topic is not yet implemented; the connector currently reads and writes registry-less raw Avro. The agent already supports registry *input*.
+* In {confluent} Schema Registry mode, primary keys using `varint`/`decimal` logical types are a known limitation.
+* The sink connector processes records sequentially per batch and does not yet have the adaptive query-executor/batching parity of the {csc_pulsar}.
+
+The general xref:index.adoc#limitations[{product-short} limitations] also apply to the {kafka-short} pipeline.
