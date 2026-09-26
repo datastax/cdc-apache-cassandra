@@ -20,8 +20,9 @@ Supported Cassandra version:
 * Cassandra 3.11+
 * Cassandra 4.0+
 * [DataStax Enterprise (DSE)](https://www.datastax.com/products/datastax-enterprise) 6.8.16+
+* [DataStax Hyper-Converged Database (HCD)](https://docs.datastax.com/en/hyper-converged-database/1.2/get-started/hcd-introduction.html) 1.2.3+
 
-Note: Only Cassandra 4.0 and DSE 6.8.16+ support the near realtime CDC allowing to replicate data as soon as they are synced on disk.
+Note: Only Cassandra 4.0, DSE 6.8.16+, and HCD 1.2.3+ support the near realtime CDC allowing to replicate data as soon as they are synced on disk.
 
 ## Documentation
 
@@ -83,9 +84,14 @@ Cassandra supported CQL3 data types (with the associated AVRO type or logical-ty
 
     ./gradlew assemble
 
-Note: Artifacts for DSE agent are excluded by default. To build the `agent-dse4` module, specify the `dse4` property:
+Note: Artifacts for HCD and DSE agents are excluded by default. To build these modules specify the appropriate properties:
+the `agent-dse4` module, specify the `dse4` property:
 
+    # agent-dse4
     ./gradlew assemble -Pdse4 
+
+    # agent-hcd
+    ./gradlew assemble -Phcd 
 
 ## Acknowledgments
 
