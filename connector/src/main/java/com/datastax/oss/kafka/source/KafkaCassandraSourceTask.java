@@ -122,6 +122,7 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
     volatile ConverterAndQuery<Converter<byte[], ?>> valueConverterAndQuery;
     private Object emptyValue;
     KafkaAvroSerializer schemaRegistrySerializer;
+    KafkaAvroSerializer keySchemaRegistrySerializer;
 
     OrderedExecutor queryExecutor;
     private long consecutiveUnavailableException = 0;
@@ -179,6 +180,8 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
         if (config.isAvroOutputFormat() && config.isSchemaRegistryEnabled()) {
             this.schemaRegistrySerializer = new KafkaAvroSerializer();
             this.schemaRegistrySerializer.configure(SchemaRegistryProperties.build(config), false);
+            this.keySchemaRegistrySerializer = new KafkaAvroSerializer();
+            this.keySchemaRegistrySerializer.configure(SchemaRegistryProperties.build(config), true);
         }
 
         Properties consumerProps = InternalConsumerProperties.build(config);
@@ -314,6 +317,10 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
             this.schemaRegistrySerializer.close();
             this.schemaRegistrySerializer = null;
         }
+        if (this.keySchemaRegistrySerializer != null) {
+            this.keySchemaRegistrySerializer.close();
+            this.keySchemaRegistrySerializer = null;
+        }
     }
 
     private GenericRecord decodeAvroRecord(byte[] bytes, org.apache.avro.Schema schema) throws IOException {
@@ -340,12 +347,14 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
     // Key and value are published under Schema.BYTES_SCHEMA, bypassing Kafka Connect's converter
     // framework entirely (see AbstractRowConverter) - downstream consumers read the raw bytes
     // directly rather than through a registered Connect converter. When schema.registry.url is
-    // configured, the Avro value bytes are in Confluent wire format (see
-    // KafkaAvroConverter#enableSchemaRegistry), so a standard KafkaAvroDeserializer can decode
-    // them. The key is always the PK's raw Avro bytes with no registry wrapping: unlike the
-    // value, its schema is fixed by the table's primary key definition and cannot evolve without
-    // dropping the table (see AbstractKafkaMutationSender's schema-stability discussion), so
-    // there is no schema-evolution problem to solve for it.
+    // configured, both the Avro value bytes (see KafkaAvroConverter#enableSchemaRegistry) and the
+    // key bytes (see keySchemaRegistrySerializer) are in Confluent wire format, so a standard
+    // KafkaAvroDeserializer/AvroConverter can decode either one -- the key registers under
+    // "<topic>-key" rather than "<topic>-value", since the PK's schema is fixed by the table's
+    // primary key definition and doesn't evolve, but still needs its own wire-format wrapping for
+    // downstream sinks (e.g. an OpenSearch sink) to use it as a stable per-row document id.
+    // Without schema.registry.url configured, the key remains the PK's raw Avro bytes with no
+    // wrapping, same as before.
     private SourceRecord buildSourceRecord(ConsumerRecord<byte[], byte[]> rec, Object key, Object value) {
         TopicPartition tp = new TopicPartition(rec.topic(), rec.partition());
         return new SourceRecord(
@@ -462,7 +471,14 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
                             && (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._3 != null && tuple._3.equals(decoded.mutationValue.getNodeId())))) {
                         mutationCache.addMutationMd5(decoded.cacheKey, decoded.mutationValue.getMd5Digest());
                     }
-                    Object key = config.isAvroOutputFormat() ? decoded.rec.key() : keyConverter.fromConnectData(decoded.mutationKeyRecord);
+                    Object key;
+                    if (!config.isAvroOutputFormat()) {
+                        key = keyConverter.fromConnectData(decoded.mutationKeyRecord);
+                    } else if (keySchemaRegistrySerializer != null) {
+                        key = keySchemaRegistrySerializer.serialize(outputTopic, decoded.mutationKeyRecord);
+                    } else {
+                        key = decoded.rec.key();
+                    }
                     future.complete(buildSourceRecord(decoded.rec, key, value));
                 } catch (Throwable err) {
                     future.completeExceptionally(err);
