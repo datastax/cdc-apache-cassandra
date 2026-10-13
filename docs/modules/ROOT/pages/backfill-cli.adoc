@@ -3,7 +3,7 @@
 When CDC is enabled on a table, the data topic doesn't contain any data from before CDC was enabled.
 The backfill CLI solves this problem by exporting the table's primary key to a CSV file, storing the CSV file on disk, and sending the primary key from the CSV file to the event topic.
 The {cass-short} source connector reads the primary key from the event topic and populates the data topic with historical data.
-The backfill CLI is powered by the xref:dsbulk:overview:dsbulk-about.adoc[{dsbulk}], a battle-tested data loader tool. This means the CLI takes full advantage of optimizations done in {dsbulk-short} when exporting data from table to disk.
+The backfill CLI is powered by the https://github.com/datastax/dsbulk[{dsbulk}], a battle-tested data loader tool. This means the CLI takes full advantage of optimizations done in {dsbulk-short} when exporting data from table to disk.
 
 Developers can also use the backfill CLI to trigger change events for downstream applications without having to insert new data.
 
