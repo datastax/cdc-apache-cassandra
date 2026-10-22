@@ -423,7 +423,7 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
      */
     private void acquireRateLimiter(RateLimiter rateLimiter) throws InterruptedException {
         int attempt = 0;
-        while (!rateLimiter.tryAcquire(ACQUIRE_POLL_TIMEOUT)) {
+        while (!rateLimiter.tryAcquire(ACQUIRE_POLL_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
             sendRateLimiterRetries.incrementAndGet();
             if (++attempt % LOG_SAMPLE_ATTEMPTS == 1) {
                 log.debug("attempt {} to acquire send rate limiter failed (waiting for quota)", attempt);
