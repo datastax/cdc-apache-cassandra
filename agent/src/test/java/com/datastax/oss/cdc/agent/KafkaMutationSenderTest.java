@@ -17,6 +17,7 @@ package com.datastax.oss.cdc.agent;
 
 import com.datastax.oss.cdc.Constants;
 import com.datastax.oss.cdc.MutationValue;
+import com.google.common.util.concurrent.RateLimiter;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
@@ -115,6 +116,36 @@ public class KafkaMutationSenderTest {
         byte[] value = mockProducer.history().get(0).value();
         assertNotNull(value);
         assertTrue(value.length > 0);
+    }
+
+    @Test
+    void sendRateLimiter_unsetByDefault() {
+        assertNull(sender.sendRateLimiter);
+    }
+
+    @Test
+    void buildProducerProperties_defaultRateLimitIsZero_doesNotCreateRateLimiter() {
+        AgentConfig cfg = AgentConfig.create(AgentConfig.Platform.KAFKA, "topicPrefix=events-");
+        assertEquals(0.0, (double) cfg.get("kafkaMutationSendRateLimit"),
+                "sanity check: default must resolve to 0.0, not null");
+
+        sender.buildProducerProperties(cfg);
+
+        assertNull(sender.sendRateLimiter);
+    }
+
+    @Test
+    void send_withRateLimiterSet_throttlesToConfiguredRate() throws Exception {
+        sender.sendRateLimiter = RateLimiter.create(2.0);
+
+        long start = System.nanoTime();
+        sender.sendMutationAsync(mutation("ks", "tbl", "pk1", 1L, 0)).get();
+        sender.sendMutationAsync(mutation("ks", "tbl", "pk2", 2L, 0)).get();
+        sender.sendMutationAsync(mutation("ks", "tbl", "pk3", 3L, 0)).get();
+        long elapsedMs = (System.nanoTime() - start) / 1_000_000;
+        assertTrue(elapsedMs >= 800,
+                "expected throttled sends to take >= 800ms, took " + elapsedMs + "ms");
+        assertEquals(3, mockProducer.history().size());
     }
 
     // -------------------------------------------------------------------------
