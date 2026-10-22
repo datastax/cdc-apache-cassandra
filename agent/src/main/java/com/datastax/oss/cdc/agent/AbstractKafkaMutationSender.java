@@ -18,6 +18,7 @@ package com.datastax.oss.cdc.agent;
 import com.datastax.oss.cdc.Constants;
 import com.datastax.oss.cdc.MutationValue;
 import com.datastax.oss.cdc.agent.MutationSenderAvroUtil.SchemaAndWriter;
+import com.google.common.util.concurrent.RateLimiter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
@@ -159,6 +160,8 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
     /** Back-pressure semaphore: limits in-flight send futures to maxPendingMessages. */
     volatile Semaphore pendingSemaphore;
 
+    volatile RateLimiter sendRateLimiter;
+
     public AbstractKafkaMutationSender(AgentConfig config, boolean useMurmur3Partitioner) {
         this.config = config;
         this.useMurmur3Partitioner = useMurmur3Partitioner;
@@ -240,6 +243,15 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
         }
         this.pendingSemaphore = new Semaphore(maxPending);
 
+        Object rateLimit = config.get("kafkaMutationSendRateLimit");
+        if (rateLimit != null) {
+            double rate = toDouble(rateLimit);
+            if (rate > 0) {
+                this.sendRateLimiter = RateLimiter.create(rate);
+                log.info("Kafka mutation send rate limited to {} messages/sec", rate);
+            }
+        }
+
         return props;
     }
 
@@ -255,6 +267,13 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
             return ((Number) v).longValue();
         }
         return Long.parseLong(v.toString());
+    }
+
+    private static double toDouble(Object v) {
+        if (v instanceof Number) {
+            return ((Number) v).doubleValue();
+        }
+        return Double.parseDouble(v.toString());
     }
 
     public SchemaAndWriter getAvroKeySchema(final TableInfo tableInfo) {
@@ -301,6 +320,9 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
                         Long.toString(mutation.getTs()).getBytes(StandardCharsets.UTF_8)));
             }
 
+            if (sendRateLimiter != null) {
+                sendRateLimiter.acquire();
+            }
             pendingSemaphore.acquire();
             CompletableFuture<Void> future = new CompletableFuture<>();
             producer.send(record, (metadata, ex) -> {
