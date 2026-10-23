@@ -2,7 +2,7 @@
 
 ## What it is
 
-A Change Data Capture (CDC) pipeline that reads Cassandra commit logs and streams mutation events to a messaging system. Currently Pulsar is the only supported messaging backend. The active work (branch `feat/kafka-support`) is adding Kafka support without breaking Pulsar.
+A Change Data Capture (CDC) pipeline that reads Cassandra commit logs and streams mutation events to a messaging system. Both Apache Pulsar and Apache Kafka are supported as messaging backends.
 
 ## How it works (data flow)
 
@@ -20,6 +20,13 @@ Cassandra node
                                               Publishes full row  ──►  data topic / Kafka topic
 ```
 
+### Read Consistency & Row Consistency Guarantees
+
+When reading back the full row upon receiving an event notification:
+- The connector executes CQL read queries at `ConsistencyLevel.LOCAL_QUORUM`.
+- Downgrade to `ConsistencyLevel.LOCAL_ONE` upon unavailability errors was intentionally removed to avoid silent data inconsistency (reading stale replicas).
+- Transient replica unavailability is handled at the connector layer via jittered backoff retries (`SourceUtil.backoffRetry` / `waitForCqlWithRetry`) without re-consuming event topic messages until quorum can be achieved.
+
 ## Module map
 
 | Module | Role |
@@ -29,9 +36,10 @@ Cassandra node
 | `agent-c3` | Cassandra 3 concrete implementation: `PulsarMutationSender`, `Agent`, `CommitLogReaderServiceImpl` |
 | `agent-c4` | Cassandra 4 concrete implementation: same structure as agent-c3 |
 | `agent-dse4` | DSE 4 variant, opt-in via Gradle flag `dse4` |
-| `connector` | Pulsar IO source connector: `CassandraSource`, `CassandraSourceConnectorConfig`, converters |
+| `connector` | Pulsar IO source connector (`CassandraSource`) + Kafka Connect source connector (`KafkaCassandraSourceConnector`, `KafkaCassandraSourceTask`), shared `CassandraSourceConnectorConfig`, converters |
 | `connector-distribution` | NAR packaging for Pulsar IO |
-| `testcontainers` | Shared test utilities, testcontainers wrappers for Pulsar and Cassandra |
+| `backfill-cli` | CLI tool to replay historical data through the CDC pipeline. Supports both Pulsar and Kafka via `--platform`. |
+| `testcontainers` | Shared test utilities, testcontainers wrappers for Pulsar, Kafka, and Cassandra |
 
 ## Key classes
 
@@ -41,16 +49,13 @@ Cassandra node
 - `AbstractKafkaMutationSender` *(new, `agent` module)* — Kafka-specific mirror: initialises `KafkaProducer`, manages one producer per topic, calls `MutationSenderAvroUtil` for key serialisation, sends via `producer.send` returning a `CompletableFuture`.
 - [`MutationSender`](../../agent/src/main/java/com/datastax/oss/cdc/agent/MutationSender.java) — Interface with `initialize(AgentConfig)` and `sendMutationAsync(AbstractMutation<T>)`.
 - [`CassandraSource`](../../connector/src/main/java/com/datastax/oss/pulsar/source/CassandraSource.java) — Pulsar IO source connector. Subscribes to events topic, queries Cassandra, publishes to data topic.
-- [`CassandraSourceConnectorConfig`](../../connector/src/main/java/com/datastax/oss/cdc/CassandraSourceConnectorConfig.java) — Config used by both the Pulsar connector and the Kafka connector side (already uses Kafka's `ConfigDef` / `AbstractConfig`).
+- [`CassandraSourceConnectorConfig`](../../connector/src/main/java/com/datastax/oss/cdc/CassandraSourceConnectorConfig.java) — Config used by both the Pulsar and Kafka connectors (Kafka `ConfigDef` / `AbstractConfig`). Includes schema registry settings (`schema.registry.url`, `schema.registry.autoRegisterSchemas`, basic auth).
+- `KafkaCassandraSourceTask` — Kafka Connect source task. Uses BookKeeper `OrderedExecutor` (fixed thread pool, per-key ordering) for CQL read-back. Optionally publishes values in Confluent wire format when `schema.registry.url` is set, via `KafkaAvroSerializer` from `io.confluent:kafka-avro-serializer`.
+- `KafkaAvroConverter` — Extends `AvroRowConverter`. When schema registry is enabled, serializes via `KafkaAvroSerializer` (Confluent wire format: magic byte + schema ID + Avro bytes). When disabled, serializes as raw Avro bytes.
 
 ## Message format (events topic)
 
-Each mutation is published as a Pulsar `KeyValue<byte[], MutationValue>` message with:
-- **Key**: Avro-serialised primary key (binary)
-- **Value**: `MutationValue` (Avro) — `md5Digest`, `nodeId`, `columns[]`
-- **Properties**: `segpos` (segment:position), `token`, optionally `writetime`
-
-For the Kafka events topic the same Avro encoding is used (via `MutationSenderAvroUtil`); properties become Kafka record headers.
+Each mutation is published with an Avro-encoded primary key, a change descriptor (`MutationValue`: md5 digest, node ID), and metadata (segment position, token, write time). The encoding is identical between Pulsar and Kafka backends.
 
 ## AgentConfig loading priority (lowest → highest)
 
@@ -73,15 +78,18 @@ kafka.kafkaBootstrapServers=broker:9092
 - A `kafka.` prefixed key is applied **only** when `platform == KAFKA`; silently skipped for Pulsar.
 - Un-prefixed keys are applied to whichever platform is active (existing behaviour, validated against `setting.platform`).
 
-## Goals
+## Completed goals
 
-1. Extract shared Avro logic from `AbstractPulsarMutationSender` into `MutationSenderAvroUtil` so both Pulsar and Kafka senders share one implementation.
-2. Add `configFile` loading to `AgentConfig` so operators can manage settings in a file instead of a long agent args string.
-3. Add `pulsar.` / `kafka.` prefix scoping so a single config file can carry both platforms' settings without conflicts.
-4. Add Kafka producer support to the agent (new `AbstractKafkaMutationSender` / `KafkaMutationSender`) so mutations can be sent to Kafka topics instead of Pulsar.
-5. Add a Kafka Connect source connector (new module) that reads from the Kafka events topic and publishes full rows.
-6. Keep all existing Pulsar code fully intact and backward compatible.
-7. Extend `AgentConfig.Platform` to include `KAFKA` and tag new settings accordingly.
+1. ✅ Shared Avro logic extracted into `MutationSenderAvroUtil` — used by both Pulsar and Kafka senders.
+2. ✅ `configFile` / `kafkaConfigFile` loading in `AgentConfig` — settings manageable via a properties file.
+3. ✅ `pulsar.` / `kafka.` prefix scoping in config files.
+4. ✅ Kafka producer support in agent (`AbstractKafkaMutationSender` / `KafkaMutationSender`).
+5. ✅ Kafka Connect source connector (`KafkaCassandraSourceConnector` / `KafkaCassandraSourceTask`) in the `connector` module.
+6. ✅ All existing Pulsar code intact and backward compatible.
+7. ✅ `AgentConfig.Platform.KAFKA` added.
+8. ✅ Schema Registry support via `io.confluent:kafka-avro-serializer` — opt-in, compatible with any Confluent Schema Registry API-compatible registry.
+9. ✅ `AdaptiveQueryExecutor` removed — replaced by BookKeeper `OrderedExecutor`.
+10. ✅ Backfill CLI extended with `--platform KAFKA` and `--kafka-config-file`.
 
 ## Key stakeholders / users
 

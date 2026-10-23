@@ -43,7 +43,6 @@ import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.RateLimiter;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import io.vavr.Tuple2;
-import io.vavr.Tuple3;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Conversions;
@@ -163,7 +162,7 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
      * is thrown and treated as backpressure by nacking the batch and backing off.
      */
     private OrderedExecutor queryExecutor;
-    private long consecutiveUnavailableException = 0;
+    private long consecutiveUnavailableExceptionCount = 0;
 
     /**
      * Optional rate limiter for Cassandra CQL queries.
@@ -362,8 +361,8 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
                 msg = consumer.receive(1, TimeUnit.SECONDS);
             } catch (Exception e) {
                 log.warn("consumer.receive() failed, retrying:", e);
-                consecutiveUnavailableException =
-                        SourceUtil.backoffRetry(e, consecutiveUnavailableException, config);
+                consecutiveUnavailableExceptionCount =
+                        SourceUtil.backoffRetry(e, consecutiveUnavailableExceptionCount, config);
                 continue;
             }
             if (msg == null) {
@@ -422,7 +421,7 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
             log.debug("Query time for {} msg in {} ms throughput={} msg/s cacheHits={}",
                     newRecords.size(), duration, throughput, cacheHits);
         }
-        consecutiveUnavailableException = 0;
+        consecutiveUnavailableExceptionCount = 0;
         return usefulRecords;
     }
 
@@ -468,10 +467,10 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
 
                     List<Object> nonNullPkValues = pk.stream().filter(e -> e != null).collect(Collectors.toList());
                     long start = System.currentTimeMillis();
-                    Tuple3<Row, ConsistencyLevel, UUID> tuple = cassandraClient.selectRow(
+                    Tuple2<Row, UUID> tuple = cassandraClient.selectRow(
                             nonNullPkValues,
                             mutationValue.getNodeId(),
-                            Lists.newArrayList(ConsistencyLevel.LOCAL_QUORUM, ConsistencyLevel.LOCAL_ONE),
+                            ConsistencyLevel.LOCAL_QUORUM,
                             getSelectStatement(converterAndQueryFinal, nonNullPkValues.size()),
                             mutationValue.getMd5Digest());
                     CacheStats cacheStats = mutationCache.stats();
@@ -485,8 +484,7 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
                     if (msg.hasProperty(Constants.WRITETIME))
                         sourceContext.recordMetric(REPLICATION_LATENCY, end - (Long.parseLong(msg.getProperty(Constants.WRITETIME)) / 1000L));
                     Object value = tuple._1 == null ? this.emptyValue : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
-                    if (ConsistencyLevel.LOCAL_QUORUM.equals(tuple._2()) &&
-                            (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._3 != null && tuple._3.equals(mutationValue.getNodeId())))) {
+                    if (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._2 != null && tuple._2.equals(mutationValue.getNodeId()))) {
                         if (log.isDebugEnabled()) {
                             log.debug("Caching mutation key={} md5={} pk={}", msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues);
                         }
@@ -494,8 +492,8 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
                         mutationCache.addMutationMd5(msg.getKey(), mutationValue.getMd5Digest());
                     } else {
                         if (log.isDebugEnabled()) {
-                            log.debug("Not caching mutation key={} md5={} pk={} CL={} coordinator={}",
-                                    msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues, tuple._2(), tuple._3());
+                            log.debug("Not caching mutation key={} md5={} pk={} coordinator={}",
+                                    msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues, tuple._2());
                         }
                     }
                     Object key = config.isAvroOutputFormat() ? msg.getKeyBytes() : keyConverter.fromConnectData(mutationKey.getNativeObject());
@@ -533,14 +531,19 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
     private KeyValue waitForCqlWithRetry(CassandraRecord record) throws Exception {
         while (true) {
             try {
-                return record.getQueryResult().join();
+                KeyValue result = record.getQueryResult().join();
+                // Reset backoff counter on each per-record success so that a high counter
+                // accumulated during a chaos/outage window does not carry over to subsequent
+                // records in the same batch, compounding the recovery delay.
+                consecutiveUnavailableExceptionCount = 0;
+                return result;
             } catch (CompletionException e) {
                 Throwable cause = e.getCause() != null ? e.getCause() : e;
                 if (cause instanceof ExecutionException && cause.getCause() != null) cause = cause.getCause();
                 log.warn("CQL query failed for msgId={}, retrying without re-consuming event topic:",
                         record.getMutationMessage().getMessageId(), cause);
-                consecutiveUnavailableException =
-                        SourceUtil.backoffRetry(cause, consecutiveUnavailableException, config);
+                consecutiveUnavailableExceptionCount =
+                        SourceUtil.backoffRetry(cause, consecutiveUnavailableExceptionCount, config);
 
                 // Re-submit only the CQL query; the event-topic message is already consumed.
                 // Re-read valueConverterAndQuery so a schema change that arrived during the

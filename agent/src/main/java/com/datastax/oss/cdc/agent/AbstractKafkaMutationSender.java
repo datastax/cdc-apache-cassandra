@@ -176,6 +176,13 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
 
     @Override
     public void initialize(AgentConfig config) {
+        Properties props = buildProducerProperties(config);
+        this.producer = new KafkaProducer<>(props);
+        log.info("Kafka producer connected to {}", props.get(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG));
+    }
+
+    /** Package-private for testing. Builds the producer Properties from AgentConfig. */
+    Properties buildProducerProperties(AgentConfig config) {
         Properties props = new Properties();
 
         // Required
@@ -211,15 +218,19 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
         putIfPresent(props, config, "sasl.mechanism",    "saslMechanism");
         putIfPresent(props, config, "sasl.jaas.config",  "saslJaasConfig");
 
-        // Pass through any remaining properties from the config file directly.
+        // Pass through all remaining properties from the config file directly.
         // config.get() returns unrecognised file keys stored under their original names.
-        // Anything that looks like a Kafka producer property (contains ".") is forwarded.
-        // This lets operators set arbitrary producer configs (compression.type, acks, etc.)
+        // This lets operators set arbitrary producer configs (acks, compression.type, etc.)
         // without requiring AgentConfig changes.
         for (String key : config.propertyKeys()) {
-            if (key.contains(".") && !props.containsKey(key)) {
+            if (!props.containsKey(key)) {
                 props.put(key, config.get(key).toString());
             }
+        }
+
+        if (useMurmur3Partitioner) {
+            props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG,
+                    Murmur3KafkaPartitioner.class.getName());
         }
 
         int maxPending = 1000;
@@ -229,13 +240,7 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
         }
         this.pendingSemaphore = new Semaphore(maxPending);
 
-        if (useMurmur3Partitioner) {
-            props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG,
-                    Murmur3KafkaPartitioner.class.getName());
-        }
-
-        this.producer = new KafkaProducer<byte[], byte[]>(props);
-        log.info("Kafka producer connected to {}", props.get(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG));
+        return props;
     }
 
     private static void putIfPresent(Properties props, AgentConfig config, String kafkaKey, String configKey) {

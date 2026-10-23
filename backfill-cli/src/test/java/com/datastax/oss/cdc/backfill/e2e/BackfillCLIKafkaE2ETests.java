@@ -99,7 +99,7 @@ public class BackfillCLIKafkaE2ETests {
     @BeforeAll
     public static void initBeforeClass() throws Exception {
         testNetwork = Network.newNetwork();
-        kafkaContainer = new KafkaContainer(AgentTestUtil.KAFKA_IMAGE)
+        kafkaContainer = new KafkaContainer(AgentTestUtil.CONFLUENT_KAFKA_IMAGE)
                 .withNetwork(testNetwork)
                 .withNetworkAliases("kafka");
         kafkaContainer.start();

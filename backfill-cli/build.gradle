@@ -165,8 +165,8 @@ task e2eTest(type: Test) {
     def brokerType = project.hasProperty('brokerType') ? project.property('brokerType') : 'pulsar'
     if (brokerType == 'kafka') {
         include '**/BackfillCLIKafkaE2ETests.class'
-        systemProperty "testKafkaImage", testKafkaImage
-        systemProperty "testKafkaImageTag", testKafkaImageTag
+        systemProperty "testConfluentKafkaImage", testConfluentKafkaImage
+        systemProperty "testConfluentKafkaImageTag", testConfluentKafkaImageTag
     } else {
         include '**/BackfillCLIE2ETests.class'
         environment 'PULSAR_IMAGE', testPulsarImage + ':' + testPulsarImageTag
