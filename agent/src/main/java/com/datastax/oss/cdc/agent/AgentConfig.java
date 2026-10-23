@@ -121,6 +121,11 @@ public class AgentConfig {
             String v = System.getenv(varName);
             return v == null || v.isEmpty() ? defaultValue : Long.parseLong(v);
         }
+
+        public static double getEnvAsDouble(String varName, double defaultValue) {
+            String v = System.getenv(varName);
+            return v == null || v.isEmpty() ? defaultValue : Double.parseDouble(v);
+        }
     }
 
     public static final String TOPIC_PREFIX = "topicPrefix";
@@ -347,6 +352,19 @@ public class AgentConfig {
                     null, "CDC_KAFKA_CONFIG_FILE", Setting::getEnvAsString,
                     "String", "kafka", 0);
 
+    public static final String KAFKA_MUTATION_SEND_RATE_LIMIT = "kafkaMutationSendRateLimit";
+    public double kafkaMutationSendRateLimit;
+    public static final Setting<Double> KAFKA_MUTATION_SEND_RATE_LIMIT_SETTING =
+            new Setting<>(KAFKA_MUTATION_SEND_RATE_LIMIT, Platform.KAFKA, (c, s) -> c.kafkaMutationSendRateLimit = Double.parseDouble(s), c -> c.kafkaMutationSendRateLimit,
+                    "Caps the rate, in messages per second, at which the agent publishes mutations " +
+                    "to the Kafka events topic. A value of 0 (the default) means unlimited, preserving " +
+                    "pre-existing unthrottled behavior. Useful to avoid flooding downstream consumers " +
+                    "when draining a large backlog of held commitlog segments after a Kafka outage or " +
+                    "similar catch-up scenario. Takes effect only at agent startup; changing this value " +
+                    "requires restarting the Cassandra node.",
+                    0.0, "CDC_KAFKA_MUTATION_SEND_RATE_LIMIT", Setting::getEnvAsDouble,
+                    "Double", "kafka", 1);
+
     /**
      * Unified view of all resolved configuration values. Contains every setting
      * registered in {@link #settingMap}, keyed by its setting name. After
@@ -392,6 +410,7 @@ public class AgentConfig {
         set.add(PULSAR_AUTH_PARAMS_SETTING);
         set.add(PULSAR_MEMORY_LIMIT_BYTES_SETTING);
         set.add(KAFKA_CONFIG_FILE_SETTING);
+        set.add(KAFKA_MUTATION_SEND_RATE_LIMIT_SETTING);
         settings = Collections.unmodifiableSet(set);
 
         Map<String, Setting<?>> map = new HashMap<>();
@@ -427,6 +446,7 @@ public class AgentConfig {
         this.pulsarAuthParams = PULSAR_AUTH_PARAMS_SETTING.initDefault();
         this.pulsarMemoryLimitBytes = PULSAR_MEMORY_LIMIT_BYTES_SETTING.initDefault();
         this.kafkaConfigFile = KAFKA_CONFIG_FILE_SETTING.initDefault();
+        this.kafkaMutationSendRateLimit = KAFKA_MUTATION_SEND_RATE_LIMIT_SETTING.initDefault();
     }
 
     public static void main(String[] args) {
