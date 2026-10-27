@@ -4,6 +4,7 @@
 .Deploy
 * xref:ROOT:install.adoc[]
 * xref:ROOT:cdcExample.adoc[]
+* xref:ROOT:kafka.adoc[]
 
 .Develop
 * xref:ROOT:cdc-concepts.adoc[]

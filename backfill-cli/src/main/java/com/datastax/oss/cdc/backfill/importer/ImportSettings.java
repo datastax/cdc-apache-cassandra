@@ -19,10 +19,19 @@ package com.datastax.oss.cdc.backfill.importer;
 import picocli.CommandLine;
 
 /**
- * Groups settings related to sending PK mutations to Pulsar's data topic.
+ * Groups settings related to sending PK mutations to the events topic of the configured messaging
+ * provider (Pulsar by default, or Kafka when {@code --messaging-provider=kafka}).
  * TODO: Leverage arg groups/order
  */
 public class ImportSettings {
+
+    @CommandLine.Option(
+            names = "--messaging-provider",
+            description =
+                    "The messaging provider to publish back-filled mutations to: 'pulsar' (default) "
+                            + "or 'kafka'.",
+            defaultValue = "pulsar")
+    public String messagingProvider = "pulsar";
 
     @CommandLine.Option(
             names = "--pulsar-url",
@@ -115,4 +124,49 @@ public class ImportSettings {
             description = "The event topic name prefix. The `<keyspace_name>.<table_name>` is appended to that prefix to build the topic name.",
             defaultValue = "events-")
     public String topicPrefix = "events-";
+
+    // ----- Kafka provider settings (used when --messaging-provider=kafka) -----
+
+    @CommandLine.Option(
+            names = "--kafka-bootstrap-servers",
+            description = "The Kafka bootstrap servers (comma-separated list of host:port). "
+                    + "Required when --messaging-provider=kafka.",
+            defaultValue = "localhost:9092")
+    public String kafkaBootstrapServers = "localhost:9092";
+
+    @CommandLine.Option(
+            names = "--kafka-schema-registry-url",
+            description = "The Confluent Schema Registry URL. When set, mutations are serialized with "
+                    + "the Confluent Avro serializer; when unset, registry-less raw Avro is used.")
+    public String kafkaSchemaRegistryUrl;
+
+    @CommandLine.Option(
+            names = "--kafka-acks",
+            description = "The Kafka producer acks (0, 1, or all).",
+            defaultValue = "all")
+    public String kafkaAcks = "all";
+
+    @CommandLine.Option(
+            names = "--kafka-compression-type",
+            description = "The compression type for Kafka messages (none, gzip, snappy, lz4, zstd).",
+            defaultValue = "none")
+    public String kafkaCompressionType = "none";
+
+    @CommandLine.Option(
+            names = "--kafka-batch-size",
+            description = "The Kafka producer batch.size in bytes.",
+            defaultValue = "16384")
+    public int kafkaBatchSize = 16384;
+
+    @CommandLine.Option(
+            names = "--kafka-linger-ms",
+            description = "The Kafka producer linger.ms.",
+            defaultValue = "0")
+    public long kafkaLingerMs = 0;
+
+    @CommandLine.Option(
+            names = "--kafka-max-in-flight-requests",
+            description = "The Kafka producer max.in.flight.requests.per.connection.",
+            defaultValue = "5")
+    public int kafkaMaxInFlightRequests = 5;
 }

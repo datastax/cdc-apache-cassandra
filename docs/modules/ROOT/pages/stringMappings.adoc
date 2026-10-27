@@ -100,6 +100,46 @@ The following table describes the CDC Change Agent parameters, and maps JVM opti
 |SSL_PROVIDER
 
 
+| *kafkaBootstrapServers*
+| The {kafka-short} bootstrap servers (comma-separated list of `host:port`). Required when `messagingProvider=kafka`.
+| CDC_KAFKA_BOOTSTRAP_SERVERS
+
+
+| *kafkaAcks*
+| The number of acknowledgments the producer requires (`0`, `1`, or `all`).
+| CDC_KAFKA_ACKS
+
+
+| *kafkaCompressionType*
+| The compression type for {kafka-short} messages (`none`, `gzip`, `snappy`, `lz4`, `zstd`).
+| CDC_KAFKA_COMPRESSION_TYPE
+
+
+| *kafkaBatchSize*
+| The producer `batch.size` in bytes.
+| CDC_KAFKA_BATCH_SIZE
+
+
+| *kafkaLingerMs*
+| The producer `linger.ms`.
+| CDC_KAFKA_LINGER_MS
+
+
+| *kafkaMaxInFlightRequests*
+| The `max.in.flight.requests.per.connection`.
+| CDC_KAFKA_MAX_IN_FLIGHT_REQUESTS
+
+
+| *kafkaSchemaRegistryUrl*
+| The {confluent} Schema Registry URL. When set, the agent uses the {confluent} Avro serializer; when unset, registry-less raw Avro is used. See xref:ROOT:kafka.adoc[].
+| CDC_KAFKA_SCHEMA_REGISTRY_URL
+
+
+| *sslProvider*
+| The SSL/TLS provider to use.
+| SSL_PROVIDER
+
+
 |sslTruststorePath
 |The path to the SSL/TLS truststore file.
 |SSL_TRUSTSTORE_PATH
