@@ -17,12 +17,10 @@ package com.datastax.oss.cdc.agent;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.cassandra.config.DatabaseDescriptor;
-import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.service.StorageService;
 
 import java.lang.instrument.Instrumentation;
-import java.lang.reflect.Field;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -30,69 +28,32 @@ import java.util.concurrent.Executors;
 public class Agent {
     public static void premain(String agentArgs, Instrumentation inst) {
         log.info("[Agent] In premain method");
-        startAsync(agentArgs, inst);
+        try {
+            main(agentArgs, inst);
+        } catch(Exception e) {
+            log.error("error:", e);
+            System.exit(-1);
+        }
     }
 
     public static void agentmain(String agentArgs, Instrumentation inst) {
         log.info("[Agent] In agentmain method");
-        startAsync(agentArgs, inst);
-    }
-
-    private static void startAsync(String agentArgs, Instrumentation inst) {
-        Thread thread = new Thread(() -> {
-            try {
-                waitForCassandraOwnInitialization();
-                main(agentArgs, inst);
-            } catch (Exception e) {
-                log.error("error:", e);
-                System.exit(-1);
-            }
-        }, "cdc-agent-init");
-        thread.start();
-    }
-    private static void waitForCassandraOwnInitialization() throws InterruptedException {
-        for (int i = 0; i < 300; i++) {
-            if (isDatabaseDescriptorConfigured()) {
-                return;
-            }
-            Thread.sleep(100);
-        }
-    }
-
-    private static boolean isDatabaseDescriptorConfigured() {
         try {
-            Field confField = DatabaseDescriptor.class.getDeclaredField("conf");
-            confField.setAccessible(true);
-            return confField.get(null) != null;
-        } catch (ReflectiveOperationException e) {
-            return false;
+            main(agentArgs, inst);
+        } catch(Exception e) {
+            log.error("error:", e);
+            System.exit(-1);
         }
     }
 
     static void main(String agentArgs, Instrumentation inst) throws Exception {
-        daemonInitializationWithRetry();
+        DatabaseDescriptor.daemonInitialization();
         if (DatabaseDescriptor.isCDCEnabled() == false) {
             log.error("cdc_enabled=false in your cassandra configuration, CDC agent not started.");
         } else if (DatabaseDescriptor.getCDCLogLocation() == null) {
             log.error("cdc_raw_directory=null in your cassandra configuration, CDC agent not started.");
         } else {
             startCdcAgent(agentArgs);
-        }
-    }
-    private static void daemonInitializationWithRetry() throws InterruptedException {
-        int attempts = 0;
-        while (true) {
-            try {
-                DatabaseDescriptor.daemonInitialization();
-                return;
-            } catch (ConfigurationException e) {
-                attempts++;
-                if (attempts >= 30) {
-                    throw e;
-                }
-                log.warn("DatabaseDescriptor.daemonInitialization() failed (attempt {}/30), retrying: {}", attempts, e.getMessage());
-                Thread.sleep(1000);
-            }
         }
     }
 
