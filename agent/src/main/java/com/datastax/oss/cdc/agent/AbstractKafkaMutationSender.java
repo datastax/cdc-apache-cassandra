@@ -18,6 +18,7 @@ package com.datastax.oss.cdc.agent;
 import com.datastax.oss.cdc.Constants;
 import com.datastax.oss.cdc.MutationValue;
 import com.datastax.oss.cdc.agent.MutationSenderAvroUtil.SchemaAndWriter;
+import com.google.common.util.concurrent.RateLimiter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
@@ -33,12 +34,15 @@ import org.apache.kafka.common.serialization.ByteArraySerializer;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Base class for Kafka-backed CDC mutation senders.
@@ -159,6 +163,27 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
     /** Back-pressure semaphore: limits in-flight send futures to maxPendingMessages. */
     volatile Semaphore pendingSemaphore;
 
+    /**
+     * Throughput throttle on the Kafka send path: caps {@code producer.send()} calls to
+     * {@code kafkaMutationSendRateLimit} messages/sec. {@code null} (the default, when the
+     * setting is unset/non-positive) means genuinely no throttling at all -- sends skip the
+     * rate limiter entirely, not merely a very-high-rate one. Only set (non-null) when an
+     * operator has actually configured a positive rate, in {@link #buildProducerProperties}.
+     */
+    volatile RateLimiter sendRateLimiter;
+
+    private static final Duration ACQUIRE_POLL_TIMEOUT = Duration.ofMillis(100);
+    private static final int LOG_SAMPLE_ATTEMPTS = 10;
+
+    final AtomicLong sendRateLimiterRetries = new AtomicLong(0);
+    final AtomicLong pendingSemaphoreRetries = new AtomicLong(0);
+    public long getSendRateLimiterRetries() {
+        return sendRateLimiterRetries.get();
+    }
+    public long getPendingSemaphoreRetries() {
+        return pendingSemaphoreRetries.get();
+    }
+
     public AbstractKafkaMutationSender(AgentConfig config, boolean useMurmur3Partitioner) {
         this.config = config;
         this.useMurmur3Partitioner = useMurmur3Partitioner;
@@ -240,6 +265,28 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
         }
         this.pendingSemaphore = new Semaphore(maxPending);
 
+        // kafkaMutationSendRateLimit is a registered Setting with a 0.0 default, so
+        // config.get() should always return a value here, never null -- but toDouble()
+        // itself is null-safe (returns 0.0), so this is covered either way, including
+        // if a non-standard AgentConfig (e.g. a test double, or a future refactor)
+        // doesn't honor that guarantee.
+        //
+        // 0, a negative value, NaN, or +/-Infinity are all treated as "not configured"
+        // (sendRateLimiter stays/becomes null -- genuinely no throttling, not a very-high
+        // rate). Negative/NaN already fail "rate > 0" naturally; Infinity would pass it
+        // (Infinity > 0 is true) and must be excluded explicitly: a Guava RateLimiter
+        // created at an infinite rate and later setRate() to something finite is left
+        // with broken internal state and silently stops throttling altogether -- verified
+        // empirically against Guava 33.5.0-jre. Double.parseDouble("Infinity") is valid
+        // input an operator could actually supply.
+        double rate = toDouble(config.get("kafkaMutationSendRateLimit"));
+        if (rate > 0 && Double.isFinite(rate)) {
+            this.sendRateLimiter = RateLimiter.create(rate);
+            log.info("Kafka mutation send rate limited to {} messages/sec", rate);
+        } else {
+            this.sendRateLimiter = null;
+        }
+
         return props;
     }
 
@@ -255,6 +302,16 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
             return ((Number) v).longValue();
         }
         return Long.parseLong(v.toString());
+    }
+
+    private static double toDouble(Object v) {
+        if (v == null) {
+            return 0.0;
+        }
+        if (v instanceof Number) {
+            return ((Number) v).doubleValue();
+        }
+        return Double.parseDouble(v.toString());
     }
 
     public SchemaAndWriter getAvroKeySchema(final TableInfo tableInfo) {
@@ -278,44 +335,115 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
             return CompletableFuture.completedFuture(null);
         }
         try {
-            if (this.producer == null) {
-                synchronized (this) {
-                    if (this.producer == null) {
-                        initialize(config);
-                    }
-                }
+            ensureInitialized();
+            ProducerRecord<byte[], byte[]> record = buildProducerRecord(mutation);
+
+            // Local snapshot of the volatile field: one read instead of re-reading it on
+            // every loop iteration inside acquireRateLimiter(). (sendRateLimiter is only
+            // ever written once, from buildProducerProperties via ensureInitialized()'s
+            // double-checked locking above, so there's no actual race to guard against --
+            // this is purely avoiding redundant volatile reads in the loop.)
+            RateLimiter rateLimiter = sendRateLimiter;
+            if (rateLimiter != null) {
+                acquireRateLimiter(rateLimiter);
             }
+            acquirePendingSemaphore();
 
-            SchemaAndWriter schemaAndWriter = getAvroKeySchema(mutation);
-            byte[] keyBytes = MutationSenderAvroUtil.serializeAvroGenericRecord(
-                    buildAvroKey(schemaAndWriter.schema, mutation), schemaAndWriter.writer);
-            byte[] valueBytes = serializeMutationValue(mutation.mutationValue());
-
-            ProducerRecord<byte[], byte[]> record = new ProducerRecord<>(topicName(mutation), keyBytes, valueBytes);
-            record.headers().add(new RecordHeader(Constants.SEGMENT_AND_POSITION,
-                    (mutation.getSegment() + ":" + mutation.getPosition()).getBytes(StandardCharsets.UTF_8)));
-            record.headers().add(new RecordHeader(Constants.TOKEN,
-                    mutation.getToken().toString().getBytes(StandardCharsets.UTF_8)));
-            if (mutation.getTs() != -1) {
-                record.headers().add(new RecordHeader(Constants.WRITETIME,
-                        Long.toString(mutation.getTs()).getBytes(StandardCharsets.UTF_8)));
-            }
-
-            pendingSemaphore.acquire();
             CompletableFuture<Void> future = new CompletableFuture<>();
-            producer.send(record, (metadata, ex) -> {
+            try {
+                producer.send(record, (metadata, ex) -> {
+                    pendingSemaphore.release();
+                    if (ex != null) {
+                        future.completeExceptionally(ex);
+                    } else {
+                        future.complete(null);
+                    }
+                });
+            } catch (Exception sendException) {
+                // producer.send() can throw synchronously (e.g. SerializationException,
+                // or IllegalStateException if the producer is already closed) before the
+                // callback above is ever registered. Without this, the permit acquired
+                // just above would leak forever since only the callback releases it.
                 pendingSemaphore.release();
-                if (ex != null) {
-                    future.completeExceptionally(ex);
-                } else {
-                    future.complete(null);
-                }
-            });
+                future.completeExceptionally(sendException);
+            }
             return future;
         } catch (Exception e) {
+            // Thread.sleep() and Semaphore.tryAcquire(timeout, unit) above can both throw
+            // InterruptedException; restore the interrupt flag rather than swallowing it,
+            // so callers relying on it (e.g. a thread pool's shutdown/interruption check)
+            // still see that this thread was interrupted.
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
             CompletableFuture failed = new CompletableFuture<>();
             failed.completeExceptionally(e);
             return failed;
+        }
+    }
+
+    /** Lazily creates the Kafka producer (and everything buildProducerProperties sets up) on first use. */
+    private void ensureInitialized() {
+        if (this.producer == null) {
+            synchronized (this) {
+                if (this.producer == null) {
+                    initialize(config);
+                }
+            }
+        }
+    }
+
+    /** Serializes the mutation's Avro key/value and attaches the standard CDC headers. */
+    private ProducerRecord<byte[], byte[]> buildProducerRecord(AbstractMutation<T> mutation) {
+        SchemaAndWriter schemaAndWriter = getAvroKeySchema(mutation);
+        byte[] keyBytes = MutationSenderAvroUtil.serializeAvroGenericRecord(
+                buildAvroKey(schemaAndWriter.schema, mutation), schemaAndWriter.writer);
+        byte[] valueBytes = serializeMutationValue(mutation.mutationValue());
+
+        ProducerRecord<byte[], byte[]> record = new ProducerRecord<>(topicName(mutation), keyBytes, valueBytes);
+        record.headers().add(new RecordHeader(Constants.SEGMENT_AND_POSITION,
+                (mutation.getSegment() + ":" + mutation.getPosition()).getBytes(StandardCharsets.UTF_8)));
+        record.headers().add(new RecordHeader(Constants.TOKEN,
+                mutation.getToken().toString().getBytes(StandardCharsets.UTF_8)));
+        if (mutation.getTs() != -1) {
+            record.headers().add(new RecordHeader(Constants.WRITETIME,
+                    Long.toString(mutation.getTs()).getBytes(StandardCharsets.UTF_8)));
+        }
+        return record;
+    }
+
+    /**
+     * Polls {@code rateLimiter} until a permit is acquired, retrying forever (never drops a
+     * mutation). The explicit {@link Thread#sleep} below is required: unlike Semaphore's
+     * timed tryAcquire, {@link RateLimiter#tryAcquire(Duration)} does not itself block when
+     * it fails -- it returns {@code false} immediately if the wait would exceed the given
+     * duration, without sleeping at all (verified empirically against Guava 33.5.0-jre).
+     * Without the sleep here, this would busy-spin at full CPU under sustained throttling
+     * instead of polling efficiently.
+     */
+    private void acquireRateLimiter(RateLimiter rateLimiter) throws InterruptedException {
+        int attempt = 0;
+        while (!rateLimiter.tryAcquire(ACQUIRE_POLL_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
+            sendRateLimiterRetries.incrementAndGet();
+            if (++attempt % LOG_SAMPLE_ATTEMPTS == 1) {
+                log.debug("attempt {} to acquire send rate limiter failed (waiting for quota)", attempt);
+            }
+            Thread.sleep(ACQUIRE_POLL_TIMEOUT.toMillis());
+        }
+    }
+
+    /**
+     * Polls {@link #pendingSemaphore} until a permit is acquired, retrying forever (never
+     * drops a mutation). Semaphore's timed tryAcquire properly blocks for up to the timeout
+     * on its own (standard java.util.concurrent/AQS behavior), so no extra sleep is needed.
+     */
+    private void acquirePendingSemaphore() throws InterruptedException {
+        int attempt = 0;
+        while (!pendingSemaphore.tryAcquire(ACQUIRE_POLL_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
+            pendingSemaphoreRetries.incrementAndGet();
+            if (++attempt % LOG_SAMPLE_ATTEMPTS == 1) {
+                log.debug("attempt {} to acquire max pending semaphore failed", attempt);
+            }
         }
     }
 
