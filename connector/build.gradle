@@ -151,6 +151,8 @@ task kafkaConnectorJar(type: Jar) {
     group = 'distribution'
     description = "Builds ${kafkaConnectPluginName}-<version>.jar, the connector classes for Kafka Connect."
     archiveBaseName = kafkaConnectPluginName
+    // Kept out of build/libs: the Pulsar docker task copies that whole directory.
+    destinationDirectory = layout.buildDirectory.dir('kafka-connect')
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
     zip64 = true
     from sourceSets.main.output
