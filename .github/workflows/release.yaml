@@ -93,6 +93,27 @@ jobs:
           asset_name: pulsar-cassandra-source-${{ env.CURRENT_VERSION }}.nar
           asset_content_type: application/java-archive
 
+      - name: Upload Release Kafka Connect plugin
+        id: upload-release-kafka-connect-plugin
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: connector/build/distributions/cassandra-source-connector-${{ env.CURRENT_VERSION }}-kafka-connect.zip
+          asset_name: cassandra-source-connector-${{ env.CURRENT_VERSION }}-kafka-connect.zip
+          asset_content_type: application/zip
+      - name: Upload Release Kafka connector jar
+        id: upload-release-kafka-connector-jar
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: connector/build/libs/cassandra-source-connector-${{ env.CURRENT_VERSION }}.jar
+          asset_name: cassandra-source-connector-${{ env.CURRENT_VERSION }}.jar
+          asset_content_type: application/java-archive
+
       - name: Upload Release agent-c3
         id: agent-c3-jar
         uses: actions/upload-release-asset@v1

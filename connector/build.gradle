@@ -7,7 +7,8 @@ plugins {
 
 task versionTxt()  {
     doFirst {
-        new File(project.projectDir, "src/main/resources/cassandra-source-version.properties").text = "$project.version\n"
+        // Version.java reads the "version" key, so write it as a properties entry.
+        new File(project.projectDir, "src/main/resources/cassandra-source-version.properties").text = "version=$project.version\n"
     }
 }
 
@@ -125,6 +126,65 @@ nar {
 }
 
 assemble.dependsOn(nar)
+
+// ---------------------------------------------------------------------------
+// Kafka Connect packaging
+//
+//   cassandra-source-connector-<version>.jar
+//       The connector classes on their own.
+//   cassandra-source-connector-<version>-kafka-connect.zip
+//       A ready to install Kafka Connect plugin: unzip it into a directory listed
+//       in the worker's plugin.path. Layout follows the Confluent Hub format
+//       (<name>-<version>/lib/*.jar plus manifest.json).
+// ---------------------------------------------------------------------------
+def kafkaConnectPluginName = 'cassandra-source-connector'
+
+// The Connect worker already ships these, and Kafka Connect always loads
+// org.apache.kafka.* and org.slf4j.* from the worker rather than from a plugin,
+// so bundled copies would never be used.
+def providedByKafkaConnect = { ResolvedArtifact artifact ->
+    def id = artifact.moduleVersion.id
+    id.group == 'org.apache.kafka' || (id.group == 'org.slf4j' && id.name == 'slf4j-api')
+}
+
+task kafkaConnectorJar(type: Jar) {
+    group = 'distribution'
+    description = "Builds ${kafkaConnectPluginName}-<version>.jar, the connector classes for Kafka Connect."
+    archiveBaseName = kafkaConnectPluginName
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    zip64 = true
+    from sourceSets.main.output
+}
+
+task kafkaConnectPluginZip(type: Zip) {
+    group = 'distribution'
+    description = 'Builds the Kafka Connect plugin archive (connector jar plus its runtime dependencies).'
+    archiveBaseName = kafkaConnectPluginName
+    archiveClassifier = 'kafka-connect'
+    zip64 = true
+    // Make sure project dependencies (e.g. :commons) are built before their jars are collected.
+    dependsOn configurations.runtimeClasspath
+
+    def root = "${kafkaConnectPluginName}-${project.version}"
+    into("${root}/lib") {
+        from kafkaConnectorJar
+        from {
+            configurations.runtimeClasspath.resolvedConfiguration.resolvedArtifacts
+                    // Kafka Connect only loads .jar files from a plugin directory.
+                    .findAll { it.extension == 'jar' && !providedByKafkaConnect(it) }
+                    .collect { it.file }
+        }
+    }
+    into(root) {
+        from('src/kafka-connect') {
+            include 'manifest.json'
+            expand(version: project.version)
+        }
+        from(rootProject.file('LICENSE.txt'))
+    }
+}
+
+assemble.dependsOn(kafkaConnectorJar, kafkaConnectPluginZip)
 
 test {
     // Add dependency on jar task, since it will be main target for testing

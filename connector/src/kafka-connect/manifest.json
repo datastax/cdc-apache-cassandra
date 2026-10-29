@@ -1,0 +1,24 @@
+{
+  "name": "cassandra-source-connector",
+  "version": "${version}",
+  "title": "Cassandra CDC Source Connector",
+  "description": "Kafka Connect source connector that reads Cassandra CDC mutation events published by the CDC agent, fetches the full row from Cassandra and publishes it to a data topic.",
+  "owner": {
+    "username": "datastax",
+    "name": "DataStax"
+  },
+  "component_types": ["source"],
+  "tags": ["cassandra", "cdc", "datastax"],
+  "license": [
+    {
+      "name": "Apache License 2.0",
+      "url": "https://www.apache.org/licenses/LICENSE-2.0"
+    }
+  ],
+  "features": {
+    "supported_encodings": ["any"],
+    "single_message_transforms": true,
+    "confluent_control_center_integration": false,
+    "kafka_connect_api": true
+  }
+}
