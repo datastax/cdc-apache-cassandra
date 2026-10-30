@@ -394,8 +394,8 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
 
             CompletableFuture<KeyValue<Object, Object>> queryResult = submitCqlQuery(
                     msg, mutationKey, mutationValue, pk, converterAndQueryFinal);
-            final CassandraRecord record = createRecord(converterAndQueryFinal, queryResult, msg, mutationKey, mutationValue, pk);
-            newRecords.add(record);
+            final CassandraRecord cassandraRecord = createRecord(converterAndQueryFinal, queryResult, msg, mutationKey, mutationValue, pk);
+            newRecords.add(cassandraRecord);
         }
 
         Preconditions.checkState(!newRecords.isEmpty(), "Buffer cannot be empty here");
@@ -406,11 +406,11 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
         List<CassandraRecord> usefulRecords = new ArrayList<>(newRecords.size());
         int cacheHits = 0;
         long start = System.currentTimeMillis();
-        for (CassandraRecord record : newRecords) {
-            KeyValue res = waitForCqlWithRetry(record);
+        for (CassandraRecord cassandraRecord : newRecords) {
+            KeyValue res = waitForCqlWithRetry(cassandraRecord);
             if (res != null) {
                 // null means the mutation was a cache-hit and has been discarded
-                usefulRecords.add(record);
+                usefulRecords.add(cassandraRecord);
             } else {
                 cacheHits++;
             }
@@ -528,10 +528,10 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
      * @return the resolved {@link KeyValue}, or {@code null} when the mutation was a cache-hit
      */
     @SuppressWarnings("unchecked")
-    private KeyValue waitForCqlWithRetry(CassandraRecord record) throws Exception {
+    private KeyValue waitForCqlWithRetry(CassandraRecord cassandraRecord) throws Exception {
         while (true) {
             try {
-                KeyValue result = record.getQueryResult().join();
+                KeyValue result = cassandraRecord.getQueryResult().join();
                 // Reset backoff counter on each per-record success so that a high counter
                 // accumulated during a chaos/outage window does not carry over to subsequent
                 // records in the same batch, compounding the recovery delay.
@@ -541,18 +541,18 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
                 Throwable cause = e.getCause() != null ? e.getCause() : e;
                 if (cause instanceof ExecutionException && cause.getCause() != null) cause = cause.getCause();
                 log.warn("CQL query failed for msgId={}, retrying without re-consuming event topic:",
-                        record.getMutationMessage().getMessageId(), cause);
+                        cassandraRecord.getMutationMessage().getMessageId(), cause);
                 consecutiveUnavailableExceptionCount =
                         SourceUtil.backoffRetry(cause, consecutiveUnavailableExceptionCount, config);
 
                 // Re-submit only the CQL query; the event-topic message is already consumed.
                 // Re-read valueConverterAndQuery so a schema change that arrived during the
                 // failure window is picked up for the retry.
-                record.replaceQueryResult(submitCqlQuery(
-                        record.getMutationMessage(),
-                        record.getMutationKey(),
-                        record.getMutationValue(),
-                        record.getPk(),
+                cassandraRecord.replaceQueryResult(submitCqlQuery(
+                        cassandraRecord.getMutationMessage(),
+                        cassandraRecord.getMutationKey(),
+                        cassandraRecord.getMutationValue(),
+                        cassandraRecord.getPk(),
                         this.valueConverterAndQuery));
             }
         }

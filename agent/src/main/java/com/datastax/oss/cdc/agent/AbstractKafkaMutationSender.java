@@ -33,6 +33,7 @@ import org.apache.kafka.common.serialization.ByteArraySerializer;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
@@ -184,16 +185,38 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
         return pendingSemaphoreRetries.get();
     }
 
-    public AbstractKafkaMutationSender(AgentConfig config, boolean useMurmur3Partitioner) {
+    protected AbstractKafkaMutationSender(AgentConfig config, boolean useMurmur3Partitioner) {
         this.config = config;
         this.useMurmur3Partitioner = useMurmur3Partitioner;
     }
 
-    public abstract Schema getNativeSchema(String cql3Type);
-    public abstract Object cqlToAvro(T t, String columnName, Object value);
-    public abstract boolean isSupported(AbstractMutation<T> mutation);
+    /** CQL type name of a column, for example {@code text}, as reported by {@code asCQL3Type()}. */
+    public abstract String columnCql3Type(T tableMetadata, String columnName);
     public abstract void incSkippedMutations();
     public abstract UUID getHostId();
+
+    public Schema getNativeSchema(String cql3Type) {
+        return CqlAvroTypes.nativeSchema(cql3Type);
+    }
+
+    public Object cqlToAvro(T tableMetadata, String columnName, Object value) {
+        return CqlAvroTypes.toAvro(columnCql3Type(tableMetadata, columnName), value);
+    }
+
+    /** False when a primary key column has a type that can't be encoded in the Avro key. */
+    public boolean isSupported(final AbstractMutation<T> mutation) {
+        if (pkSchemas.containsKey(mutation.key())) {
+            return true;
+        }
+        for (ColumnInfo column : mutation.primaryKeyColumns()) {
+            if (!CqlAvroTypes.isSupported(column.cql3Type())) {
+                log.warn("Unsupported primary key column={}.{}.{} type={}, skipping mutation",
+                        mutation.keyspace(), mutation.name(), column.name(), column.cql3Type());
+                return false;
+            }
+        }
+        return true;
+    }
 
     public SchemaAndWriter getPkSchema(String key) {
         return pkSchemas.get(key);
@@ -336,7 +359,7 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
         }
         try {
             ensureInitialized();
-            ProducerRecord<byte[], byte[]> record = buildProducerRecord(mutation);
+            ProducerRecord<byte[], byte[]> producerRecord = buildProducerRecord(mutation);
 
             // Local snapshot of the volatile field: one read instead of re-reading it on
             // every loop iteration inside acquireRateLimiter(). (sendRateLimiter is only
@@ -348,26 +371,7 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
                 acquireRateLimiter(rateLimiter);
             }
             acquirePendingSemaphore();
-
-            CompletableFuture<Void> future = new CompletableFuture<>();
-            try {
-                producer.send(record, (metadata, ex) -> {
-                    pendingSemaphore.release();
-                    if (ex != null) {
-                        future.completeExceptionally(ex);
-                    } else {
-                        future.complete(null);
-                    }
-                });
-            } catch (Exception sendException) {
-                // producer.send() can throw synchronously (e.g. SerializationException,
-                // or IllegalStateException if the producer is already closed) before the
-                // callback above is ever registered. Without this, the permit acquired
-                // just above would leak forever since only the callback releases it.
-                pendingSemaphore.release();
-                future.completeExceptionally(sendException);
-            }
-            return future;
+            return send(producerRecord);
         } catch (Exception e) {
             // Thread.sleep() and Semaphore.tryAcquire(timeout, unit) above can both throw
             // InterruptedException; restore the interrupt flag rather than swallowing it,
@@ -380,6 +384,29 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
             failed.completeExceptionally(e);
             return failed;
         }
+    }
+
+    /** Sends a record that already holds a pending-semaphore permit, and releases it when done. */
+    private CompletableFuture<Void> send(ProducerRecord<byte[], byte[]> producerRecord) {
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        try {
+            producer.send(producerRecord, (metadata, ex) -> {
+                pendingSemaphore.release();
+                if (ex != null) {
+                    future.completeExceptionally(ex);
+                } else {
+                    future.complete(null);
+                }
+            });
+        } catch (Exception sendException) {
+            // producer.send() can throw synchronously (e.g. SerializationException,
+            // or IllegalStateException if the producer is already closed) before the
+            // callback above is ever registered. Without this, the permit acquired
+            // by the caller would leak forever since only the callback releases it.
+            pendingSemaphore.release();
+            future.completeExceptionally(sendException);
+        }
+        return future;
     }
 
     /** Lazily creates the Kafka producer (and everything buildProducerProperties sets up) on first use. */
@@ -400,16 +427,17 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
                 buildAvroKey(schemaAndWriter.schema, mutation), schemaAndWriter.writer);
         byte[] valueBytes = serializeMutationValue(mutation.mutationValue());
 
-        ProducerRecord<byte[], byte[]> record = new ProducerRecord<>(topicName(mutation), keyBytes, valueBytes);
-        record.headers().add(new RecordHeader(Constants.SEGMENT_AND_POSITION,
+        ProducerRecord<byte[], byte[]> producerRecord =
+                new ProducerRecord<>(topicName(mutation), keyBytes, valueBytes);
+        producerRecord.headers().add(new RecordHeader(Constants.SEGMENT_AND_POSITION,
                 (mutation.getSegment() + ":" + mutation.getPosition()).getBytes(StandardCharsets.UTF_8)));
-        record.headers().add(new RecordHeader(Constants.TOKEN,
+        producerRecord.headers().add(new RecordHeader(Constants.TOKEN,
                 mutation.getToken().toString().getBytes(StandardCharsets.UTF_8)));
         if (mutation.getTs() != -1) {
-            record.headers().add(new RecordHeader(Constants.WRITETIME,
+            producerRecord.headers().add(new RecordHeader(Constants.WRITETIME,
                     Long.toString(mutation.getTs()).getBytes(StandardCharsets.UTF_8)));
         }
-        return record;
+        return producerRecord;
     }
 
     /**
@@ -447,7 +475,7 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
         }
     }
 
-    // Schema for MutationValue: {md5Digest: string, nodeId: uuid-string, columns: [string]}
+    /** Avro schema of {@link MutationValue}: nullable md5Digest and nodeId strings, nullable columns array. */
     static final Schema MUTATION_VALUE_SCHEMA;
     private static final org.apache.avro.generic.GenericDatumWriter<org.apache.avro.generic.GenericRecord>
             MUTATION_VALUE_WRITER;
@@ -467,19 +495,19 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
 
     byte[] serializeMutationValue(MutationValue mv) {
         try {
-            org.apache.avro.generic.GenericData.Record record =
+            org.apache.avro.generic.GenericData.Record valueRecord =
                     new org.apache.avro.generic.GenericData.Record(MUTATION_VALUE_SCHEMA);
-            record.put("md5Digest", mv.getMd5Digest());
-            record.put("nodeId",    mv.getNodeId() != null ? mv.getNodeId().toString() : null);
-            record.put("columns",   mv.getColumns() != null
+            valueRecord.put("md5Digest", mv.getMd5Digest());
+            valueRecord.put("nodeId",    mv.getNodeId() != null ? mv.getNodeId().toString() : null);
+            valueRecord.put("columns",   mv.getColumns() != null
                     ? java.util.Arrays.asList(mv.getColumns()) : null);
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             BinaryEncoder encoder = new EncoderFactory().binaryEncoder(out, null);
-            MUTATION_VALUE_WRITER.write(record, encoder);
+            MUTATION_VALUE_WRITER.write(valueRecord, encoder);
             encoder.flush();
             return out.toByteArray();
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new UncheckedIOException(e);
         }
     }
 

@@ -71,7 +71,7 @@ public abstract class AbstractRowConverter<T> {
     public final TableMetadata tableMetadata;
     public final Map<String, Schema> subSchemas = new HashMap<>();
 
-    public AbstractRowConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
+    protected AbstractRowConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
         this.tableMetadata = tm;
         String keyspaceAndTable = ksm.getName() + "." + tm.getName();
         List<Schema.Field> fields = new ArrayList<>();
@@ -166,11 +166,10 @@ public abstract class AbstractRowConverter<T> {
                              String fieldName,
                              DataType dataType,
                              boolean optional) {
-        return fieldSchema(ksm, fieldName, dataTypeSchema(ksm, dataType), optional);
+        return fieldSchema(fieldName, dataTypeSchema(ksm, dataType), optional);
     }
 
-    protected Schema.Field fieldSchema(KeyspaceMetadata ksm,
-                             String fieldName,
+    protected Schema.Field fieldSchema(String fieldName,
                              Schema schema,
                              boolean optional) {
         Schema.Field fieldSchema = new Schema.Field(fieldName, schema);

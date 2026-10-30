@@ -48,9 +48,12 @@ public class AgentTestUtil {
         String env = System.getenv(envVar);
         String image = System.getProperty(imageProp);
         String tag   = System.getProperty(tagProp);
-        String ref = (env != null && !env.isEmpty())
-                ? env
-                : (image != null && tag != null ? image + ":" + tag : null);
+        String ref = null;
+        if (env != null && !env.isEmpty()) {
+            ref = env;
+        } else if (image != null && tag != null) {
+            ref = image + ":" + tag;
+        }
         if (ref == null) {
             return null;
         }

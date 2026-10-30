@@ -96,7 +96,7 @@ jobs:
           distribution: 'adopt'
 
       - name: Get project version
-        uses: HardNorth/github-version-generate@v1.4.0
+        uses: HardNorth/github-version-generate@e627d02e2a2b756c5e76bd2d8880ebc3521dbc68 # v1.4.0
         with:
           version-source: file
           version-file: gradle.properties
@@ -242,7 +242,7 @@ jobs:
           distribution: 'adopt'
 
       - name: Get project version
-        uses: HardNorth/github-version-generate@v1.4.0
+        uses: HardNorth/github-version-generate@e627d02e2a2b756c5e76bd2d8880ebc3521dbc68 # v1.4.0
         with:
           version-source: file
           version-file: gradle.properties

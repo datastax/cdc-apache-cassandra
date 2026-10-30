@@ -62,6 +62,11 @@ public abstract class KafkaSingleNodeTests {
     private static final DockerImageName KAFKA_IMAGE = AgentTestUtil.CONFLUENT_KAFKA_IMAGE;
     public static final String CONTAINER_KAFKA_CONFIG_PATH = "/etc/cassandra/cdc-kafka.conf";
 
+    // Field names of the MutationValue Avro record on the events topic.
+    private static final String MD5_DIGEST = "md5Digest";
+    private static final String NODE_ID = "nodeId";
+    private static final String COLUMNS = "columns";
+
     private static Network testNetwork;
     private static KafkaContainer kafkaContainer;
 
@@ -206,12 +211,12 @@ public abstract class KafkaSingleNodeTests {
                         new GenericDatumReader<>(buildMutationValueSchema());
                 BinaryDecoder valueDecoder = DecoderFactory.get().binaryDecoder(rec.value(), null);
                 GenericRecord valueRecord = valueReader.read(null, valueDecoder);
-                assertNotNull(valueRecord.get("md5Digest"), "md5Digest must be present");
-                assertFalse(valueRecord.get("md5Digest").toString().isEmpty(), "md5Digest must be non-empty");
-                assertNotNull(valueRecord.get("nodeId"), "nodeId must be present");
-                assertDoesNotThrow(() -> UUID.fromString(valueRecord.get("nodeId").toString()),
+                assertNotNull(valueRecord.get(MD5_DIGEST), "md5Digest must be present");
+                assertFalse(valueRecord.get(MD5_DIGEST).toString().isEmpty(), "md5Digest must be non-empty");
+                assertNotNull(valueRecord.get(NODE_ID), "nodeId must be present");
+                assertDoesNotThrow(() -> UUID.fromString(valueRecord.get(NODE_ID).toString()),
                         "nodeId must be a valid UUID");
-                assertNull(valueRecord.get("columns"),
+                assertNull(valueRecord.get(COLUMNS),
                         "columns is always null — agent does not populate changed column names");
 
                 // segpos header must be present
@@ -262,12 +267,12 @@ public abstract class KafkaSingleNodeTests {
                         // Decode and validate the Avro value
                         BinaryDecoder valueDecoder = DecoderFactory.get().binaryDecoder(rec.value(), null);
                         GenericRecord valueRecord = valueReader.read(null, valueDecoder);
-                        assertNotNull(valueRecord.get("md5Digest"), "md5Digest must be present");
-                        assertFalse(valueRecord.get("md5Digest").toString().isEmpty(), "md5Digest must be non-empty");
-                        assertNotNull(valueRecord.get("nodeId"), "nodeId must be present");
-                        assertDoesNotThrow(() -> UUID.fromString(valueRecord.get("nodeId").toString()),
+                        assertNotNull(valueRecord.get(MD5_DIGEST), "md5Digest must be present");
+                        assertFalse(valueRecord.get(MD5_DIGEST).toString().isEmpty(), "md5Digest must be non-empty");
+                        assertNotNull(valueRecord.get(NODE_ID), "nodeId must be present");
+                        assertDoesNotThrow(() -> UUID.fromString(valueRecord.get(NODE_ID).toString()),
                                 "nodeId must be a valid UUID");
-                        assertNull(valueRecord.get("columns"),
+                        assertNull(valueRecord.get(COLUMNS),
                                 "columns is always null — agent does not populate changed column names");
                         received++;
                     }
@@ -302,9 +307,9 @@ public abstract class KafkaSingleNodeTests {
                 Schema.createArray(Schema.create(Schema.Type.STRING)));
         return Schema.createRecord("MutationValue", null, "com.datastax.oss.cdc", false,
                 java.util.Arrays.asList(
-                        new Schema.Field("md5Digest", nullableString, null, (Object) null),
-                        new Schema.Field("nodeId",    nullableString, null, (Object) null),
-                        new Schema.Field("columns",   nullableStringArray, null, (Object) null)));
+                        new Schema.Field(MD5_DIGEST, nullableString, null, (Object) null),
+                        new Schema.Field(NODE_ID,    nullableString, null, (Object) null),
+                        new Schema.Field(COLUMNS,   nullableStringArray, null, (Object) null)));
     }
 
     // -------------------------------------------------------------------------

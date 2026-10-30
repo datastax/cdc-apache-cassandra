@@ -45,6 +45,9 @@ public final class ConverterFactory {
      * Avro/Json converter when none was configured.
      */
     public static Class<?> resolveConverterClass(Class<?> configuredClass, boolean jsonOutputFormat, Class<?> jsonDefault, Class<?> avroDefault) {
-        return configuredClass == null ? (jsonOutputFormat ? jsonDefault : avroDefault) : configuredClass;
+        if (configuredClass != null) {
+            return configuredClass;
+        }
+        return jsonOutputFormat ? jsonDefault : avroDefault;
     }
 }

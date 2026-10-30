@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.nio.file.Path;
@@ -34,6 +35,11 @@ import java.util.function.Function;
 public class AgentConfig {
 
     public static final String CDC_PROPERTY_PREFIX = "cdc.";
+
+    // Setting groups used to order the generated documentation.
+    private static final String GROUP_MAIN = "main";
+    private static final String GROUP_PULSAR = "pulsar";
+    private static final String GROUP_KAFKA = "kafka";
     public static final String storageDir = System.getProperty("cassandra.storagedir", null);
 
     public enum Platform {
@@ -134,7 +140,7 @@ public class AgentConfig {
             new Setting<String>(TOPIC_PREFIX, Platform.ALL, (c, s) -> c.topicPrefix = s, c -> c.topicPrefix,
                     "The event topic name prefix. The `<keyspace_name>.<table_name>` is appended to that prefix to build the topic name.",
                     "events-", "CDC_TOPIC_PREFIX", Setting::getEnvAsString,
-                    "String", "main", 1);
+                    "String", GROUP_MAIN, 1);
 
     public static final String CDC_WORKING_DIR = "cdcWorkingDir";
     public String cdcWorkingDir;
@@ -142,7 +148,7 @@ public class AgentConfig {
             new Setting<>(CDC_WORKING_DIR, Platform.ALL, (c, s) -> c.cdcWorkingDir = s, c -> c.cdcWorkingDir,
                     "The CDC working directory where the last sent offset is saved, and where the archived and errored commitlogs files are copied.",
                     null, "CDC_WORKING_DIR", (n, v) -> Setting.getEnvAsString(n , System.getProperty("cassandra.storagedir") + File.separator + "cdc"),
-                    "String", "main", 2);
+                    "String", GROUP_MAIN, 2);
 
     public static final String CDC_DIR_POLL_INTERVAL_MS = "cdcPollIntervalMs";
     public long cdcDirPollIntervalMs;
@@ -150,7 +156,7 @@ public class AgentConfig {
             new Setting<>(CDC_DIR_POLL_INTERVAL_MS, Platform.ALL, (c, s) -> c.cdcDirPollIntervalMs = Long.parseLong(s), c -> c.cdcDirPollIntervalMs,
                     "The poll interval in milliseconds for watching new commitlog files in the CDC raw directory.",
                     60000L, "CDC_DIR_POLL_INTERVAL_MS", Setting::getEnvAsLong,
-                    "Long", "main", 3);
+                    "Long", GROUP_MAIN, 3);
 
     public static final String ERROR_COMMITLOG_REPROCESS_ENABLED = "errorCommitLogReprocessEnabled";
     public boolean errorCommitLogReprocessEnabled;
@@ -158,7 +164,7 @@ public class AgentConfig {
             new Setting<Boolean>(ERROR_COMMITLOG_REPROCESS_ENABLED, Platform.ALL, (c, s) -> c.errorCommitLogReprocessEnabled = Boolean.parseBoolean(s), c -> c.errorCommitLogReprocessEnabled,
                     "Enable the re-processing of error commitlogs files.",
                     Boolean.FALSE, "CDC_ERROR_COMMITLOG_REPROCESS_ENABLED", Setting::getEnvAsBoolean,
-                    "Boolean", "main", 4);
+                    "Boolean", GROUP_MAIN, 4);
 
     public static final String CDC_CONCURRENT_PROCESSORS = "cdcConcurrentProcessors";
     public int cdcConcurrentProcessors;
@@ -166,7 +172,7 @@ public class AgentConfig {
             new Setting<>(CDC_CONCURRENT_PROCESSORS, Platform.ALL, (c, s) -> c.cdcConcurrentProcessors = Integer.parseInt(s), c -> c.cdcConcurrentProcessors,
                     "The number of threads used to process commitlog files. The default value is the `memtable_flush_writers`.",
                     -1, "CDC_CONCURRENT_PROCESSORS", Setting::getEnvAsInteger,
-                    "Integer", "main", 5);
+                    "Integer", GROUP_MAIN, 5);
 
     public static final String MAX_INFLIGHT_MESSAGES_PER_TASK = "maxInflightMessagesPerTask";
     public int maxInflightMessagesPerTask;
@@ -174,7 +180,7 @@ public class AgentConfig {
             new Setting<>(MAX_INFLIGHT_MESSAGES_PER_TASK, Platform.PULSAR, (c, s) -> c.maxInflightMessagesPerTask = Integer.parseInt(s), c -> c.maxInflightMessagesPerTask,
                     "The maximum number of in-flight messages per commitlog processing task.",
                     16384, "CDC_MAX_INFLIGHT_MESSAGES_PER_TASK", Setting::getEnvAsInteger,
-                    "Integer", "main", 6);
+                    "Integer", GROUP_MAIN, 6);
 
     public static final String SSL_PROVIDER = "sslProvider";
     public String sslProvider = System.getProperty(CDC_PROPERTY_PREFIX + SSL_PROVIDER);
@@ -282,7 +288,7 @@ public class AgentConfig {
                     "Unrecognised keys are stored as-is and accessible via config.get(). " +
                     "Inline agent parameters always win on conflict.",
                     null, "CDC_PULSAR_CONFIG_FILE", Setting::getEnvAsString,
-                    "String", "pulsar", 0);
+                    "String", GROUP_PULSAR, 0);
 
     public static final String PULSAR_SERVICE_URL = "pulsarServiceUrl";
     public String pulsarServiceUrl;
@@ -290,7 +296,7 @@ public class AgentConfig {
             new Setting<>(PULSAR_SERVICE_URL, Platform.PULSAR, (c, s) -> c.pulsarServiceUrl = s, c -> c.pulsarServiceUrl,
                     "The Pulsar broker service URL.",
                     "pulsar://localhost:6650", "CDC_PULSAR_SERVICE_URL", Setting::getEnvAsString,
-                    "String", "pulsar", 1);
+                    "String", GROUP_PULSAR, 1);
 
     public static final String PULSAR_BATCH_DELAY_IN_MS = "pulsarBatchDelayInMs";
     public long pulsarBatchDelayInMs;
@@ -298,7 +304,7 @@ public class AgentConfig {
             new Setting<>(PULSAR_BATCH_DELAY_IN_MS, Platform.PULSAR, (c, s) -> c.pulsarBatchDelayInMs = Long.parseLong(s), c -> c.pulsarBatchDelayInMs,
                     "Pulsar batching delay in milliseconds. Pulsar batching is enabled when this value is greater than zero.",
                     -1L, "CDC_PULSAR_BATCH_DELAY_IN_MS", Setting::getEnvAsLong,
-                    "Long", "pulsar", 2);
+                    "Long", GROUP_PULSAR, 2);
 
     public static final String PULSAR_KEY_BASED_BATCHER = "pulsarKeyBasedBatcher";
     public boolean pulsarKeyBasedBatcher;
@@ -306,7 +312,7 @@ public class AgentConfig {
             new Setting<>(PULSAR_KEY_BASED_BATCHER, Platform.PULSAR, (c, s) -> c.pulsarKeyBasedBatcher = Boolean.parseBoolean(s), c -> c.pulsarKeyBasedBatcher,
                     "When true, use the Pulsar KEY_BASED BatchBuilder.",
                     false, "CDC_PULSAR_KEY_BASED_BATCHER", Setting::getEnvAsBoolean,
-                    "Boolean", "pulsar", 3);
+                    "Boolean", GROUP_PULSAR, 3);
 
     public static final String PULSAR_MAX_PENDING_MESSAGES = "pulsarMaxPendingMessages";
     public int pulsarMaxPendingMessages;
@@ -314,7 +320,7 @@ public class AgentConfig {
             new Setting<>(PULSAR_MAX_PENDING_MESSAGES, Platform.PULSAR, (c, s) -> c.pulsarMaxPendingMessages = Integer.parseInt(s), c -> c.pulsarMaxPendingMessages,
                     "The Pulsar maximum size of a queue holding pending messages.",
                     1000, "CDC_PULSAR_MAX_PENDING_MESSAGES", Setting::getEnvAsInteger,
-                    "Integer", "pulsar", 4);
+                    "Integer", GROUP_PULSAR, 4);
 
     public static final String PULSAR_MEMORY_LIMIT_BYTES= "pulsarMemoryLimitBytes";
     public long pulsarMemoryLimitBytes;
@@ -322,7 +328,7 @@ public class AgentConfig {
             new Setting<>(PULSAR_MEMORY_LIMIT_BYTES, Platform.PULSAR, (c, s) -> c.pulsarMemoryLimitBytes = Long.parseLong(s), c -> c.pulsarMemoryLimitBytes,
                     "Limit of client memory usage (in bytes). The 0 default means memory limit is disabled.",
                     0L, "CDC_PULSAR_MEMORY_LIMIT_BYTES", Setting::getEnvAsLong,
-                    "Long", "pulsar", 5);
+                    "Long", GROUP_PULSAR, 5);
 
     public static final String PULSAR_AUTH_PLUGIN_CLASS_NAME = "pulsarAuthPluginClassName";
     public String pulsarAuthPluginClassName;
@@ -330,7 +336,7 @@ public class AgentConfig {
             new Setting<>(PULSAR_AUTH_PLUGIN_CLASS_NAME, Platform.PULSAR, (c, s) -> c.pulsarAuthPluginClassName = s, c -> c.pulsarAuthPluginClassName,
                     "The Pulsar authentication plugin class name.",
                     null, "CDC_PULSAR_AUTH_PLUGIN_CLASS_NAME", Setting::getEnvAsString,
-                    "String", "pulsar", 6);
+                    "String", GROUP_PULSAR, 6);
 
     public static final String PULSAR_AUTH_PARAMS = "pulsarAuthParams";
     public String pulsarAuthParams;
@@ -338,7 +344,7 @@ public class AgentConfig {
             new Setting<>(PULSAR_AUTH_PARAMS, Platform.PULSAR, (c, s) -> c.pulsarAuthParams = s, c -> c.pulsarAuthParams,
                     "The Pulsar authentication parameters.",
                     null, "CDC_PULSAR_AUTH_PARAMS", Setting::getEnvAsString,
-                    "String", "pulsar", 7);
+                    "String", GROUP_PULSAR, 7);
 
     public static final String KAFKA_CONFIG_FILE = "kafkaConfigFile";
     public String kafkaConfigFile;
@@ -350,7 +356,7 @@ public class AgentConfig {
                     "Unrecognised keys are stored as-is and accessible via config.get(). " +
                     "Inline agent parameters always win on conflict.",
                     null, "CDC_KAFKA_CONFIG_FILE", Setting::getEnvAsString,
-                    "String", "kafka", 0);
+                    "String", GROUP_KAFKA, 0);
 
     public static final String KAFKA_MUTATION_SEND_RATE_LIMIT = "kafkaMutationSendRateLimit";
     public double kafkaMutationSendRateLimit;
@@ -363,7 +369,7 @@ public class AgentConfig {
                     "similar catch-up scenario. Takes effect only at agent startup; changing this value " +
                     "requires restarting the Cassandra node.",
                     0.0, "CDC_KAFKA_MUTATION_SEND_RATE_LIMIT", Setting::getEnvAsDouble,
-                    "Double", "kafka", 1);
+                    "Double", GROUP_KAFKA, 1);
 
     /**
      * Unified view of all resolved configuration values. Contains every setting
@@ -548,12 +554,22 @@ public class AgentConfig {
      */
     public static String stripParam(String agentArgs, String paramName) {
         if (agentArgs == null) return null;
-        return agentArgs
-                .replaceAll("(?:^|(?<=,))\\s*" + paramName + "=[^,]*(?:,|$)", "")
-                .replaceAll(",+$", "")
-                .replaceAll("^,+", "")
-                .replaceAll(",{2,}", ",")
-                .trim();
+        String prefix = paramName + "=";
+        StringJoiner kept = new StringJoiner(",");
+        for (String token : agentArgs.split(",", -1)) {
+            if (!token.isEmpty() && !trimLeading(token).startsWith(prefix)) {
+                kept.add(token);
+            }
+        }
+        return kept.toString().trim();
+    }
+
+    private static String trimLeading(String s) {
+        int i = 0;
+        while (i < s.length() && Character.isWhitespace(s.charAt(i))) {
+            i++;
+        }
+        return s.substring(i);
     }
 
     /**
@@ -598,11 +614,12 @@ public class AgentConfig {
         // Resolve the config file path: prefer inline parameter, fall back to the
         // value already initialised from the env var during construction.
         String fileSettingName     = platform == Platform.KAFKA ? KAFKA_CONFIG_FILE : PULSAR_CONFIG_FILE;
-        String platformCamelPrefix = platform == Platform.KAFKA ? "kafka"           : "pulsar";
+        String platformCamelPrefix = platform == Platform.KAFKA ? GROUP_KAFKA       : GROUP_PULSAR;
         Object inlineFilePath      = agentParameters.get(fileSettingName);
+        String envFilePath         = platform == Platform.KAFKA ? this.kafkaConfigFile : this.pulsarConfigFile;
         String configFilePath      = (inlineFilePath instanceof String && !((String) inlineFilePath).isEmpty())
                 ? (String) inlineFilePath
-                : (platform == Platform.KAFKA ? this.kafkaConfigFile : this.pulsarConfigFile);
+                : envFilePath;
 
         // Config file is optional — only load if a path was provided.
         // File keys (e.g. "serviceUrl") are mapped to setting names by prepending the
@@ -707,7 +724,7 @@ public class AgentConfig {
         try (InputStream in = new FileInputStream(filePath)) {
             props.load(in);
         } catch (IOException e) {
-            throw new RuntimeException("Failed to load config file: " + filePath, e);
+            throw new UncheckedIOException("Failed to load config file: " + filePath, e);
         }
 
         Map<String, Object> result = new HashMap<>();
@@ -725,10 +742,14 @@ public class AgentConfig {
     static Object parseValue(String raw) {
         try {
             return Long.parseLong(raw);
-        } catch (NumberFormatException ignored) {}
+        } catch (NumberFormatException notALong) {
+            // fall through and try the next type
+        }
         try {
             return Double.parseDouble(raw);
-        } catch (NumberFormatException ignored) {}
+        } catch (NumberFormatException notADouble) {
+            // fall through and try the next type
+        }
         if ("true".equalsIgnoreCase(raw) || "false".equalsIgnoreCase(raw)) {
             return Boolean.parseBoolean(raw);
         }

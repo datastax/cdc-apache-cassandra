@@ -131,6 +131,7 @@ public class KafkaCassandraSourceConnector extends SourceConnector {
 
     @Override
     public void stop() {
+        // The connector holds no resources; each task closes its own clients.
     }
 
     @Override

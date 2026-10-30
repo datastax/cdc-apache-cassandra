@@ -30,6 +30,7 @@ import org.apache.avro.specific.SpecificDatumWriter;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -78,7 +79,7 @@ public final class MutationSenderAvroUtil {
             encoder.flush();
             return out.toByteArray();
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -123,14 +124,14 @@ public final class MutationSenderAvroUtil {
             Schema keySchema,
             AbstractMutation<T> mutation,
             BiFunction<String, Object, Object> cqlToAvro) {
-        GenericRecord record = new org.apache.avro.generic.GenericData.Record(keySchema);
+        GenericRecord keyRecord = new org.apache.avro.generic.GenericData.Record(keySchema);
         int i = 0;
         for (ColumnInfo columnInfo : mutation.primaryKeyColumns()) {
             if (keySchema.getField(columnInfo.name()) == null) {
                 throw new CassandraConnectorSchemaException("Not a valid schema field: " + columnInfo.name());
             }
-            record.put(columnInfo.name(), cqlToAvro.apply(columnInfo.name(), mutation.getPkValues()[i++]));
+            keyRecord.put(columnInfo.name(), cqlToAvro.apply(columnInfo.name(), mutation.getPkValues()[i++]));
         }
-        return record;
+        return keyRecord;
     }
 }

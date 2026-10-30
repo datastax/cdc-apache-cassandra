@@ -173,7 +173,7 @@ task kafkaConnectPluginZip(type: Zip) {
         from {
             configurations.runtimeClasspath.resolvedConfiguration.resolvedArtifacts
                     // Kafka Connect only loads .jar files from a plugin directory.
-                    .findAll { it.extension == 'jar' && !providedByKafkaConnect(it) }
+                    .findAll { it.extension == 'jar' && !providedByKafkaConnect(it) && !excludedFromKafkaConnectPlugin(it) }
                     .collect { it.file }
         }
     }
@@ -183,6 +183,8 @@ task kafkaConnectPluginZip(type: Zip) {
             expand(version: project.version)
         }
         from(rootProject.file('LICENSE.txt'))
+        // Same notices file the connector-distribution archives ship.
+        from(rootProject.file('connector-distribution/src/main/THIRD-PARTY-NOTICES.txt'))
     }
 }
 
@@ -242,11 +244,12 @@ test {
     systemProperty "testOssKafkaImageTag", testOssKafkaImageTag
 
     // Run only the test classes matching the broker type supplied.
-    // Pass -PbrokerType=kafka or -PbrokerType=pulsar (default: pulsar).
+    // Pass -PbrokerType=kafka or -PbrokerType=pulsar (default: pulsar). -PbrokerType=all applies
+    // no filter, so one run (for example the coverage run for SonarQube) can cover both.
     def brokerType = project.hasProperty('brokerType') ? project.property('brokerType') : 'pulsar'
     if (brokerType == 'kafka') {
         include '**/*Kafka*'
-    } else {
+    } else if (brokerType != 'all') {
         exclude '**/*Kafka*'
     }
 }

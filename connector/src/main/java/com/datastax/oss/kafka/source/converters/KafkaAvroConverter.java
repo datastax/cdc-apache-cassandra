@@ -60,9 +60,9 @@ public class KafkaAvroConverter extends AvroRowConverter implements Converter<by
 
     @Override
     public byte[] toConnectData(Row row) {
-        GenericRecord record = buildGenericRecord(row);
+        GenericRecord rowRecord = buildGenericRecord(row);
         return schemaRegistrySerializer != null
-                ? schemaRegistrySerializer.serialize(outputTopic, record)
-                : serializeAvroGenericRecord(record, nativeSchema);
+                ? schemaRegistrySerializer.serialize(outputTopic, rowRecord)
+                : serializeAvroGenericRecord(rowRecord, nativeSchema);
     }
 }

@@ -52,12 +52,10 @@ public class ChaosNetworkContainer<SELF extends ChaosNetworkContainer<SELF>> ext
                 .withStartupTimeout(Duration.ofSeconds(120)));
         withLogConsumer(o -> {
             final String line = o.getUtf8String();
-            if (line != null) {
-                // "stopping netem command on timeout/abort" replaces the old
-                // "stop netem for container" message removed in pumba ~v1.2.x.
-                if (line.contains("stopping netem command on")) {
-                    chaosFinished.countDown();
-                }
+            // "stopping netem command on timeout/abort" replaces the old
+            // "stop netem for container" message removed in pumba ~v1.2.x.
+            if (line != null && line.contains("stopping netem command on")) {
+                chaosFinished.countDown();
             }
             log.info("pumba> {}", line);
         });

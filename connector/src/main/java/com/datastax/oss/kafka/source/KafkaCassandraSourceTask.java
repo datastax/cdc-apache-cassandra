@@ -132,6 +132,9 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
      */
     private RateLimiter queryRateLimiter;
 
+    /** Key of the events topic offset in this task's Kafka Connect source offset map. */
+    private static final String OFFSET_KEY = "offset";
+
     private static final org.apache.avro.Schema MUTATION_VALUE_SCHEMA;
 
     static {
@@ -199,8 +202,8 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
         consumer.assign(assignedPartitions);
         for (TopicPartition tp : assignedPartitions) {
             Map<String, Object> offset = context.offsetStorageReader().offset(sourcePartition(tp));
-            if (offset != null && offset.get("offset") != null) {
-                consumer.seek(tp, (Long) offset.get("offset"));
+            if (offset != null && offset.get(OFFSET_KEY) != null) {
+                consumer.seek(tp, (Long) offset.get(OFFSET_KEY));
             } else {
                 consumer.seekToBeginning(Collections.singleton(tp));
             }
@@ -235,7 +238,7 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
 
     private Map<String, Object> sourceOffset(long offset) {
         Map<String, Object> map = new HashMap<>();
-        map.put("offset", offset);
+        map.put(OFFSET_KEY, offset);
         return map;
     }
 
@@ -329,10 +332,10 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
     }
 
     private MutationValue decodeMutationValue(byte[] bytes) throws IOException {
-        GenericRecord record = decodeAvroRecord(bytes, MUTATION_VALUE_SCHEMA);
-        Object md5 = record.get("md5Digest");
-        Object nodeId = record.get("nodeId");
-        Object columnsValue = record.get("columns");
+        GenericRecord valueRecord = decodeAvroRecord(bytes, MUTATION_VALUE_SCHEMA);
+        Object md5 = valueRecord.get("md5Digest");
+        Object nodeId = valueRecord.get("nodeId");
+        Object columnsValue = valueRecord.get("columns");
         String[] columns = null;
         if (columnsValue instanceof List) {
             columns = ((List<?>) columnsValue).stream().map(Object::toString).toArray(String[]::new);

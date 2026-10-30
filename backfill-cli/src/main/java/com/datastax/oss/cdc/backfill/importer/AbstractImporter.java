@@ -26,7 +26,6 @@ import com.datastax.oss.cdc.backfill.factory.CodecFactory;
 import com.datastax.oss.cdc.backfill.factory.ConnectorFactory;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.type.reflect.GenericType;
-import com.datastax.oss.driver.shaded.guava.common.annotations.VisibleForTesting;
 import com.datastax.oss.dsbulk.codecs.api.ConvertingCodec;
 import com.datastax.oss.dsbulk.codecs.api.ConvertingCodecFactory;
 import com.datastax.oss.dsbulk.codecs.text.string.StringConvertingCodecProvider;
@@ -99,7 +98,6 @@ public abstract class AbstractImporter {
             new CodecFactory().newCodecFactory(AbstractImporter.class.getClassLoader());
 
     /** The maximum number of in-flight messages currently being imported. */
-    @VisibleForTesting
     public static final int MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING = 1000;
 
     final AtomicInteger sentMutations = new AtomicInteger(0);
@@ -150,9 +148,9 @@ public abstract class AbstractImporter {
 
             recordsCount = Flux
                     .from(connector.read())
-                    .flatMap(Resource::read).map(record -> {
+                    .flatMap(Resource::read).map(exportedRow -> {
                         List<Object> pkValues = fields.stream().map(field -> {
-                            Object val = record.getFieldValue(field);
+                            Object val = exportedRow.getFieldValue(field);
                             Object newVal = codecs.get(field.getFieldName()).externalToInternal((String) val);
                             if (newVal instanceof LocalTime) {
                                 // Agent expects TimeType to be Long in nanoseconds
@@ -169,7 +167,7 @@ public abstract class AbstractImporter {
                         final AbstractMutation<TableMetadata> mutation =
                                 createMutation(pkValues.toArray(), this.exportedTable.getCassandraTable(), tsMicro);
                         sendMutationAsync(mutation);
-                        return record;
+                        return exportedRow;
                     })
                     .takeWhile(resource -> lastException == null) // fail fast
                     .count()
@@ -189,6 +187,9 @@ public abstract class AbstractImporter {
 
             return ExitStatus.STATUS_OK;
         } catch (Exception e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
             lastException = e;
             return ExitStatus.STATUS_ABORTED_FATAL_ERROR;
         } finally {

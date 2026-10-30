@@ -50,7 +50,8 @@ public class Murmur3KafkaPartitioner implements Partitioner {
     /** MurmurHash3 x86 32-bit, truncated to long for convenience. */
     private static long murmur3Hash(byte[] data) {
         int seed = 104729;
-        int c1 = 0xcc9e2d51, c2 = 0x1b873593;
+        int c1 = 0xcc9e2d51;
+        int c2 = 0x1b873593;
         int h = seed;
         int len = data.length;
         int blocks = len / 4;
@@ -62,7 +63,9 @@ public class Murmur3KafkaPartitioner implements Partitioner {
             k *= c1; k = Integer.rotateLeft(k, 15); k *= c2;
             h ^= k; h = Integer.rotateLeft(h, 13); h = h * 5 + 0xe6546b64;
         }
-        int tail = len & 3, k1 = 0, offset = blocks * 4;
+        int tail = len & 3;
+        int k1 = 0;
+        int offset = blocks * 4;
         if (tail >= 3) k1 ^= (data[offset+2] & 0xff) << 16;
         if (tail >= 2) k1 ^= (data[offset+1] & 0xff) << 8;
         if (tail >= 1) { k1 ^= (data[offset] & 0xff); k1 *= c1; k1 = Integer.rotateLeft(k1,15); k1 *= c2; h ^= k1; }
@@ -71,6 +74,13 @@ public class Murmur3KafkaPartitioner implements Partitioner {
         return h & 0xFFFFFFFFL;
     }
 
-    @Override public void configure(Map<String, ?> configs) {}
-    @Override public void close() {}
+    @Override
+    public void configure(Map<String, ?> configs) {
+        // Nothing to configure.
+    }
+
+    @Override
+    public void close() {
+        // Holds no resources.
+    }
 }

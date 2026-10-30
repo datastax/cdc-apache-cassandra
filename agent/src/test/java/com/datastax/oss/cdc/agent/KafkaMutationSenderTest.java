@@ -423,6 +423,7 @@ public class KafkaMutationSenderTest {
 
         @Override public Schema getNativeSchema(String cql3Type) { return STRING_SCHEMA; }
         @Override public Object cqlToAvro(String meta, String col, Object value) { return value; }
+        @Override public String columnCql3Type(String meta, String col) { return "text"; }
         @Override public boolean isSupported(AbstractMutation<String> m) { return supportedOverride; }
         @Override public void incSkippedMutations() { skippedCount++; }
         @Override public UUID getHostId() { return UUID.fromString("00000000-0000-0000-0000-000000000001"); }

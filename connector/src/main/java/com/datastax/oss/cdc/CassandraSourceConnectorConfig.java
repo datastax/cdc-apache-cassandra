@@ -175,6 +175,8 @@ public class CassandraSourceConnectorConfig {
 
     static final String SSL_OPT_PREFIX = "ssl.";
     private static final String AUTH_OPT_PREFIX = "auth.";
+    private static final String KAFKA_ONLY_GROUP = "Kafka only";
+    private static final String SCHEMA_REGISTRY_GROUP = "Schema Registry";
 
     public static final String CONTACT_POINTS_OPT = "contactPoints";
 
@@ -273,13 +275,13 @@ public class CassandraSourceConnectorConfig {
                             ConfigDef.Importance.HIGH,
                             "The Kafka topic to publish full rows to. Required for the Kafka Connect source connector; " +
                             "Pulsar IO has no equivalent since its output topic is set at the Pulsar Function level.",
-                            "Kafka only", 1, ConfigDef.Width.NONE, "OutputTopic")
+                            KAFKA_ONLY_GROUP, 1, ConfigDef.Width.NONE, "OutputTopic")
                     .define(INTERNAL_CONSUMER_BOOTSTRAP_SERVERS_CONFIG,
                             ConfigDef.Type.STRING,
                             "localhost:9092",
                             ConfigDef.Importance.HIGH,
                             "Bootstrap servers for the internal Kafka consumer the source task uses to read the events topic.",
-                            "Kafka only", 2, ConfigDef.Width.NONE, "InternalConsumerBootstrapServers")
+                            KAFKA_ONLY_GROUP, 2, ConfigDef.Width.NONE, "InternalConsumerBootstrapServers")
                     .define(INTERNAL_CONSUMER_GROUP_ID_CONFIG,
                             ConfigDef.Type.STRING,
                             "cassandra-source",
@@ -287,50 +289,50 @@ public class CassandraSourceConnectorConfig {
                             "Client id prefix for the internal Kafka consumer. Not a consumer group in the coordinated sense: " +
                             "each task manually assigns and seeks its own partitions, since Kafka Connect already owns offset " +
                             "tracking for source tasks.",
-                            "Kafka only", 3, ConfigDef.Width.NONE, "InternalConsumerGroupId")
+                            KAFKA_ONLY_GROUP, 3, ConfigDef.Width.NONE, "InternalConsumerGroupId")
                     .define(INTERNAL_CONSUMER_SECURITY_PROTOCOL_CONFIG,
                             ConfigDef.Type.STRING,
                             "",
                             ConfigDef.ValidString.in(validInternalConsumerSecurityProtocolValues()),
                             ConfigDef.Importance.LOW,
                             "Security protocol for the internal Kafka consumer, e.g. SSL or SASL_SSL.",
-                            "Kafka only", 4, ConfigDef.Width.NONE, "InternalConsumerSecurityProtocol")
+                            KAFKA_ONLY_GROUP, 4, ConfigDef.Width.NONE, "InternalConsumerSecurityProtocol")
                     .define(INTERNAL_CONSUMER_SSL_KEYSTORE_LOCATION_CONFIG,
                             ConfigDef.Type.STRING,
                             "",
                             ConfigDef.Importance.LOW,
                             "SSL keystore location for the internal Kafka consumer.",
-                            "Kafka only", 5, ConfigDef.Width.NONE, "InternalConsumerSslKeystoreLocation")
+                            KAFKA_ONLY_GROUP, 5, ConfigDef.Width.NONE, "InternalConsumerSslKeystoreLocation")
                     .define(INTERNAL_CONSUMER_SSL_KEYSTORE_PASSWORD_CONFIG,
                             ConfigDef.Type.PASSWORD,
                             "",
                             ConfigDef.Importance.LOW,
                             "SSL keystore password for the internal Kafka consumer.",
-                            "Kafka only", 6, ConfigDef.Width.NONE, "InternalConsumerSslKeystorePassword")
+                            KAFKA_ONLY_GROUP, 6, ConfigDef.Width.NONE, "InternalConsumerSslKeystorePassword")
                     .define(INTERNAL_CONSUMER_SSL_TRUSTSTORE_LOCATION_CONFIG,
                             ConfigDef.Type.STRING,
                             "",
                             ConfigDef.Importance.LOW,
                             "SSL truststore location for the internal Kafka consumer.",
-                            "Kafka only", 7, ConfigDef.Width.NONE, "InternalConsumerSslTruststoreLocation")
+                            KAFKA_ONLY_GROUP, 7, ConfigDef.Width.NONE, "InternalConsumerSslTruststoreLocation")
                     .define(INTERNAL_CONSUMER_SSL_TRUSTSTORE_PASSWORD_CONFIG,
                             ConfigDef.Type.PASSWORD,
                             "",
                             ConfigDef.Importance.LOW,
                             "SSL truststore password for the internal Kafka consumer.",
-                            "Kafka only", 8, ConfigDef.Width.NONE, "InternalConsumerSslTruststorePassword")
+                            KAFKA_ONLY_GROUP, 8, ConfigDef.Width.NONE, "InternalConsumerSslTruststorePassword")
                     .define(INTERNAL_CONSUMER_SASL_MECHANISM_CONFIG,
                             ConfigDef.Type.STRING,
                             "",
                             ConfigDef.Importance.LOW,
                             "SASL mechanism for the internal Kafka consumer, e.g. PLAIN or SCRAM-SHA-512.",
-                            "Kafka only", 9, ConfigDef.Width.NONE, "InternalConsumerSaslMechanism")
+                            KAFKA_ONLY_GROUP, 9, ConfigDef.Width.NONE, "InternalConsumerSaslMechanism")
                     .define(INTERNAL_CONSUMER_SASL_JAAS_CONFIG_CONFIG,
                             ConfigDef.Type.PASSWORD,
                             "",
                             ConfigDef.Importance.LOW,
                             "SASL JAAS config for the internal Kafka consumer.",
-                            "Kafka only", 10, ConfigDef.Width.NONE, "InternalConsumerSaslJaasConfig")
+                            KAFKA_ONLY_GROUP, 10, ConfigDef.Width.NONE, "InternalConsumerSaslJaasConfig")
                     .define(HEARTBEAT_TOPIC_CONFIG,
                             ConfigDef.Type.STRING,
                             "",
@@ -338,7 +340,7 @@ public class CassandraSourceConnectorConfig {
                             "Topic used to checkpoint the offset of a mutation the dedup cache already skipped, so " +
                             "Kafka Connect's offset commit keeps advancing even when a poll batch is all duplicates. " +
                             "Never carries row data, safe to leave unconsumed. Defaults to '<output.topic>-heartbeat'.",
-                            "Kafka only", 11, ConfigDef.Width.NONE, "HeartbeatTopic")
+                            KAFKA_ONLY_GROUP, 11, ConfigDef.Width.NONE, "HeartbeatTopic")
                     .define(SCHEMA_REGISTRY_URL_CONFIG,
                             ConfigDef.Type.STRING,
                             "",
@@ -349,7 +351,7 @@ public class CassandraSourceConnectorConfig {
                             "each Cassandra table alteration registers a new schema version, so a registry-configured " +
                             "compatibility mode rejects breaking changes instead of silently swapping the schema. When " +
                             "unset, the value is published as raw Avro bytes with no registry involved (prior behavior).",
-                            "Schema Registry", 1, ConfigDef.Width.NONE, "SchemaRegistryUrl")
+                            SCHEMA_REGISTRY_GROUP, 1, ConfigDef.Width.NONE, "SchemaRegistryUrl")
                     .define(SCHEMA_REGISTRY_AUTO_REGISTER_SCHEMAS_CONFIG,
                             ConfigDef.Type.BOOLEAN,
                             true,
@@ -357,21 +359,21 @@ public class CassandraSourceConnectorConfig {
                             "Whether the connector registers a new schema version with the registry automatically. " +
                             "Set to false if schema publication is managed out of band and the registry should instead " +
                             "reject any table alteration whose schema wasn't pre-registered.",
-                            "Schema Registry", 2, ConfigDef.Width.NONE, "SchemaRegistryAutoRegisterSchemas")
+                            SCHEMA_REGISTRY_GROUP, 2, ConfigDef.Width.NONE, "SchemaRegistryAutoRegisterSchemas")
                     .define(SCHEMA_REGISTRY_BASIC_AUTH_CREDENTIALS_SOURCE_CONFIG,
                             ConfigDef.Type.STRING,
                             "",
                             ConfigDef.Importance.LOW,
                             "Confluent Schema Registry basic auth credentials source, e.g. USER_INFO or SASL_INHERIT. " +
                             "Left empty, no basic auth is configured.",
-                            "Schema Registry", 3, ConfigDef.Width.NONE, "SchemaRegistryBasicAuthCredentialsSource")
+                            SCHEMA_REGISTRY_GROUP, 3, ConfigDef.Width.NONE, "SchemaRegistryBasicAuthCredentialsSource")
                     .define(SCHEMA_REGISTRY_BASIC_AUTH_USER_INFO_CONFIG,
                             ConfigDef.Type.PASSWORD,
                             "",
                             ConfigDef.Importance.LOW,
                             "Confluent Schema Registry basic auth credentials, as '<username>:<password>'. Only used " +
                             "when " + SCHEMA_REGISTRY_BASIC_AUTH_CREDENTIALS_SOURCE_CONFIG + " is set to USER_INFO.",
-                            "Schema Registry", 4, ConfigDef.Width.NONE, "SchemaRegistryBasicAuthUserInfo")
+                            SCHEMA_REGISTRY_GROUP, 4, ConfigDef.Width.NONE, "SchemaRegistryBasicAuthUserInfo")
                     .define(BATCH_SIZE_CONFIG,
                             ConfigDef.Type.INT,
                             200,

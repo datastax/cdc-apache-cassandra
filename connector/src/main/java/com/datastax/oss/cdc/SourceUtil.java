@@ -76,7 +76,7 @@ public final class SourceUtil {
         while (true) {
             try {
                 return initCassandraClient(config, applicationName, listener);
-            } catch (Throwable err) {
+            } catch (Exception err) {
                 if (System.currentTimeMillis() >= deadlineMs) {
                     throw new RuntimeException("Failed to initialize Cassandra client after " +
                             config.getQueryMaxBackoffInSec() + "s, giving up", err);
