@@ -7,7 +7,8 @@ plugins {
 
 task versionTxt()  {
     doFirst {
-        new File(project.projectDir, "src/main/resources/cassandra-source-version.properties").text = "$project.version\n"
+        // Version.java reads the "version" key, so write it as a properties entry.
+        new File(project.projectDir, "src/main/resources/cassandra-source-version.properties").text = "version=$project.version\n"
     }
 }
 
@@ -31,12 +32,14 @@ sourceSets {
 }
 
 dependencies {
+    implementation("org.apache.bookkeeper:bookkeeper-common:${bookkeeperVersion}")
     implementation project(':commons')
     implementation("com.github.ben-manes.caffeine:caffeine:${caffeineVersion}")
     implementation("io.vavr:vavr:${vavrVersion}")
     implementation "org.apache.cassandra:java-driver-core:${ossDriverVersion}"
     implementation "org.apache.cassandra:java-driver-query-builder:${ossDriverVersion}"
     implementation("org.apache.kafka:connect-api:${kafkaVersion}")
+    implementation("io.confluent:kafka-avro-serializer:${confluentVersion}")
     implementation("com.google.guava:guava:${guavaVersion}")
     implementation("com.datastax.oss:messaging-connectors-commons-core:${messagingConnectorsCommonsVersion}")
     implementation("org.apache.avro:avro:${avroVersion}")
@@ -93,12 +96,17 @@ dependencies {
 
 
     testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
+    testImplementation "org.testcontainers:kafka:${testContainersVersion}"
     testImplementation project(':testcontainers')
     testImplementation("${pulsarGroup}:pulsar-client") {
         version {
             strictly("${pulsarVersion}")
         }
     }
+
+    testImplementation "org.mockito:mockito-core:3.11.1"
+    testImplementation "org.apache.kafka:connect-runtime:${kafkaVersion}"
+    testImplementation "org.apache.kafka:connect-runtime:${kafkaVersion}:test"
 
     nar "${pulsarGroup}:pulsar-io:${pulsarVersion}"
 }
@@ -119,6 +127,69 @@ nar {
 
 assemble.dependsOn(nar)
 
+// ---------------------------------------------------------------------------
+// Kafka Connect packaging
+//
+//   cassandra-source-connector-<version>.jar
+//       The connector classes on their own.
+//   cassandra-source-connector-<version>-kafka-connect.zip
+//       A ready to install Kafka Connect plugin: unzip it into a directory listed
+//       in the worker's plugin.path. Layout follows the Confluent Hub format
+//       (<name>-<version>/lib/*.jar plus manifest.json).
+// ---------------------------------------------------------------------------
+def kafkaConnectPluginName = 'cassandra-source-connector'
+
+// The Connect worker already ships these, and Kafka Connect always loads
+// org.apache.kafka.* and org.slf4j.* from the worker rather than from a plugin,
+// so bundled copies would never be used.
+def providedByKafkaConnect = { ResolvedArtifact artifact ->
+    def id = artifact.moduleVersion.id
+    id.group == 'org.apache.kafka' || (id.group == 'org.slf4j' && id.name == 'slf4j-api')
+}
+
+task kafkaConnectorJar(type: Jar) {
+    group = 'distribution'
+    description = "Builds ${kafkaConnectPluginName}-<version>.jar, the connector classes for Kafka Connect."
+    archiveBaseName = kafkaConnectPluginName
+    // Kept out of build/libs: the Pulsar docker task copies that whole directory.
+    destinationDirectory = layout.buildDirectory.dir('kafka-connect')
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    zip64 = true
+    from sourceSets.main.output
+}
+
+task kafkaConnectPluginZip(type: Zip) {
+    group = 'distribution'
+    description = 'Builds the Kafka Connect plugin archive (connector jar plus its runtime dependencies).'
+    archiveBaseName = kafkaConnectPluginName
+    archiveClassifier = 'kafka-connect'
+    zip64 = true
+    // Make sure project dependencies (e.g. :commons) are built before their jars are collected.
+    dependsOn configurations.runtimeClasspath
+
+    def root = "${kafkaConnectPluginName}-${project.version}"
+    into("${root}/lib") {
+        from kafkaConnectorJar
+        from {
+            configurations.runtimeClasspath.resolvedConfiguration.resolvedArtifacts
+                    // Kafka Connect only loads .jar files from a plugin directory.
+                    .findAll { it.extension == 'jar' && !providedByKafkaConnect(it) && !excludedFromKafkaConnectPlugin(it) }
+                    .collect { it.file }
+        }
+    }
+    into(root) {
+        from('src/kafka-connect') {
+            include 'manifest.json'
+            expand(version: project.version)
+        }
+        from(rootProject.file('LICENSE.txt'))
+        // Same notices file the connector-distribution archives ship.
+        from(rootProject.file('connector-distribution/src/main/THIRD-PARTY-NOTICES.txt'))
+    }
+}
+
+assemble.dependsOn(kafkaConnectorJar, kafkaConnectPluginZip)
+
 test {
     // Add dependency on jar task, since it will be main target for testing
     dependsOn project(':agent-c4').shadowJar
@@ -126,12 +197,61 @@ test {
 
     useJUnitPlatform()
 
+    // Stream all test output to the console (container logs, CDC agent output, etc.).
+    // Failed tests additionally print a clear banner with the full assertion message.
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        showStandardStreams = true
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showExceptions = true
+        showCauses = true
+        showStackTraces = true
+    }
+
+    // On failure: print a prominent banner + the assertion message so it stands out
+    // from the surrounding container log noise.
+    afterTest { descriptor, result ->
+        if (result.resultType == TestResult.ResultType.FAILURE) {
+            println "\n════════════════════════════════════════"
+            println "FAILED: ${descriptor.className} > ${descriptor.name}"
+            if (result.exception) {
+                println result.exception.message ?: result.exception.toString()
+            }
+            println "════════════════════════════════════════\n"
+        }
+    }
+
+    // Print a summary line after the whole test suite finishes.
+    afterSuite { descriptor, result ->
+        if (descriptor.parent == null) {
+            def status = result.resultType == TestResult.ResultType.SUCCESS ? "✓ PASSED" : "✗ FAILED"
+            println "\n${status} — ${result.testCount} tests: " +
+                    "${result.successfulTestCount} passed, " +
+                    "${result.failedTestCount} failed, " +
+                    "${result.skippedTestCount} skipped"
+        }
+    }
+
     environment 'PULSAR_IMAGE', testPulsarImage + ':' + testPulsarImageTag
     environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra4Version
 
     systemProperty "connectorBuildDir", buildDir
     systemProperty "agentBuildDir", project(':agent-c4').buildDir
     systemProperty "projectVersion", project.version
+    systemProperty "testConfluentKafkaImage", testConfluentKafkaImage
+    systemProperty "testConfluentKafkaImageTag", testConfluentKafkaImageTag
+    systemProperty "testOssKafkaImage", testOssKafkaImage
+    systemProperty "testOssKafkaImageTag", testOssKafkaImageTag
+
+    // Run only the test classes matching the broker type supplied.
+    // Pass -PbrokerType=kafka or -PbrokerType=pulsar (default: pulsar). -PbrokerType=all applies
+    // no filter, so one run (for example the coverage run for SonarQube) can cover both.
+    def brokerType = project.hasProperty('brokerType') ? project.property('brokerType') : 'pulsar'
+    if (brokerType == 'kafka') {
+        include '**/*Kafka*'
+    } else if (brokerType != 'all') {
+        exclude '**/*Kafka*'
+    }
 }
 
 dockerPrepare.dependsOn(nar)

@@ -26,17 +26,40 @@ import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Random;
 
 public class AgentTestUtil {
 
     public static final Random random = new Random();
 
-    public static final DockerImageName PULSAR_IMAGE = DockerImageName.parse(
-            Optional.ofNullable(System.getenv("PULSAR_IMAGE"))
-                    .orElse(System.getProperty("testPulsarImage") + ":" + System.getProperty("testPulsarImageTag"))
-    ).asCompatibleSubstituteFor("pulsar");
+    public static final DockerImageName PULSAR_IMAGE = resolveImage(
+            "PULSAR_IMAGE", "testPulsarImage", "testPulsarImageTag", "pulsar");
+
+    // Used with org.testcontainers.containers.KafkaContainer (legacy, canonical image = confluentinc/cp-kafka).
+    public static final DockerImageName CONFLUENT_KAFKA_IMAGE = resolveImage(
+            "CONFLUENT_KAFKA_IMAGE", "testConfluentKafkaImage", "testConfluentKafkaImageTag", null);
+
+    // Used with org.testcontainers.kafka.KafkaContainer (1.20+, canonical image = apache/kafka).
+    public static final DockerImageName OSS_KAFKA_IMAGE = resolveImage(
+            "OSS_KAFKA_IMAGE", "testOssKafkaImage", "testOssKafkaImageTag", null);
+
+    private static DockerImageName resolveImage(String envVar, String imageProp, String tagProp,
+                                                String compatSubstituteFor) {
+        String env = System.getenv(envVar);
+        String image = System.getProperty(imageProp);
+        String tag   = System.getProperty(tagProp);
+        String ref = null;
+        if (env != null && !env.isEmpty()) {
+            ref = env;
+        } else if (image != null && tag != null) {
+            ref = image + ":" + tag;
+        }
+        if (ref == null) {
+            return null;
+        }
+        DockerImageName name = DockerImageName.parse(ref);
+        return compatSubstituteFor != null ? name.asCompatibleSubstituteFor(compatSubstituteFor) : name;
+    }
 
     public static String genericRecordToString(GenericRecord genericRecord) {
         StringBuilder sb = new StringBuilder("{");

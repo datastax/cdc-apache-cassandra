@@ -13,7 +13,13 @@ shadowJar {
 
     manifest {
         attributes(
-                'Main-Class': "$mainClassName"
+                'Main-Class': "$mainClassName",
+                // DSBulk's export/unload path reflectively pokes FileDescriptor/FileChannelImpl
+                // internals for low-level file I/O; JDK 16+'s strong encapsulation blocks that
+                // without this. Declared here (rather than as a launch flag) so
+                // `java -jar backfill-cli-all.jar` works standalone under JDK 17 without callers
+                // needing to know about it.
+                'Add-Opens': 'java.base/java.io java.base/java.nio java.base/sun.nio.ch java.base/java.lang java.base/java.util'
         )
     }
 
@@ -83,6 +89,7 @@ dependencies {
     implementation "org.apache.cassandra:cassandra-all:${cassandra4Version}"
     implementation "${pulsarGroup}:pulsar-client:${pulsarVersion}"
     implementation "${pulsarGroup}:pulsar-client-tools-api:${pulsarVersion}"
+    implementation "org.apache.kafka:kafka-clients:${kafkaVersion}"
 
     configurations.all {
         resolutionStrategy.dependencySubstitution {
@@ -95,13 +102,17 @@ dependencies {
     runtimeOnly 'org.conscrypt:conscrypt-openjdk-uber:2.5.2'
 
     testImplementation "org.junit.jupiter:junit-jupiter-api:5.8.1"
+    testImplementation "org.junit.jupiter:junit-jupiter-params:5.8.1"
     testImplementation "org.mockito:mockito-core:3.11.1"
     testImplementation "com.datastax.oss:dsbulk-tests:${dsbulkVersion}"
 
     testImplementation project(':connector')
     testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
+    testImplementation "org.testcontainers:kafka:${testContainersVersion}"
     testImplementation project(':testcontainers')
     testImplementation "${pulsarGroup}:pulsar-client:${pulsarVersion}"
+    testImplementation "org.apache.kafka:connect-api:${kafkaVersion}"
+    testImplementation "org.apache.avro:avro:${avroVersion}"
     // https://mvnrepository.com/artifact/commons-io/commons-io
     testImplementation 'commons-io:commons-io:2.11.0'
 
@@ -142,8 +153,6 @@ test {
 }
 
 task e2eTest(type: Test) {
-    include 'com/datastax/oss/cdc/backfill/e2e/**'
-
     testLogging.showStandardStreams = true
 
     dependsOn project(':connector').assemble // couldn't take dependency on nar directly
@@ -151,7 +160,18 @@ task e2eTest(type: Test) {
 
     useJUnitPlatform()
 
-    environment 'PULSAR_IMAGE', testPulsarImage + ':' + testPulsarImageTag
+    // Run only the E2E test class matching the broker type supplied.
+    // Pass -PbrokerType=kafka or -PbrokerType=pulsar (default: pulsar), mirroring connector's test task.
+    def brokerType = project.hasProperty('brokerType') ? project.property('brokerType') : 'pulsar'
+    if (brokerType == 'kafka') {
+        include '**/BackfillCLIKafkaE2ETests.class'
+        systemProperty "testConfluentKafkaImage", testConfluentKafkaImage
+        systemProperty "testConfluentKafkaImageTag", testConfluentKafkaImageTag
+    } else {
+        include '**/BackfillCLIE2ETests.class'
+        environment 'PULSAR_IMAGE', testPulsarImage + ':' + testPulsarImageTag
+    }
+
     def cassandraFamily =  project.hasProperty("cassandraFamily") ? project.property("cassandraFamily") : "c4";
     if (cassandraFamily == "c3") {
         dependsOn project(':agent-c3').shadowJar

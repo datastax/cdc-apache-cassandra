@@ -22,9 +22,9 @@ import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import java.util.List;
 
 /**
- * For BWC, AvroConverter is NativeAvroConverter
+ * For BWC, AvroConverter is PulsarAvroConverter
  */
-public class AvroConverter extends NativeAvroConverter {
+public class AvroConverter extends PulsarAvroConverter {
 
     public AvroConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
         super(ksm, tm, columns);

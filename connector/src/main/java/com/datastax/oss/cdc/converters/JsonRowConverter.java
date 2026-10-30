@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.datastax.oss.pulsar.source.converters;
+package com.datastax.oss.cdc.converters;
 
 import com.datastax.oss.cdc.CqlLogicalTypes;
 import com.datastax.oss.driver.api.core.CqlIdentifier;
@@ -46,27 +46,31 @@ import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.avro.specific.SpecificData;
-import org.apache.pulsar.common.schema.SchemaType;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * JSON row converter. Platform-free: builds and reads JSON bytes only, with no dependency on
+ * any messaging system's client API.
+ */
 @Slf4j
-public class NativeJsonConverter extends AbstractNativeConverter<byte[]> {
+public class JsonRowConverter extends AbstractRowConverter<byte[]> {
     private static final ObjectMapper mapper = new ObjectMapper();
 
     private static final JsonNodeFactory jsonNodeFactory = JsonNodeFactory.withExactBigDecimals(true);
 
-    public NativeJsonConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
+    public JsonRowConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
         super(ksm, tm, columns);
-    }
-
-    @Override
-    SchemaType getSchemaType() {
-        return SchemaType.JSON;
     }
 
     @Override
@@ -339,7 +343,6 @@ public class NativeJsonConverter extends AbstractNativeConverter<byte[]> {
         return objectNode;
     }
 
-
     @Override
     public boolean isSupportedCqlType(DataType dataType) {
         switch (dataType.getProtocolCode()) {
@@ -382,7 +385,7 @@ public class NativeJsonConverter extends AbstractNativeConverter<byte[]> {
     }
 
     static {
-        logicalTypeConverters.put(CqlLogicalTypes.CQL_DECIMAL, new NativeJsonConverter.LogicalTypeConverter<BigDecimal>(
+        logicalTypeConverters.put(CqlLogicalTypes.CQL_DECIMAL, new JsonRowConverter.LogicalTypeConverter<BigDecimal>(
                 new Conversions.DecimalConversion()) {
 
             /**
@@ -401,7 +404,7 @@ public class NativeJsonConverter extends AbstractNativeConverter<byte[]> {
                 return bigDecimalToJsonNode((BigDecimal) value);
             }
         });
-        logicalTypeConverters.put(CqlLogicalTypes.CQL_DURATION, new NativeJsonConverter.LogicalTypeConverter<BigDecimal>(
+        logicalTypeConverters.put(CqlLogicalTypes.CQL_DURATION, new JsonRowConverter.LogicalTypeConverter<BigDecimal>(
                 new Conversions.DecimalConversion()) {
 
             /**

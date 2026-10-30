@@ -40,7 +40,6 @@ import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.SchemaChangeListener;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
-import com.datastax.oss.driver.api.core.servererrors.UnavailableException;
 import com.datastax.oss.driver.api.querybuilder.select.Select;
 import com.datastax.oss.driver.api.querybuilder.select.SelectFrom;
 import com.datastax.oss.driver.internal.core.auth.PlainTextAuthProvider;
@@ -51,13 +50,13 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import io.vavr.Tuple2;
-import io.vavr.Tuple3;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
@@ -155,6 +154,14 @@ public class CassandraClient implements AutoCloseable {
     }
 
     /**
+     * @return true if the table has no columns other than the primary key, false otherwise.
+     */
+    public static boolean isPrimaryKeyOnlyTable(TableMetadata tableMetadata) {
+        return tableMetadata.getColumns().size() == tableMetadata.getPrimaryKey().size() &&
+                new HashSet<>(tableMetadata.getPrimaryKey()).containsAll(tableMetadata.getColumns().values());
+    }
+
+    /**
      * Build a SELECT prepared statement for the first <i>pkLength</i> primary key columns.
      * @param keyspaceName keyspace name
      * @param tableName table name
@@ -173,7 +180,9 @@ public class CassandraClient implements AutoCloseable {
         for (int i = 0; i < pkLength; i++)
             query = query.whereColumn(pk[i]).isEqualTo(bindMarker());
         query.limit(1);
-        log.debug(query.asCql());
+        if (log.isDebugEnabled()) {
+            log.debug(query.asCql());
+        }
         return cqlSession.prepare(query.asCql());
     }
 
@@ -289,30 +298,31 @@ public class CassandraClient implements AutoCloseable {
         return new Tuple2<>(keyspaceMetadataOptional.get(), tableMetadataOptional.get());
     }
 
-    public Tuple3<Row, ConsistencyLevel, UUID> selectRow(List<Object> pkValues,
-                                                         UUID nodeId,
-                                                         List<ConsistencyLevel> consistencyLevels,
-                                                         PreparedStatement preparedStatement,
-                                                         String md5Digest)
+    public Tuple2<Row, UUID> selectRow(List<Object> pkValues,
+                                       UUID nodeId,
+                                       ConsistencyLevel consistencyLevel,
+                                       PreparedStatement preparedStatement,
+                                       String md5Digest)
             throws ExecutionException, InterruptedException {
-        return selectRowAsync(pkValues, nodeId, consistencyLevels, preparedStatement, md5Digest)
+        return selectRowAsync(pkValues, nodeId, consistencyLevel, preparedStatement, md5Digest)
                 .toCompletableFuture().get();
     }
 
     /**
-     * Try to read with downgraded consistency
+     * Read row with the specified consistency level.
      * @param pkValues primary key column
      * @param nodeId coordinator node id
-     * @param consistencyLevels list of consistency to retry
+     * @param consistencyLevel consistency level to execute the query
      * @param preparedStatement CQL prepared statement
      * @param md5Digest mutation MD5 digest
      */
-    public CompletionStage<Tuple3<Row, ConsistencyLevel, UUID>> selectRowAsync(List<Object> pkValues,
-                                                                               UUID nodeId,
-                                                                               List<ConsistencyLevel> consistencyLevels,
-                                                                               PreparedStatement preparedStatement,
-                                                                               String md5Digest) {
-        BoundStatement statement = preparedStatement.bind(pkValues.toArray(new Object[pkValues.size()]));
+    public CompletionStage<Tuple2<Row, UUID>> selectRowAsync(List<Object> pkValues,
+                                                             UUID nodeId,
+                                                             ConsistencyLevel consistencyLevel,
+                                                             PreparedStatement preparedStatement,
+                                                             String md5Digest) {
+        BoundStatement statement = preparedStatement.bind(pkValues.toArray(new Object[pkValues.size()]))
+                .setConsistencyLevel(consistencyLevel);
 
         // set the coordinator node
         Node node = null;
@@ -322,40 +332,24 @@ public class CassandraClient implements AutoCloseable {
                 statement = statement.setNode(node);
             }
         }
-        log.debug("Fetching md5Digest={} coordinator={} query={} pk={} ", md5Digest, node, preparedStatement.getQuery(), pkValues);
-        return executeWithDowngradeConsistencyRetry(cqlSession, statement, consistencyLevels)
-                .thenApply(tuple -> {
-                    log.debug("Read cl={} coordinator={} pk={}", tuple._2, tuple._1.getExecutionInfo().getCoordinator().getHostId(), pkValues);
-                    Row row = tuple._1.one();
-                    return new Tuple3<>(row, tuple._2, tuple._1.getExecutionInfo().getCoordinator().getHostId());
+        if (log.isDebugEnabled()) {
+            log.debug("Fetching md5Digest={} coordinator={} query={} pk={} CL={}", md5Digest, node, preparedStatement.getQuery(), pkValues, consistencyLevel);
+        }
+        return cqlSession.executeAsync(statement)
+                .thenApply(resultSet -> {
+                    UUID coordinatorId = resultSet.getExecutionInfo().getCoordinator() != null
+                            ? resultSet.getExecutionInfo().getCoordinator().getHostId()
+                            : null;
+                    if (log.isDebugEnabled()) {
+                        log.debug("Read cl={} coordinator={} pk={}", consistencyLevel, coordinatorId, pkValues);
+                    }
+                    Row row = resultSet.one();
+                    return new Tuple2<>(row, coordinatorId);
                 })
                 .whenComplete((tuple, error) -> {
                     if (error != null) {
                         log.warn("Failed to retrieve row: {}", error);
                     }
                 });
-    }
-
-    CompletionStage<Tuple2<AsyncResultSet, ConsistencyLevel>> executeWithDowngradeConsistencyRetry(
-            CqlSession cqlSession,
-            BoundStatement boundStatement,
-            List<ConsistencyLevel> consistencyLevels) {
-        final ConsistencyLevel cl = consistencyLevels.remove(0);
-        final BoundStatement statement = boundStatement.setConsistencyLevel(cl);
-        log.debug("Trying with CL={} statement={}", cl, statement.getPreparedStatement().getQuery());
-        final CompletionStage<Tuple2<AsyncResultSet, ConsistencyLevel>> completionStage =
-                cqlSession.executeAsync(statement).thenApply(rx -> new Tuple2<>(rx, cl));
-        return completionStage
-                .handle((r, ex) -> {
-                    if (ex == null || !(ex instanceof UnavailableException) || consistencyLevels.isEmpty()) {
-                        log.debug("Executed CL={} statement={}", cl, statement.getPreparedStatement().getQuery());
-                        return completionStage;
-                    }
-                    return completionStage
-                            .handleAsync((r1, ex1) ->
-                                    executeWithDowngradeConsistencyRetry(cqlSession, statement, consistencyLevels))
-                            .thenCompose(Function.identity());
-                })
-                .thenCompose(Function.identity());
     }
 }

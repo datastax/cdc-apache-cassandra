@@ -1,0 +1,537 @@
+/**
+ * Copyright DataStax, Inc 2021.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.datastax.oss.kafka.source;
+
+import com.datastax.oss.cdc.CassandraClient;
+import com.datastax.oss.cdc.SourceUtil;
+import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
+import com.datastax.oss.cdc.ConverterAndQuery;
+import com.datastax.oss.cdc.CqlLogicalTypes;
+import com.datastax.oss.cdc.MutationCache;
+import com.datastax.oss.cdc.MutationValue;
+import com.datastax.oss.cdc.SourceSchemaChangeListener;
+import com.datastax.oss.cdc.Version;
+import com.datastax.oss.cdc.converters.AvroRowConverter;
+import com.datastax.oss.cdc.converters.ConverterFactory;
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
+import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
+import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
+import com.datastax.oss.kafka.source.converters.Converter;
+import com.datastax.oss.kafka.source.converters.KafkaAvroConverter;
+import com.datastax.oss.kafka.source.converters.KafkaJsonConverter;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.RateLimiter;
+import io.confluent.kafka.serializers.KafkaAvroSerializer;
+import io.vavr.Tuple2;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.avro.Conversions;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.io.BinaryDecoder;
+import org.apache.avro.io.DecoderFactory;
+import org.apache.avro.specific.SpecificData;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.WakeupException;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
+import org.apache.kafka.connect.source.SourceRecord;
+import org.apache.kafka.connect.source.SourceTask;
+
+import org.apache.bookkeeper.common.util.OrderedExecutor;
+
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Properties;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+@Slf4j
+public class KafkaCassandraSourceTask extends SourceTask implements SourceSchemaChangeListener {
+
+    /** Decoded, immutable fields for one consumed Kafka record. Decoded once and reused on retry. */
+    private static final class DecodedRecord {
+        final ConsumerRecord<byte[], byte[]> rec;
+        final GenericRecord mutationKeyRecord;
+        final MutationValue mutationValue;
+        final List<Object> pk;
+        final String cacheKey;
+        CompletableFuture<SourceRecord> queryResult;
+
+        DecodedRecord(ConsumerRecord<byte[], byte[]> rec, GenericRecord mutationKeyRecord,
+                      MutationValue mutationValue, List<Object> pk, String cacheKey) {
+            this.rec = rec;
+            this.mutationKeyRecord = mutationKeyRecord;
+            this.mutationValue = mutationValue;
+            this.pk = pk;
+            this.cacheKey = cacheKey;
+        }
+    }
+
+
+    CassandraSourceConnectorConfig config;
+    CassandraClient cassandraClient;
+    KafkaConsumer<byte[], byte[]> consumer;
+    String eventsTopic;
+    String outputTopic;
+    String heartbeatTopic;
+    List<TopicPartition> assignedPartitions;
+
+    KafkaAvroConverter mutationKeyConverter;
+    Converter<byte[], ?> keyConverter;
+
+    Optional<Pattern> columnPattern = Optional.empty();
+    MutationCache<String> mutationCache;
+
+    volatile ConverterAndQuery<Converter<byte[], ?>> valueConverterAndQuery;
+    private Object emptyValue;
+    KafkaAvroSerializer schemaRegistrySerializer;
+    KafkaAvroSerializer keySchemaRegistrySerializer;
+
+    OrderedExecutor queryExecutor;
+    private long consecutiveUnavailableExceptionCount = 0;
+
+    /**
+     * Optional rate limiter for Cassandra CQL queries.
+     * {@code null} when {@code query.rateLimit} is 0 (disabled).
+     */
+    private RateLimiter queryRateLimiter;
+
+    /** Key of the events topic offset in this task's Kafka Connect source offset map. */
+    private static final String OFFSET_KEY = "offset";
+
+    private static final org.apache.avro.Schema MUTATION_VALUE_SCHEMA;
+
+    static {
+        org.apache.avro.Schema nullableString = org.apache.avro.Schema.createUnion(
+                org.apache.avro.Schema.create(org.apache.avro.Schema.Type.NULL),
+                org.apache.avro.Schema.create(org.apache.avro.Schema.Type.STRING));
+        org.apache.avro.Schema nullableStringArray = org.apache.avro.Schema.createUnion(
+                org.apache.avro.Schema.create(org.apache.avro.Schema.Type.NULL),
+                org.apache.avro.Schema.createArray(org.apache.avro.Schema.create(org.apache.avro.Schema.Type.STRING)));
+        MUTATION_VALUE_SCHEMA = org.apache.avro.Schema.createRecord("MutationValue", null, "com.datastax.oss.cdc", false,
+                Arrays.asList(
+                        new org.apache.avro.Schema.Field("md5Digest", nullableString, null, (Object) null),
+                        new org.apache.avro.Schema.Field("nodeId", nullableString, null, (Object) null),
+                        new org.apache.avro.Schema.Field("columns", nullableStringArray, null, (Object) null)));
+    }
+
+    public KafkaCassandraSourceTask() {
+        SpecificData.get().addLogicalTypeConversion(new CqlLogicalTypes.CqlVarintConversion());
+        SpecificData.get().addLogicalTypeConversion(new CqlLogicalTypes.CqlDecimalConversion());
+        SpecificData.get().addLogicalTypeConversion(new AvroRowConverter.CqlDurationConversion());
+        SpecificData.get().addLogicalTypeConversion(new Conversions.UUIDConversion());
+    }
+
+    @Override
+    public String version() {
+        return Version.getVersion();
+    }
+
+    @Override
+    public void start(Map<String, String> props) {
+        this.config = new CassandraSourceConnectorConfig(KafkaCassandraSourceConnector.remapConverterProps(props));
+        if (!com.google.common.base.Strings.isNullOrEmpty(config.getColumnsRegexp()) && !".*".equals(config.getColumnsRegexp())) {
+            this.columnPattern = Optional.of(Pattern.compile(config.getColumnsRegexp()));
+        }
+        this.eventsTopic = config.getEventsTopic();
+        this.outputTopic = config.getOutputTopic();
+        Preconditions.checkArgument(!com.google.common.base.Strings.isNullOrEmpty(outputTopic), "output.topic not set");
+        this.heartbeatTopic = com.google.common.base.Strings.isNullOrEmpty(config.getHeartbeatTopic())
+                ? outputTopic + "-heartbeat"
+                : config.getHeartbeatTopic();
+
+        Preconditions.checkArgument(config.isAvroOutputFormat() || !config.isSchemaRegistryEnabled(),
+                "schema.registry.url is only supported with the Avro output format (key-value-avro); "
+                        + "either unset it or switch value.converter to an Avro converter");
+        if (config.isAvroOutputFormat() && config.isSchemaRegistryEnabled()) {
+            this.schemaRegistrySerializer = new KafkaAvroSerializer();
+            this.schemaRegistrySerializer.configure(SchemaRegistryProperties.build(config), false);
+            this.keySchemaRegistrySerializer = new KafkaAvroSerializer();
+            this.keySchemaRegistrySerializer.configure(SchemaRegistryProperties.build(config), true);
+        }
+
+        Properties consumerProps = InternalConsumerProperties.build(config);
+        consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, config.getInternalConsumerGroupId());
+        consumerProps.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+        consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
+        consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class.getName());
+        this.consumer = new KafkaConsumer<>(consumerProps);
+
+        String partitionsCsv = props.get(KafkaCassandraSourceConnector.INTERNAL_CONSUMER_PARTITIONS_CONFIG);
+        Preconditions.checkArgument(partitionsCsv != null && !partitionsCsv.isEmpty(), "internal.consumer.partitions not set");
+        this.assignedPartitions = new ArrayList<>();
+        for (String p : partitionsCsv.split(",")) {
+            assignedPartitions.add(new TopicPartition(eventsTopic, Integer.parseInt(p.trim())));
+        }
+        consumer.assign(assignedPartitions);
+        for (TopicPartition tp : assignedPartitions) {
+            Map<String, Object> offset = context.offsetStorageReader().offset(sourcePartition(tp));
+            if (offset != null && offset.get(OFFSET_KEY) != null) {
+                consumer.seek(tp, (Long) offset.get(OFFSET_KEY));
+            } else {
+                consumer.seekToBeginning(Collections.singleton(tp));
+            }
+        }
+
+        this.mutationCache = new MutationCache<>(
+                config.getCacheMaxDigests(),
+                config.getCacheMaxCapacity(),
+                Duration.ofMillis(config.getCacheExpireAfterMs()));
+        log.info("Starting Kafka source task eventsTopic={} outputTopic={} heartbeatTopic={} partitions={} query.executors={} maxTasksInQueue={}",
+                eventsTopic, outputTopic, heartbeatTopic, assignedPartitions,
+                config.getQueryExecutors(), config.getQueryMaxTasksInQueue());
+        initCassandraClientWithRetry();
+        this.queryExecutor = OrderedExecutor.newBuilder()
+                .name("cdc-query-executor")
+                .numThreads(config.getQueryExecutors())
+                .maxTasksInQueue(config.getQueryMaxTasksInQueue())
+                .build();
+        double rateLimit = config.getQueryRateLimit();
+        if (rateLimit > 0) {
+            this.queryRateLimiter = RateLimiter.create(rateLimit);
+            log.info("Cassandra query rate limiter enabled: {} queries/sec", rateLimit);
+        }
+    }
+
+    private Map<String, Object> sourcePartition(TopicPartition tp) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("topic", tp.topic());
+        map.put("partition", tp.partition());
+        return map;
+    }
+
+    private Map<String, Object> sourceOffset(long offset) {
+        Map<String, Object> map = new HashMap<>();
+        map.put(OFFSET_KEY, offset);
+        return map;
+    }
+
+    void initCassandraClientWithRetry() {
+        try {
+            this.cassandraClient = SourceUtil.initCassandraClientWithRetry(this.config,
+                    Optional.ofNullable(config.getInstanceName()).orElse("kafka-cassandra-source-task"), this);
+            Tuple2<KeyspaceMetadata, TableMetadata> tuple =
+                    this.cassandraClient.getTableMetadata(this.config.getKeyspaceName(), this.config.getTableName());
+            this.keyConverter = createConverter(getKeyConverterClass(), tuple._1, tuple._2, tuple._2.getPrimaryKey());
+            this.mutationKeyConverter = new KafkaAvroConverter(tuple._1, tuple._2, tuple._2.getPrimaryKey());
+            setValueConverterAndQuery(tuple._1, tuple._2);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // This swaps the value converter/schema in place as soon as a Cassandra table alteration is
+    // observed (see onTableUpdated below). When schema.registry.url is configured (see
+    // schemaRegistrySerializer, built in start()), the new Avro schema is registered with the
+    // Confluent Schema Registry below, so an incompatible change is rejected by the registry's
+    // own compatibility mode (RestClientException) instead of being silently swapped in; without
+    // a registry configured, this remains the prior unchecked swap-in-place behavior.
+    public synchronized void setValueConverterAndQuery(KeyspaceMetadata ksm, TableMetadata tableMetadata) {
+        try {
+            this.valueConverterAndQuery = ConverterAndQuery.forTable(
+                    config, columnPattern, cassandraClient, ksm, tableMetadata, getValueConverterClass(), log);
+            if (config.isSchemaRegistryEnabled() && this.valueConverterAndQuery.getConverter() instanceof KafkaAvroConverter) {
+                ((KafkaAvroConverter) this.valueConverterAndQuery.getConverter())
+                        .enableSchemaRegistry(schemaRegistrySerializer, outputTopic);
+            }
+            this.emptyValue = config.isJsonOnlyOutputFormat() ? "{}".getBytes(StandardCharsets.UTF_8) : null;
+        } catch (Exception e) {
+            log.error("Unexpected error", e);
+            throw new RuntimeException(e);
+        }
+    }
+
+    synchronized PreparedStatement getSelectStatement(ConverterAndQuery<Converter<byte[], ?>> valueConverterAndQuery, int whereClauseLength) {
+        return valueConverterAndQuery.prepareSelectStatement(cassandraClient, whereClauseLength);
+    }
+
+    Class<?> getKeyConverterClass() {
+        return ConverterFactory.resolveConverterClass(
+                config.getKeyConverterClass(), config.isJsonOutputFormat(), KafkaJsonConverter.class, KafkaAvroConverter.class);
+    }
+
+    Class<?> getValueConverterClass() {
+        return ConverterFactory.resolveConverterClass(
+                config.getValueConverterClass(), config.isJsonOutputFormat(), KafkaJsonConverter.class, KafkaAvroConverter.class);
+    }
+
+    Converter<byte[], ?> createConverter(Class<?> converterClass, KeyspaceMetadata ksm, TableMetadata tableMetadata, List<ColumnMetadata> columns)
+            throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
+        return ConverterFactory.create(converterClass, ksm, tableMetadata, columns);
+    }
+
+    @Override
+    public void stop() {
+        close();
+    }
+
+    @Override
+    public void close() {
+        log.info("Stopping Kafka source task");
+        if (queryExecutor != null) {
+            queryExecutor.shutdown();
+            queryExecutor.forceShutdown(30, TimeUnit.SECONDS);
+        }
+        if (this.cassandraClient != null) {
+            this.cassandraClient.close();
+            this.cassandraClient = null;
+        }
+        if (this.consumer != null) {
+            this.consumer.close();
+        }
+        if (this.schemaRegistrySerializer != null) {
+            this.schemaRegistrySerializer.close();
+            this.schemaRegistrySerializer = null;
+        }
+        if (this.keySchemaRegistrySerializer != null) {
+            this.keySchemaRegistrySerializer.close();
+            this.keySchemaRegistrySerializer = null;
+        }
+    }
+
+    private GenericRecord decodeAvroRecord(byte[] bytes, org.apache.avro.Schema schema) throws IOException {
+        BinaryDecoder decoder = DecoderFactory.get().binaryDecoder(bytes, null);
+        org.apache.avro.generic.GenericDatumReader<GenericRecord> reader = new org.apache.avro.generic.GenericDatumReader<>(schema);
+        return reader.read(null, decoder);
+    }
+
+    private MutationValue decodeMutationValue(byte[] bytes) throws IOException {
+        GenericRecord valueRecord = decodeAvroRecord(bytes, MUTATION_VALUE_SCHEMA);
+        Object md5 = valueRecord.get("md5Digest");
+        Object nodeId = valueRecord.get("nodeId");
+        Object columnsValue = valueRecord.get("columns");
+        String[] columns = null;
+        if (columnsValue instanceof List) {
+            columns = ((List<?>) columnsValue).stream().map(Object::toString).toArray(String[]::new);
+        }
+        return new MutationValue(
+                md5 != null ? md5.toString() : null,
+                nodeId != null ? UUID.fromString(nodeId.toString()) : null,
+                columns);
+    }
+
+    // Key and value are published under Schema.BYTES_SCHEMA, bypassing Kafka Connect's converter
+    // framework entirely (see AbstractRowConverter) - downstream consumers read the raw bytes
+    // directly rather than through a registered Connect converter. When schema.registry.url is
+    // configured, both the Avro value bytes (see KafkaAvroConverter#enableSchemaRegistry) and the
+    // key bytes (see keySchemaRegistrySerializer) are in Confluent wire format, so a standard
+    // KafkaAvroDeserializer/AvroConverter can decode either one -- the key registers under
+    // "<topic>-key" rather than "<topic>-value", since the PK's schema is fixed by the table's
+    // primary key definition and doesn't evolve, but still needs its own wire-format wrapping for
+    // downstream sinks (e.g. an OpenSearch sink) to use it as a stable per-row document id.
+    // Without schema.registry.url configured, the key remains the PK's raw Avro bytes with no
+    // wrapping, same as before.
+    private SourceRecord buildSourceRecord(ConsumerRecord<byte[], byte[]> rec, Object key, Object value) {
+        TopicPartition tp = new TopicPartition(rec.topic(), rec.partition());
+        return new SourceRecord(
+                sourcePartition(tp),
+                sourceOffset(rec.offset() + 1),
+                outputTopic,
+                null,
+                org.apache.kafka.connect.data.Schema.BYTES_SCHEMA,
+                key,
+                org.apache.kafka.connect.data.Schema.BYTES_SCHEMA,
+                value);
+    }
+
+    private SourceRecord buildHeartbeatRecord(ConsumerRecord<byte[], byte[]> rec) {
+        TopicPartition tp = new TopicPartition(rec.topic(), rec.partition());
+        return new SourceRecord(
+                sourcePartition(tp),
+                sourceOffset(rec.offset() + 1),
+                heartbeatTopic,
+                null,
+                org.apache.kafka.connect.data.Schema.BYTES_SCHEMA,
+                rec.key(),
+                null,
+                null);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<SourceRecord> poll() throws InterruptedException {
+        // Phase 1 – consume from the events topic.
+        // Retry consumer.poll() forever on transient errors; nothing is consumed yet so
+        // re-polling is safe. WakeupException signals a deliberate shutdown and must not
+        // be swallowed.
+        ConsumerRecords<byte[], byte[]> records;
+        while (true) {
+            try {
+                records = consumer.poll(Duration.ofSeconds(1));
+                break;
+            } catch (WakeupException e) {
+                throw e;
+            } catch (Exception e) {
+                log.warn("consumer.poll() failed, retrying:", e);
+                consecutiveUnavailableExceptionCount =
+                        SourceUtil.backoffRetry(e, consecutiveUnavailableExceptionCount, config);
+            }
+        }
+        if (records.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // Decode all consumed records and submit CQL queries up-front.
+        List<DecodedRecord> decodedRecs = new ArrayList<>();
+        for (ConsumerRecord<byte[], byte[]> rec : records) {
+            GenericRecord mutationKeyRecord;
+            List<Object> pk;
+            MutationValue mutationValue;
+            try {
+                mutationKeyRecord = decodeAvroRecord(rec.key(), mutationKeyConverter.nativeSchema);
+                pk = mutationKeyConverter.fromConnectData(mutationKeyRecord);
+                mutationValue = decodeMutationValue(rec.value());
+            } catch (IOException e) {
+                throw new RuntimeException("Cannot decode message at offset " + rec.offset(), e);
+            }
+            String cacheKey = Base64.getEncoder().encodeToString(rec.key());
+            DecodedRecord decoded = new DecodedRecord(rec, mutationKeyRecord, mutationValue, pk, cacheKey);
+            decoded.queryResult = submitCqlQuery(decoded, this.valueConverterAndQuery);
+            decodedRecs.add(decoded);
+        }
+
+        // Phase 2 – wait for CQL queries, retrying per-record on failure.
+        // Records are already consumed; we must not re-poll on CQL failure.
+        List<SourceRecord> sourceRecords = new ArrayList<>(decodedRecs.size());
+        for (DecodedRecord decoded : decodedRecs) {
+            SourceRecord sourceRecord = waitForCqlWithRetry(decoded);
+            if (sourceRecord != null) {
+                sourceRecords.add(sourceRecord);
+            }
+        }
+        consecutiveUnavailableExceptionCount = 0;
+        return sourceRecords;
+    }
+
+    /**
+     * Submits the CQL selectRow for one already-consumed Kafka record to the ordered executor
+     * and returns the future tracking its result.
+     */
+    @SuppressWarnings("unchecked")
+    private CompletableFuture<SourceRecord> submitCqlQuery(
+            DecodedRecord decoded,
+            ConverterAndQuery<Converter<byte[], ?>> converterAndQueryFinal) {
+        CompletableFuture<SourceRecord> future = new CompletableFuture<>();
+        // we have to process sequentially the records from the same key
+        // otherwise our mutation cache will not be enough efficient
+        // in deduplicating mutations coming from different nodes
+        try {
+            queryExecutor.executeOrdered(decoded.cacheKey, () -> {
+                try {
+                    if (queryRateLimiter != null) {
+                        queryRateLimiter.acquire();
+                    }
+                    if (mutationCache.isMutationProcessed(decoded.cacheKey, decoded.mutationValue.getMd5Digest())) {
+                        future.complete(buildHeartbeatRecord(decoded.rec));
+                        return;
+                    }
+                    List<Object> nonNullPkValues = decoded.pk.stream().filter(Objects::nonNull).collect(Collectors.toList());
+                    Tuple2<Row, UUID> tuple = cassandraClient.selectRow(
+                            nonNullPkValues,
+                            decoded.mutationValue.getNodeId(),
+                            ConsistencyLevel.LOCAL_QUORUM,
+                            getSelectStatement(converterAndQueryFinal, nonNullPkValues.size()),
+                            decoded.mutationValue.getMd5Digest());
+                    Object value = tuple._1 == null ? this.emptyValue : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
+                    if (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._2 != null && tuple._2.equals(decoded.mutationValue.getNodeId()))) {
+                        mutationCache.addMutationMd5(decoded.cacheKey, decoded.mutationValue.getMd5Digest());
+                    }
+                    Object key;
+                    if (!config.isAvroOutputFormat()) {
+                        key = keyConverter.fromConnectData(decoded.mutationKeyRecord);
+                    } else if (keySchemaRegistrySerializer != null) {
+                        key = keySchemaRegistrySerializer.serialize(outputTopic, decoded.mutationKeyRecord);
+                    } else {
+                        key = decoded.rec.key();
+                    }
+                    future.complete(buildSourceRecord(decoded.rec, key, value));
+                } catch (Throwable err) {
+                    future.completeExceptionally(err);
+                }
+            });
+        } catch (Throwable err) {
+            future.completeExceptionally(err);
+        }
+        return future;
+    }
+
+    /**
+     * Waits for one record's CQL query future forever, retrying on failure with jittered
+     * back-off.  The Kafka record was already consumed; re-submits only the CQL query on
+     * failure — never re-polls the events topic.
+     * <p>
+     * {@code decoded} is passed in from the caller so the immutable key/value bytes are decoded
+     * only once.  Only {@code this.valueConverterAndQuery} is re-read on each retry so that a
+     * schema change that arrived while the query was failing is picked up automatically.
+     */
+    @SuppressWarnings("unchecked")
+    private SourceRecord waitForCqlWithRetry(DecodedRecord decoded) throws InterruptedException {
+        while (true) {
+            try {
+                SourceRecord result = decoded.queryResult.join();
+                // Reset backoff counter on each per-record success so that a high counter
+                // accumulated during a chaos/outage window does not carry over to subsequent
+                // records in the same batch, compounding the recovery delay.
+                consecutiveUnavailableExceptionCount = 0;
+                return result;
+            } catch (CompletionException e) {
+                Throwable cause = e.getCause() != null ? e.getCause() : e;
+                if (cause instanceof ExecutionException && cause.getCause() != null) cause = cause.getCause();
+                log.warn("CQL query failed for offset={}, retrying without re-consuming event topic:",
+                        decoded.rec.offset(), cause);
+                consecutiveUnavailableExceptionCount =
+                        SourceUtil.backoffRetry(cause, consecutiveUnavailableExceptionCount, config);
+
+                // Re-submit only the CQL query; the Kafka record is already consumed.
+                // Re-read valueConverterAndQuery so a schema change that arrived during the
+                // failure window is picked up for the retry.
+                decoded.queryResult = submitCqlQuery(decoded, this.valueConverterAndQuery);
+            }
+        }
+    }
+
+    @Override
+    public String getKeyspaceName() { return config.getKeyspaceName(); }
+
+    @Override
+    public String getTableName() { return config.getTableName(); }
+
+    @Override
+    public CassandraClient getCassandraClient() { return cassandraClient; }
+}

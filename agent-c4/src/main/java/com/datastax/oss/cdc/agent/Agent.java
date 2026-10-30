@@ -17,6 +17,7 @@ package com.datastax.oss.cdc.agent;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.cassandra.config.DatabaseDescriptor;
+import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.service.StorageService;
 
 import java.lang.instrument.Instrumentation;
@@ -58,14 +59,20 @@ public class Agent {
 
     static void startCdcAgent(String agentArgs) throws Exception {
         log.info("Starting CDC agent, cdc_raw_directory={}", DatabaseDescriptor.getCDCLogLocation());
-        AgentConfig config = AgentConfig.create(AgentConfig.Platform.PULSAR, agentArgs);
+
+        AgentConfig.Platform platform = AgentConfig.extractPlatform(agentArgs);
+        String strippedArgs = AgentConfig.stripParam(agentArgs, "platform");
+        AgentConfig config = AgentConfig.create(platform, strippedArgs);
 
         SegmentOffsetFileWriter segmentOffsetFileWriter = new SegmentOffsetFileWriter(config.cdcWorkingDir);
         segmentOffsetFileWriter.loadOffsets();
 
-        PulsarMutationSender pulsarMutationSender = new PulsarMutationSender(config);
+        @SuppressWarnings("unchecked")
+        MutationSender<TableMetadata> mutationSender = platform == AgentConfig.Platform.KAFKA
+                ? (MutationSender<TableMetadata>) new KafkaMutationSender(config)
+                : new PulsarMutationSender(config);
         CommitLogTransfer commitLogTransfer = new BlackHoleCommitLogTransfer(config);
-        CommitLogReaderServiceImpl commitLogReaderService = new CommitLogReaderServiceImpl(config, pulsarMutationSender, segmentOffsetFileWriter, commitLogTransfer);
+        CommitLogReaderServiceImpl commitLogReaderService = new CommitLogReaderServiceImpl(config, mutationSender, segmentOffsetFileWriter, commitLogTransfer);
         CommitLogProcessor commitLogProcessor = new CommitLogProcessor(DatabaseDescriptor.getCDCLogLocation(), config, commitLogTransfer, segmentOffsetFileWriter, commitLogReaderService, true);
 
         commitLogReaderService.initialize();

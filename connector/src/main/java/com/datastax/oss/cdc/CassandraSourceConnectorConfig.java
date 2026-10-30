@@ -29,10 +29,12 @@ import edu.umd.cs.findbugs.annotations.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
+import org.apache.kafka.common.security.auth.SecurityProtocol;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.*;
 import java.util.function.Function;
@@ -47,6 +49,81 @@ import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.*;
 @Slf4j
 public class CassandraSourceConnectorConfig {
 
+    /**
+     * Returns the number of CPUs available to this JVM process, honouring the Linux cgroup CPU
+     * quota when present.
+     *
+     * <p><b>Kubernetes CPU limit vs. request:</b> this method reflects the pod's
+     * {@code resources.limits.cpu} value, <em>not</em> {@code resources.requests.cpu}.
+     * Only the CPU <em>limit</em> is enforced by the kernel via the CFS bandwidth controller
+     * ({@code cpu.cfs_quota_us} / {@code cpu.max}); the CPU <em>request</em> is used solely by
+     * the Kubernetes scheduler for bin-packing decisions and does not translate into any cgroup
+     * quota.
+     *
+     * <p><b>When no CPU limit is set on the pod</b> ({@code resources.limits.cpu} is absent),
+     * the kernel writes the "unlimited" sentinel into the cgroup — {@code "max <period>"} on
+     * cgroup v2, or {@code -1} for the quota on cgroup v1. Both cases are detected and skipped
+     * by this method, which then falls back to {@link Runtime#availableProcessors()}. On a
+     * bare-metal host or VM that value equals the total number of logical CPUs. Inside a
+     * container without a limit it still equals the host's CPU count, which may be much larger
+     * than what the pod actually gets scheduled on. Setting an explicit CPU limit in the pod spec
+     * is therefore recommended so that the default is well-bounded.
+     *
+     * <p><b>Why not just use {@link Runtime#availableProcessors()}?</b> This project targets
+     * <b>Java 8</b>. Container-awareness ({@code -XX:+UseContainerSupport}), which makes
+     * {@code availableProcessors()} respect the cgroup quota, was introduced in JDK 10 and
+     * back-ported only to JDK 8u191+, but is <em>not</em> enabled by default on JDK 8. Without
+     * this helper the default thread count would be derived from the host's total CPU count rather
+     * than the limit assigned to the pod.
+     *
+     * <p>Resolution order:
+     * <ol>
+     *   <li>cgroup v2 — {@code /sys/fs/cgroup/cpu.max} ({@code "<quota> <period>"} or
+     *       {@code "max <period>"} when unlimited)</li>
+     *   <li>cgroup v1 — {@code /sys/fs/cgroup/cpu/cpu.cfs_quota_us} +
+     *       {@code cpu.cfs_period_us} ({@code -1} when unlimited)</li>
+     *   <li>Fallback — {@link Runtime#availableProcessors()}</li>
+     * </ol>
+     */
+    static int availableCpus() {
+        // cgroup v2: /sys/fs/cgroup/cpu.max  →  "<quota> <period>"  or  "max <period>"
+        // When no CPU limit is set on the pod, the kernel writes "max <period>" (the literal
+        // string "max" as the quota). We skip that case and fall through to the next check.
+        try {
+            Path cgroupV2 = Paths.get("/sys/fs/cgroup/cpu.max");
+            if (Files.exists(cgroupV2)) {
+                String[] parts = new String(Files.readAllBytes(cgroupV2)).trim().split("\\s+");
+                if (parts.length == 2 && !parts[0].equalsIgnoreCase("max")) {
+                    long quota  = Long.parseLong(parts[0]);
+                    long period = Long.parseLong(parts[1]);
+                    if (quota > 0 && period > 0) {
+                        return Math.max(1, (int) Math.ceil((double) quota / period));
+                    }
+                }
+            }
+        } catch (Exception ignored) { /* fall through */ }
+
+        // cgroup v1: /sys/fs/cgroup/cpu/cpu.cfs_quota_us + cpu.cfs_period_us
+        // When no CPU limit is set on the pod, the kernel writes -1 as the quota (meaning
+        // "no throttling"). We skip that case and fall through to the JVM fallback.
+        try {
+            Path quotaPath  = Paths.get("/sys/fs/cgroup/cpu/cpu.cfs_quota_us");
+            Path periodPath = Paths.get("/sys/fs/cgroup/cpu/cpu.cfs_period_us");
+            if (Files.exists(quotaPath) && Files.exists(periodPath)) {
+                long quota  = Long.parseLong(new String(Files.readAllBytes(quotaPath)).trim());
+                long period = Long.parseLong(new String(Files.readAllBytes(periodPath)).trim());
+                if (quota > 0 && period > 0) {  // quota == -1 means no limit; skip
+                    return Math.max(1, (int) Math.ceil((double) quota / period));
+                }
+            }
+        } catch (Exception ignored) { /* fall through */ }
+
+        // No cgroup quota found (no CPU limit set, not running in a container, or unsupported
+        // cgroup layout). Fall back to the JVM's view of available processors. Note that inside
+        // a container without a CPU limit this will return the host's total CPU count.
+        return Runtime.getRuntime().availableProcessors();
+    }
+
     public static final String KEYSPACE_NAME_CONFIG = "keyspace";
     public static final String TABLE_NAME_CONFIG = "table";
     public static final String COLUMNS_REGEXP_CONFIG = "columns";
@@ -55,12 +132,36 @@ public class CassandraSourceConnectorConfig {
     public static final String EVENTS_SUBSCRIPTION_NAME_CONFIG = "events.subscription.name";
     public static final String EVENTS_SUBSCRIPTION_TYPE_CONFIG = "events.subscription.type";
 
+    public static final String OUTPUT_TOPIC_CONFIG = "output.topic";
+    public static final String HEARTBEAT_TOPIC_CONFIG = "heartbeat.topic";
+
+    public static final String INTERNAL_CONSUMER_BOOTSTRAP_SERVERS_CONFIG = "internal.consumer.bootstrapServers";
+    public static final String INTERNAL_CONSUMER_GROUP_ID_CONFIG = "internal.consumer.groupId";
+    public static final String INTERNAL_CONSUMER_SECURITY_PROTOCOL_CONFIG = "internal.consumer.securityProtocol";
+    public static final String INTERNAL_CONSUMER_SSL_KEYSTORE_LOCATION_CONFIG = "internal.consumer.sslKeystoreLocation";
+    public static final String INTERNAL_CONSUMER_SSL_KEYSTORE_PASSWORD_CONFIG = "internal.consumer.sslKeystorePassword";
+    public static final String INTERNAL_CONSUMER_SSL_TRUSTSTORE_LOCATION_CONFIG = "internal.consumer.sslTruststoreLocation";
+    public static final String INTERNAL_CONSUMER_SSL_TRUSTSTORE_PASSWORD_CONFIG = "internal.consumer.sslTruststorePassword";
+    public static final String INTERNAL_CONSUMER_SASL_MECHANISM_CONFIG = "internal.consumer.saslMechanism";
+    public static final String INTERNAL_CONSUMER_SASL_JAAS_CONFIG_CONFIG = "internal.consumer.saslJaasConfig";
+
+    // Confluent Schema Registry, used to version the data topic's Avro value schema across
+    // Cassandra table alterations (see design doc "Schema Registry Dependency"). Optional: an
+    // empty url leaves the connector's prior behavior unchanged (raw Avro bytes, no registry).
+    public static final String SCHEMA_REGISTRY_URL_CONFIG = "schema.registry.url";
+    public static final String SCHEMA_REGISTRY_AUTO_REGISTER_SCHEMAS_CONFIG = "schema.registry.autoRegisterSchemas";
+    public static final String SCHEMA_REGISTRY_BASIC_AUTH_CREDENTIALS_SOURCE_CONFIG = "schema.registry.basicAuth.credentialsSource";
+    public static final String SCHEMA_REGISTRY_BASIC_AUTH_USER_INFO_CONFIG = "schema.registry.basicAuth.userInfo";
+
     public static final String BATCH_SIZE_CONFIG = "batch.size";
+    public static final String BATCH_MAX_WAIT_MS_CONFIG = "batch.maxWaitMs";
     public static final String QUERY_EXECUTORS_CONFIG = "query.executors";
+    public static final String QUERY_MAX_TASKS_IN_QUEUE_CONFIG = "query.maxTasksInQueue";
     public static final String QUERY_MAX_MOBILE_AVG_LATENCY_CONFIG = "query.maxMobileAvgLatency";
     public static final String QUERY_MIN_MOBILE_AVG_LATENCY_CONFIG = "query.minMobileAvgLatency";
     public static final String QUERY_BACKOFF_IN_MS_CONFIG = "query.backoffInMs";
     public static final String QUERY_MAX_BACKOFF_IN_SEC_CONFIG = "query.maxBackoffInSec";
+    public static final String QUERY_RATE_LIMIT_CONFIG = "query.rateLimit";
 
     public static final String CACHE_ONLY_IF_COORDINATOR_MATCH = "cache.only_if_coordinator_match";
     public static final String CACHE_MAX_DIGESTS_CONFIG = "cache.max.digest";
@@ -74,6 +175,8 @@ public class CassandraSourceConnectorConfig {
 
     static final String SSL_OPT_PREFIX = "ssl.";
     private static final String AUTH_OPT_PREFIX = "auth.";
+    private static final String KAFKA_ONLY_GROUP = "Kafka only";
+    private static final String SCHEMA_REGISTRY_GROUP = "Schema Registry";
 
     public static final String CONTACT_POINTS_OPT = "contactPoints";
 
@@ -124,6 +227,15 @@ public class CassandraSourceConnectorConfig {
                     withDriverPrefix(METRICS_NODE_ENABLED),
                     withDriverPrefix(SSL_CIPHER_SUITES));
 
+    private static String[] validInternalConsumerSecurityProtocolValues() {
+        // "" (unset) is a valid value here: the internal consumer then falls back to the Kafka
+        // client's own default (PLAINTEXT).
+        List<String> values = new ArrayList<>();
+        values.add("");
+        values.addAll(SecurityProtocol.names());
+        return values.toArray(new String[0]);
+    }
+
     public static final ConfigDef GLOBAL_CONFIG_DEF =
             new ConfigDef()
                     .define(KEYSPACE_NAME_CONFIG,
@@ -157,16 +269,141 @@ public class CassandraSourceConnectorConfig {
                             "The pulsar events topic subscription type, with a default set to Key_Shared (case sensitive) for a non-partitioned events topic." +
                             " If your events topic is partitioned, you should set subscription type to Failover",
                             "Pulsar only", 2, ConfigDef.Width.NONE, "SubscriptionType")
+                    .define(OUTPUT_TOPIC_CONFIG,
+                            ConfigDef.Type.STRING,
+                            "",
+                            ConfigDef.Importance.HIGH,
+                            "The Kafka topic to publish full rows to. Required for the Kafka Connect source connector; " +
+                            "Pulsar IO has no equivalent since its output topic is set at the Pulsar Function level.",
+                            KAFKA_ONLY_GROUP, 1, ConfigDef.Width.NONE, "OutputTopic")
+                    .define(INTERNAL_CONSUMER_BOOTSTRAP_SERVERS_CONFIG,
+                            ConfigDef.Type.STRING,
+                            "localhost:9092",
+                            ConfigDef.Importance.HIGH,
+                            "Bootstrap servers for the internal Kafka consumer the source task uses to read the events topic.",
+                            KAFKA_ONLY_GROUP, 2, ConfigDef.Width.NONE, "InternalConsumerBootstrapServers")
+                    .define(INTERNAL_CONSUMER_GROUP_ID_CONFIG,
+                            ConfigDef.Type.STRING,
+                            "cassandra-source",
+                            ConfigDef.Importance.LOW,
+                            "Client id prefix for the internal Kafka consumer. Not a consumer group in the coordinated sense: " +
+                            "each task manually assigns and seeks its own partitions, since Kafka Connect already owns offset " +
+                            "tracking for source tasks.",
+                            KAFKA_ONLY_GROUP, 3, ConfigDef.Width.NONE, "InternalConsumerGroupId")
+                    .define(INTERNAL_CONSUMER_SECURITY_PROTOCOL_CONFIG,
+                            ConfigDef.Type.STRING,
+                            "",
+                            ConfigDef.ValidString.in(validInternalConsumerSecurityProtocolValues()),
+                            ConfigDef.Importance.LOW,
+                            "Security protocol for the internal Kafka consumer, e.g. SSL or SASL_SSL.",
+                            KAFKA_ONLY_GROUP, 4, ConfigDef.Width.NONE, "InternalConsumerSecurityProtocol")
+                    .define(INTERNAL_CONSUMER_SSL_KEYSTORE_LOCATION_CONFIG,
+                            ConfigDef.Type.STRING,
+                            "",
+                            ConfigDef.Importance.LOW,
+                            "SSL keystore location for the internal Kafka consumer.",
+                            KAFKA_ONLY_GROUP, 5, ConfigDef.Width.NONE, "InternalConsumerSslKeystoreLocation")
+                    .define(INTERNAL_CONSUMER_SSL_KEYSTORE_PASSWORD_CONFIG,
+                            ConfigDef.Type.PASSWORD,
+                            "",
+                            ConfigDef.Importance.LOW,
+                            "SSL keystore password for the internal Kafka consumer.",
+                            KAFKA_ONLY_GROUP, 6, ConfigDef.Width.NONE, "InternalConsumerSslKeystorePassword")
+                    .define(INTERNAL_CONSUMER_SSL_TRUSTSTORE_LOCATION_CONFIG,
+                            ConfigDef.Type.STRING,
+                            "",
+                            ConfigDef.Importance.LOW,
+                            "SSL truststore location for the internal Kafka consumer.",
+                            KAFKA_ONLY_GROUP, 7, ConfigDef.Width.NONE, "InternalConsumerSslTruststoreLocation")
+                    .define(INTERNAL_CONSUMER_SSL_TRUSTSTORE_PASSWORD_CONFIG,
+                            ConfigDef.Type.PASSWORD,
+                            "",
+                            ConfigDef.Importance.LOW,
+                            "SSL truststore password for the internal Kafka consumer.",
+                            KAFKA_ONLY_GROUP, 8, ConfigDef.Width.NONE, "InternalConsumerSslTruststorePassword")
+                    .define(INTERNAL_CONSUMER_SASL_MECHANISM_CONFIG,
+                            ConfigDef.Type.STRING,
+                            "",
+                            ConfigDef.Importance.LOW,
+                            "SASL mechanism for the internal Kafka consumer, e.g. PLAIN or SCRAM-SHA-512.",
+                            KAFKA_ONLY_GROUP, 9, ConfigDef.Width.NONE, "InternalConsumerSaslMechanism")
+                    .define(INTERNAL_CONSUMER_SASL_JAAS_CONFIG_CONFIG,
+                            ConfigDef.Type.PASSWORD,
+                            "",
+                            ConfigDef.Importance.LOW,
+                            "SASL JAAS config for the internal Kafka consumer.",
+                            KAFKA_ONLY_GROUP, 10, ConfigDef.Width.NONE, "InternalConsumerSaslJaasConfig")
+                    .define(HEARTBEAT_TOPIC_CONFIG,
+                            ConfigDef.Type.STRING,
+                            "",
+                            ConfigDef.Importance.LOW,
+                            "Topic used to checkpoint the offset of a mutation the dedup cache already skipped, so " +
+                            "Kafka Connect's offset commit keeps advancing even when a poll batch is all duplicates. " +
+                            "Never carries row data, safe to leave unconsumed. Defaults to '<output.topic>-heartbeat'.",
+                            KAFKA_ONLY_GROUP, 11, ConfigDef.Width.NONE, "HeartbeatTopic")
+                    .define(SCHEMA_REGISTRY_URL_CONFIG,
+                            ConfigDef.Type.STRING,
+                            "",
+                            ConfigDef.Importance.MEDIUM,
+                            "Confluent Schema Registry URL (e.g. http://localhost:8081), comma-separated for multiple " +
+                            "instances. Only used for the Avro output formats (key-value-avro, the default). When set, " +
+                            "the data topic's value is published in Confluent wire format (magic byte + schema id) and " +
+                            "each Cassandra table alteration registers a new schema version, so a registry-configured " +
+                            "compatibility mode rejects breaking changes instead of silently swapping the schema. When " +
+                            "unset, the value is published as raw Avro bytes with no registry involved (prior behavior).",
+                            SCHEMA_REGISTRY_GROUP, 1, ConfigDef.Width.NONE, "SchemaRegistryUrl")
+                    .define(SCHEMA_REGISTRY_AUTO_REGISTER_SCHEMAS_CONFIG,
+                            ConfigDef.Type.BOOLEAN,
+                            true,
+                            ConfigDef.Importance.LOW,
+                            "Whether the connector registers a new schema version with the registry automatically. " +
+                            "Set to false if schema publication is managed out of band and the registry should instead " +
+                            "reject any table alteration whose schema wasn't pre-registered.",
+                            SCHEMA_REGISTRY_GROUP, 2, ConfigDef.Width.NONE, "SchemaRegistryAutoRegisterSchemas")
+                    .define(SCHEMA_REGISTRY_BASIC_AUTH_CREDENTIALS_SOURCE_CONFIG,
+                            ConfigDef.Type.STRING,
+                            "",
+                            ConfigDef.Importance.LOW,
+                            "Confluent Schema Registry basic auth credentials source, e.g. USER_INFO or SASL_INHERIT. " +
+                            "Left empty, no basic auth is configured.",
+                            SCHEMA_REGISTRY_GROUP, 3, ConfigDef.Width.NONE, "SchemaRegistryBasicAuthCredentialsSource")
+                    .define(SCHEMA_REGISTRY_BASIC_AUTH_USER_INFO_CONFIG,
+                            ConfigDef.Type.PASSWORD,
+                            "",
+                            ConfigDef.Importance.LOW,
+                            "Confluent Schema Registry basic auth credentials, as '<username>:<password>'. Only used " +
+                            "when " + SCHEMA_REGISTRY_BASIC_AUTH_CREDENTIALS_SOURCE_CONFIG + " is set to USER_INFO.",
+                            SCHEMA_REGISTRY_GROUP, 4, ConfigDef.Width.NONE, "SchemaRegistryBasicAuthUserInfo")
                     .define(BATCH_SIZE_CONFIG,
                             ConfigDef.Type.INT,
                             200,
                             ConfigDef.Importance.MEDIUM,
                             "The batch size for grouping mutations before sending them to the data topic")
+                    .define(BATCH_MAX_WAIT_MS_CONFIG,
+                            ConfigDef.Type.LONG,
+                            1000L,
+                            ConfigDef.Range.atLeast(1),
+                            ConfigDef.Importance.MEDIUM,
+                            "Maximum time in milliseconds to wait for a full batch before flushing a partial one. "
+                            + "Prevents indefinite blocking when the events topic is very low-throughput "
+                            + "(e.g. only a few messages per day). Once this deadline is exceeded the loop "
+                            + "breaks and whatever records have been collected so far are returned, "
+                            + "even if fewer than batch.size.")
                     .define(QUERY_EXECUTORS_CONFIG,
                             ConfigDef.Type.INT,
-                            10,
+                            availableCpus() * 2,
                             ConfigDef.Importance.MEDIUM,
-                            "The initial and maximum number of threads to execute concurrent Cassandra queries")
+                            "The number of threads to execute concurrent Cassandra queries (fixed pool size). "
+                            + "Defaults to 2x the CPUs assigned to this pod/process (see availableCpus()).")
+                    .define(QUERY_MAX_TASKS_IN_QUEUE_CONFIG,
+                            ConfigDef.Type.INT,
+                            availableCpus() * 20,
+                            ConfigDef.Range.atLeast(1),
+                            ConfigDef.Importance.MEDIUM,
+                            "Maximum number of pending CQL query tasks per executor thread. When this limit is reached " +
+                            "new submissions are rejected with a RejectedExecutionException, which the connector handles " +
+                            "as backpressure by pausing and retrying after a short delay. " +
+                            "Defaults to 20x the CPUs assigned to this pod/process (see availableCpus()).")
                     .define(QUERY_MAX_MOBILE_AVG_LATENCY_CONFIG,
                             ConfigDef.Type.LONG,
                             100L,
@@ -188,6 +425,14 @@ public class CassandraSourceConnectorConfig {
                             3600L,
                             ConfigDef.Importance.MEDIUM,
                             "Maximum backoff delay in seconds when there is not enough Cassandra replicas to perform the query")
+                    .define(QUERY_RATE_LIMIT_CONFIG,
+                            ConfigDef.Type.DOUBLE,
+                            0.0,
+                            ConfigDef.Range.atLeast(0),
+                            ConfigDef.Importance.MEDIUM,
+                            "Maximum rate of Cassandra CQL queries per second across all executor threads. "
+                            + "Set to a positive value to cap the query throughput and protect the Cassandra cluster "
+                            + "from overload. A value of 0 (the default) disables the rate limiter.")
                     .define(CACHE_MAX_DIGESTS_CONFIG,
                             ConfigDef.Type.LONG,
                             "3",
@@ -609,6 +854,70 @@ public class CassandraSourceConnectorConfig {
         return globalConfig.getString(EVENTS_TOPIC_NAME_CONFIG);
     }
 
+    public String getOutputTopic() {
+        return globalConfig.getString(OUTPUT_TOPIC_CONFIG);
+    }
+
+    public String getHeartbeatTopic() {
+        return globalConfig.getString(HEARTBEAT_TOPIC_CONFIG);
+    }
+
+    public String getInternalConsumerBootstrapServers() {
+        return globalConfig.getString(INTERNAL_CONSUMER_BOOTSTRAP_SERVERS_CONFIG);
+    }
+
+    public String getInternalConsumerGroupId() {
+        return globalConfig.getString(INTERNAL_CONSUMER_GROUP_ID_CONFIG);
+    }
+
+    public String getInternalConsumerSecurityProtocol() {
+        return globalConfig.getString(INTERNAL_CONSUMER_SECURITY_PROTOCOL_CONFIG);
+    }
+
+    public String getInternalConsumerSslKeystoreLocation() {
+        return globalConfig.getString(INTERNAL_CONSUMER_SSL_KEYSTORE_LOCATION_CONFIG);
+    }
+
+    public String getInternalConsumerSslKeystorePassword() {
+        return globalConfig.getPassword(INTERNAL_CONSUMER_SSL_KEYSTORE_PASSWORD_CONFIG).value();
+    }
+
+    public String getInternalConsumerSslTruststoreLocation() {
+        return globalConfig.getString(INTERNAL_CONSUMER_SSL_TRUSTSTORE_LOCATION_CONFIG);
+    }
+
+    public String getInternalConsumerSslTruststorePassword() {
+        return globalConfig.getPassword(INTERNAL_CONSUMER_SSL_TRUSTSTORE_PASSWORD_CONFIG).value();
+    }
+
+    public String getInternalConsumerSaslMechanism() {
+        return globalConfig.getString(INTERNAL_CONSUMER_SASL_MECHANISM_CONFIG);
+    }
+
+    public String getInternalConsumerSaslJaasConfig() {
+        return globalConfig.getPassword(INTERNAL_CONSUMER_SASL_JAAS_CONFIG_CONFIG).value();
+    }
+
+    public String getSchemaRegistryUrl() {
+        return globalConfig.getString(SCHEMA_REGISTRY_URL_CONFIG);
+    }
+
+    public boolean isSchemaRegistryEnabled() {
+        return !StringUtil.isEmpty(getSchemaRegistryUrl());
+    }
+
+    public boolean getSchemaRegistryAutoRegisterSchemas() {
+        return globalConfig.getBoolean(SCHEMA_REGISTRY_AUTO_REGISTER_SCHEMAS_CONFIG);
+    }
+
+    public String getSchemaRegistryBasicAuthCredentialsSource() {
+        return globalConfig.getString(SCHEMA_REGISTRY_BASIC_AUTH_CREDENTIALS_SOURCE_CONFIG);
+    }
+
+    public String getSchemaRegistryBasicAuthUserInfo() {
+        return globalConfig.getPassword(SCHEMA_REGISTRY_BASIC_AUTH_USER_INFO_CONFIG).value();
+    }
+
     public Class<?> getKeyConverterClass() {
         return globalConfig.getClass(KEY_CONVERTER_CLASS_CONFIG);
     }
@@ -621,12 +930,20 @@ public class CassandraSourceConnectorConfig {
         return globalConfig.getInt(BATCH_SIZE_CONFIG);
     }
 
+    public long getBatchMaxWaitMs() {
+        return globalConfig.getLong(BATCH_MAX_WAIT_MS_CONFIG);
+    }
+
     public String getEventsSubscriptionType() {
         return globalConfig.getString(EVENTS_SUBSCRIPTION_TYPE_CONFIG);
     }
 
     public int getQueryExecutors() {
         return globalConfig.getInt(QUERY_EXECUTORS_CONFIG);
+    }
+
+    public int getQueryMaxTasksInQueue() {
+        return globalConfig.getInt(QUERY_MAX_TASKS_IN_QUEUE_CONFIG);
     }
 
     public int getPort() {
@@ -651,6 +968,10 @@ public class CassandraSourceConnectorConfig {
 
     public long getQueryMaxBackoffInSec() {
         return globalConfig.getLong(QUERY_MAX_BACKOFF_IN_SEC_CONFIG);
+    }
+
+    public double getQueryRateLimit() {
+        return globalConfig.getDouble(QUERY_RATE_LIMIT_CONFIG);
     }
 
     public boolean getCacheOnlyIfCoordinatorMatch() {

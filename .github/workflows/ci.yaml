@@ -1,12 +1,15 @@
 name: CI
 
 on:
+  workflow_dispatch:
   pull_request:
     branches:
       - master
+      - feat/kafka-support*
   push:
     branches:
       - master
+      - feat/kafka-support*
     paths-ignore:
       - 'docs/**'
       - 'kubernetes/**'
@@ -34,17 +37,56 @@ jobs:
           ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
           build -x test -x backfill-cli:compileJava
 
+  # Full matrix — runs on master only (all modules, JDKs, broker images).
+  # brokerImage entries use the format "pulsar|image:tag" or "kafka|image:tag"
+  # so the run script knows which Gradle properties to set.
   test:
     needs: build
+    if: github.ref == 'refs/heads/master' || github.base_ref == 'master'
     name: Test
     runs-on: ubuntu-latest
     timeout-minutes: 360
     strategy:
       fail-fast: false
       matrix:
-        module: ['agent', 'agent-c3', 'agent-c4', 'agent-dse4', 'connector']
+        module: ['agent', 'agent-c3', 'agent-c4', 'agent-dse4']
         jdk: ['11', '17']
-        pulsarImage: ['datastax/lunastreaming:2.10_3.4', 'apachepulsar/pulsar:2.10.3', 'apachepulsar/pulsar:2.11.0']
+        brokerImage:
+          - 'pulsar|datastax/lunastreaming:2.10_3.4'
+          - 'pulsar|apachepulsar/pulsar:2.10.3'
+          - 'pulsar|apachepulsar/pulsar:2.11.0'
+          - 'kafka|confluentinc/cp-kafka:7.4.0'
+          - 'kafka-oss|apache/kafka:4.3.1'
+        #
+        include:
+          - { module: connector, jdk: '11', brokerImage: 'kafka|confluentinc/cp-kafka:7.4.0', runBackfillCli: true }
+          - { module: connector, jdk: '17', brokerImage: 'kafka|confluentinc/cp-kafka:7.4.0', runBackfillCli: true }
+          - { module: connector, jdk: '11', brokerImage: 'kafka-oss|apache/kafka:4.3.1' }
+          - { module: connector, jdk: '17', brokerImage: 'kafka-oss|apache/kafka:4.3.1' }
+          - { module: connector, jdk: '11', brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4', testFilter: '--tests com.datastax.oss.pulsar.source.PulsarCassandraSourceTests --tests com.datastax.oss.cdc.CassandraSourceConnectorConfigTest --tests com.datastax.oss.cdc.MutationCacheTests', runBackfillCli: true }
+          - { module: connector, jdk: '11', brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4', testFilter: '--tests com.datastax.oss.pulsar.source.JsonOnlyCassandraSourceTests' }
+          - { module: connector, jdk: '11', brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4', testFilter: '--tests com.datastax.oss.pulsar.source.JsonKeyValueCassandraSourceTests' }
+          - { module: connector, jdk: '11', brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4', testFilter: '--tests com.datastax.oss.pulsar.source.AvroKeyValueCassandraSourceTests' }
+          - { module: connector, jdk: '17', brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4', testFilter: '--tests com.datastax.oss.pulsar.source.PulsarCassandraSourceTests --tests com.datastax.oss.cdc.CassandraSourceConnectorConfigTest --tests com.datastax.oss.cdc.MutationCacheTests', runBackfillCli: true }
+          - { module: connector, jdk: '17', brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4', testFilter: '--tests com.datastax.oss.pulsar.source.JsonOnlyCassandraSourceTests' }
+          - { module: connector, jdk: '17', brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4', testFilter: '--tests com.datastax.oss.pulsar.source.JsonKeyValueCassandraSourceTests' }
+          - { module: connector, jdk: '17', brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4', testFilter: '--tests com.datastax.oss.pulsar.source.AvroKeyValueCassandraSourceTests' }
+          - { module: connector, jdk: '11', brokerImage: 'pulsar|apachepulsar/pulsar:2.10.3', testFilter: '--tests com.datastax.oss.pulsar.source.PulsarCassandraSourceTests --tests com.datastax.oss.cdc.CassandraSourceConnectorConfigTest --tests com.datastax.oss.cdc.MutationCacheTests', runBackfillCli: true }
+          - { module: connector, jdk: '11', brokerImage: 'pulsar|apachepulsar/pulsar:2.10.3', testFilter: '--tests com.datastax.oss.pulsar.source.JsonOnlyCassandraSourceTests' }
+          - { module: connector, jdk: '11', brokerImage: 'pulsar|apachepulsar/pulsar:2.10.3', testFilter: '--tests com.datastax.oss.pulsar.source.JsonKeyValueCassandraSourceTests' }
+          - { module: connector, jdk: '11', brokerImage: 'pulsar|apachepulsar/pulsar:2.10.3', testFilter: '--tests com.datastax.oss.pulsar.source.AvroKeyValueCassandraSourceTests' }
+          - { module: connector, jdk: '17', brokerImage: 'pulsar|apachepulsar/pulsar:2.10.3', testFilter: '--tests com.datastax.oss.pulsar.source.PulsarCassandraSourceTests --tests com.datastax.oss.cdc.CassandraSourceConnectorConfigTest --tests com.datastax.oss.cdc.MutationCacheTests', runBackfillCli: true }
+          - { module: connector, jdk: '17', brokerImage: 'pulsar|apachepulsar/pulsar:2.10.3', testFilter: '--tests com.datastax.oss.pulsar.source.JsonOnlyCassandraSourceTests' }
+          - { module: connector, jdk: '17', brokerImage: 'pulsar|apachepulsar/pulsar:2.10.3', testFilter: '--tests com.datastax.oss.pulsar.source.JsonKeyValueCassandraSourceTests' }
+          - { module: connector, jdk: '17', brokerImage: 'pulsar|apachepulsar/pulsar:2.10.3', testFilter: '--tests com.datastax.oss.pulsar.source.AvroKeyValueCassandraSourceTests' }
+          - { module: connector, jdk: '11', brokerImage: 'pulsar|apachepulsar/pulsar:2.11.0', testFilter: '--tests com.datastax.oss.pulsar.source.PulsarCassandraSourceTests --tests com.datastax.oss.cdc.CassandraSourceConnectorConfigTest --tests com.datastax.oss.cdc.MutationCacheTests', runBackfillCli: true }
+          - { module: connector, jdk: '11', brokerImage: 'pulsar|apachepulsar/pulsar:2.11.0', testFilter: '--tests com.datastax.oss.pulsar.source.JsonOnlyCassandraSourceTests' }
+          - { module: connector, jdk: '11', brokerImage: 'pulsar|apachepulsar/pulsar:2.11.0', testFilter: '--tests com.datastax.oss.pulsar.source.JsonKeyValueCassandraSourceTests' }
+          - { module: connector, jdk: '11', brokerImage: 'pulsar|apachepulsar/pulsar:2.11.0', testFilter: '--tests com.datastax.oss.pulsar.source.AvroKeyValueCassandraSourceTests' }
+          - { module: connector, jdk: '17', brokerImage: 'pulsar|apachepulsar/pulsar:2.11.0', testFilter: '--tests com.datastax.oss.pulsar.source.PulsarCassandraSourceTests --tests com.datastax.oss.cdc.CassandraSourceConnectorConfigTest --tests com.datastax.oss.cdc.MutationCacheTests', runBackfillCli: true }
+          - { module: connector, jdk: '17', brokerImage: 'pulsar|apachepulsar/pulsar:2.11.0', testFilter: '--tests com.datastax.oss.pulsar.source.JsonOnlyCassandraSourceTests' }
+          - { module: connector, jdk: '17', brokerImage: 'pulsar|apachepulsar/pulsar:2.11.0', testFilter: '--tests com.datastax.oss.pulsar.source.JsonKeyValueCassandraSourceTests' }
+          - { module: connector, jdk: '17', brokerImage: 'pulsar|apachepulsar/pulsar:2.11.0', testFilter: '--tests com.datastax.oss.pulsar.source.AvroKeyValueCassandraSourceTests' }
     steps:
       - uses: actions/checkout@v6
       - name: Set up JDK ${{ matrix.jdk }}
@@ -54,19 +96,28 @@ jobs:
           distribution: 'adopt'
 
       - name: Get project version
-        uses: HardNorth/github-version-generate@v1.4.0
+        uses: HardNorth/github-version-generate@e627d02e2a2b756c5e76bd2d8880ebc3521dbc68 # v1.4.0
         with:
           version-source: file
           version-file: gradle.properties
           version-file-extraction-pattern: '(?<=version=).+'
 
-      - name: Cache Docker layers
+      - name: Cache Docker images
         uses: actions/cache@v5
         with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          path: /tmp/docker-image-cache
+          key: ${{ runner.os }}-docker-${{ matrix.brokerImage }}-${{ hashFiles('**/gradle.properties') }}
           restore-keys: |
-            ${{ runner.os }}-buildx-
+            ${{ runner.os }}-docker-${{ matrix.brokerImage }}-
+
+      - name: Load cached Docker images
+        run: |
+          if [ -d /tmp/docker-image-cache ] && [ "$(ls /tmp/docker-image-cache/*.tar 2>/dev/null | wc -l)" -gt 0 ]; then
+            for f in /tmp/docker-image-cache/*.tar; do
+              echo "Loading $f"
+              docker load -i "$f"
+            done
+          fi
 
       - name: Test with Gradle
         env:
@@ -74,14 +125,211 @@ jobs:
           DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
         run: |
           set -e
-          PREV_IFS=$IFS
-          IFS=':'
-          read -ra PULSAR_FULL_IMAGE <<< "${{ matrix.pulsarImage }}"
-          IFS=$PREV_IFS
-          PULSAR_IMAGE=${PULSAR_FULL_IMAGE[0]}
-          PULSAR_IMAGE_TAG=${PULSAR_FULL_IMAGE[1]}
-                    
+          BROKER_ENTRY="${{ matrix.brokerImage }}"
+          BROKER_TYPE=${BROKER_ENTRY%%|*}
+          BROKER_IMAGE_FULL=${BROKER_ENTRY#*|}
+          BROKER_IMAGE=${BROKER_IMAGE_FULL%:*}
+          BROKER_IMAGE_TAG=${BROKER_IMAGE_FULL##*:}
+
+          if [ "$BROKER_TYPE" = "pulsar" ]; then
+            BROKER_FLAGS="-PbrokerType=pulsar -PtestPulsarImage=$BROKER_IMAGE -PtestPulsarImageTag=$BROKER_IMAGE_TAG"
+          elif [ "$BROKER_TYPE" = "kafka-oss" ]; then
+            BROKER_FLAGS="-PbrokerType=kafka -PtestOssKafkaImage=$BROKER_IMAGE -PtestOssKafkaImageTag=$BROKER_IMAGE_TAG"
+          else
+            BROKER_FLAGS="-PbrokerType=kafka -PtestConfluentKafkaImage=$BROKER_IMAGE -PtestConfluentKafkaImageTag=$BROKER_IMAGE_TAG"
+          fi
+
           ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
-          -PtestPulsarImage=$PULSAR_IMAGE \
-          -PtestPulsarImageTag=$PULSAR_IMAGE_TAG \
-          ${{ matrix.module }}:test
+          $BROKER_FLAGS \
+          ${{ matrix.module }}:test ${{ matrix.testFilter }}
+
+      # backfill-cli isn't in the module matrix above: its unit tests are broker-agnostic and its
+      # e2e test needs the connector's nar, so it rides along on the connector matrix cell instead
+      # of running once per module. Gated on runBackfillCli (set on exactly one pulsar cell per
+      # jdk/image and the kafka cell) rather than module == 'connector', since connector's pulsar
+      # suite is now split across 4 cells and running this repeatedly would waste time without
+      # adding coverage.
+      - name: Test backfill-cli
+        if: matrix.runBackfillCli == true
+        env:
+          DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
+          DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
+        run: |
+          set -e
+          BROKER_ENTRY="${{ matrix.brokerImage }}"
+          BROKER_TYPE=${BROKER_ENTRY%%|*}
+          BROKER_IMAGE_FULL=${BROKER_ENTRY#*|}
+          BROKER_IMAGE=${BROKER_IMAGE_FULL%:*}
+          BROKER_IMAGE_TAG=${BROKER_IMAGE_FULL##*:}
+
+          if [ "$BROKER_TYPE" = "pulsar" ]; then
+            BROKER_FLAGS="-PbrokerType=pulsar -PtestPulsarImage=$BROKER_IMAGE -PtestPulsarImageTag=$BROKER_IMAGE_TAG"
+          elif [ "$BROKER_TYPE" = "kafka-oss" ]; then
+            BROKER_FLAGS="-PbrokerType=kafka -PtestOssKafkaImage=$BROKER_IMAGE -PtestOssKafkaImageTag=$BROKER_IMAGE_TAG"
+          else
+            BROKER_FLAGS="-PbrokerType=kafka -PtestConfluentKafkaImage=$BROKER_IMAGE -PtestConfluentKafkaImageTag=$BROKER_IMAGE_TAG"
+          fi
+
+          ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
+          $BROKER_FLAGS \
+          backfill-cli:test backfill-cli:e2eTest
+
+      - name: Save Docker images to cache
+        if: always()
+        run: |
+          mkdir -p /tmp/docker-image-cache
+          # Save all images pulled during this run that aren't already cached.
+          # Skipping <none> (dangling) and images smaller than 1MB (base scratch layers).
+          docker images --format '{{.Repository}}:{{.Tag}}' \
+            | grep -v '<none>' \
+            | while read img; do
+                safe=$(echo "$img" | tr '/:' '__')
+                dest="/tmp/docker-image-cache/${safe}.tar"
+                if [ ! -f "$dest" ]; then
+                  echo "Saving $img -> $dest"
+                  docker save "$img" -o "$dest"
+                fi
+              done
+
+  # Lean smoke test — runs on feature branches (agent + agent-c4, JDK 11).
+  test-feature:
+    needs: build
+    if: github.ref != 'refs/heads/master' && github.base_ref != 'master'
+    name: Test (feature)
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ['agent', 'agent-c4', 'agent-dse4']
+        brokerImage:
+          - 'pulsar|datastax/lunastreaming:2.10_3.4'
+          - 'kafka|confluentinc/cp-kafka:7.4.0'
+          - 'kafka-oss|apache/kafka:4.3.1'
+        # connector's pulsar suite is split across 4 cells below instead of joining the cross
+        # product above: JsonOnlyCassandraSourceTests/JsonKeyValueCassandraSourceTests/
+        # AvroKeyValueCassandraSourceTests each `extends PulsarCassandraSourceTests`, so a single
+        # "connector, pulsar" cell was re-running the same ~10 container/chaos scenarios 4x
+        # serially in one JVM (measured: ~104 of ~120 total minutes in one job). Splitting them
+        # into separate runners removes that serialization; it can't be parallelized with Gradle
+        # test forks in one job instead because CassandraContainer hardcodes container names
+        # (cassandra-1/cassandra-2), so concurrent classes in one job would collide.
+        include:
+          - module: connector
+            brokerImage: 'kafka|confluentinc/cp-kafka:7.4.0'
+            runBackfillCli: true
+          - module: connector
+            brokerImage: 'kafka-oss|apache/kafka:4.3.1'
+          - module: connector
+            brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4'
+            testFilter: '--tests com.datastax.oss.pulsar.source.PulsarCassandraSourceTests --tests com.datastax.oss.cdc.CassandraSourceConnectorConfigTest --tests com.datastax.oss.cdc.MutationCacheTests'
+            runBackfillCli: true
+          - module: connector
+            brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4'
+            testFilter: '--tests com.datastax.oss.pulsar.source.JsonOnlyCassandraSourceTests'
+          - module: connector
+            brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4'
+            testFilter: '--tests com.datastax.oss.pulsar.source.JsonKeyValueCassandraSourceTests'
+          - module: connector
+            brokerImage: 'pulsar|datastax/lunastreaming:2.10_3.4'
+            testFilter: '--tests com.datastax.oss.pulsar.source.AvroKeyValueCassandraSourceTests'
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up JDK 11
+        uses: actions/setup-java@v5
+        with:
+          java-version: '11'
+          distribution: 'adopt'
+
+      - name: Get project version
+        uses: HardNorth/github-version-generate@e627d02e2a2b756c5e76bd2d8880ebc3521dbc68 # v1.4.0
+        with:
+          version-source: file
+          version-file: gradle.properties
+          version-file-extraction-pattern: '(?<=version=).+'
+
+      - name: Cache Docker images
+        uses: actions/cache@v5
+        with:
+          path: /tmp/docker-image-cache
+          key: ${{ runner.os }}-docker-${{ matrix.brokerImage }}-${{ hashFiles('**/gradle.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-docker-${{ matrix.brokerImage }}-
+
+      - name: Load cached Docker images
+        run: |
+          if [ -d /tmp/docker-image-cache ] && [ "$(ls /tmp/docker-image-cache/*.tar 2>/dev/null | wc -l)" -gt 0 ]; then
+            for f in /tmp/docker-image-cache/*.tar; do
+              echo "Loading $f"
+              docker load -i "$f"
+            done
+          fi
+
+      - name: Test with Gradle
+        env:
+          DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
+          DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
+        run: |
+          set -e
+          BROKER_ENTRY="${{ matrix.brokerImage }}"
+          BROKER_TYPE=${BROKER_ENTRY%%|*}
+          BROKER_IMAGE_FULL=${BROKER_ENTRY#*|}
+          BROKER_IMAGE=${BROKER_IMAGE_FULL%:*}
+          BROKER_IMAGE_TAG=${BROKER_IMAGE_FULL##*:}
+
+          if [ "$BROKER_TYPE" = "pulsar" ]; then
+            BROKER_FLAGS="-PbrokerType=pulsar -PtestPulsarImage=$BROKER_IMAGE -PtestPulsarImageTag=$BROKER_IMAGE_TAG"
+          elif [ "$BROKER_TYPE" = "kafka-oss" ]; then
+            BROKER_FLAGS="-PbrokerType=kafka -PtestOssKafkaImage=$BROKER_IMAGE -PtestOssKafkaImageTag=$BROKER_IMAGE_TAG"
+          else
+            BROKER_FLAGS="-PbrokerType=kafka -PtestConfluentKafkaImage=$BROKER_IMAGE -PtestConfluentKafkaImageTag=$BROKER_IMAGE_TAG"
+          fi
+
+          ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
+          $BROKER_FLAGS \
+          ${{ matrix.module }}:test ${{ matrix.testFilter }}
+
+      # backfill-cli isn't in the module matrix above: its unit tests are broker-agnostic and its
+      # e2e test needs the connector's nar, so it rides along on the connector matrix cell instead
+      # of running once per module. Gated on runBackfillCli (set on exactly one pulsar cell and
+      # the kafka cell) rather than module == 'connector', since connector's pulsar suite is now
+      # split across 4 cells and running this 4x would waste time without adding coverage.
+      - name: Test backfill-cli
+        if: matrix.runBackfillCli == true
+        env:
+          DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
+          DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
+        run: |
+          set -e
+          BROKER_ENTRY="${{ matrix.brokerImage }}"
+          BROKER_TYPE=${BROKER_ENTRY%%|*}
+          BROKER_IMAGE_FULL=${BROKER_ENTRY#*|}
+          BROKER_IMAGE=${BROKER_IMAGE_FULL%:*}
+          BROKER_IMAGE_TAG=${BROKER_IMAGE_FULL##*:}
+
+          if [ "$BROKER_TYPE" = "pulsar" ]; then
+            BROKER_FLAGS="-PbrokerType=pulsar -PtestPulsarImage=$BROKER_IMAGE -PtestPulsarImageTag=$BROKER_IMAGE_TAG"
+          elif [ "$BROKER_TYPE" = "kafka-oss" ]; then
+            BROKER_FLAGS="-PbrokerType=kafka -PtestOssKafkaImage=$BROKER_IMAGE -PtestOssKafkaImageTag=$BROKER_IMAGE_TAG"
+          else
+            BROKER_FLAGS="-PbrokerType=kafka -PtestConfluentKafkaImage=$BROKER_IMAGE -PtestConfluentKafkaImageTag=$BROKER_IMAGE_TAG"
+          fi
+
+          ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
+          $BROKER_FLAGS \
+          backfill-cli:test backfill-cli:e2eTest
+
+      - name: Save Docker images to cache
+        if: always()
+        run: |
+          mkdir -p /tmp/docker-image-cache
+          docker images --format '{{.Repository}}:{{.Tag}}' \
+            | grep -v '<none>' \
+            | while read img; do
+                safe=$(echo "$img" | tr '/:' '__')
+                dest="/tmp/docker-image-cache/${safe}.tar"
+                if [ ! -f "$dest" ]; then
+                  echo "Saving $img -> $dest"
+                  docker save "$img" -o "$dest"
+                fi
+              done

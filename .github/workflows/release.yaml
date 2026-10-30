@@ -17,7 +17,7 @@ jobs:
           distribution: 'adopt'
 
       - name: Get project version
-        uses: HardNorth/github-version-generate@v1.4.0
+        uses: HardNorth/github-version-generate@e627d02e2a2b756c5e76bd2d8880ebc3521dbc68 # v1.4.0
         with:
           version-source: file
           version-file: gradle.properties
@@ -91,6 +91,27 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
           asset_path: connector/build/libs/pulsar-cassandra-source-${{ env.CURRENT_VERSION }}.nar
           asset_name: pulsar-cassandra-source-${{ env.CURRENT_VERSION }}.nar
+          asset_content_type: application/java-archive
+
+      - name: Upload Release Kafka Connect plugin
+        id: upload-release-kafka-connect-plugin
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: connector/build/distributions/cassandra-source-connector-${{ env.CURRENT_VERSION }}-kafka-connect.zip
+          asset_name: cassandra-source-connector-${{ env.CURRENT_VERSION }}-kafka-connect.zip
+          asset_content_type: application/zip
+      - name: Upload Release Kafka connector jar
+        id: upload-release-kafka-connector-jar
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: connector/build/kafka-connect/cassandra-source-connector-${{ env.CURRENT_VERSION }}.jar
+          asset_name: cassandra-source-connector-${{ env.CURRENT_VERSION }}.jar
           asset_content_type: application/java-archive
 
       - name: Upload Release agent-c3

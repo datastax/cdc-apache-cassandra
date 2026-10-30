@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.datastax.oss.pulsar.source.converters;
+package com.datastax.oss.cdc.converters;
 
 import com.datastax.oss.cdc.CqlLogicalTypes;
 import com.datastax.oss.driver.api.core.CqlIdentifier;
@@ -48,7 +48,6 @@ import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.specific.SpecificData;
 import org.apache.avro.specific.SpecificDatumWriter;
-import org.apache.pulsar.common.schema.SchemaType;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -58,26 +57,37 @@ import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * AVRO Converter providing support for logical types.
+ * AVRO row converter providing support for logical types. Platform-free: builds and reads Avro
+ * bytes only, with no dependency on any messaging system's client API.
  */
 @Slf4j
-public class NativeAvroConverter extends AbstractNativeConverter<List<Object>> {
+public class AvroRowConverter extends AbstractRowConverter<List<Object>> {
 
-    public NativeAvroConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
+    public AvroRowConverter(KeyspaceMetadata ksm, TableMetadata tm, List<ColumnMetadata> columns) {
         super(ksm, tm, columns);
     }
 
     @Override
-    SchemaType getSchemaType() {
-        return SchemaType.AVRO;
+    public byte[] toConnectData(Row row) {
+        return serializeAvroGenericRecord(buildGenericRecord(row), nativeSchema);
     }
 
-    @Override
-    public byte[] toConnectData(Row row) {
+    /**
+     * Builds the Avro record for a row without serializing it, so callers that need the record
+     * itself (e.g. a Confluent {@code KafkaAvroSerializer}, which registers the schema and
+     * prepends its own wire-format header) don't have to re-parse {@link #toConnectData}'s bytes.
+     */
+    public GenericRecord buildGenericRecord(Row row) {
         GenericRecord genericRecordBuilder = new GenericData.Record(nativeSchema);
         for(ColumnDefinition cm : row.getColumnDefinitions()) {
             String fieldName = cm.getName().toString();
@@ -190,14 +200,14 @@ public class NativeAvroConverter extends AbstractNativeConverter<List<Object>> {
                 }
             }
         }
-        return serializeAvroGenericRecord(genericRecordBuilder, nativeSchema);
+        return genericRecordBuilder;
     }
 
     public static byte[] serializeAvroGenericRecord(org.apache.avro.generic.GenericRecord genericRecord, org.apache.avro.Schema schema) {
         try {
             SpecificDatumWriter<GenericRecord> datumWriter = new SpecificDatumWriter<>(schema);
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-            BinaryEncoder binaryEncoder = new EncoderFactory().binaryEncoder(byteArrayOutputStream, null);
+            BinaryEncoder binaryEncoder = EncoderFactory.get().binaryEncoder(byteArrayOutputStream, null);
             datumWriter.write(genericRecord, binaryEncoder);
             binaryEncoder.flush();
             return byteArrayOutputStream.toByteArray();

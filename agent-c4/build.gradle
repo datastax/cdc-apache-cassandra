@@ -40,6 +40,15 @@ shadowJar {
 jar.enabled = true
 assemble.dependsOn(shadowJar)
 
+configurations.all {
+    resolutionStrategy.dependencySubstitution {
+        // Resolve capability conflict between org.lz4:lz4-java (from cassandra-all)
+        // and at.yawk.lz4:lz4-java (from kafka-clients, added in agent/build.gradle).
+        // Both declare the same capability; substitute to the single upgraded artifact.
+        substitute module('org.lz4:lz4-java') using module("at.yawk.lz4:lz4-java:${lz4javaVersion}")
+    }
+}
+
 dependencies {
     implementation project(':commons')
     implementation project(':agent')
@@ -76,11 +85,26 @@ test {
 
     useJUnitPlatform()
 
-    environment 'PULSAR_IMAGE', testPulsarImage + ':' + testPulsarImageTag
     environment 'CASSANDRA_IMAGE', 'cassandra:' + cassandra4Version
 
     systemProperty "buildDir", buildDir
     systemProperty "projectVersion", project.version
+    systemProperty "cassandraVersion", cassandra4Version
+    systemProperty "testPulsarImage", testPulsarImage
+    systemProperty "testPulsarImageTag", testPulsarImageTag
+    systemProperty "testConfluentKafkaImage", testConfluentKafkaImage
+    systemProperty "testConfluentKafkaImageTag", testConfluentKafkaImageTag
+    systemProperty "testOssKafkaImage", testOssKafkaImage
+    systemProperty "testOssKafkaImageTag", testOssKafkaImageTag
+
+    // Run only the test classes matching the broker type supplied.
+    // Pass -PbrokerType=kafka or -PbrokerType=pulsar (default: pulsar).
+    def brokerType = project.hasProperty('brokerType') ? brokerType : 'pulsar'
+    if (brokerType == 'kafka') {
+        include '**/*Kafka*'
+    } else {
+        exclude '**/*Kafka*'
+    }
 }
 
 dockerPrepare.dependsOn(jar, shadowJar)
