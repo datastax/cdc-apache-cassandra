@@ -160,6 +160,9 @@ task e2eTest(type: Test) {
 
     useJUnitPlatform()
 
+    // Forward Docker Engine API version to Testcontainers docker-java client
+    systemProperty 'api.version', project.findProperty('api.version') ?: '1.43'
+
     // Run only the E2E test class matching the broker type supplied.
     // Pass -PbrokerType=kafka or -PbrokerType=pulsar (default: pulsar), mirroring connector's test task.
     def brokerType = project.hasProperty('brokerType') ? project.property('brokerType') : 'pulsar'
