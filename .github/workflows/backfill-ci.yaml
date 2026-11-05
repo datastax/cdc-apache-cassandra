@@ -4,9 +4,13 @@ on:
   pull_request:
     branches:
       - master
+      - feat/kafka-support*
+      - 'feature/**'
   push:
     branches:
       - master
+      - feat/kafka-support*
+      - 'feature/**'
     paths-ignore:
       - 'docs/**'
       - 'kubernetes/**'
