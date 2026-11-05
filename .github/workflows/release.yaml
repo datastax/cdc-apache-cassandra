@@ -6,6 +6,7 @@ on:
       - "v*"
     branches:
       - "feature/AS-5467-test-publishing"
+      - "feature/AS-5541-Test-pulsar-infra"
 
 jobs:
   build:
