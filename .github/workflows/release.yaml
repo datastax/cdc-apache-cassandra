@@ -6,6 +6,7 @@ on:
       - "v*"
     branches:
       - "feature/AS-5467-test-publishing"
+      - "feature/AS-5541-Test-pulsar-infra"
 
 jobs:
   build:
@@ -271,4 +272,19 @@ jobs:
             /tmp/ctx-connect
           docker push "$REGISTRY/datastax/cdc:${{ env.CURRENT_VERSION }}-connect"
           docker push "$REGISTRY/datastax/cdc:latest-connect"
+
+      - name: Build and push cassandra-source-pulsar (Pulsar worker) image
+        run: |
+          mkdir -p /tmp/ctx-pulsar
+          cp connector/build/libs/pulsar-cassandra-source-${{ env.CURRENT_VERSION }}.nar /tmp/ctx-pulsar/
+          cp connector/src/docker-k8s/Dockerfile.pulsar /tmp/ctx-pulsar/Dockerfile
+          docker build \
+            --build-arg PULSAR_IMAGE=apachepulsar/pulsar \
+            --build-arg PULSAR_IMAGE_TAG=3.0.3 \
+            --build-arg BUILD_VERSION=${{ env.CURRENT_VERSION }} \
+            -t "$REGISTRY/datastax/cdc:${{ env.CURRENT_VERSION }}-pulsar" \
+            -t "$REGISTRY/datastax/cdc:latest-pulsar" \
+            /tmp/ctx-pulsar
+          docker push "$REGISTRY/datastax/cdc:${{ env.CURRENT_VERSION }}-pulsar"
+          docker push "$REGISTRY/datastax/cdc:latest-pulsar"
 

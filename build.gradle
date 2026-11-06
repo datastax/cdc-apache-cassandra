@@ -70,11 +70,12 @@ allprojects {
     }
 
     // use JUnit 5 platform
-    test {
+    tasks.withType(Test) {
         useJUnitPlatform()
         testLogging {
             exceptionFormat = 'full'
         }
+        systemProperty 'api.version', '1.43'
     }
 
     jacoco {

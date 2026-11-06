@@ -6,10 +6,12 @@ on:
     branches:
       - master
       - feat/kafka-support*
+      - 'feature/**'
   push:
     branches:
       - master
       - feat/kafka-support*
+      - 'feature/**'
     paths-ignore:
       - 'docs/**'
       - 'kubernetes/**'
@@ -29,6 +31,11 @@ jobs:
     name: Build
     steps:
       - uses: actions/checkout@v6
+      - name: Set up JDK 11
+        uses: actions/setup-java@v5
+        with:
+          java-version: '11'
+          distribution: 'adopt'
       - name: Build project
         env:
           DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
@@ -201,7 +208,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module: ['agent', 'agent-c4', 'agent-dse4']
+        module: ['agent', 'agent-c4']
         brokerImage:
           - 'pulsar|datastax/lunastreaming:2.10_3.4'
           - 'kafka|confluentinc/cp-kafka:7.4.0'

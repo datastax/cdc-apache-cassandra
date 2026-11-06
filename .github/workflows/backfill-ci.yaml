@@ -4,9 +4,13 @@ on:
   pull_request:
     branches:
       - master
+      - feat/kafka-support*
+      - 'feature/**'
   push:
     branches:
       - master
+      - feat/kafka-support*
+      - 'feature/**'
     paths-ignore:
       - 'docs/**'
       - 'kubernetes/**'
@@ -26,6 +30,11 @@ jobs:
     name: Build
     steps:
       - uses: actions/checkout@v6
+      - name: Set up JDK 11
+        uses: actions/setup-java@v5
+        with:
+          java-version: '11'
+          distribution: 'adopt'
       - name: Build project
         env:
           DSE_REPO_USERNAME: ${{ secrets.DSE_REPO_USERNAME }}
@@ -82,6 +91,7 @@ jobs:
           PULSAR_IMAGE_TAG=${PULSAR_FULL_IMAGE[1]}
           
           ./gradlew -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD \
+          -Papi.version=1.43 \
           -PtestPulsarImage=$PULSAR_IMAGE \
           -PtestPulsarImageTag=$PULSAR_IMAGE_TAG \
           -PcassandraFamily=${{ matrix.cassandraFamily }} \
