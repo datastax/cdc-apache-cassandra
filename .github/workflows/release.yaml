@@ -276,9 +276,8 @@ jobs:
       - name: Build and push cassandra-source-pulsar (Pulsar worker) image
         run: |
           mkdir -p /tmp/ctx-pulsar
-          cp connector/build/libs/pulsar-cassandra-source-${{ env.CURRENT_VERSION }}.nar \
-             connector/src/docker-k8s/Dockerfile.pulsar \
-             /tmp/ctx-pulsar/Dockerfile
+          cp connector/build/libs/pulsar-cassandra-source-${{ env.CURRENT_VERSION }}.nar /tmp/ctx-pulsar/
+          cp connector/src/docker-k8s/Dockerfile.pulsar /tmp/ctx-pulsar/Dockerfile
           docker build \
             --build-arg PULSAR_IMAGE=apachepulsar/pulsar \
             --build-arg PULSAR_IMAGE_TAG=3.0.3 \
