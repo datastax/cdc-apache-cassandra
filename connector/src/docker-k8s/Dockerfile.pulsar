@@ -1,0 +1,7 @@
+ARG PULSAR_IMAGE=apachepulsar/pulsar
+ARG PULSAR_IMAGE_TAG=3.0.3
+
+FROM ${PULSAR_IMAGE}:${PULSAR_IMAGE_TAG}
+ARG BUILD_VERSION
+
+COPY pulsar-cassandra-source-${BUILD_VERSION}.nar /pulsar/connectors/
