@@ -165,9 +165,9 @@ class KafkaCassandraSourceTaskKafkaTest {
     }
 
     private byte[] encodePrimaryKey(int id) {
-        GenericData.Record record = new GenericData.Record(mutationKeyConverter.nativeSchema);
-        record.put("id", id);
-        return AvroRowConverter.serializeAvroGenericRecord(record, mutationKeyConverter.nativeSchema);
+        GenericData.Record keyRecord = new GenericData.Record(mutationKeyConverter.nativeSchema);
+        keyRecord.put("id", id);
+        return AvroRowConverter.serializeAvroGenericRecord(keyRecord, mutationKeyConverter.nativeSchema);
     }
 
     private byte[] encodeMutationValue(String md5Digest, UUID nodeId) {
@@ -276,7 +276,7 @@ class KafkaCassandraSourceTaskKafkaTest {
         // The swap happens in place with no compatibility check: a reference captured before the
         // alter (as poll() does via its local "converterAndQueryFinal") keeps pointing at the old,
         // now-stale schema instead of being versioned or rejected. This is the gap tracked by the
-        // schema-evolution TODO on setValueConverterAndQuery.
+        // schema-evolution note on setValueConverterAndQuery.
         assertThat(fieldNames(beforeAlter)).containsExactlyInAnyOrder("name");
     }
 
