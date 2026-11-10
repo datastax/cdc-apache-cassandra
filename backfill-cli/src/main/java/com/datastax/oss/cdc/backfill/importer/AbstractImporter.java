@@ -47,6 +47,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -69,7 +70,7 @@ public abstract class AbstractImporter {
     final Semaphore inflightMessages;
 
     /** Keeps track of last mutation future exception to facilitate a fail-fast strategy. */
-    volatile Throwable lastException = null;
+    final AtomicReference<Throwable> lastException = new AtomicReference<>();
 
     /**
      * Token is not used for CDC back-fill — round-robin routing is used instead.
@@ -149,19 +150,10 @@ public abstract class AbstractImporter {
             recordsCount = Flux
                     .from(connector.read())
                     .flatMap(Resource::read).map(exportedRow -> {
-                        List<Object> pkValues = fields.stream().map(field -> {
-                            Object val = exportedRow.getFieldValue(field);
-                            Object newVal = codecs.get(field.getFieldName()).externalToInternal((String) val);
-                            if (newVal instanceof LocalTime) {
-                                // Agent expects TimeType to be Long in nanoseconds
-                                newVal = ((LocalTime) newVal).toNanoOfDay();
-                            } else if (newVal instanceof LocalDate) {
-                                // Agent expects SimpleDateType to be Integer in epoch days
-                                newVal = SimpleDateSerializer.timeInMillisToDay(
-                                        ((LocalDate) newVal).atStartOfDay(UTC).toInstant().toEpochMilli());
-                            }
-                            return newVal;
-                        }).collect(Collectors.toList());
+                        List<Object> pkValues = fields.stream()
+                                .map(field -> toAgentValue(codecs.get(field.getFieldName())
+                                        .externalToInternal((String) exportedRow.getFieldValue(field))))
+                                .collect(Collectors.toList());
                         // Disables the e2e latency metric because the writetime property won't be set
                         final long tsMicro = -1;
                         final AbstractMutation<TableMetadata> mutation =
@@ -169,11 +161,11 @@ public abstract class AbstractImporter {
                         sendMutationAsync(mutation);
                         return exportedRow;
                     })
-                    .takeWhile(resource -> lastException == null) // fail fast
+                    .takeWhile(resource -> lastException.get() == null) // fail fast
                     .count()
                     .block();
 
-            if (lastException != null) {
+            if (lastException.get() != null) {
                 return ExitStatus.STATUS_ABORTED_FATAL_ERROR;
             }
 
@@ -181,7 +173,7 @@ public abstract class AbstractImporter {
             inflightMessages.acquire(MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING);
 
             // An error could've happened in the last batch, re-check
-            if (lastException != null) {
+            if (lastException.get() != null) {
                 return ExitStatus.STATUS_ABORTED_FATAL_ERROR;
             }
 
@@ -190,7 +182,7 @@ public abstract class AbstractImporter {
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
-            lastException = e;
+            lastException.set(e);
             return ExitStatus.STATUS_ABORTED_FATAL_ERROR;
         } finally {
             if (connector != null) {
@@ -211,6 +203,20 @@ public abstract class AbstractImporter {
         }
     }
 
+    /** Converts a decoded CSV value to the Java type the agent expects for that CQL type. */
+    private static Object toAgentValue(Object value) {
+        if (value instanceof LocalTime) {
+            // Agent expects TimeType to be Long in nanoseconds
+            return ((LocalTime) value).toNanoOfDay();
+        }
+        if (value instanceof LocalDate) {
+            // Agent expects SimpleDateType to be Integer in epoch days
+            return SimpleDateSerializer.timeInMillisToDay(
+                    ((LocalDate) value).atStartOfDay(UTC).toInstant().toEpochMilli());
+        }
+        return value;
+    }
+
     private AbstractMutation<TableMetadata> createMutation(Object[] pkValues, TableMetadata tableMetadata, long tsMicro) {
         return new Mutation(MUTATION_NODE, MUTATION_SEGMENT, MUTATION_OFFSET,
                 pkValues, tsMicro, MUTATION_DIGEST, tableMetadata, MUTATION_TOKEN);
@@ -218,8 +224,8 @@ public abstract class AbstractImporter {
 
     private void printSummary(long recordsCount) {
         ExitStatus status = ExitStatus.STATUS_OK;
-        if (lastException != null) {
-            LOGGER.error("Failed to import table", lastException);
+        if (lastException.get() != null) {
+            LOGGER.error("Failed to import table", lastException.get());
             status = ExitStatus.STATUS_ABORTED_FATAL_ERROR;
         }
         LOGGER.info("{} Importer Summary: Import status={}, " +
@@ -244,7 +250,7 @@ public abstract class AbstractImporter {
                                     LOGGER.error("Send failed for mutation={}", mutation);
                                 }
                                 sentErrors.incrementAndGet();
-                                lastException = e;
+                                lastException.set(e);
                             }
                             return msgId;
                         } finally {

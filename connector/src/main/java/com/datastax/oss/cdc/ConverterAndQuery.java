@@ -118,7 +118,7 @@ public class ConverterAndQuery<C> {
         boolean isPrimaryKeyOnlyTable = CassandraClient.isPrimaryKeyOnlyTable(tableMetadata);
         List<ColumnMetadata> columns = tableMetadata.getColumns().values().stream()
                 // include primary keys in the json only output format options
-                // TODO: PERF: Infuse the key values instead of reading from DB https://github.com/datastax/cdc-apache-cassandra/issues/84
+                // Possible optimization (issue 84): infuse the key values instead of reading them from the DB.
                 // If primary key only table, then add all the columns into the value schema.
                 .filter(c -> config.isJsonOnlyOutputFormat() || isPrimaryKeyOnlyTable || !tableMetadata.getPrimaryKey().contains(c))
                 .filter(c -> !columnPattern.isPresent() || columnPattern.get().matcher(c.getName().asInternal()).matches())

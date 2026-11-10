@@ -17,6 +17,7 @@ package com.datastax.oss.kafka.source;
 
 import com.datastax.oss.cdc.CassandraSourceConnectorConfig;
 import com.datastax.oss.cdc.Version;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.common.config.ConfigDef;
@@ -80,7 +81,7 @@ public class KafkaCassandraSourceConnector extends SourceConnector {
      * the connector is reconfigured or {@code maxTasks} changes) — it does not react to the
      * events topic's partition count changing while tasks are already running.
      * <p>
-     * TODO: repartitioning the events topic today requires an operator to manually restart this
+     * Known limitation: repartitioning the events topic today requires an operator to manually restart this
      * connector so {@code taskConfigs} recomputes the split (see PR #262 review discussion);
      * reassigning partitions to already-running tasks without an ownership conflict is non-trivial
      * during a rolling restart, and repartitioning also reorders events, so a backfill is likely
@@ -123,9 +124,9 @@ public class KafkaCassandraSourceConnector extends SourceConnector {
             return description.partitions().size();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new RuntimeException("Interrupted while describing events topic " + config.getEventsTopic(), e);
+            throw new ConnectException("Interrupted while describing events topic " + config.getEventsTopic(), e);
         } catch (ExecutionException e) {
-            throw new RuntimeException("Cannot describe events topic " + config.getEventsTopic(), e.getCause());
+            throw new ConnectException("Cannot describe events topic " + config.getEventsTopic(), e.getCause());
         }
     }
 

@@ -238,7 +238,7 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
             this.mutationKeyConverter = new PulsarAvroConverter(tuple._1, tuple._2, tuple._2.getPrimaryKey());
             setValueConverterAndQuery(tuple._1, tuple._2);
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            throw new IllegalStateException(e);
         }
     }
 
@@ -250,7 +250,7 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
             log.debug("valueConverterAndQuery={}", this.valueConverterAndQuery);
         } catch (Exception e) {
             log.error("Unexpected error", e);
-            throw new RuntimeException(e);
+            throw new IllegalStateException(e);
         }
     }
 
@@ -347,67 +347,85 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
         //                        timeouts and never flush the partial batch. We never break on an
         //                        empty batch so that the caller's retry loop in maybeBatchRead()
         //                        is not triggered unnecessarily.
+        List<CassandraRecord> newRecords = consumeBatch();
+        Preconditions.checkState(!newRecords.isEmpty(), "Buffer cannot be empty here");
+        List<CassandraRecord> usefulRecords = awaitQueries(newRecords);
+        consecutiveUnavailableExceptionCount = 0;
+        return usefulRecords;
+    }
+
+    /** Phase 1 of {@link #batchRead}: consumes up to batch.size records, see the bounds above. */
+    private List<CassandraRecord> consumeBatch() throws Exception {
         List<CassandraRecord> newRecords = new ArrayList<>();
         final long batchDeadlineMs = System.currentTimeMillis() + this.config.getBatchMaxWaitMs();
-        while (newRecords.size() < this.config.getBatchSize()) {
+        boolean flush = false;
+        while (!flush && newRecords.size() < this.config.getBatchSize()) {
             if (!newRecords.isEmpty() && System.currentTimeMillis() >= batchDeadlineMs) {
                 if (log.isDebugEnabled()) {
                     log.debug("batch.maxWaitMs deadline reached, flushing partial batch of {} record(s)", newRecords.size());
                 }
-                break;
+                flush = true;
+            } else {
+                flush = receiveInto(newRecords);
             }
-            final Message<KeyValue<GenericRecord, MutationValue>> msg;
-            try {
-                msg = consumer.receive(1, TimeUnit.SECONDS);
-            } catch (Exception e) {
-                log.warn("consumer.receive() failed, retrying:", e);
-                consecutiveUnavailableExceptionCount =
-                        SourceUtil.backoffRetry(e, consecutiveUnavailableExceptionCount, config);
-                continue;
-            }
-            if (msg == null) {
-                if (!newRecords.isEmpty()) {
-                    if (log.isDebugEnabled()) {
-                        log.debug("no message received, buffer size {}", newRecords.size());
-                    }
-                    // no more records within the timeout, but we have at least one record
-                    break;
-                } else {
-                    if (log.isDebugEnabled()) {
-                        log.debug("no message received");
-                    }
-                    continue;
-                }
-            }
-            final KeyValue<GenericRecord, MutationValue> kv = msg.getValue();
-            final GenericRecord mutationKey = kv.getKey();
-            final MutationValue mutationValue = kv.getValue();
+        }
+        return newRecords;
+    }
 
-            if (log.isDebugEnabled()) {
-                log.debug("Message from producer={} msgId={} key={} value={} schema {}\n",
-                        msg.getProducerName(), msg.getMessageId(), kv.getKey(), kv.getValue(), msg.getReaderSchema().orElse(null));
-            }
+    /**
+     * Receives one message and adds its record to {@code newRecords}.
+     *
+     * @return true when the partial batch should be flushed: no message arrived within the
+     *         receive timeout and at least one record is already buffered
+     */
+    @SuppressWarnings("unchecked")
+    private boolean receiveInto(List<CassandraRecord> newRecords) throws Exception {
+        final Message<KeyValue<GenericRecord, MutationValue>> msg;
+        try {
+            msg = consumer.receive(1, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            log.warn("consumer.receive() failed, retrying:", e);
+            consecutiveUnavailableExceptionCount =
+                    SourceUtil.backoffRetry(e, consecutiveUnavailableExceptionCount, config);
+            return false;
+        }
+        if (msg == null) {
+            log.debug("no message received, buffer size {}", newRecords.size());
+            // no more records within the timeout: flush if we have at least one record
+            return !newRecords.isEmpty();
+        }
+        final KeyValue<GenericRecord, MutationValue> kv = msg.getValue();
+        final GenericRecord mutationKey = kv.getKey();
+        final MutationValue mutationValue = kv.getValue();
 
-            List<Object> pk = (List<Object>) mutationKeyConverter.fromConnectData(mutationKey.getNativeObject());
-            // ensure the schema is the one used when building the struct.
-            final ConverterAndQuery<Converter> converterAndQueryFinal = this.valueConverterAndQuery;
-
-            CompletableFuture<KeyValue<Object, Object>> queryResult = submitCqlQuery(
-                    msg, mutationKey, mutationValue, pk, converterAndQueryFinal);
-            final CassandraRecord cassandraRecord = createRecord(converterAndQueryFinal, queryResult, msg, mutationKey, mutationValue, pk);
-            newRecords.add(cassandraRecord);
+        if (log.isDebugEnabled()) {
+            log.debug("Message from producer={} msgId={} key={} value={} schema {}\n",
+                    msg.getProducerName(), msg.getMessageId(), kv.getKey(), kv.getValue(), msg.getReaderSchema().orElse(null));
         }
 
-        Preconditions.checkState(!newRecords.isEmpty(), "Buffer cannot be empty here");
+        List<Object> pk = (List<Object>) mutationKeyConverter.fromConnectData(mutationKey.getNativeObject());
+        // ensure the schema is the one used when building the struct.
+        final ConverterAndQuery<Converter> converterAndQueryFinal = this.valueConverterAndQuery;
 
-        // Phase 2 – wait for CQL queries.
-        // Each record's message is already consumed; if a CQL query fails we retry only that
-        // query (with back-off) and never re-consume from the events topic.
+        CompletableFuture<KeyValue<Object, Object>> queryResult = submitCqlQuery(
+                msg, mutationKey, mutationValue, pk, converterAndQueryFinal);
+        newRecords.add(createRecord(converterAndQueryFinal, queryResult, msg, mutationKey, mutationValue, pk));
+        return false;
+    }
+
+    /**
+     * Phase 2 of {@link #batchRead}: waits for the CQL queries.
+     * Each record's message is already consumed; if a CQL query fails we retry only that
+     * query (with back-off) and never re-consume from the events topic.
+     *
+     * @return the records to publish, without the cache hits
+     */
+    private List<CassandraRecord> awaitQueries(List<CassandraRecord> newRecords) throws Exception {
         List<CassandraRecord> usefulRecords = new ArrayList<>(newRecords.size());
         int cacheHits = 0;
         long start = System.currentTimeMillis();
         for (CassandraRecord cassandraRecord : newRecords) {
-            KeyValue res = waitForCqlWithRetry(cassandraRecord);
+            Object res = waitForCqlWithRetry(cassandraRecord);
             if (res != null) {
                 // null means the mutation was a cache-hit and has been discarded
                 usefulRecords.add(cassandraRecord);
@@ -421,7 +439,6 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
             log.debug("Query time for {} msg in {} ms throughput={} msg/s cacheHits={}",
                     newRecords.size(), duration, throughput, cacheHits);
         }
-        consecutiveUnavailableExceptionCount = 0;
         return usefulRecords;
     }
 
@@ -443,61 +460,7 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
         try {
             queryExecutor.executeOrdered(msg.getKey(), () -> {
                 try {
-                    if (queryRateLimiter != null) {
-                        queryRateLimiter.acquire();
-                    }
-                    if (mutationCache.isMutationProcessed(msg.getKey(), mutationValue.getMd5Digest())) {
-                        if (log.isDebugEnabled()) {
-                            log.debug("Message key={} md5={} already processed", msg.getKey(), mutationValue.getMd5Digest());
-                        }
-                        // ignore duplicated mutation
-                        consumer.acknowledge(msg);
-                        queryResult.complete(null);
-                        CacheStats cacheStats = mutationCache.stats();
-                        sourceContext.recordMetric(CACHE_HITS, cacheStats.hitCount());
-                        sourceContext.recordMetric(CACHE_MISSES, cacheStats.missCount());
-                        sourceContext.recordMetric(CACHE_EVICTIONS, cacheStats.evictionCount());
-                        sourceContext.recordMetric(CACHE_SIZE, mutationCache.estimatedSize());
-                        sourceContext.recordMetric(QUERY_LATENCY, 0);
-                        sourceContext.recordMetric(QUERY_EXECUTORS, config.getQueryExecutors());
-                        if (msg.hasProperty(Constants.WRITETIME))
-                            sourceContext.recordMetric(REPLICATION_LATENCY, System.currentTimeMillis() - (Long.parseLong(msg.getProperty(Constants.WRITETIME)) / 1000L));
-                        return;
-                    }
-
-                    List<Object> nonNullPkValues = pk.stream().filter(e -> e != null).collect(Collectors.toList());
-                    long start = System.currentTimeMillis();
-                    Tuple2<Row, UUID> tuple = cassandraClient.selectRow(
-                            nonNullPkValues,
-                            mutationValue.getNodeId(),
-                            ConsistencyLevel.LOCAL_QUORUM,
-                            getSelectStatement(converterAndQueryFinal, nonNullPkValues.size()),
-                            mutationValue.getMd5Digest());
-                    CacheStats cacheStats = mutationCache.stats();
-                    sourceContext.recordMetric(CACHE_HITS, cacheStats.hitCount());
-                    sourceContext.recordMetric(CACHE_MISSES, cacheStats.missCount());
-                    sourceContext.recordMetric(CACHE_EVICTIONS, cacheStats.evictionCount());
-                    sourceContext.recordMetric(CACHE_SIZE, mutationCache.estimatedSize());
-                    long end = System.currentTimeMillis();
-                    sourceContext.recordMetric(QUERY_LATENCY, end - start);
-                    sourceContext.recordMetric(QUERY_EXECUTORS, config.getQueryExecutors());
-                    if (msg.hasProperty(Constants.WRITETIME))
-                        sourceContext.recordMetric(REPLICATION_LATENCY, end - (Long.parseLong(msg.getProperty(Constants.WRITETIME)) / 1000L));
-                    Object value = tuple._1 == null ? this.emptyValue : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
-                    if (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._2 != null && tuple._2.equals(mutationValue.getNodeId()))) {
-                        if (log.isDebugEnabled()) {
-                            log.debug("Caching mutation key={} md5={} pk={}", msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues);
-                        }
-                        // cache the mutation digest if the coordinator is the source of this event.
-                        mutationCache.addMutationMd5(msg.getKey(), mutationValue.getMd5Digest());
-                    } else {
-                        if (log.isDebugEnabled()) {
-                            log.debug("Not caching mutation key={} md5={} pk={} coordinator={}",
-                                    msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues, tuple._2());
-                        }
-                    }
-                    Object key = config.isAvroOutputFormat() ? msg.getKeyBytes() : keyConverter.fromConnectData(mutationKey.getNativeObject());
-                    queryResult.complete(new KeyValue(key, value));
+                    queryRow(msg, mutationKey, mutationValue, pk, converterAndQueryFinal, queryResult);
                 } catch (Throwable err) {
                     queryResult.completeExceptionally(err);
                 }
@@ -506,6 +469,76 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
             queryResult.completeExceptionally(err);
         }
         return queryResult;
+    }
+
+    /**
+     * Runs on the query executor: reads the current row for one message and completes
+     * {@code queryResult} with the key and value to publish, or with {@code null} when the
+     * mutation was already processed (the message is then acknowledged here).
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void queryRow(
+            Message<KeyValue<GenericRecord, MutationValue>> msg,
+            GenericRecord mutationKey,
+            MutationValue mutationValue,
+            List<Object> pk,
+            ConverterAndQuery<Converter> converterAndQueryFinal,
+            CompletableFuture<KeyValue<Object, Object>> queryResult) throws Exception {
+        if (queryRateLimiter != null) {
+            queryRateLimiter.acquire();
+        }
+        if (mutationCache.isMutationProcessed(msg.getKey(), mutationValue.getMd5Digest())) {
+            if (log.isDebugEnabled()) {
+                log.debug("Message key={} md5={} already processed", msg.getKey(), mutationValue.getMd5Digest());
+            }
+            // ignore duplicated mutation
+            consumer.acknowledge(msg);
+            queryResult.complete(null);
+            recordQueryMetrics(msg, 0, System.currentTimeMillis());
+            return;
+        }
+
+        List<Object> nonNullPkValues = pk.stream().filter(Objects::nonNull).collect(Collectors.toList());
+        long start = System.currentTimeMillis();
+        Tuple2<Row, UUID> tuple = cassandraClient.selectRow(
+                nonNullPkValues,
+                mutationValue.getNodeId(),
+                ConsistencyLevel.LOCAL_QUORUM,
+                getSelectStatement(converterAndQueryFinal, nonNullPkValues.size()),
+                mutationValue.getMd5Digest());
+        long end = System.currentTimeMillis();
+        recordQueryMetrics(msg, end - start, end);
+        Object value = tuple._1 == null ? this.emptyValue : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
+        if (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._2 != null && tuple._2.equals(mutationValue.getNodeId()))) {
+            if (log.isDebugEnabled()) {
+                log.debug("Caching mutation key={} md5={} pk={}", msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues);
+            }
+            // cache the mutation digest if the coordinator is the source of this event.
+            mutationCache.addMutationMd5(msg.getKey(), mutationValue.getMd5Digest());
+        } else if (log.isDebugEnabled()) {
+            log.debug("Not caching mutation key={} md5={} pk={} coordinator={}",
+                    msg.getKey(), mutationValue.getMd5Digest(), nonNullPkValues, tuple._2());
+        }
+        Object key = config.isAvroOutputFormat() ? msg.getKeyBytes() : keyConverter.fromConnectData(mutationKey.getNativeObject());
+        queryResult.complete(new KeyValue<>(key, value));
+    }
+
+    /**
+     * Records the mutation cache and query metrics for one message.
+     *
+     * @param queryLatencyMs latency of the CQL query, 0 for a cache hit
+     * @param nowMs          time the replication latency is measured against
+     */
+    private void recordQueryMetrics(Message<?> msg, long queryLatencyMs, long nowMs) {
+        CacheStats cacheStats = mutationCache.stats();
+        sourceContext.recordMetric(CACHE_HITS, cacheStats.hitCount());
+        sourceContext.recordMetric(CACHE_MISSES, cacheStats.missCount());
+        sourceContext.recordMetric(CACHE_EVICTIONS, cacheStats.evictionCount());
+        sourceContext.recordMetric(CACHE_SIZE, mutationCache.estimatedSize());
+        sourceContext.recordMetric(QUERY_LATENCY, queryLatencyMs);
+        sourceContext.recordMetric(QUERY_EXECUTORS, config.getQueryExecutors());
+        if (msg.hasProperty(Constants.WRITETIME))
+            sourceContext.recordMetric(REPLICATION_LATENCY, nowMs - (Long.parseLong(msg.getProperty(Constants.WRITETIME)) / 1000L));
     }
 
     /**
@@ -558,7 +591,7 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
         }
     }
 
-    // TODO: schema evolution. Unlike the Kafka Connect connector, records here carry a real
+    // Known limitation, schema evolution: unlike the Kafka Connect connector, records here carry a real
     // Pulsar Schema<V> (see MyKVRecord.getValueSchema() below), so Pulsar's own broker-side
     // schema registry does version the data topic's schema on each table alteration - there is
     // no "raw bytes with no registry" gap. But this method still swaps the converter/schema in

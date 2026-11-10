@@ -40,6 +40,13 @@ public class AgentConfig {
     private static final String GROUP_MAIN = "main";
     private static final String GROUP_PULSAR = "pulsar";
     private static final String GROUP_KAFKA = "kafka";
+
+    // Setting value types, as shown in the generated documentation.
+    private static final String TYPE_STRING = "String";
+    private static final String TYPE_BOOLEAN = "Boolean";
+    private static final String TYPE_INTEGER = "Integer";
+    private static final String TYPE_LONG = "Long";
+    private static final String TYPE_DOUBLE = "Double";
     public static final String storageDir = System.getProperty("cassandra.storagedir", null);
 
     public enum Platform {
@@ -140,7 +147,7 @@ public class AgentConfig {
             new Setting<String>(TOPIC_PREFIX, Platform.ALL, (c, s) -> c.topicPrefix = s, c -> c.topicPrefix,
                     "The event topic name prefix. The `<keyspace_name>.<table_name>` is appended to that prefix to build the topic name.",
                     "events-", "CDC_TOPIC_PREFIX", Setting::getEnvAsString,
-                    "String", GROUP_MAIN, 1);
+                    TYPE_STRING, GROUP_MAIN, 1);
 
     public static final String CDC_WORKING_DIR = "cdcWorkingDir";
     public String cdcWorkingDir;
@@ -148,7 +155,7 @@ public class AgentConfig {
             new Setting<>(CDC_WORKING_DIR, Platform.ALL, (c, s) -> c.cdcWorkingDir = s, c -> c.cdcWorkingDir,
                     "The CDC working directory where the last sent offset is saved, and where the archived and errored commitlogs files are copied.",
                     null, "CDC_WORKING_DIR", (n, v) -> Setting.getEnvAsString(n , System.getProperty("cassandra.storagedir") + File.separator + "cdc"),
-                    "String", GROUP_MAIN, 2);
+                    TYPE_STRING, GROUP_MAIN, 2);
 
     public static final String CDC_DIR_POLL_INTERVAL_MS = "cdcPollIntervalMs";
     public long cdcDirPollIntervalMs;
@@ -156,7 +163,7 @@ public class AgentConfig {
             new Setting<>(CDC_DIR_POLL_INTERVAL_MS, Platform.ALL, (c, s) -> c.cdcDirPollIntervalMs = Long.parseLong(s), c -> c.cdcDirPollIntervalMs,
                     "The poll interval in milliseconds for watching new commitlog files in the CDC raw directory.",
                     60000L, "CDC_DIR_POLL_INTERVAL_MS", Setting::getEnvAsLong,
-                    "Long", GROUP_MAIN, 3);
+                    TYPE_LONG, GROUP_MAIN, 3);
 
     public static final String ERROR_COMMITLOG_REPROCESS_ENABLED = "errorCommitLogReprocessEnabled";
     public boolean errorCommitLogReprocessEnabled;
@@ -164,7 +171,7 @@ public class AgentConfig {
             new Setting<Boolean>(ERROR_COMMITLOG_REPROCESS_ENABLED, Platform.ALL, (c, s) -> c.errorCommitLogReprocessEnabled = Boolean.parseBoolean(s), c -> c.errorCommitLogReprocessEnabled,
                     "Enable the re-processing of error commitlogs files.",
                     Boolean.FALSE, "CDC_ERROR_COMMITLOG_REPROCESS_ENABLED", Setting::getEnvAsBoolean,
-                    "Boolean", GROUP_MAIN, 4);
+                    TYPE_BOOLEAN, GROUP_MAIN, 4);
 
     public static final String CDC_CONCURRENT_PROCESSORS = "cdcConcurrentProcessors";
     public int cdcConcurrentProcessors;
@@ -172,7 +179,7 @@ public class AgentConfig {
             new Setting<>(CDC_CONCURRENT_PROCESSORS, Platform.ALL, (c, s) -> c.cdcConcurrentProcessors = Integer.parseInt(s), c -> c.cdcConcurrentProcessors,
                     "The number of threads used to process commitlog files. The default value is the `memtable_flush_writers`.",
                     -1, "CDC_CONCURRENT_PROCESSORS", Setting::getEnvAsInteger,
-                    "Integer", GROUP_MAIN, 5);
+                    TYPE_INTEGER, GROUP_MAIN, 5);
 
     public static final String MAX_INFLIGHT_MESSAGES_PER_TASK = "maxInflightMessagesPerTask";
     public int maxInflightMessagesPerTask;
@@ -180,7 +187,7 @@ public class AgentConfig {
             new Setting<>(MAX_INFLIGHT_MESSAGES_PER_TASK, Platform.PULSAR, (c, s) -> c.maxInflightMessagesPerTask = Integer.parseInt(s), c -> c.maxInflightMessagesPerTask,
                     "The maximum number of in-flight messages per commitlog processing task.",
                     16384, "CDC_MAX_INFLIGHT_MESSAGES_PER_TASK", Setting::getEnvAsInteger,
-                    "Integer", GROUP_MAIN, 6);
+                    TYPE_INTEGER, GROUP_MAIN, 6);
 
     public static final String SSL_PROVIDER = "sslProvider";
     public String sslProvider = System.getProperty(CDC_PROPERTY_PREFIX + SSL_PROVIDER);
@@ -188,7 +195,7 @@ public class AgentConfig {
             new Setting<>(SSL_PROVIDER, Platform.ALL, (c, s) -> c.sslProvider = s, c -> c.sslProvider,
                     "The SSL/TLS provider to use.",
                     null, "CDC_SSL_PROVIDER", Setting::getEnvAsString,
-                    "String", "ssl", 1);
+                    TYPE_STRING, "ssl", 1);
 
     public static final String SSL_TRUSTSTORE_PATH = "sslTruststorePath";
     public String sslTruststorePath;
@@ -196,7 +203,7 @@ public class AgentConfig {
             new Setting<>(SSL_TRUSTSTORE_PATH, Platform.ALL, (c, s) -> c.sslTruststorePath = s, c -> c.sslTruststorePath,
                     "The path to the SSL/TLS truststore file.",
                     null, "CDC_SSL_TRUSTSTORE_PATH", Setting::getEnvAsString,
-                    "String", "ssl", 2);
+                    TYPE_STRING, "ssl", 2);
 
     public static final String SSL_TRUSTSTORE_PASSWORD = "sslTruststorePassword";
     public String sslTruststorePassword;
@@ -204,7 +211,7 @@ public class AgentConfig {
             new Setting<>(SSL_TRUSTSTORE_PASSWORD, Platform.ALL, (c, s) -> c.sslTruststorePassword = s, c -> c.sslTruststorePassword,
                     "The password for the SSL/TLS truststore.",
                     null, "CDC_SSL_TRUSTSTORE_PASSWORD", Setting::getEnvAsString,
-                    "String", "ssl", 3);
+                    TYPE_STRING, "ssl", 3);
 
     public static final String SSL_TRUSTSTORE_TYPE = "sslTruststoreType";
     public String sslTruststoreType;
@@ -212,7 +219,7 @@ public class AgentConfig {
             new Setting<>(SSL_TRUSTSTORE_TYPE, Platform.ALL, (c, s) -> c.sslTruststoreType = s, c -> c.sslTruststoreType,
                     "The type of the SSL/TLS truststore.",
                     "JKS", "CDC_SSL_TRUSTSTORE_TYPE", Setting::getEnvAsString,
-                    "String", "ssl", 4);
+                    TYPE_STRING, "ssl", 4);
 
     public static final String SSL_KEYSTORE_PATH = "sslKeystorePath";
     public String sslKeystorePath;
@@ -220,7 +227,7 @@ public class AgentConfig {
             new Setting<>(SSL_KEYSTORE_PATH, Platform.ALL, (c, s) -> c.sslKeystorePath = s, c -> c.sslKeystorePath,
                     "The path to the SSL/TLS keystore file.",
                     null, "CDC_SSL_KEYSTORE_PATH", Setting::getEnvAsString,
-                    "String", "ssl", 5);
+                    TYPE_STRING, "ssl", 5);
 
     public static final String SSL_KEYSTORE_PASSWORD = "sslKeystorePassword";
     public String sslKeystorePassword;
@@ -228,7 +235,7 @@ public class AgentConfig {
             new Setting<>(SSL_KEYSTORE_PASSWORD, Platform.ALL, (c, s) -> c.sslKeystorePassword = s, c -> c.sslKeystorePassword,
                     "The password for the SSL/TLS keystore.",
                     null, "CDC_SSL_KEYSTORE_PASSWORD", Setting::getEnvAsString,
-                    "String", "ssl", 6);
+                    TYPE_STRING, "ssl", 6);
 
     public static final String SSL_CIPHER_SUITES = "sslCipherSuites";
     public String sslCipherSuites;
@@ -236,7 +243,7 @@ public class AgentConfig {
             new Setting<>(SSL_CIPHER_SUITES, Platform.ALL, (c, s) -> c.sslCipherSuites = s, c -> c.sslCipherSuites,
                     "Defines one or more cipher suites to use for negotiating the SSL/TLS connection.",
                     null, "CDC_SSL_CIPHER_SUITES", Setting::getEnvAsString,
-                    "String", "ssl", 7);
+                    TYPE_STRING, "ssl", 7);
 
     public static final String SSL_ENABLED_PROTOCOLS = "sslEnabledProtocols";
     public String sslEnabledProtocols;
@@ -244,7 +251,7 @@ public class AgentConfig {
             new Setting<>(SSL_ENABLED_PROTOCOLS, Platform.ALL, (c, s) -> c.sslEnabledProtocols = s, c -> c.sslEnabledProtocols,
                     "Enabled SSL/TLS protocols",
                     "TLSv1.2,TLSv1.1,TLSv1", "CDC_SSL_ENABLED_PROTOCOLS", Setting::getEnvAsString,
-                    "String", "ssl", 8);
+                    TYPE_STRING, "ssl", 8);
 
     public static final String SSL_ALLOW_INSECURE_CONNECTION = "sslAllowInsecureConnection";
     public boolean sslAllowInsecureConnection;
@@ -252,7 +259,7 @@ public class AgentConfig {
             new Setting<>(SSL_ALLOW_INSECURE_CONNECTION, Platform.PULSAR, (c, s) -> c.sslAllowInsecureConnection = Boolean.parseBoolean(s), c -> c.sslAllowInsecureConnection,
                     "Allows insecure connections to servers whose certificate has not been signed by an approved CA. You should always disable `sslAllowInsecureConnection` in production environments.",
                     false, "CDC_SSL_ALLOW_INSECURE_CONNECTION", Setting::getEnvAsBoolean,
-                    "Boolean", "ssl", 10);
+                    TYPE_BOOLEAN, "ssl", 10);
 
     public static final String SSL_HOSTNAME_VERIFICATION_ENABLE = "sslHostnameVerificationEnable";
     public boolean sslHostnameVerificationEnable = Boolean.getBoolean(CDC_PROPERTY_PREFIX + SSL_HOSTNAME_VERIFICATION_ENABLE);
@@ -260,7 +267,7 @@ public class AgentConfig {
             new Setting<>(SSL_HOSTNAME_VERIFICATION_ENABLE, Platform.PULSAR, (c, s) -> c.sslHostnameVerificationEnable = Boolean.parseBoolean(s), c -> c.sslHostnameVerificationEnable,
                     "Enable the server hostname verification.",
                     false, "CDC_SSL_HOSTNAME_VERIFICATION_ENABLE", Setting::getEnvAsBoolean,
-                    "Boolean", "ssl", 11);
+                    TYPE_BOOLEAN, "ssl", 11);
 
     public static final String TLS_TRUST_CERTS_FILE_PATH = "tlsTrustCertsFilePath";
     public String tlsTrustCertsFilePath;
@@ -268,7 +275,7 @@ public class AgentConfig {
             new Setting<>(TLS_TRUST_CERTS_FILE_PATH, Platform.ALL, (c, s) -> c.tlsTrustCertsFilePath = s, c -> c.tlsTrustCertsFilePath,
                     "The path to the trusted TLS certificate file.",
                     null, "CDC_TLS_TRUST_CERTS_FILE_PATH", Setting::getEnvAsString,
-                    "String", "ssl", 12);
+                    TYPE_STRING, "ssl", 12);
 
     public static final String USE_KEYSTORE_TLS = "useKeyStoreTls";
     public boolean useKeyStoreTls;
@@ -276,10 +283,10 @@ public class AgentConfig {
             new Setting<>(USE_KEYSTORE_TLS, Platform.ALL, (c, s) -> c.useKeyStoreTls = Boolean.parseBoolean(s), c -> c.useKeyStoreTls,
                     "The path path to the trusted TLS certificate file.",
                     false, "CDC_USE_KEYSTORE_TLS", Setting::getEnvAsBoolean,
-                    "Boolean", "ssl", 13);
+                    TYPE_BOOLEAN, "ssl", 13);
 
     public static final String PULSAR_CONFIG_FILE = "pulsarConfigFile";
-    public String pulsarConfigFile;
+    private String pulsarConfigFile;
     public static final Setting<String> PULSAR_CONFIG_FILE_SETTING =
             new Setting<>(PULSAR_CONFIG_FILE, Platform.PULSAR, (c, s) -> c.pulsarConfigFile = s, c -> c.pulsarConfigFile,
                     "Optional path to a config file containing Pulsar-specific settings. " +
@@ -288,7 +295,7 @@ public class AgentConfig {
                     "Unrecognised keys are stored as-is and accessible via config.get(). " +
                     "Inline agent parameters always win on conflict.",
                     null, "CDC_PULSAR_CONFIG_FILE", Setting::getEnvAsString,
-                    "String", GROUP_PULSAR, 0);
+                    TYPE_STRING, GROUP_PULSAR, 0);
 
     public static final String PULSAR_SERVICE_URL = "pulsarServiceUrl";
     public String pulsarServiceUrl;
@@ -296,7 +303,7 @@ public class AgentConfig {
             new Setting<>(PULSAR_SERVICE_URL, Platform.PULSAR, (c, s) -> c.pulsarServiceUrl = s, c -> c.pulsarServiceUrl,
                     "The Pulsar broker service URL.",
                     "pulsar://localhost:6650", "CDC_PULSAR_SERVICE_URL", Setting::getEnvAsString,
-                    "String", GROUP_PULSAR, 1);
+                    TYPE_STRING, GROUP_PULSAR, 1);
 
     public static final String PULSAR_BATCH_DELAY_IN_MS = "pulsarBatchDelayInMs";
     public long pulsarBatchDelayInMs;
@@ -304,7 +311,7 @@ public class AgentConfig {
             new Setting<>(PULSAR_BATCH_DELAY_IN_MS, Platform.PULSAR, (c, s) -> c.pulsarBatchDelayInMs = Long.parseLong(s), c -> c.pulsarBatchDelayInMs,
                     "Pulsar batching delay in milliseconds. Pulsar batching is enabled when this value is greater than zero.",
                     -1L, "CDC_PULSAR_BATCH_DELAY_IN_MS", Setting::getEnvAsLong,
-                    "Long", GROUP_PULSAR, 2);
+                    TYPE_LONG, GROUP_PULSAR, 2);
 
     public static final String PULSAR_KEY_BASED_BATCHER = "pulsarKeyBasedBatcher";
     public boolean pulsarKeyBasedBatcher;
@@ -312,7 +319,7 @@ public class AgentConfig {
             new Setting<>(PULSAR_KEY_BASED_BATCHER, Platform.PULSAR, (c, s) -> c.pulsarKeyBasedBatcher = Boolean.parseBoolean(s), c -> c.pulsarKeyBasedBatcher,
                     "When true, use the Pulsar KEY_BASED BatchBuilder.",
                     false, "CDC_PULSAR_KEY_BASED_BATCHER", Setting::getEnvAsBoolean,
-                    "Boolean", GROUP_PULSAR, 3);
+                    TYPE_BOOLEAN, GROUP_PULSAR, 3);
 
     public static final String PULSAR_MAX_PENDING_MESSAGES = "pulsarMaxPendingMessages";
     public int pulsarMaxPendingMessages;
@@ -320,7 +327,7 @@ public class AgentConfig {
             new Setting<>(PULSAR_MAX_PENDING_MESSAGES, Platform.PULSAR, (c, s) -> c.pulsarMaxPendingMessages = Integer.parseInt(s), c -> c.pulsarMaxPendingMessages,
                     "The Pulsar maximum size of a queue holding pending messages.",
                     1000, "CDC_PULSAR_MAX_PENDING_MESSAGES", Setting::getEnvAsInteger,
-                    "Integer", GROUP_PULSAR, 4);
+                    TYPE_INTEGER, GROUP_PULSAR, 4);
 
     public static final String PULSAR_MEMORY_LIMIT_BYTES= "pulsarMemoryLimitBytes";
     public long pulsarMemoryLimitBytes;
@@ -328,7 +335,7 @@ public class AgentConfig {
             new Setting<>(PULSAR_MEMORY_LIMIT_BYTES, Platform.PULSAR, (c, s) -> c.pulsarMemoryLimitBytes = Long.parseLong(s), c -> c.pulsarMemoryLimitBytes,
                     "Limit of client memory usage (in bytes). The 0 default means memory limit is disabled.",
                     0L, "CDC_PULSAR_MEMORY_LIMIT_BYTES", Setting::getEnvAsLong,
-                    "Long", GROUP_PULSAR, 5);
+                    TYPE_LONG, GROUP_PULSAR, 5);
 
     public static final String PULSAR_AUTH_PLUGIN_CLASS_NAME = "pulsarAuthPluginClassName";
     public String pulsarAuthPluginClassName;
@@ -336,7 +343,7 @@ public class AgentConfig {
             new Setting<>(PULSAR_AUTH_PLUGIN_CLASS_NAME, Platform.PULSAR, (c, s) -> c.pulsarAuthPluginClassName = s, c -> c.pulsarAuthPluginClassName,
                     "The Pulsar authentication plugin class name.",
                     null, "CDC_PULSAR_AUTH_PLUGIN_CLASS_NAME", Setting::getEnvAsString,
-                    "String", GROUP_PULSAR, 6);
+                    TYPE_STRING, GROUP_PULSAR, 6);
 
     public static final String PULSAR_AUTH_PARAMS = "pulsarAuthParams";
     public String pulsarAuthParams;
@@ -344,10 +351,10 @@ public class AgentConfig {
             new Setting<>(PULSAR_AUTH_PARAMS, Platform.PULSAR, (c, s) -> c.pulsarAuthParams = s, c -> c.pulsarAuthParams,
                     "The Pulsar authentication parameters.",
                     null, "CDC_PULSAR_AUTH_PARAMS", Setting::getEnvAsString,
-                    "String", GROUP_PULSAR, 7);
+                    TYPE_STRING, GROUP_PULSAR, 7);
 
     public static final String KAFKA_CONFIG_FILE = "kafkaConfigFile";
-    public String kafkaConfigFile;
+    private String kafkaConfigFile;
     public static final Setting<String> KAFKA_CONFIG_FILE_SETTING =
             new Setting<>(KAFKA_CONFIG_FILE, Platform.KAFKA, (c, s) -> c.kafkaConfigFile = s, c -> c.kafkaConfigFile,
                     "Optional path to a config file containing Kafka-specific settings. " +
@@ -356,10 +363,10 @@ public class AgentConfig {
                     "Unrecognised keys are stored as-is and accessible via config.get(). " +
                     "Inline agent parameters always win on conflict.",
                     null, "CDC_KAFKA_CONFIG_FILE", Setting::getEnvAsString,
-                    "String", GROUP_KAFKA, 0);
+                    TYPE_STRING, GROUP_KAFKA, 0);
 
     public static final String KAFKA_MUTATION_SEND_RATE_LIMIT = "kafkaMutationSendRateLimit";
-    public double kafkaMutationSendRateLimit;
+    private double kafkaMutationSendRateLimit;
     public static final Setting<Double> KAFKA_MUTATION_SEND_RATE_LIMIT_SETTING =
             new Setting<>(KAFKA_MUTATION_SEND_RATE_LIMIT, Platform.KAFKA, (c, s) -> c.kafkaMutationSendRateLimit = Double.parseDouble(s), c -> c.kafkaMutationSendRateLimit,
                     "Caps the rate, in messages per second, at which the agent publishes mutations " +
@@ -369,7 +376,7 @@ public class AgentConfig {
                     "similar catch-up scenario. Takes effect only at agent startup; changing this value " +
                     "requires restarting the Cassandra node.",
                     0.0, "CDC_KAFKA_MUTATION_SEND_RATE_LIMIT", Setting::getEnvAsDouble,
-                    "Double", GROUP_KAFKA, 1);
+                    TYPE_DOUBLE, GROUP_KAFKA, 1);
 
     /**
      * Unified view of all resolved configuration values. Contains every setting
@@ -610,9 +617,26 @@ public class AgentConfig {
         if (agentParameters == null) {
             agentParameters = new HashMap<>();
         }
+        applyConfigFile(platform, agentParameters);
+        for (Map.Entry<String, Object> entry : agentParameters.entrySet()) {
+            applyParameter(platform, entry.getKey(), entry.getValue());
+        }
+        if (log.isInfoEnabled()) {
+            log.info(describe(platform));
+        }
+        return this;
+    }
 
-        // Resolve the config file path: prefer inline parameter, fall back to the
-        // value already initialised from the env var during construction.
+    /**
+     * Loads the optional platform config file. The path comes from the inline parameter, or
+     * else from the value already initialised from the env var during construction.
+     * File keys (e.g. "serviceUrl") are mapped to setting names by prepending the
+     * camelCase platform prefix (e.g. "pulsarServiceUrl"). Inline params take
+     * precedence, so file entries already present in agentParameters are skipped.
+     * Keys that do not match a registered Setting are stored directly in properties
+     * so they remain accessible via config.get().
+     */
+    private void applyConfigFile(Platform platform, Map<String, Object> agentParameters) {
         String fileSettingName     = platform == Platform.KAFKA ? KAFKA_CONFIG_FILE : PULSAR_CONFIG_FILE;
         String platformCamelPrefix = platform == Platform.KAFKA ? GROUP_KAFKA       : GROUP_PULSAR;
         Object inlineFilePath      = agentParameters.get(fileSettingName);
@@ -620,66 +644,57 @@ public class AgentConfig {
         String configFilePath      = (inlineFilePath instanceof String && !((String) inlineFilePath).isEmpty())
                 ? (String) inlineFilePath
                 : envFilePath;
-
-        // Config file is optional — only load if a path was provided.
-        // File keys (e.g. "serviceUrl") are mapped to setting names by prepending the
-        // camelCase platform prefix (e.g. "pulsarServiceUrl"). Inline params take
-        // precedence — skip file entries that are already present in agentParameters.
-        // Keys that do not match a registered Setting are stored directly in properties
-        // so they remain accessible via config.get().
-        if (configFilePath != null && !configFilePath.isEmpty()) {
-            Map<String, Object> fileEntries = loadConfigFile(configFilePath);
-            for (Map.Entry<String, Object> entry : fileEntries.entrySet()) {
-                String rawKey = entry.getKey();
-                String settingName = platformCamelPrefix + Character.toUpperCase(rawKey.charAt(0)) + rawKey.substring(1);
-                if (agentParameters.containsKey(settingName)) {
-                    // inline parameter wins — skip file entry
-                    continue;
-                }
-                if (settingMap.containsKey(settingName)) {
-                    settingMap.get(settingName).initializer.apply(this, entry.getValue().toString());
-                } else {
-                    // unregistered key — store under the original file key so config.get() can retrieve it
-                    properties.put(rawKey, entry.getValue());
-                }
-            }
+        if (configFilePath == null || configFilePath.isEmpty()) {
+            return;
         }
-
-        for (Map.Entry<String, Object> entry : agentParameters.entrySet()) {
-            String key = entry.getKey();
-            if (entry.getValue() == null) {
+        Map<String, Object> fileEntries = loadConfigFile(configFilePath);
+        for (Map.Entry<String, Object> entry : fileEntries.entrySet()) {
+            String rawKey = entry.getKey();
+            String settingName = platformCamelPrefix + Character.toUpperCase(rawKey.charAt(0)) + rawKey.substring(1);
+            if (agentParameters.containsKey(settingName)) {
+                // inline parameter wins, skip file entry
                 continue;
             }
-            if (! (entry.getValue() instanceof String)) {
-                throw new IllegalArgumentException(String.format("Unsupported parameter '%s' of type '%s', only String values are allowed ", key, entry.getValue().getClass()));
-            }
-            String value = (String) entry.getValue();
-            Setting<?> setting = settingMap.get(key);
-            if (setting != null) {
-                if (!setting.platform.equals(Platform.ALL) && !setting.platform.equals(platform)) {
-                    throw new IllegalArgumentException(String.format("Unsupported parameter '%s' for the %s platform ", key, platform));
-                }
-                setting.initializer.apply(this, value);
-            } else if ("pulsarMaxPendingMessagesAcrossPartitions".equals(key)) {
-                log.warn("The 'pulsarMaxPendingMessagesAcrossPartitions' parameter is deprecated, the config will be ignored");
-            }
-            else {
-                throw new RuntimeException(String.format("Unknown parameter '%s'", key));
+            if (settingMap.containsKey(settingName)) {
+                settingMap.get(settingName).initializer.apply(this, entry.getValue().toString());
+            } else {
+                // unregistered key, stored under the original file key so config.get() can retrieve it
+                properties.put(rawKey, entry.getValue());
             }
         }
+    }
 
-        if (log.isInfoEnabled()) {
-            StringBuilder sb = new StringBuilder();
-            settings.forEach(s -> {
-                if (s.platform.equals(Platform.ALL) || s.platform.equals(platform)) {
-                    if (sb.length() > 0)
-                        sb.append(", ");
-                    sb.append(s.name).append("=").append(s.supplier.apply(this));
-                }
-            });
-            log.info(sb.toString());
+    private void applyParameter(Platform platform, String key, Object rawValue) {
+        if (rawValue == null) {
+            return;
         }
-        return this;
+        if (! (rawValue instanceof String)) {
+            throw new IllegalArgumentException(String.format("Unsupported parameter '%s' of type '%s', only String values are allowed ", key, rawValue.getClass()));
+        }
+        Setting<?> setting = settingMap.get(key);
+        if (setting != null) {
+            if (!setting.platform.equals(Platform.ALL) && !setting.platform.equals(platform)) {
+                throw new IllegalArgumentException(String.format("Unsupported parameter '%s' for the %s platform ", key, platform));
+            }
+            setting.initializer.apply(this, (String) rawValue);
+        } else if ("pulsarMaxPendingMessagesAcrossPartitions".equals(key)) {
+            log.warn("The 'pulsarMaxPendingMessagesAcrossPartitions' parameter is deprecated, the config will be ignored");
+        }
+        else {
+            throw new IllegalArgumentException(String.format("Unknown parameter '%s'", key));
+        }
+    }
+
+    private String describe(Platform platform) {
+        StringBuilder sb = new StringBuilder();
+        settings.forEach(s -> {
+            if (s.platform.equals(Platform.ALL) || s.platform.equals(platform)) {
+                if (sb.length() > 0)
+                    sb.append(", ");
+                sb.append(s.name).append("=").append(s.supplier.apply(this));
+            }
+        });
+        return sb.toString();
     }
 
     /**

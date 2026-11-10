@@ -149,47 +149,20 @@ public class AvroRowConverter extends AbstractRowConverter<List<Object>> {
                     case ProtocolConstants.DataType.VARINT:
                         genericRecordBuilder.put(fieldName, row.getBigInteger(cm.getName()));
                         break;
-                    case ProtocolConstants.DataType.LIST: {
-                        ListType listType = (ListType) cm.getType();
-                        Schema listSchema = subSchemas.get(fieldName);
-                        List<Object> listValue = Objects.requireNonNull(row.getList(fieldName, CodecRegistry.DEFAULT.codecFor(listType.getElementType()).getJavaType().getRawType()))
-                                .stream().map(this::marshalCollectionValue).collect(Collectors.toList());
-                        log.debug("field={} listSchema={} listValue={}", fieldName, listSchema, listValue);
-                        genericRecordBuilder.put(fieldName, buildArrayValue(listSchema, listValue));
-                    }
-                    break;
-                    case ProtocolConstants.DataType.SET: {
-                        SetType setType = (SetType) cm.getType();
-                        Schema setSchema = subSchemas.get(fieldName);
-                        Set<Object> setValue = Objects.requireNonNull(row.getSet(fieldName, CodecRegistry.DEFAULT.codecFor(setType.getElementType()).getJavaType().getRawType()))
-                                .stream().map(this::marshalCollectionValue).collect(Collectors.toSet());
-                        log.debug("field={} setSchema={} setValue={}", fieldName, setSchema, setValue);
-                        genericRecordBuilder.put(fieldName, buildArrayValue(setSchema, setValue));
-                    }
-                    break;
-                    case ProtocolConstants.DataType.MAP: {
-                        MapType mapType = (MapType) cm.getType();
-                        Schema mapSchema = subSchemas.get(fieldName);
-                        Map<String, Object> mapValue = Objects.requireNonNull(row.getMap(fieldName,
-                                        CodecRegistry.DEFAULT.codecFor(mapType.getKeyType()).getJavaType().getRawType(),
-                                        CodecRegistry.DEFAULT.codecFor(mapType.getValueType()).getJavaType().getRawType()))
-                                .entrySet().stream().collect(Collectors.toMap(e -> stringify(mapType.getKeyType(), e.getKey()), this::marshalCollectionValue));
-                        log.debug("field={} mapSchema={} mapValue={}", fieldName, mapSchema, mapValue);
-                        genericRecordBuilder.put(fieldName, mapValue);
-                    }
-                    break;
-                    case ProtocolConstants.DataType.CUSTOM: {
+                    case ProtocolConstants.DataType.LIST:
+                        genericRecordBuilder.put(fieldName, listValue(row, (ListType) cm.getType(), fieldName));
+                        break;
+                    case ProtocolConstants.DataType.SET:
+                        genericRecordBuilder.put(fieldName, setValue(row, (SetType) cm.getType(), fieldName));
+                        break;
+                    case ProtocolConstants.DataType.MAP:
+                        genericRecordBuilder.put(fieldName, mapValue(row, (MapType) cm.getType(), fieldName));
+                        break;
+                    case ProtocolConstants.DataType.CUSTOM:
                         if (cm.getType() instanceof VectorType) {
-                            Schema vectorSchema = subSchemas.get(fieldName);
-                            VectorType vectorType = (VectorType) cm.getType();
-                            CqlVector<?> vector = row.getVector(fieldName, CodecRegistry.DEFAULT.codecFor(vectorType.getElementType()).getJavaType().getRawType());
-                            log.debug("field={} vectorSchema={} vectorValue={}", fieldName, vectorSchema, vector);
-                            List<Object> vectorValue = new ArrayList<>();
-                            vector.forEach(vectorValue::add);
-                            genericRecordBuilder.put(fieldName, buildArrayValue(vectorSchema, vectorValue));
+                            genericRecordBuilder.put(fieldName, vectorValue(row, (VectorType) cm.getType(), fieldName));
                         }
-                    }
-                    break;
+                        break;
                     case ProtocolConstants.DataType.TUPLE: {
                         TupleValue tupleValue = row.getTupleValue(cm.getName());
                         genericRecordBuilder.put(fieldName, buildTupleValue(tupleValue));
@@ -201,6 +174,41 @@ public class AvroRowConverter extends AbstractRowConverter<List<Object>> {
             }
         }
         return genericRecordBuilder;
+    }
+
+    private Object listValue(Row row, ListType listType, String fieldName) {
+        Schema listSchema = subSchemas.get(fieldName);
+        List<Object> listValue = Objects.requireNonNull(row.getList(fieldName, CodecRegistry.DEFAULT.codecFor(listType.getElementType()).getJavaType().getRawType()))
+                .stream().map(this::marshalCollectionValue).collect(Collectors.toList());
+        log.debug("field={} listSchema={} listValue={}", fieldName, listSchema, listValue);
+        return buildArrayValue(listSchema, listValue);
+    }
+
+    private Object setValue(Row row, SetType setType, String fieldName) {
+        Schema setSchema = subSchemas.get(fieldName);
+        Set<Object> setValue = Objects.requireNonNull(row.getSet(fieldName, CodecRegistry.DEFAULT.codecFor(setType.getElementType()).getJavaType().getRawType()))
+                .stream().map(this::marshalCollectionValue).collect(Collectors.toSet());
+        log.debug("field={} setSchema={} setValue={}", fieldName, setSchema, setValue);
+        return buildArrayValue(setSchema, setValue);
+    }
+
+    private Map<String, Object> mapValue(Row row, MapType mapType, String fieldName) {
+        Schema mapSchema = subSchemas.get(fieldName);
+        Map<String, Object> mapValue = Objects.requireNonNull(row.getMap(fieldName,
+                        CodecRegistry.DEFAULT.codecFor(mapType.getKeyType()).getJavaType().getRawType(),
+                        CodecRegistry.DEFAULT.codecFor(mapType.getValueType()).getJavaType().getRawType()))
+                .entrySet().stream().collect(Collectors.toMap(e -> stringify(mapType.getKeyType(), e.getKey()), this::marshalCollectionValue));
+        log.debug("field={} mapSchema={} mapValue={}", fieldName, mapSchema, mapValue);
+        return mapValue;
+    }
+
+    private Object vectorValue(Row row, VectorType vectorType, String fieldName) {
+        Schema vectorSchema = subSchemas.get(fieldName);
+        CqlVector<?> vector = row.getVector(fieldName, CodecRegistry.DEFAULT.codecFor(vectorType.getElementType()).getJavaType().getRawType());
+        log.debug("field={} vectorSchema={} vectorValue={}", fieldName, vectorSchema, vector);
+        List<Object> vectorValue = new ArrayList<>();
+        vector.forEach(vectorValue::add);
+        return buildArrayValue(vectorSchema, vectorValue);
     }
 
     public static byte[] serializeAvroGenericRecord(org.apache.avro.generic.GenericRecord genericRecord, org.apache.avro.Schema schema) {

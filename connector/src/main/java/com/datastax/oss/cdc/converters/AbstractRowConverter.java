@@ -81,27 +81,7 @@ public abstract class AbstractRowConverter<T> {
                 Schema.Field field = fieldSchema(ksm, cm.getName().toString(), cm.getType(), !isPartitionKey);
                 if (field != null) {
                     fields.add(field);
-                    switch(cm.getType().getProtocolCode()) {
-                        case ProtocolConstants.DataType.LIST:
-                        case ProtocolConstants.DataType.SET:
-                        case ProtocolConstants.DataType.MAP:
-                            Schema collectionSchema = dataTypeSchema(ksm, cm.getType());
-                            subSchemas.put(field.name(), collectionSchema);
-                            log.info("Add collection schema {}={}", field.name(), collectionSchema);
-                            break;
-                        case ProtocolConstants.DataType.CUSTOM:
-                            if (cm.getType() instanceof VectorType) {
-                                Schema vectorSchema = dataTypeSchema(ksm, cm.getType());
-                                subSchemas.put(field.name(), vectorSchema);
-                                log.info("Add vector schema {}={}", field.name(), vectorSchema);
-                            }
-                            break;
-                        case ProtocolConstants.DataType.TUPLE:
-                            Schema tupleSchema = dataTypeSchema(ksm, cm.getType());
-                            subSchemas.put(field.name(), tupleSchema);
-                            log.info("Add tuple schema {}={}", field.name(), tupleSchema);
-                            break;
-                    }
+                    addSubSchema(ksm, field.name(), cm.getType());
                 }
             }
         }
@@ -111,6 +91,34 @@ public abstract class AbstractRowConverter<T> {
             for(Map.Entry<String, Schema> entry : subSchemas.entrySet()) {
                 log.info("type={} schema={}", entry.getKey(), entry.getValue());
             }
+        }
+    }
+
+    /** Records the schema of a collection, vector or tuple column in {@link #subSchemas}. */
+    private void addSubSchema(KeyspaceMetadata ksm, String fieldName, DataType type) {
+        switch(type.getProtocolCode()) {
+            case ProtocolConstants.DataType.LIST:
+            case ProtocolConstants.DataType.SET:
+            case ProtocolConstants.DataType.MAP:
+                Schema collectionSchema = dataTypeSchema(ksm, type);
+                subSchemas.put(fieldName, collectionSchema);
+                log.info("Add collection schema {}={}", fieldName, collectionSchema);
+                break;
+            case ProtocolConstants.DataType.CUSTOM:
+                if (type instanceof VectorType) {
+                    Schema vectorSchema = dataTypeSchema(ksm, type);
+                    subSchemas.put(fieldName, vectorSchema);
+                    log.info("Add vector schema {}={}", fieldName, vectorSchema);
+                }
+                break;
+            case ProtocolConstants.DataType.TUPLE:
+                Schema tupleSchema = dataTypeSchema(ksm, type);
+                subSchemas.put(fieldName, tupleSchema);
+                log.info("Add tuple schema {}={}", fieldName, tupleSchema);
+                break;
+            default:
+                // Other types map directly to an Avro field and need no sub-schema.
+                break;
         }
     }
 

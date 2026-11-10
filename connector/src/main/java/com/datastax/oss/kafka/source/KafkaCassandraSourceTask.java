@@ -46,6 +46,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.BinaryDecoder;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.specific.SpecificData;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -119,7 +120,6 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
     MutationCache<String> mutationCache;
 
     volatile ConverterAndQuery<Converter<byte[], ?>> valueConverterAndQuery;
-    private Object emptyValue;
     KafkaAvroSerializer schemaRegistrySerializer;
     KafkaAvroSerializer keySchemaRegistrySerializer;
 
@@ -134,6 +134,7 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
 
     /** Key of the events topic offset in this task's Kafka Connect source offset map. */
     private static final String OFFSET_KEY = "offset";
+    private static final byte[] EMPTY_JSON_OBJECT = "{}".getBytes(StandardCharsets.UTF_8);
 
     private static final org.apache.avro.Schema MUTATION_VALUE_SCHEMA;
 
@@ -252,7 +253,7 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
             this.mutationKeyConverter = new KafkaAvroConverter(tuple._1, tuple._2, tuple._2.getPrimaryKey());
             setValueConverterAndQuery(tuple._1, tuple._2);
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            throw new ConnectException(e);
         }
     }
 
@@ -270,10 +271,9 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
                 ((KafkaAvroConverter) this.valueConverterAndQuery.getConverter())
                         .enableSchemaRegistry(schemaRegistrySerializer, outputTopic);
             }
-            this.emptyValue = config.isJsonOnlyOutputFormat() ? "{}".getBytes(StandardCharsets.UTF_8) : null;
         } catch (Exception e) {
             log.error("Unexpected error", e);
-            throw new RuntimeException(e);
+            throw new ConnectException(e);
         }
     }
 
@@ -418,7 +418,7 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
                 pk = mutationKeyConverter.fromConnectData(mutationKeyRecord);
                 mutationValue = decodeMutationValue(rec.value());
             } catch (IOException e) {
-                throw new RuntimeException("Cannot decode message at offset " + rec.offset(), e);
+                throw new ConnectException("Cannot decode message at offset " + rec.offset(), e);
             }
             String cacheKey = Base64.getEncoder().encodeToString(rec.key());
             DecodedRecord decoded = new DecodedRecord(rec, mutationKeyRecord, mutationValue, pk, cacheKey);
@@ -454,33 +454,7 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
         try {
             queryExecutor.executeOrdered(decoded.cacheKey, () -> {
                 try {
-                    if (queryRateLimiter != null) {
-                        queryRateLimiter.acquire();
-                    }
-                    if (mutationCache.isMutationProcessed(decoded.cacheKey, decoded.mutationValue.getMd5Digest())) {
-                        future.complete(buildHeartbeatRecord(decoded.rec));
-                        return;
-                    }
-                    List<Object> nonNullPkValues = decoded.pk.stream().filter(Objects::nonNull).collect(Collectors.toList());
-                    Tuple2<Row, UUID> tuple = cassandraClient.selectRow(
-                            nonNullPkValues,
-                            decoded.mutationValue.getNodeId(),
-                            ConsistencyLevel.LOCAL_QUORUM,
-                            getSelectStatement(converterAndQueryFinal, nonNullPkValues.size()),
-                            decoded.mutationValue.getMd5Digest());
-                    Object value = tuple._1 == null ? this.emptyValue : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
-                    if (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._2 != null && tuple._2.equals(decoded.mutationValue.getNodeId()))) {
-                        mutationCache.addMutationMd5(decoded.cacheKey, decoded.mutationValue.getMd5Digest());
-                    }
-                    Object key;
-                    if (!config.isAvroOutputFormat()) {
-                        key = keyConverter.fromConnectData(decoded.mutationKeyRecord);
-                    } else if (keySchemaRegistrySerializer != null) {
-                        key = keySchemaRegistrySerializer.serialize(outputTopic, decoded.mutationKeyRecord);
-                    } else {
-                        key = decoded.rec.key();
-                    }
-                    future.complete(buildSourceRecord(decoded.rec, key, value));
+                    future.complete(queryRow(decoded, converterAndQueryFinal));
                 } catch (Throwable err) {
                     future.completeExceptionally(err);
                 }
@@ -489,6 +463,47 @@ public class KafkaCassandraSourceTask extends SourceTask implements SourceSchema
             future.completeExceptionally(err);
         }
         return future;
+    }
+
+    /**
+     * Runs on the query executor: reads the current row for one record and builds the record to
+     * publish, or a heartbeat record when the mutation was already processed.
+     */
+    private SourceRecord queryRow(DecodedRecord decoded,
+                                  ConverterAndQuery<Converter<byte[], ?>> converterAndQueryFinal) throws Exception {
+        if (queryRateLimiter != null) {
+            queryRateLimiter.acquire();
+        }
+        if (mutationCache.isMutationProcessed(decoded.cacheKey, decoded.mutationValue.getMd5Digest())) {
+            return buildHeartbeatRecord(decoded.rec);
+        }
+        List<Object> nonNullPkValues = decoded.pk.stream().filter(Objects::nonNull).collect(Collectors.toList());
+        Tuple2<Row, UUID> tuple = cassandraClient.selectRow(
+                nonNullPkValues,
+                decoded.mutationValue.getNodeId(),
+                ConsistencyLevel.LOCAL_QUORUM,
+                getSelectStatement(converterAndQueryFinal, nonNullPkValues.size()),
+                decoded.mutationValue.getMd5Digest());
+        Object value = tuple._1 == null ? emptyValue() : converterAndQueryFinal.getConverter().toConnectData(tuple._1);
+        if (!config.getCacheOnlyIfCoordinatorMatch() || (tuple._2 != null && tuple._2.equals(decoded.mutationValue.getNodeId()))) {
+            mutationCache.addMutationMd5(decoded.cacheKey, decoded.mutationValue.getMd5Digest());
+        }
+        return buildSourceRecord(decoded.rec, outputKey(decoded), value);
+    }
+
+    private Object outputKey(DecodedRecord decoded) throws IOException {
+        if (!config.isAvroOutputFormat()) {
+            return keyConverter.fromConnectData(decoded.mutationKeyRecord);
+        }
+        if (keySchemaRegistrySerializer != null) {
+            return keySchemaRegistrySerializer.serialize(outputTopic, decoded.mutationKeyRecord);
+        }
+        return decoded.rec.key();
+    }
+
+    /** Value published when the row no longer exists: an empty JSON object, or a tombstone. */
+    private Object emptyValue() {
+        return config.isJsonOnlyOutputFormat() ? EMPTY_JSON_OBJECT : null;
     }
 
     /**

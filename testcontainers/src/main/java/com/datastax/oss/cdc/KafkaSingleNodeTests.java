@@ -62,6 +62,11 @@ public abstract class KafkaSingleNodeTests {
     private static final DockerImageName KAFKA_IMAGE = AgentTestUtil.CONFLUENT_KAFKA_IMAGE;
     public static final String CONTAINER_KAFKA_CONFIG_PATH = "/etc/cassandra/cdc-kafka.conf";
 
+    // Bootstrap servers as seen from inside the Docker network (what the Cassandra container
+    // agent should use): KafkaContainer exposes the internal listener on port 9092 under its
+    // network alias.
+    private static final String INTERNAL_BOOTSTRAP_SERVERS = "kafka:9092";
+
     // Field names of the MutationValue Avro record on the events topic.
     private static final String MD5_DIGEST = "md5Digest";
     private static final String NODE_ID = "nodeId";
@@ -92,15 +97,6 @@ public abstract class KafkaSingleNodeTests {
         if (testNetwork != null) {
             testNetwork.close();
         }
-    }
-
-    /**
-     * Returns the bootstrap servers string as seen from <em>inside</em> the Docker
-     * network (i.e. what the Cassandra container agent should use).
-     */
-    protected static String internalBootstrapServers() {
-        // KafkaContainer exposes the internal listener on port 9092 under its network alias
-        return "kafka:9092";
     }
 
     /**
@@ -168,7 +164,7 @@ public abstract class KafkaSingleNodeTests {
      */
     @Test
     public void testSchema() throws Exception {
-        File kafkaConf = writeKafkaConfigFile(internalBootstrapServers());
+        File kafkaConf = writeKafkaConfigFile(INTERNAL_BOOTSTRAP_SERVERS);
         try (CassandraContainer<?> cassandra =
                      createCassandraContainer(1, kafkaConf.getAbsolutePath(), testNetwork)) {
             cassandra.withCopyFileToContainer(
@@ -232,7 +228,7 @@ public abstract class KafkaSingleNodeTests {
     @Test
     public void testMultipleMutations() throws Exception {
         int numMutations = 10;
-        File kafkaConf = writeKafkaConfigFile(internalBootstrapServers());
+        File kafkaConf = writeKafkaConfigFile(INTERNAL_BOOTSTRAP_SERVERS);
         try (CassandraContainer<?> cassandra =
                      createCassandraContainer(1, kafkaConf.getAbsolutePath(), testNetwork)) {
             cassandra.withCopyFileToContainer(

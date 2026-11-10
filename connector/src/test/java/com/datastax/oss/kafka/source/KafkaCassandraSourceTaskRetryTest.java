@@ -112,9 +112,6 @@ public class KafkaCassandraSourceTaskRetryTest {
         when(mockCaq.prepareSelectStatement(any(), anyInt())).thenReturn(mock(PreparedStatement.class));
         setField(task, "valueConverterAndQuery", mockCaq);
 
-        // emptyValue
-        setField(task, "emptyValue", null);
-
         // Mock key converter.
         Converter<byte[], ?> keyConverter = mock(Converter.class);
         when(keyConverter.fromConnectData(any(GenericRecord.class))).thenReturn(new byte[]{1, 2, 3});

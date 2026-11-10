@@ -66,7 +66,7 @@ public final class SourceUtil {
      * @param applicationName driver application-name tag (connector-specific)
      * @param listener        schema-change listener (typically {@code this} in the calling class)
      * @return an initialised {@link CassandraClient}
-     * @throws RuntimeException wrapping the last failure if the deadline is exceeded
+     * @throws IllegalStateException wrapping the last failure if the deadline is exceeded
      */
     public static CassandraClient initCassandraClientWithRetry(CassandraSourceConnectorConfig config,
                                                                String applicationName,
@@ -78,7 +78,7 @@ public final class SourceUtil {
                 return initCassandraClient(config, applicationName, listener);
             } catch (Exception err) {
                 if (System.currentTimeMillis() >= deadlineMs) {
-                    throw new RuntimeException("Failed to initialize Cassandra client after " +
+                    throw new IllegalStateException("Failed to initialize Cassandra client after " +
                             config.getQueryMaxBackoffInSec() + "s, giving up", err);
                 }
                 consecutiveFailures = backoffRetry(err, consecutiveFailures, config,
