@@ -65,6 +65,26 @@ jobs:
       - name: Build
         run: ./gradlew build -x test
 
+      # Unit tests only (no containers), so SonarQube gets coverage for new code.
+      # Each test task is finalized by jacocoTestReport, which writes
+      # <module>/build/reports/jacoco/test/jacocoTestReport.xml.
+      # -PbrokerType=all keeps the connector's Kafka unit tests, which are filtered out by default.
+      - name: Unit tests with coverage
+        run: |
+          ./gradlew -PbrokerType=all -x :connector:nar \
+            :agent:test \
+            :connector:test \
+              --tests 'com.datastax.oss.cdc.CassandraSourceConnectorConfig*' \
+              --tests 'com.datastax.oss.cdc.MutationCacheTests' \
+              --tests 'com.datastax.oss.cdc.converters.*' \
+              --tests 'com.datastax.oss.pulsar.source.CassandraSourceRetryTest' \
+              --tests 'com.datastax.oss.kafka.source.KafkaCassandraSourceTaskKafkaTest' \
+              --tests 'com.datastax.oss.kafka.source.KafkaCassandraSourceTaskRetryTest' \
+              --tests 'com.datastax.oss.kafka.source.KafkaCassandraSourceConnectorKafkaTest' \
+            :backfill-cli:test \
+              --tests '*ImporterTest' \
+              --tests '*MigratorTest'
+
       # Pinned to v8.2.1 (SHA: 22918119ff8e1ca75a623e15c8296b6ea4fbe28f).
       - name: Run SonarQube scan
         uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f
@@ -77,7 +97,11 @@ jobs:
             -D sonar.projectName=${{ vars.SONAR_PROJECT_NAME }}
             -D sonar.java.source=8
             -D sonar.sources=.
-            -D sonar.exclusions=**/proto/**,**/shade/**,**/shaded/**,**/build/**
+            -D sonar.exclusions=**/proto/**,**/shade/**,**/shaded/**,**/build/**,**/src/test/**
+            -D sonar.tests=.
+            -D sonar.test.inclusions=**/src/test/**
+            -D sonar.coverage.exclusions=testcontainers/**,docs/**
+            -D sonar.coverage.jacoco.xmlReportPaths=agent/build/reports/jacoco/test/jacocoTestReport.xml,connector/build/reports/jacoco/test/jacocoTestReport.xml,backfill-cli/build/reports/jacoco/test/jacocoTestReport.xml
             -D sonar.java.binaries=**/build/classes
             -D sonar.scanner.truststorePath=${{ env.TRUSTSTORE_PATH }}
             -D sonar.scanner.truststorePassword=${{ secrets.IBM_SONARQUBE_CERT_PASSWORD }}
