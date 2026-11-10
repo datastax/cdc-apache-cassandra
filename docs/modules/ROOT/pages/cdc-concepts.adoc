@@ -255,7 +255,6 @@ Make sure to set the connection details according to your cluster configuration.
 
 === Go client example
 
-.main.go
 [source,go]
 ----
 include::ROOT:partial$cdc-example-main.go[]
@@ -263,13 +262,15 @@ include::ROOT:partial$cdc-example-main.go[]
 
 === Java client example
 
-.pom.xml
+pom.xml::
++
 [source,xml]
 ----
 include::ROOT:partial$cdc-example-pom.xml[]
 ----
 
-.CDCConsumer.java
+CDCConsumer.java::
++
 [source,java]
 ----
 package com.datastax.astrastreaming.javaexamples.consumers;
@@ -353,7 +354,8 @@ public class CDCConsumer {
 
 === Python client example
 
-.requirements.txt
+requirements.txt::
++
 [source,plaintext]
 ----
 avro==1.11.0
@@ -361,7 +363,8 @@ pulsar==2.0.2
 pulsar_client==2.10.0
 ----
 
-.cdc_consumer.py
+cdc_consumer.py::
++
 [source,python]
 ----
 import base64
@@ -470,7 +473,8 @@ client.close()
 
 === C# client example
 
-.dotnet-pulsar-astracdc.csproj
+dotnet-pulsar-astracdc.csproj::
++
 [source,xml]
 ----
 <Project Sdk="Microsoft.NET.Sdk">
@@ -490,7 +494,8 @@ client.close()
 </Project>
 ----
 
-.Program.cs
+Program.cs::
++
 [source,csharp]
 ----
 // See https://aka.ms/new-console-template for more information
@@ -613,7 +618,8 @@ async Task<(Avro.Schema, Avro.Schema)> GetSchema(string schemaUrl)
 
 === Node.js client example
 
-.package.json
+package.json::
++
 [source,json]
 ----
 {
@@ -624,7 +630,8 @@ async Task<(Avro.Schema, Avro.Schema)> GetSchema(string schemaUrl)
 }
 ----
 
-.consumer.js
+consumer.js::
++
 [source,javascript]
 ----
 const Pulsar = require("pulsar-client");
@@ -753,7 +760,6 @@ The following example functions consume messages from the CDC data topic.
 
 === Go function example
 
-.main.go
 [source,go]
 ----
 include::ROOT:partial$cdc-example-main.go[]
@@ -761,13 +767,15 @@ include::ROOT:partial$cdc-example-main.go[]
 
 === Java function example
 
-.pom.xml
+pom.xml::
++
 [source,xml]
 ----
 include::ROOT:partial$cdc-example-pom.xml[]
 ----
 
-./utils/JsonConverter.java
+/utils/JsonConverter.java::
++
 [source,java]
 ----
 package com.datastax.astrastreaming.javaexamples.utils;
@@ -962,7 +970,8 @@ public class JsonConverter {
 }
 ----
 
-.CDCFunction.java
+CDCFunction.java::
++
 [source,java]
 ----
 package com.datastax.astrastreaming.javaexamples.functions;
@@ -1014,7 +1023,6 @@ public class CDCFunction implements Function<GenericObject, String> {
 The following function decodes the content of CDC events as plain JSON.
 For the full context of this example, see the https://github.com/hemidactylus/decoding-cdc-astra-streaming-functions[Decoding CDC {astra-stream} functions repository]
 
-.deschemaer.py
 [source,python]
 ----
 import base64
