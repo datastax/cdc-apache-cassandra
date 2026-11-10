@@ -20,6 +20,7 @@ import com.datastax.oss.cdc.agent.AbstractMutation;
 import com.datastax.oss.cdc.agent.KafkaMutationSender;
 import com.datastax.oss.cdc.agent.MutationSender;
 import com.datastax.oss.cdc.agent.PulsarMutationSender;
+import com.datastax.oss.cdc.agent.exceptions.CassandraConnectorSchemaException;
 import com.datastax.oss.cdc.backfill.exporter.ExportedTable;
 import com.datastax.oss.cdc.backfill.factory.ConnectorFactory;
 import com.datastax.oss.cdc.backfill.factory.KafkaMutationSenderFactory;
@@ -101,7 +102,7 @@ public class ImporterTest {
      * concrete mock type, avoiding a cast to {@code AutoCloseable} (which would
      * require catching checked {@code Exception}).
      */
-    static abstract class ImporterFixture {
+    abstract static class ImporterFixture {
         final String name;
         /** The mock sender returned by the factory; used for interaction verification. */
         final MutationSender<TableMetadata> sender;
@@ -314,9 +315,9 @@ public class ImporterTest {
         // given
         Connector connector = Mockito.mock(Connector.class);
         Resource resource = Mockito.mock(Resource.class);
-        Record record = Mockito.mock(Record.class);
+        Record mockRecord = Mockito.mock(Record.class);
         Record[] records = new Record[MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING / 2 + 1];
-        Arrays.fill(records, record);
+        Arrays.fill(records, mockRecord);
         Mockito.when(resource.read()).thenReturn(Flux.just(records));
         Mockito.when(connector.read()).thenReturn(Flux.just(resource, resource));
 
@@ -366,9 +367,9 @@ public class ImporterTest {
         // given
         Connector connector = Mockito.mock(Connector.class);
         Resource resource = Mockito.mock(Resource.class);
-        Record record = Mockito.mock(Record.class);
+        Record mockRecord = Mockito.mock(Record.class);
         Record[] records = new Record[MAX_INFLIGHT_MESSAGES_PER_TASK_SETTING * 2];
-        Arrays.fill(records, record);
+        Arrays.fill(records, mockRecord);
         Mockito.when(resource.read()).thenReturn(Flux.just(records));
         Mockito.when(connector.read()).thenReturn(Flux.just(resource));
 
@@ -395,6 +396,73 @@ public class ImporterTest {
         assertTrue(importFuture.isDone());
         fixture.verifySenderClose(controlledSender);
         assertThat(importFuture.get(), is(ExitStatus.STATUS_ABORTED_FATAL_ERROR));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("importerFixtures")
+    public void testImportFailsOnLateSchemaErrorAndSurvivesCloseFailures(ImporterFixture fixture) throws Exception {
+        // given: one record whose send fails only after the CSV has been fully read
+        Connector connector = Mockito.mock(Connector.class);
+        Resource resource = Mockito.mock(Resource.class);
+        Mockito.when(resource.read()).thenReturn(Flux.just(Mockito.mock(Record.class)));
+        Mockito.when(connector.read()).thenReturn(Flux.just(resource));
+        Mockito.doThrow(new IllegalStateException("connector close failed")).when(connector).close();
+        ConnectorFactory connectorFactory = Mockito.mock(ConnectorFactory.class);
+        Mockito.when(connectorFactory.newCVSConnector()).thenReturn(connector);
+
+        MutationSender<TableMetadata> controlledSender = fixture.newControlledSender();
+        CompletableFuture<Void> lateFailure = new CompletableFuture<>();
+        Mockito.doReturn(lateFailure).when(controlledSender).sendMutationAsync(Mockito.any());
+        Mockito.doThrow(new IllegalStateException("sender close failed")).when((AutoCloseable) controlledSender).close();
+
+        AbstractImporter importer = fixture.buildWith(connectorFactory, Mockito.mock(ExportedTable.class), controlledSender);
+
+        // when: the import is waiting for in-flight messages, the send fails
+        CompletableFuture<ExitStatus> importFuture = CompletableFuture.supplyAsync(importer::importTable);
+        assertImportBlocked(importFuture);
+        lateFailure.completeExceptionally(new CassandraConnectorSchemaException("bad key"));
+
+        // then: the late error is reported and both close failures are only logged
+        assertThat(importFuture.get(5, TimeUnit.SECONDS), is(ExitStatus.STATUS_ABORTED_FATAL_ERROR));
+        Mockito.verify(connector).close();
+        fixture.verifySenderClose(controlledSender);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("importerFixtures")
+    public void testImportAbortsWhenSendThrows(ImporterFixture fixture) throws Exception {
+        Connector connector = Mockito.mock(Connector.class);
+        Resource resource = Mockito.mock(Resource.class);
+        Mockito.when(resource.read()).thenReturn(Flux.just(Mockito.mock(Record.class)));
+        Mockito.when(connector.read()).thenReturn(Flux.just(resource));
+        ConnectorFactory connectorFactory = Mockito.mock(ConnectorFactory.class);
+        Mockito.when(connectorFactory.newCVSConnector()).thenReturn(connector);
+
+        MutationSender<TableMetadata> controlledSender = fixture.newControlledSender();
+        Mockito.when(controlledSender.sendMutationAsync(Mockito.any()))
+                .thenThrow(new IllegalStateException("producer closed"));
+
+        AbstractImporter importer = fixture.buildWith(connectorFactory, Mockito.mock(ExportedTable.class), controlledSender);
+
+        assertEquals(ExitStatus.STATUS_ABORTED_FATAL_ERROR, importer.importTable());
+        fixture.verifySenderClose(controlledSender);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("importerFixtures")
+    public void testImportAbortsWhenPrimaryKeyTypeHasNoStringCodec(ImporterFixture fixture) throws Exception {
+        ConnectorFactory connectorFactory = Mockito.mock(ConnectorFactory.class);
+        Mockito.when(connectorFactory.newCVSConnector()).thenReturn(Mockito.mock(Connector.class));
+        ExportedTable exportedTable = Mockito.mock(ExportedTable.class);
+        List<com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata> columns = new ArrayList<>();
+        columns.add(new DefaultColumnMetadata(CqlIdentifier.fromInternal("ks1"), CqlIdentifier.fromInternal("table1"),
+                CqlIdentifier.fromInternal("key"), DataTypes.custom("com.example.NoSuchType"), false));
+        Mockito.when(exportedTable.getPrimaryKey()).thenReturn(columns);
+
+        AbstractImporter importer = fixture.build(connectorFactory, exportedTable);
+
+        assertEquals(ExitStatus.STATUS_ABORTED_FATAL_ERROR, importer.importTable());
+        Mockito.verify(fixture.sender, Mockito.never()).sendMutationAsync(Mockito.any());
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────

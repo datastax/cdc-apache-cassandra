@@ -34,6 +34,17 @@ import com.datastax.oss.driver.internal.core.metadata.schema.DefaultColumnMetada
 import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableMap;
 import com.datastax.oss.kafka.source.converters.Converter;
 import com.datastax.oss.kafka.source.converters.KafkaAvroConverter;
+import com.datastax.oss.driver.api.core.metadata.schema.AggregateMetadata;
+import com.datastax.oss.driver.api.core.metadata.schema.FunctionMetadata;
+import com.datastax.oss.driver.api.core.metadata.schema.ViewMetadata;
+import com.datastax.oss.driver.api.core.type.UserDefinedType;
+import com.google.common.util.concurrent.RateLimiter;
+import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
+import io.confluent.kafka.serializers.KafkaAvroSerializer;
+import org.apache.kafka.common.KafkaException;
+import org.apache.kafka.common.errors.WakeupException;
+import org.apache.kafka.connect.errors.ConnectException;
+import java.nio.charset.StandardCharsets;
 import io.vavr.Tuple2;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
@@ -58,11 +69,14 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -157,11 +171,11 @@ class KafkaCassandraSourceTaskKafkaTest {
     }
 
     private byte[] encodeMutationValue(String md5Digest, UUID nodeId) {
-        GenericData.Record record = new GenericData.Record(MUTATION_VALUE_SCHEMA);
-        record.put("md5Digest", md5Digest);
-        record.put("nodeId", nodeId.toString());
-        record.put("columns", null);
-        return AvroRowConverter.serializeAvroGenericRecord(record, MUTATION_VALUE_SCHEMA);
+        GenericData.Record mutationValueRecord = new GenericData.Record(MUTATION_VALUE_SCHEMA);
+        mutationValueRecord.put("md5Digest", md5Digest);
+        mutationValueRecord.put("nodeId", nodeId.toString());
+        mutationValueRecord.put("columns", null);
+        return AvroRowConverter.serializeAvroGenericRecord(mutationValueRecord, MUTATION_VALUE_SCHEMA);
     }
 
     private ConsumerRecords<byte[], byte[]> singleRecordBatch(byte[] key, byte[] value, long offset) {
@@ -182,11 +196,11 @@ class KafkaCassandraSourceTaskKafkaTest {
         List<SourceRecord> records = task.poll();
 
         assertThat(records).hasSize(1);
-        SourceRecord record = records.get(0);
-        assertThat(record.topic()).isEqualTo(OUTPUT_TOPIC);
-        assertThat(record.value()).isEqualTo("row-bytes".getBytes());
-        assertThat(record.key()).isEqualTo(key);
-        assertThat(record.sourceOffset().get("offset")).isEqualTo(11L);
+        SourceRecord sourceRecord = records.get(0);
+        assertThat(sourceRecord.topic()).isEqualTo(OUTPUT_TOPIC);
+        assertThat(sourceRecord.value()).isEqualTo("row-bytes".getBytes());
+        assertThat(sourceRecord.key()).isEqualTo(key);
+        assertThat(sourceRecord.sourceOffset().get("offset")).isEqualTo(11L);
     }
 
     @Test
@@ -202,11 +216,11 @@ class KafkaCassandraSourceTaskKafkaTest {
         List<SourceRecord> records = task.poll();
 
         assertThat(records).hasSize(1);
-        SourceRecord record = records.get(0);
-        assertThat(record.topic()).isEqualTo(HEARTBEAT_TOPIC);
-        assertThat(record.value()).isNull();
-        assertThat(record.key()).isEqualTo(key);
-        assertThat(record.sourceOffset().get("offset")).isEqualTo(21L);
+        SourceRecord sourceRecord = records.get(0);
+        assertThat(sourceRecord.topic()).isEqualTo(HEARTBEAT_TOPIC);
+        assertThat(sourceRecord.value()).isNull();
+        assertThat(sourceRecord.key()).isEqualTo(key);
+        assertThat(sourceRecord.sourceOffset().get("offset")).isEqualTo(21L);
         verify(cassandraClient, never()).selectRow(anyList(), any(), any(ConsistencyLevel.class), any(), any());
     }
 
@@ -264,6 +278,215 @@ class KafkaCassandraSourceTaskKafkaTest {
         // now-stale schema instead of being versioned or rejected. This is the gap tracked by the
         // schema-evolution TODO on setValueConverterAndQuery.
         assertThat(fieldNames(beforeAlter)).containsExactlyInAnyOrder("name");
+    }
+
+    private byte[] encodeMutationValueWithColumns(String md5Digest, UUID nodeId, List<String> columns) {
+        GenericData.Record mutationValueRecord = new GenericData.Record(MUTATION_VALUE_SCHEMA);
+        mutationValueRecord.put("md5Digest", md5Digest);
+        mutationValueRecord.put("nodeId", nodeId.toString());
+        mutationValueRecord.put("columns", columns);
+        return AvroRowConverter.serializeAvroGenericRecord(mutationValueRecord, MUTATION_VALUE_SCHEMA);
+    }
+
+    private static CassandraSourceConnectorConfig configWith(String key, String value) {
+        return new CassandraSourceConnectorConfig(ImmutableMap.<String, String>builder()
+                .put(CassandraSourceConnectorConfig.KEYSPACE_NAME_CONFIG, "ks1")
+                .put(CassandraSourceConnectorConfig.TABLE_NAME_CONFIG, "table1")
+                .put(CassandraSourceConnectorConfig.EVENTS_TOPIC_NAME_CONFIG, EVENTS_TOPIC)
+                .put(CassandraSourceConnectorConfig.OUTPUT_TOPIC_CONFIG, OUTPUT_TOPIC)
+                .put(key, value)
+                .build());
+    }
+
+    private void stubRowFound() throws Exception {
+        when(cassandraClient.selectRow(anyList(), any(), any(ConsistencyLevel.class), any(), any()))
+                .thenReturn(new Tuple2<>(mock(Row.class), nodeId));
+    }
+
+    @Test
+    void should_rethrow_wakeup_exception_from_poll() {
+        when(consumer.poll(any(Duration.class))).thenThrow(new WakeupException());
+
+        assertThatThrownBy(() -> task.poll()).isInstanceOf(WakeupException.class);
+    }
+
+    @Test
+    void should_retry_consumer_poll_after_transient_failure() throws Exception {
+        when(consumer.poll(any(Duration.class)))
+                .thenThrow(new KafkaException("broker unavailable"))
+                .thenReturn(ConsumerRecords.empty());
+
+        assertThat(task.poll()).isEmpty();
+        verify(consumer, times(2)).poll(any(Duration.class));
+    }
+
+    @Test
+    void should_fail_task_on_undecodable_event() {
+        // Union index 1 (string) with no string bytes after it: the Avro decoder hits EOF.
+        when(consumer.poll(any(Duration.class))).thenReturn(singleRecordBatch(encodePrimaryKey(3), new byte[]{2}, 5L));
+
+        assertThatThrownBy(() -> task.poll())
+                .isInstanceOf(ConnectException.class)
+                .hasMessageContaining("offset 5");
+    }
+
+    @Test
+    void should_decode_mutation_columns_list() throws Exception {
+        byte[] key = encodePrimaryKey(4);
+        byte[] value = encodeMutationValueWithColumns("digest-4", nodeId, List.of("a", "b"));
+        when(consumer.poll(any(Duration.class))).thenReturn(singleRecordBatch(key, value, 40L));
+        stubRowFound();
+
+        assertThat(task.poll()).hasSize(1);
+    }
+
+    @Test
+    void should_publish_tombstone_when_row_is_gone() throws Exception {
+        byte[] key = encodePrimaryKey(5);
+        when(consumer.poll(any(Duration.class))).thenReturn(singleRecordBatch(key, encodeMutationValue("digest-5", nodeId), 50L));
+        when(cassandraClient.selectRow(anyList(), any(), any(ConsistencyLevel.class), any(), any()))
+                .thenReturn(new Tuple2<>(null, nodeId));
+
+        List<SourceRecord> records = task.poll();
+
+        assertThat(records).hasSize(1);
+        assertThat(records.get(0).value()).isNull();
+    }
+
+    @Test
+    void should_publish_empty_json_object_when_row_is_gone_in_json_only_mode() throws Exception {
+        task.config = configWith(CassandraSourceConnectorConfig.OUTPUT_FORMAT, "json");
+        @SuppressWarnings("unchecked")
+        Converter<byte[], Object> keyConverter = mock(Converter.class);
+        when(keyConverter.fromConnectData(any())).thenReturn("json-key");
+        task.keyConverter = keyConverter;
+        when(consumer.poll(any(Duration.class))).thenReturn(singleRecordBatch(encodePrimaryKey(6), encodeMutationValue("digest-6", nodeId), 60L));
+        when(cassandraClient.selectRow(anyList(), any(), any(ConsistencyLevel.class), any(), any()))
+                .thenReturn(new Tuple2<>(null, nodeId));
+
+        List<SourceRecord> records = task.poll();
+
+        assertThat(records).hasSize(1);
+        assertThat(records.get(0).key()).isEqualTo("json-key");
+        assertThat(records.get(0).value()).isEqualTo("{}".getBytes(StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void should_wrap_key_with_schema_registry_serializer_when_configured() throws Exception {
+        KafkaAvroSerializer keySerializer = mock(KafkaAvroSerializer.class);
+        when(keySerializer.serialize(eq(OUTPUT_TOPIC), any())).thenReturn("registry-key".getBytes(StandardCharsets.UTF_8));
+        KafkaAvroSerializer valueSerializer = mock(KafkaAvroSerializer.class);
+        task.keySchemaRegistrySerializer = keySerializer;
+        task.schemaRegistrySerializer = valueSerializer;
+        when(consumer.poll(any(Duration.class))).thenReturn(singleRecordBatch(encodePrimaryKey(7), encodeMutationValue("digest-7", nodeId), 70L));
+        stubRowFound();
+
+        List<SourceRecord> records = task.poll();
+        assertThat(records.get(0).key()).isEqualTo("registry-key".getBytes(StandardCharsets.UTF_8));
+
+        task.stop();
+        verify(keySerializer).close();
+        verify(valueSerializer).close();
+        assertThat(task.keySchemaRegistrySerializer).isNull();
+        assertThat(task.schemaRegistrySerializer).isNull();
+    }
+
+    @Test
+    void should_throttle_queries_when_rate_limit_is_set() throws Exception {
+        java.lang.reflect.Field limiter = KafkaCassandraSourceTask.class.getDeclaredField("queryRateLimiter");
+        limiter.setAccessible(true);
+        limiter.set(task, RateLimiter.create(1000));
+        when(consumer.poll(any(Duration.class))).thenReturn(singleRecordBatch(encodePrimaryKey(8), encodeMutationValue("digest-8", nodeId), 80L));
+        stubRowFound();
+
+        assertThat(task.poll()).hasSize(1);
+    }
+
+    @Test
+    void should_register_value_schema_with_registry_on_converter_swap() throws Exception {
+        task.config = configWith(CassandraSourceConnectorConfig.SCHEMA_REGISTRY_URL_CONFIG, "mock://registry");
+        task.schemaRegistrySerializer = new KafkaAvroSerializer(new MockSchemaRegistryClient(),
+                Map.of("schema.registry.url", "mock://registry"));
+        ColumnMetadata idColumn = new DefaultColumnMetadata(KS, TABLE, CqlIdentifier.fromInternal("id"), DataTypes.INT, false);
+        ColumnMetadata nameColumn = new DefaultColumnMetadata(KS, TABLE, CqlIdentifier.fromInternal("name"), DataTypes.TEXT, false);
+        TableMetadata table = mock(TableMetadata.class);
+        when(table.getKeyspace()).thenReturn(KS);
+        when(table.getName()).thenReturn(TABLE);
+        when(table.getPrimaryKey()).thenReturn(List.of(idColumn));
+        when(table.getColumns()).thenReturn(ImmutableMap.of(idColumn.getName(), idColumn, nameColumn.getName(), nameColumn));
+        KeyspaceMetadata keyspaceMetadata = mock(KeyspaceMetadata.class);
+        when(keyspaceMetadata.getName()).thenReturn(KS);
+
+        task.setValueConverterAndQuery(keyspaceMetadata, table);
+
+        assertThat(task.valueConverterAndQuery.getConverter()).isInstanceOf(KafkaAvroConverter.class);
+    }
+
+    @Test
+    void should_refresh_converter_when_a_udt_in_the_keyspace_changes() {
+        ColumnMetadata idColumn = new DefaultColumnMetadata(KS, TABLE, CqlIdentifier.fromInternal("id"), DataTypes.INT, false);
+        TableMetadata table = mock(TableMetadata.class);
+        when(table.getKeyspace()).thenReturn(KS);
+        when(table.getName()).thenReturn(TABLE);
+        when(table.getPrimaryKey()).thenReturn(List.of(idColumn));
+        when(table.getColumns()).thenReturn(ImmutableMap.of(idColumn.getName(), idColumn));
+        KeyspaceMetadata keyspaceMetadata = mock(KeyspaceMetadata.class);
+        when(keyspaceMetadata.getName()).thenReturn(KS);
+        when(keyspaceMetadata.getTable("table1")).thenReturn(Optional.of(table));
+        Metadata driverMetadata = mock(Metadata.class);
+        when(driverMetadata.getKeyspace(KS)).thenReturn(Optional.of(keyspaceMetadata));
+        CqlSession cqlSession = mock(CqlSession.class);
+        when(cqlSession.getMetadata()).thenReturn(driverMetadata);
+        when(cassandraClient.getCqlSession()).thenReturn(cqlSession);
+        UserDefinedType udt = mock(UserDefinedType.class);
+        when(udt.getKeyspace()).thenReturn(KS);
+        ConverterAndQuery<Converter<byte[], ?>> before = task.valueConverterAndQuery;
+
+        task.onUserDefinedTypeCreated(udt);
+        ConverterAndQuery<Converter<byte[], ?>> afterCreate = task.valueConverterAndQuery;
+        assertThat(afterCreate).isNotSameAs(before);
+
+        task.onUserDefinedTypeUpdated(udt, udt);
+        assertThat(task.valueConverterAndQuery).isNotSameAs(afterCreate);
+
+        // A UDT in another keyspace leaves the converter alone.
+        UserDefinedType otherUdt = mock(UserDefinedType.class);
+        when(otherUdt.getKeyspace()).thenReturn(CqlIdentifier.fromInternal("other"));
+        ConverterAndQuery<Converter<byte[], ?>> current = task.valueConverterAndQuery;
+        task.onUserDefinedTypeCreated(otherUdt);
+        task.onUserDefinedTypeUpdated(otherUdt, otherUdt);
+        assertThat(task.valueConverterAndQuery).isSameAs(current);
+    }
+
+    @Test
+    void should_ignore_schema_events_that_do_not_affect_the_table() {
+        ConverterAndQuery<Converter<byte[], ?>> current = task.valueConverterAndQuery;
+        KeyspaceMetadata keyspace = mock(KeyspaceMetadata.class);
+        TableMetadata otherTable = mock(TableMetadata.class);
+        when(otherTable.getKeyspace()).thenReturn(KS);
+        when(otherTable.getName()).thenReturn(CqlIdentifier.fromInternal("other_table"));
+        FunctionMetadata function = mock(FunctionMetadata.class);
+        AggregateMetadata aggregate = mock(AggregateMetadata.class);
+        ViewMetadata view = mock(ViewMetadata.class);
+
+        task.onKeyspaceCreated(keyspace);
+        task.onKeyspaceDropped(keyspace);
+        task.onKeyspaceUpdated(keyspace, keyspace);
+        task.onTableCreated(otherTable);
+        task.onTableDropped(otherTable);
+        task.onTableUpdated(otherTable, otherTable);
+        task.onUserDefinedTypeDropped(mock(UserDefinedType.class));
+        task.onFunctionCreated(function);
+        task.onFunctionDropped(function);
+        task.onFunctionUpdated(function, function);
+        task.onAggregateCreated(aggregate);
+        task.onAggregateDropped(aggregate);
+        task.onAggregateUpdated(aggregate, aggregate);
+        task.onViewCreated(view);
+        task.onViewDropped(view);
+        task.onViewUpdated(view, view);
+
+        assertThat(task.valueConverterAndQuery).isSameAs(current);
     }
 
     private List<String> fieldNames(ConverterAndQuery<Converter<byte[], ?>> converterAndQuery) {

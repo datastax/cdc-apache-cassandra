@@ -191,10 +191,10 @@ public class BackfillCLIKafkaE2ETests {
             Map<String, Integer> mutationTable1 = new HashMap<>();
             long deadline = System.currentTimeMillis() + 90_000;
             while (mutationTable1.size() < 100 && System.currentTimeMillis() < deadline) {
-                for (SourceRecord record : task.poll()) {
-                    assertEquals(outputTopic, record.topic());
-                    GenericRecord key = decodeKey(ksm, table, (byte[]) record.key());
-                    GenericRecord value = decodeValue(ksm, table, (byte[]) record.value());
+                for (SourceRecord sourceRecord : task.poll()) {
+                    assertEquals(outputTopic, sourceRecord.topic());
+                    GenericRecord key = decodeKey(ksm, table, (byte[]) sourceRecord.key());
+                    GenericRecord value = decodeValue(ksm, table, (byte[]) sourceRecord.value());
                     String id = key.get("id").toString();
                     assertEquals((Integer) 0, mutationTable1.computeIfAbsent(id, k -> 0));
                     assertEquals(1, value.get("a"));

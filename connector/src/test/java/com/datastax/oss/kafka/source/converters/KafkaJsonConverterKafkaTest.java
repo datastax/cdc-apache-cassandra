@@ -60,10 +60,10 @@ class KafkaJsonConverterKafkaTest {
     void should_decode_avro_encoded_primary_key_to_json_bytes() throws Exception {
         KafkaJsonConverter converter = new KafkaJsonConverter(keyspaceMetadata, tableMetadata, List.of(idColumn));
 
-        GenericData.Record record = new GenericData.Record(converter.nativeSchema);
-        record.put("id", 7);
+        GenericData.Record genericRecord = new GenericData.Record(converter.nativeSchema);
+        genericRecord.put("id", 7);
 
-        byte[] jsonBytes = converter.fromConnectData(record);
+        byte[] jsonBytes = converter.fromConnectData(genericRecord);
 
         JsonNode node = new ObjectMapper().readTree(jsonBytes);
         assertThat(node.get("id").asInt()).isEqualTo(7);

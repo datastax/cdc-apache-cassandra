@@ -727,6 +727,16 @@ public class AgentConfig {
     }
 
     /**
+     * Returns the value a platform config file set for {@code key}, or {@code null}. Unlike
+     * {@link #get(String)}, a registered setting with the same name does not take precedence:
+     * for example a Kafka config file's {@code sslTruststorePassword} is returned even though the
+     * agent also has an {@code sslTruststorePassword} setting (used for Pulsar TLS).
+     */
+    public Object getFileProperty(String key) {
+        return properties.get(key);
+    }
+
+    /**
      * Loads a config file into a {@code Map<String, Object>}. Keys are stored as-is
      * (no prefix added). Values are parsed in order: Long, Double, Boolean, falling
      * back to String.

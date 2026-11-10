@@ -296,10 +296,10 @@ public abstract class AbstractKafkaCassandraSourceTaskContainerTests {
             List<SourceRecord> records = pollUntilNonEmpty(task, 30);
 
             assertThat(records).hasSize(1);
-            SourceRecord record = records.get(0);
-            assertThat(record.topic()).isEqualTo(outputTopic);
+            SourceRecord sourceRecord = records.get(0);
+            assertThat(sourceRecord.topic()).isEqualTo(outputTopic);
 
-            GenericRecord row = decodeAvro(table, (byte[]) record.value());
+            GenericRecord row = decodeAvro(table, (byte[]) sourceRecord.value());
             assertThat(row.get("b").toString()).isEqualTo("world");
         } finally {
             task.stop();
@@ -419,7 +419,7 @@ public abstract class AbstractKafkaCassandraSourceTaskContainerTests {
             assertThat(afterAlter).hasSize(1);
 
             // Simulates a downstream consumer: there is no schema ID embedded in the record (see
-            // the schema-evolution TODO on buildSourceRecord), so a real consumer has to know out
+            // the schema-evolution note on buildSourceRecord), so a real consumer has to know out
             // of band to re-fetch the current table schema in order to decode a post-alter record.
             GenericRecord rowAfterAlter = decodeAvro(table, (byte[]) afterAlter.get(0).value());
             assertThat(rowAfterAlter.get("b").toString()).isEqualTo("before2");
@@ -672,9 +672,9 @@ public abstract class AbstractKafkaCassandraSourceTaskContainerTests {
             String expectedOutputTopic, int timeoutSeconds) throws InterruptedException {
         long deadline = System.currentTimeMillis() + timeoutSeconds * 1000L;
         while (System.currentTimeMillis() < deadline) {
-            for (SourceRecord record : task.poll()) {
-                if (expectedOutputTopic.equals(record.topic()) && record.value() == null) {
-                    return record;
+            for (SourceRecord sourceRecord : task.poll()) {
+                if (expectedOutputTopic.equals(sourceRecord.topic()) && sourceRecord.value() == null) {
+                    return sourceRecord;
                 }
             }
         }

@@ -610,7 +610,7 @@ public class CassandraSource implements Source<GenericRecord>, SourceSchemaChang
     @Override
     public CassandraClient getCassandraClient() { return cassandraClient; }
 
-    private interface CassandraRecord extends KVRecord {
+    interface CassandraRecord extends KVRecord {
         /**
          * @return a Message container the mutation as received from the events topic.
          */

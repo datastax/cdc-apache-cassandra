@@ -76,11 +76,17 @@ jobs:
             :connector:test \
               --tests 'com.datastax.oss.cdc.CassandraSourceConnectorConfig*' \
               --tests 'com.datastax.oss.cdc.MutationCacheTests' \
+            --tests 'com.datastax.oss.cdc.SourceUtilTest' \
+            --tests 'com.datastax.oss.cdc.CassandraClientSelectRowTest' \
               --tests 'com.datastax.oss.cdc.converters.*' \
+              --tests 'com.datastax.oss.kafka.source.converters.*' \
               --tests 'com.datastax.oss.pulsar.source.CassandraSourceRetryTest' \
+              --tests 'com.datastax.oss.pulsar.source.CassandraSourceBatchReadTest' \
               --tests 'com.datastax.oss.kafka.source.KafkaCassandraSourceTaskKafkaTest' \
               --tests 'com.datastax.oss.kafka.source.KafkaCassandraSourceTaskRetryTest' \
               --tests 'com.datastax.oss.kafka.source.KafkaCassandraSourceConnectorKafkaTest' \
+              --tests 'com.datastax.oss.kafka.source.KafkaSourcePropertiesKafkaTest' \
+              --tests 'com.datastax.oss.kafka.source.KafkaCassandraSourceTaskLifecycleKafkaTest' \
             :backfill-cli:test \
               --tests '*ImporterTest' \
               --tests '*MigratorTest'

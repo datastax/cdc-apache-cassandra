@@ -354,17 +354,8 @@ public class CassandraSourceRetryTest {
      */
     @SuppressWarnings("unchecked")
     private KeyValue<Object, Object> invokeWaitForCqlWithRetry(RecordProxy proxy) throws Exception {
-        // Locate the private CassandraRecord interface by name.
-        Class<?> cassandraRecordIface = null;
-        for (Class<?> c : CassandraSource.class.getDeclaredClasses()) {
-            if (c.getSimpleName().equals("CassandraRecord")) {
-                cassandraRecordIface = c;
-                break;
-            }
-        }
-        if (cassandraRecordIface == null) {
-            throw new IllegalStateException("CassandraRecord interface not found in CassandraSource");
-        }
+        // Locate the private CassandraRecord interface nested in CassandraSource.
+        Class<?> cassandraRecordIface = Class.forName(CassandraSource.class.getName() + "$CassandraRecord");
 
         // Build a dynamic proxy that routes every CassandraRecord call to our RecordProxy.
         final Class<?> ifaceClass = cassandraRecordIface;

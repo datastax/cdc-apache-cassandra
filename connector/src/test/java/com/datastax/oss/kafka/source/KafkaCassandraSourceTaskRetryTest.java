@@ -319,7 +319,7 @@ public class KafkaCassandraSourceTaskRetryTest {
     private CompletableFuture<SourceRecord> invokeSubmitCqlQuery(
             DecodedRecordProxy decoded, ConverterAndQuery<Converter<byte[], ?>> caq) throws Exception {
         // Build the real inner DecodedRecord instance from the proxy.
-        Object innerDecoded = decoded.toInner(task);
+        Object innerDecoded = decoded.toInner();
         Method m = KafkaCassandraSourceTask.class.getDeclaredMethod(
                 "submitCqlQuery", Class.forName(
                         "com.datastax.oss.kafka.source.KafkaCassandraSourceTask$DecodedRecord"),
@@ -330,7 +330,7 @@ public class KafkaCassandraSourceTaskRetryTest {
 
     /** Invokes the private {@code waitForCqlWithRetry} via reflection. */
     private SourceRecord invokeWaitForCqlWithRetry(DecodedRecordProxy decoded) throws Exception {
-        Object innerDecoded = decoded.toInner(task);
+        Object innerDecoded = decoded.toInner();
         // Update the queryResult field on the inner object to match the proxy's current future.
         Field qrField = innerDecoded.getClass().getDeclaredField("queryResult");
         qrField.setAccessible(true);
@@ -408,7 +408,7 @@ public class KafkaCassandraSourceTaskRetryTest {
         }
 
         /** Lazily constructs (and caches) the real private inner-class instance via reflection. */
-        Object toInner(KafkaCassandraSourceTask task) throws Exception {
+        Object toInner() throws Exception {
             if (innerInstance != null) return innerInstance;
             Class<?> innerClass = Class.forName(
                     "com.datastax.oss.kafka.source.KafkaCassandraSourceTask$DecodedRecord");

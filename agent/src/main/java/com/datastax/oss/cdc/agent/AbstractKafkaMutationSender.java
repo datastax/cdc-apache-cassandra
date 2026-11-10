@@ -271,8 +271,9 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
         // This lets operators set arbitrary producer configs (acks, compression.type, etc.)
         // without requiring AgentConfig changes.
         for (String key : config.propertyKeys()) {
-            if (!props.containsKey(key)) {
-                props.put(key, config.get(key).toString());
+            Object value = config.getFileProperty(key);
+            if (!props.containsKey(key) && value != null) {
+                props.put(key, value.toString());
             }
         }
 
@@ -314,7 +315,12 @@ public abstract class AbstractKafkaMutationSender<T> implements MutationSender<T
     }
 
     private static void putIfPresent(Properties props, AgentConfig config, String kafkaKey, String configKey) {
-        Object v = config.get(configKey);
+        // The Kafka config file wins: sslKeystorePassword and sslTruststorePassword are also
+        // agent-wide settings (for Pulsar TLS), and get() would return those instead.
+        Object v = config.getFileProperty(configKey);
+        if (v == null) {
+            v = config.get(configKey);
+        }
         if (v != null) {
             props.put(kafkaKey, v.toString());
         }

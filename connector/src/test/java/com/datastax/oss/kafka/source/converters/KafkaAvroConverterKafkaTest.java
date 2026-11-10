@@ -85,10 +85,10 @@ class KafkaAvroConverterKafkaTest {
         KafkaAvroConverter mutationKeyConverter = new KafkaAvroConverter(keyspaceMetadata, tableMetadata,
                 List.of(idColumn));
 
-        GenericData.Record record = new GenericData.Record(mutationKeyConverter.nativeSchema);
-        record.put("id", 42);
+        GenericData.Record keyRecord = new GenericData.Record(mutationKeyConverter.nativeSchema);
+        keyRecord.put("id", 42);
 
-        List<Object> pk = mutationKeyConverter.fromConnectData(record);
+        List<Object> pk = mutationKeyConverter.fromConnectData(keyRecord);
 
         assertThat(pk).containsExactly(42);
     }
@@ -105,10 +105,10 @@ class KafkaAvroConverterKafkaTest {
         KafkaAvroConverter mutationKeyConverter = new KafkaAvroConverter(keyspaceMetadata, tsTable, List.of(tsPk));
 
         Instant now = Instant.ofEpochMilli(1_700_000_000_000L);
-        GenericData.Record record = new GenericData.Record(mutationKeyConverter.nativeSchema);
-        record.put("created_at", now.toEpochMilli());
+        GenericData.Record keyRecord = new GenericData.Record(mutationKeyConverter.nativeSchema);
+        keyRecord.put("created_at", now.toEpochMilli());
 
-        List<Object> pk = mutationKeyConverter.fromConnectData(record);
+        List<Object> pk = mutationKeyConverter.fromConnectData(keyRecord);
 
         assertThat(pk).containsExactly(now);
     }
