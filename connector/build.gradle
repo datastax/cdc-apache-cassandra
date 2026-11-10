@@ -147,6 +147,14 @@ def providedByKafkaConnect = { ResolvedArtifact artifact ->
     id.group == 'org.apache.kafka' || (id.group == 'org.slf4j' && id.name == 'slf4j-api')
 }
 
+// jnr-posix is optional for the Cassandra driver (it only provides getpid and a native
+// clock, with pure Java fallbacks). Its native code crashes the JVM on musl based images
+// such as apache/kafka on arm64, so leave it out of the plugin.
+def excludedFromKafkaConnectPlugin = { ResolvedArtifact artifact ->
+    def id = artifact.moduleVersion.id
+    id.group == 'com.github.jnr' && id.name == 'jnr-posix'
+}
+
 task kafkaConnectorJar(type: Jar) {
     group = 'distribution'
     description = "Builds ${kafkaConnectPluginName}-<version>.jar, the connector classes for Kafka Connect."
