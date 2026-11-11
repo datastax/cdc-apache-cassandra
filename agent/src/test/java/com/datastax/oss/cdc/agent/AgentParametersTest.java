@@ -19,10 +19,13 @@ import org.junit.jupiter.api.Test;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
 import org.junitpioneer.jupiter.SetSystemProperty;
 
+import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static com.datastax.oss.cdc.agent.AgentConfig.*;
 
@@ -197,5 +200,107 @@ public class AgentParametersTest {
     public void testConfigureCdcWorkingDir() {
         AgentConfig config = AgentConfig.create(Platform.PULSAR, "");
         assertEquals("toto/cdc", config.cdcWorkingDir);
+    }
+
+    @Test
+    public void testLoadConfigFileFromPulsarFile() throws Exception {
+        URL resource = getClass().getClassLoader().getResource("pulsar-test.conf");
+        String filePath = resource.getPath();
+
+        AgentConfig config = AgentConfig.create(Platform.PULSAR, PULSAR_CONFIG_FILE + "=" + filePath);
+
+        assertEquals("pulsar+ssl://filehost:6650", config.get(PULSAR_SERVICE_URL));
+        assertEquals(42L,  config.get(PULSAR_BATCH_DELAY_IN_MS));
+        assertEquals(500,  config.get(PULSAR_MAX_PENDING_MESSAGES));
+        assertEquals(true, config.get(PULSAR_KEY_BASED_BATCHER));
+    }
+
+    @Test
+    public void testLoadConfigFileFromKafkaFile() throws Exception {
+        URL resource = getClass().getClassLoader().getResource("kafka-test.conf");
+        String filePath = resource.getPath();
+
+        AgentConfig config = AgentConfig.create(Platform.KAFKA, KAFKA_CONFIG_FILE + "=" + filePath);
+
+        // config file path is recorded
+        assertEquals(filePath, config.get(KAFKA_CONFIG_FILE));
+        // common settings are accessible and at their defaults
+        assertEquals("events-", config.get(TOPIC_PREFIX));
+        assertEquals(false, config.get(ERROR_COMMITLOG_REPROCESS_ENABLED));
+        assertEquals(60000L, config.get(CDC_DIR_POLL_INTERVAL_MS));
+        // unregistered kafka-specific keys from the file are accessible via get() under their original file key
+        assertEquals("broker1:9092,broker2:9092", config.get("bootstrapServers"));
+        assertEquals(250L, config.get("maxPendingMessages"));
+        assertEquals(10L,  config.get("batchDelayInMs"));
+    }
+
+    @Test
+    public void testPropertyKeysFromKafkaFile() throws Exception {
+        URL resource = getClass().getClassLoader().getResource("kafka-test.conf");
+        String filePath = resource.getPath();
+
+        AgentConfig config = AgentConfig.create(Platform.KAFKA, KAFKA_CONFIG_FILE + "=" + filePath);
+
+        // propertyKeys() returns only the raw unregistered file keys
+        Iterable<String> keys = config.propertyKeys();
+        assertTrue(contains(keys, "bootstrapServers"));
+        assertTrue(contains(keys, "maxPendingMessages"));
+        assertTrue(contains(keys, "batchDelayInMs"));
+    }
+
+    @Test
+    public void testPropertyKeysEmptyWhenNoConfigFile() {
+        // No config file — propertyKeys() returns nothing
+        AgentConfig config = AgentConfig.create(Platform.KAFKA, "");
+        assertFalse(config.propertyKeys().iterator().hasNext());
+    }
+
+    @Test
+    public void testPropertyKeysEmptyForRegisteredOnlyFile() throws Exception {
+        // pulsar-test.conf has only registered setting keys (serviceUrl, batchDelayInMs, etc.)
+        // — all are applied via their initializers, none land in propertyKeys()
+        URL resource = getClass().getClassLoader().getResource("pulsar-test.conf");
+        String filePath = resource.getPath();
+
+        AgentConfig config = AgentConfig.create(Platform.PULSAR, PULSAR_CONFIG_FILE + "=" + filePath);
+        assertFalse(config.propertyKeys().iterator().hasNext());
+    }
+
+    private static boolean contains(Iterable<String> iterable, String value) {
+        for (String s : iterable) {
+            if (value.equals(s)) return true;
+        }
+        return false;
+    }
+
+    @Test
+    public void testConfigFileIsOptional() {
+        // No config file path set — registered settings are still accessible via get()
+        AgentConfig config = AgentConfig.create(Platform.PULSAR, "");
+        assertNotNull(config.get(PULSAR_SERVICE_URL));
+        assertNotNull(config.get(TOPIC_PREFIX));
+    }
+
+    @Test
+    public void testInlineParamOverridesConfigFile() throws Exception {
+        URL resource = getClass().getClassLoader().getResource("pulsar-test.conf");
+        String filePath = resource.getPath();
+
+        // file has batchDelayInMs=42; inline overrides to 99
+        AgentConfig config = AgentConfig.create(Platform.PULSAR,
+                PULSAR_CONFIG_FILE + "=" + filePath + "," + PULSAR_BATCH_DELAY_IN_MS + "=99");
+
+        // inline agent setting wins — resolved value is 99
+        assertEquals(99L, config.pulsarBatchDelayInMs);
+        assertEquals(99L, config.get(PULSAR_BATCH_DELAY_IN_MS));
+    }
+
+    @Test
+    public void testParseValue() {
+        assertEquals(42L,    AgentConfig.parseValue("42"));
+        assertEquals(3.14,   AgentConfig.parseValue("3.14"));
+        assertEquals(true,   AgentConfig.parseValue("true"));
+        assertEquals(false,  AgentConfig.parseValue("FALSE"));
+        assertEquals("hello", AgentConfig.parseValue("hello"));
     }
 }

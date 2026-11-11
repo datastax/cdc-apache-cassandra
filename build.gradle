@@ -29,11 +29,14 @@ allprojects {
         maven { url "https://repo.typesafe.com/typesafe/releases/" }
         maven { url "https://repo.datastax.com/artifactory/datastax-public-releases-local" }
         maven {
-            url "https://repo.datastax.com/artifactory/dse"
-            if (project.hasProperty('dseRepoUsername') && project.hasProperty('dseRepoPassword')) {
+            // IBM TaaS Artifactory (replaces https://repo.datastax.com/artifactory/dse). Use eu.artifactory.swg-devops.com in Europe.
+            url "https://na.artifactory.swg-devops.com/artifactory/datastax-team-nosql-dse-maven-virtual"
+            def taasUser = project.findProperty('artifactoryUser') ?: project.findProperty('dseRepoUsername')
+            def taasToken = project.findProperty('artifactoryToken') ?: project.findProperty('dseRepoPassword')
+            if (taasUser && taasToken) {
                 credentials() {
-                    username "$dseRepoUsername"
-                    password "$dseRepoPassword"
+                    username "$taasUser"
+                    password "$taasToken"
                 }
             }
         }

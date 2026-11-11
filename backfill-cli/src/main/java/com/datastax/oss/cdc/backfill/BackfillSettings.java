@@ -16,6 +16,7 @@
 
 package com.datastax.oss.cdc.backfill;
 
+import com.datastax.oss.cdc.agent.AgentConfig;
 import com.datastax.oss.cdc.backfill.exporter.ExportSettings;
 import com.datastax.oss.cdc.backfill.importer.ImportSettings;
 import picocli.CommandLine;
@@ -24,9 +25,15 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
- * Define settings for the backfill operation, those will translate to DSBulk or Puslar client settings as appropriate.
+ * Define settings for the backfill operation, those will translate to DSBulk or Pulsar/Kafka client settings as appropriate.
  */
 public class BackfillSettings {
+
+    @CommandLine.Option(
+            names = "--platform",
+            description = "The messaging platform to send mutations to: ${COMPLETION-CANDIDATES}. Default: PULSAR.",
+            defaultValue = "PULSAR")
+    public AgentConfig.Platform platform = AgentConfig.Platform.PULSAR;
 
     @CommandLine.Option(
             names = {"-d", "--data-dir"},

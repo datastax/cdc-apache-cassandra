@@ -411,8 +411,9 @@ public class BackfillCLIE2ETests {
     private void runBackfillAsPulsarAdminExtensionAsync(String ksName, String tableName) {
         new Thread(() -> {
             try {
+                String containerDataDir = "/tmp/backfill-data-" + ksName + "-" + tableName;
                 String[] backfillCommand = new String[] {
-                        "/pulsar/bin/pulsar-admin", "cassandra-cdc", "backfill", "--data-dir", dataDir.toString(),
+                        "/pulsar/bin/pulsar-admin", "cassandra-cdc", "backfill", "--data-dir", containerDataDir,
                         "--export-host", "cassandra-1", "--keyspace", ksName, "--table",
                         tableName, "--export-consistency", "LOCAL_QUORUM"
                 };

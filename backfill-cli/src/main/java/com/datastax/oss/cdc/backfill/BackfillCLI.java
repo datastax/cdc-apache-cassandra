@@ -16,9 +16,11 @@
 
 package com.datastax.oss.cdc.backfill;
 
+import com.datastax.oss.cdc.agent.AgentConfig;
 import com.datastax.oss.cdc.backfill.exporter.TableExporter;
 import com.datastax.oss.cdc.backfill.factory.BackfillFactory;
 import com.datastax.oss.cdc.backfill.factory.ConnectorFactory;
+import com.datastax.oss.cdc.backfill.importer.KafkaImporter;
 import com.datastax.oss.cdc.backfill.importer.PulsarImporter;
 import com.datastax.oss.cdc.backfill.util.LoggingUtils;
 import picocli.CommandLine;
@@ -60,15 +62,20 @@ public class BackfillCLI implements Callable<Integer> {
     }
 
     @Override
-    public Integer call()  {
-        // Bootstrap the backfill dependencies
+    public Integer call() {
         final BackfillFactory factory = new BackfillFactory(settings);
         final TableExporter exporter = factory.newTableExporter();
         final ConnectorFactory connectorFactory = new ConnectorFactory(exporter.getTableDataDir());
-        final PulsarImporter importer = factory.newPulsarImporter(connectorFactory, exporter.getExportedTable());
-        final CassandraToPulsarMigrator migrator = new CassandraToPulsarMigrator(exporter, importer);
 
-        return migrator.migrate().exitCode();
+        final ExitStatus status;
+        if (settings.platform == AgentConfig.Platform.KAFKA) {
+            final KafkaImporter importer = factory.newKafkaImporter(connectorFactory, exporter.getExportedTable());
+            status = new CassandraToKafkaMigrator(exporter, importer).migrate();
+        } else {
+            final PulsarImporter importer = factory.newPulsarImporter(connectorFactory, exporter.getExportedTable());
+            status = new CassandraToPulsarMigrator(exporter, importer).migrate();
+        }
+
+        return status.exitCode();
     }
 }
-
