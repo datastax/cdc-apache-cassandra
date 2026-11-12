@@ -220,6 +220,8 @@ jobs:
             # Base image versions follow the versions the agents and connector are built against.
             echo "DSE_VERSION=$(sed -n 's/^dse4Version=//p' gradle.properties)"
             echo "KAFKA_VERSION=$(sed -n 's/^kafkaVersion=//p' gradle.properties)"
+            echo "CONFLUENT_VERSION=$(sed -n 's/^confluentVersion=//p' gradle.properties)"
+            echo "AIVEN_OPENSEARCH_VERSION=4.1.0"
           } >> "$GITHUB_ENV"
 
       - name: Download jars from build
@@ -282,6 +284,15 @@ jobs:
           cp connector/src/docker-k8s/Dockerfile /tmp/ctx-connect/
           unzip -q connector/build/distributions/cassandra-source-connector-${{ env.CURRENT_VERSION }}-kafka-connect.zip -d /tmp/plugin
           mv /tmp/plugin/cassandra-source-connector-${{ env.CURRENT_VERSION }}/lib /tmp/ctx-connect/lib
+          # Aiven 4.x targets OpenSearch 3.x; the Avro converter matches confluentVersion in gradle.properties.
+          curl -fsSL -o /tmp/opensearch-sink.zip \
+            "https://github.com/Aiven-Open/opensearch-connector-for-apache-kafka/releases/download/v${AIVEN_OPENSEARCH_VERSION}/opensearch-connector-for-apache-kafka-${AIVEN_OPENSEARCH_VERSION}.zip"
+          unzip -q /tmp/opensearch-sink.zip -d /tmp/opensearch-sink
+          mv "/tmp/opensearch-sink/opensearch-connector-for-apache-kafka-${AIVEN_OPENSEARCH_VERSION}" /tmp/ctx-connect/opensearch-sink
+          curl -fsSL -o /tmp/avro-converter.zip \
+            "https://hub-downloads.confluent.io/api/plugins/confluentinc/kafka-connect-avro-converter/versions/${CONFLUENT_VERSION}/confluentinc-kafka-connect-avro-converter-${CONFLUENT_VERSION}.zip"
+          unzip -q /tmp/avro-converter.zip -d /tmp/avro-converter
+          mv "/tmp/avro-converter/confluentinc-kafka-connect-avro-converter-${CONFLUENT_VERSION}/lib" /tmp/ctx-connect/avro-converter
           docker build \
             --build-arg KAFKA_IMAGE_TAG=${{ env.KAFKA_VERSION }} \
             -t "$REGISTRY/datastax/cdc:$IMAGE_TAG-connect" \
