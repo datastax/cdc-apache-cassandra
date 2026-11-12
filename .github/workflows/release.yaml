@@ -221,6 +221,7 @@ jobs:
             echo "DSE_VERSION=$(sed -n 's/^dse4Version=//p' gradle.properties)"
             echo "KAFKA_VERSION=$(sed -n 's/^kafkaVersion=//p' gradle.properties)"
             echo "CONFLUENT_VERSION=$(sed -n 's/^confluentVersion=//p' gradle.properties)"
+            echo "GUAVA_VERSION=$(sed -n 's/^guavaVersion=//p' gradle.properties)"
             echo "AIVEN_OPENSEARCH_VERSION=4.1.0"
           } >> "$GITHUB_ENV"
 
@@ -293,6 +294,11 @@ jobs:
             "https://hub-downloads.confluent.io/api/plugins/confluentinc/kafka-connect-avro-converter/versions/${CONFLUENT_VERSION}/confluentinc-kafka-connect-avro-converter-${CONFLUENT_VERSION}.zip"
           unzip -q /tmp/avro-converter.zip -d /tmp/avro-converter
           mv "/tmp/avro-converter/confluentinc-kafka-connect-avro-converter-${CONFLUENT_VERSION}/lib" /tmp/ctx-connect/avro-converter
+          # The Confluent Hub zip leaves out Guava (Confluent's worker ships it), which the schema registry client needs.
+          curl -fsSL -o /tmp/ctx-connect/avro-converter/guava-${GUAVA_VERSION}.jar \
+            "https://repo1.maven.org/maven2/com/google/guava/guava/${GUAVA_VERSION}/guava-${GUAVA_VERSION}.jar"
+          curl -fsSL -o /tmp/ctx-connect/avro-converter/failureaccess-1.0.3.jar \
+            "https://repo1.maven.org/maven2/com/google/guava/failureaccess/1.0.3/failureaccess-1.0.3.jar"
           docker build \
             --build-arg KAFKA_IMAGE_TAG=${{ env.KAFKA_VERSION }} \
             -t "$REGISTRY/datastax/cdc:$IMAGE_TAG-connect" \
