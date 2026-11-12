@@ -28,22 +28,39 @@ import java.util.concurrent.Executors;
 public class Agent {
     public static void premain(String agentArgs, Instrumentation inst) {
         log.info("[Agent] In premain method");
-        try {
-            main(agentArgs, inst);
-        } catch(Exception e) {
-            log.error("error:", e);
-            System.exit(-1);
-        }
+        startAsync(agentArgs, inst);
     }
 
     public static void agentmain(String agentArgs, Instrumentation inst) {
         log.info("[Agent] In agentmain method");
-        try {
-            main(agentArgs, inst);
-        } catch(Exception e) {
-            log.error("error:", e);
-            System.exit(-1);
+        startAsync(agentArgs, inst);
+    }
+
+    // Runs the agent once DSE has initialized its own DatabaseDescriptor. Calling
+    // daemonInitialization() from premain does it before DSE has applied its config
+    // (TPC starts with a single core) and before later javaagents such as the
+    // management API agent have run, and DSE then skips its own initialization.
+    private static void startAsync(String agentArgs, Instrumentation inst) {
+        Thread thread = new Thread(() -> {
+            try {
+                waitForDseOwnInitialization();
+                main(agentArgs, inst);
+            } catch (Exception e) {
+                log.error("error:", e);
+                System.exit(-1);
+            }
+        }, "cdc-agent-init");
+        thread.start();
+    }
+
+    private static void waitForDseOwnInitialization() throws InterruptedException {
+        for (int i = 0; i < 3000; i++) {
+            if (DatabaseDescriptor.isDaemonInitialized()) {
+                return;
+            }
+            Thread.sleep(100);
         }
+        log.warn("DSE did not initialize DatabaseDescriptor within 5 minutes, initializing it from the CDC agent");
     }
 
     static void main(String agentArgs, Instrumentation inst) throws Exception {
