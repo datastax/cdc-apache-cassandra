@@ -55,12 +55,21 @@ public class Agent {
 
     private static void waitForDseOwnInitialization() throws InterruptedException {
         for (int i = 0; i < 3000; i++) {
-            if (DatabaseDescriptor.isDaemonInitialized()) {
+            if (isDseConfigApplied()) {
                 return;
             }
             Thread.sleep(100);
         }
         log.warn("DSE did not initialize DatabaseDescriptor within 5 minutes, initializing it from the CDC agent");
+    }
+
+    // DSE sets the daemonInitialized flag before it loads and applies the config, so the
+    // flag alone is not enough: also wait for the config, partitioner and CDC directory.
+    private static boolean isDseConfigApplied() {
+        return DatabaseDescriptor.isDaemonInitialized()
+                && DatabaseDescriptor.getRawConfig() != null
+                && DatabaseDescriptor.getPartitioner() != null
+                && DatabaseDescriptor.getCDCLogLocation() != null;
     }
 
     static void main(String agentArgs, Instrumentation inst) throws Exception {
