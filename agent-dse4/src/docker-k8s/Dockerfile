@@ -1,0 +1,5 @@
+ARG MGMT_API_VERSION
+FROM datastax/dse-mgmtapi-6_8:${MGMT_API_VERSION}
+ARG BUILD_VERSION
+ENV DS_LICENSE=accept
+COPY agent-dse4-${BUILD_VERSION}-all.jar /

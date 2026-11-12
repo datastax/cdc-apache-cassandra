@@ -4,6 +4,10 @@ on:
   push:
     tags:
       - "v*"
+    # TEMPORARY: publishes test images from master's code. Not for merging into master.
+    branches:
+      - "test/master-image-publishing"
+  workflow_dispatch:
 
 jobs:
   build:
@@ -29,7 +33,21 @@ jobs:
           DSE_REPO_PASSWORD: ${{ secrets.DSE_REPO_PASSWORD }}
         run: ./gradlew assemble -Pdse4 -PdseRepoUsername=$DSE_REPO_USERNAME -PdseRepoPassword=$DSE_REPO_PASSWORD
 
+      # Hands publish-images the jars it needs, so it doesn't need the Artifactory
+      # credentials (or redo this build) just to get at agent-dse4's jar.
+      - name: Upload jars for image publishing
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-jars
+          path: |
+            agent-c4/build/libs/agent-c4-${{ env.CURRENT_VERSION }}-all.jar
+            agent-dse4/build/libs/agent-dse4-${{ env.CURRENT_VERSION }}-all.jar
+            backfill-cli/build/libs/backfill-cli-${{ env.CURRENT_VERSION }}-all.jar
+            connector/build/distributions/cassandra-source-connector-${{ env.CURRENT_VERSION }}-kafka-connect.zip
+          retention-days: 1
+
       - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')  # GitHub releases only for v* tags
         id: create_release
         uses: actions/create-release@v1
         env:
@@ -41,6 +59,7 @@ jobs:
           prerelease: true
 
       - name: Upload Connectors Release Tar
+        if: startsWith(github.ref, 'refs/tags/')  # GitHub releases only for v* tags
         id: upload-connectors-release-tar
         uses: actions/upload-release-asset@v1
         env:
@@ -51,6 +70,7 @@ jobs:
           asset_name: cassandra-source-connectors-${{ env.CURRENT_VERSION }}.tar
           asset_content_type: application/tar
       - name: Upload Connectors Release Zip
+        if: startsWith(github.ref, 'refs/tags/')  # GitHub releases only for v* tags
         id: upload-connectors-release-zip
         uses: actions/upload-release-asset@v1
         env:
@@ -62,6 +82,7 @@ jobs:
           asset_content_type: application/zip
 
       - name: Upload Agents Release Tar
+        if: startsWith(github.ref, 'refs/tags/')  # GitHub releases only for v* tags
         id: upload-agents-release-tar
         uses: actions/upload-release-asset@v1
         env:
@@ -72,6 +93,7 @@ jobs:
           asset_name: cassandra-source-agents-${{ env.CURRENT_VERSION }}.tar
           asset_content_type: application/tar
       - name: Upload Agents Release Zip
+        if: startsWith(github.ref, 'refs/tags/')  # GitHub releases only for v* tags
         id: upload-agents-release-zip
         uses: actions/upload-release-asset@v1
         env:
@@ -83,6 +105,7 @@ jobs:
           asset_content_type: application/zip
 
       - name: Upload Release Pulsar NAR
+        if: startsWith(github.ref, 'refs/tags/')  # GitHub releases only for v* tags
         id: upload-release-pulsar-nar
         uses: actions/upload-release-asset@v1
         env:
@@ -94,6 +117,7 @@ jobs:
           asset_content_type: application/java-archive
 
       - name: Upload Release Kafka Connect plugin
+        if: startsWith(github.ref, 'refs/tags/')  # GitHub releases only for v* tags
         id: upload-release-kafka-connect-plugin
         uses: actions/upload-release-asset@v1
         env:
@@ -104,6 +128,7 @@ jobs:
           asset_name: cassandra-source-connector-${{ env.CURRENT_VERSION }}-kafka-connect.zip
           asset_content_type: application/zip
       - name: Upload Release Kafka connector jar
+        if: startsWith(github.ref, 'refs/tags/')  # GitHub releases only for v* tags
         id: upload-release-kafka-connector-jar
         uses: actions/upload-release-asset@v1
         env:
@@ -115,6 +140,7 @@ jobs:
           asset_content_type: application/java-archive
 
       - name: Upload Release agent-c3
+        if: startsWith(github.ref, 'refs/tags/')  # GitHub releases only for v* tags
         id: agent-c3-jar
         uses: actions/upload-release-asset@v1
         env:
@@ -125,6 +151,7 @@ jobs:
           asset_name: agent-c3-${{ env.CURRENT_VERSION }}-all.jar
           asset_content_type: application/java-archive
       - name: Upload Release agent-c4
+        if: startsWith(github.ref, 'refs/tags/')  # GitHub releases only for v* tags
         id: agent-c4-jar
         uses: actions/upload-release-asset@v1
         env:
@@ -135,6 +162,7 @@ jobs:
           asset_name: agent-c4-${{ env.CURRENT_VERSION }}-all.jar
           asset_content_type: application/java-archive
       - name: Upload Release agent-dse4
+        if: startsWith(github.ref, 'refs/tags/')  # GitHub releases only for v* tags
         id: agent-dse4-jar
         uses: actions/upload-release-asset@v1
         env:
@@ -145,6 +173,7 @@ jobs:
           asset_name: agent-dse4-${{ env.CURRENT_VERSION }}-all.jar
           asset_content_type: application/java-archive
       - name: Upload Backfill CLI Release JAR
+        if: startsWith(github.ref, 'refs/tags/')  # GitHub releases only for v* tags
         id: upload-backfill-cli-jar
         uses: actions/upload-release-asset@v1
         env:
@@ -155,6 +184,7 @@ jobs:
           asset_name: backfill-cli-${{ env.CURRENT_VERSION }}-all.jar
           asset_content_type: application/java-archive
       - name: Upload Backfill CLI Release NAR
+        if: startsWith(github.ref, 'refs/tags/')  # GitHub releases only for v* tags
         id: upload-backfill-cli-nar
         uses: actions/upload-release-asset@v1
         env:
@@ -165,3 +195,97 @@ jobs:
           asset_name: pulsar-cassandra-admin-${{ env.CURRENT_VERSION }}-nar.nar
           asset_content_type: application/java-archive
 
+  publish-images:
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY: 765730767431.dkr.ecr.us-east-2.amazonaws.com
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Get project version
+        uses: HardNorth/github-version-generate@e627d02e2a2b756c5e76bd2d8880ebc3521dbc68 # v1.4.0
+        with:
+          version-source: file
+          version-file: gradle.properties
+          version-file-extraction-pattern: '(?<=version=).+'
+
+      # Tags images master-<sha>-<flavour> and latest-master-<flavour>, so they don't
+      # replace the <version>-* and latest-* images from feature/AS-5467-test-publishing.
+      - name: Compute image tags
+        run: |
+          {
+            echo "IMAGE_TAG=master-${GITHUB_SHA::7}"
+            echo "LATEST_TAG=latest-master"
+            # Base image versions follow the versions the agents and connector are built against.
+            echo "DSE_VERSION=$(sed -n 's/^dse4Version=//p' gradle.properties)"
+            echo "KAFKA_VERSION=$(sed -n 's/^kafkaVersion=//p' gradle.properties)"
+          } >> "$GITHUB_ENV"
+
+      - name: Download jars from build
+        uses: actions/download-artifact@v4
+        with:
+          name: image-jars
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.ECR_REGION || 'us-east-2' }}
+      - name: Log in to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registries: "765730767431"
+
+      - name: Build and push agent-c4 (OSS Cassandra) image
+        run: |
+          mkdir -p /tmp/ctx-c4
+          cp agent-c4/build/libs/agent-c4-${{ env.CURRENT_VERSION }}-all.jar agent-c4/src/docker-k8s/Dockerfile /tmp/ctx-c4/
+          docker build \
+            --build-arg MGMT_API_VERSION=4.1.12 \
+            --build-arg BUILD_VERSION=${{ env.CURRENT_VERSION }} \
+            -t "$REGISTRY/datastax/cdc:$IMAGE_TAG" \
+            -t "$REGISTRY/datastax/cdc:$LATEST_TAG" \
+            /tmp/ctx-c4
+          docker push "$REGISTRY/datastax/cdc:$IMAGE_TAG"
+          docker push "$REGISTRY/datastax/cdc:$LATEST_TAG"
+
+      - name: Build and push agent-dse4 (DSE) image
+        run: |
+          mkdir -p /tmp/ctx-dse4
+          cp agent-dse4/build/libs/agent-dse4-${{ env.CURRENT_VERSION }}-all.jar agent-dse4/src/docker-k8s/Dockerfile /tmp/ctx-dse4/
+          docker build \
+            --build-arg MGMT_API_VERSION=${{ env.DSE_VERSION }} \
+            --build-arg BUILD_VERSION=${{ env.CURRENT_VERSION }} \
+            -t "$REGISTRY/datastax/cdc:$IMAGE_TAG-dse" \
+            -t "$REGISTRY/datastax/cdc:$LATEST_TAG-dse" \
+            /tmp/ctx-dse4
+          docker push "$REGISTRY/datastax/cdc:$IMAGE_TAG-dse"
+          docker push "$REGISTRY/datastax/cdc:$LATEST_TAG-dse"
+
+      - name: Build and push backfill-cli admin image
+        run: |
+          mkdir -p /tmp/ctx-admin
+          cp backfill-cli/build/libs/backfill-cli-${{ env.CURRENT_VERSION }}-all.jar backfill-cli/src/docker/Dockerfile /tmp/ctx-admin/
+          docker build \
+            --build-arg JRE_IMAGE_TAG=17-jre-jammy \
+            --build-arg BUILD_VERSION=${{ env.CURRENT_VERSION }} \
+            -t "$REGISTRY/datastax/cdc:$IMAGE_TAG-admin" \
+            -t "$REGISTRY/datastax/cdc:$LATEST_TAG-admin" \
+            /tmp/ctx-admin
+          docker push "$REGISTRY/datastax/cdc:$IMAGE_TAG-admin"
+          docker push "$REGISTRY/datastax/cdc:$LATEST_TAG-admin"
+
+      - name: Build and push cassandra-source-connect (Kafka Connect worker) image
+        run: |
+          mkdir -p /tmp/ctx-connect /tmp/plugin
+          cp connector/src/docker-k8s/Dockerfile /tmp/ctx-connect/
+          unzip -q connector/build/distributions/cassandra-source-connector-${{ env.CURRENT_VERSION }}-kafka-connect.zip -d /tmp/plugin
+          mv /tmp/plugin/cassandra-source-connector-${{ env.CURRENT_VERSION }}/lib /tmp/ctx-connect/lib
+          docker build \
+            --build-arg KAFKA_IMAGE_TAG=${{ env.KAFKA_VERSION }} \
+            -t "$REGISTRY/datastax/cdc:$IMAGE_TAG-connect" \
+            -t "$REGISTRY/datastax/cdc:$LATEST_TAG-connect" \
+            /tmp/ctx-connect
+          docker push "$REGISTRY/datastax/cdc:$IMAGE_TAG-connect"
+          docker push "$REGISTRY/datastax/cdc:$LATEST_TAG-connect"
