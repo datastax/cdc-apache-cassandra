@@ -78,6 +78,7 @@ jobs:
               --tests 'com.datastax.oss.cdc.MutationCacheTests' \
             --tests 'com.datastax.oss.cdc.SourceUtilTest' \
             --tests 'com.datastax.oss.cdc.CassandraClientSelectRowTest' \
+            --tests 'com.datastax.oss.cdc.NonClosingSchemaChangeListenerTest' \
               --tests 'com.datastax.oss.cdc.converters.*' \
               --tests 'com.datastax.oss.kafka.source.converters.*' \
               --tests 'com.datastax.oss.pulsar.source.CassandraSourceRetryTest' \

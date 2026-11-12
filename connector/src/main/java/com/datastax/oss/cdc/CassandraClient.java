@@ -101,7 +101,8 @@ public class CassandraClient implements AutoCloseable {
                         .withApplicationName(applicationName)
                         .withClientId(generateClientId(config.getInstanceName()))
                         .withKeyspace(config.getKeyspaceName())
-                        .withSchemaChangeListener(schemaChangeListener);
+                        .withSchemaChangeListener(schemaChangeListener == null
+                                ? null : new NonClosingSchemaChangeListener(schemaChangeListener));
 
         ContactPointsValidator.validateContactPoints(config.getContactPoints());
 

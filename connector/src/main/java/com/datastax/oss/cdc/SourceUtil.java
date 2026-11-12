@@ -48,14 +48,20 @@ public final class SourceUtil {
                                                       String applicationName,
                                                       SchemaChangeListener listener) {
         CassandraClient client = new CassandraClient(config, Version.getVersion(), applicationName, listener);
-        Tuple2<KeyspaceMetadata, TableMetadata> tuple =
-                client.getTableMetadata(config.getKeyspaceName(), config.getTableName());
-        Preconditions.checkArgument(tuple._1 != null,
-                String.format(Locale.ROOT, "Keyspace %s does not exist", config.getKeyspaceName()));
-        Preconditions.checkArgument(tuple._2 != null,
-                String.format(Locale.ROOT, "Table %s.%s does not exist",
-                        config.getKeyspaceName(), config.getTableName()));
-        return client;
+        try {
+            Tuple2<KeyspaceMetadata, TableMetadata> tuple =
+                    client.getTableMetadata(config.getKeyspaceName(), config.getTableName());
+            Preconditions.checkArgument(tuple._1 != null,
+                    String.format(Locale.ROOT, "Keyspace %s does not exist", config.getKeyspaceName()));
+            Preconditions.checkArgument(tuple._2 != null,
+                    String.format(Locale.ROOT, "Table %s.%s does not exist",
+                            config.getKeyspaceName(), config.getTableName()));
+            return client;
+        } catch (RuntimeException e) {
+            // Otherwise every retry while the table is missing leaks a session.
+            client.close();
+            throw e;
+        }
     }
 
     /**
