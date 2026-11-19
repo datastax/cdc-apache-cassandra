@@ -10,11 +10,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Get GitHub App Token
+        id: app_token
+        uses: actions/create-github-app-token@v3.3.0
+        with:
+          # The Docs GitHub App: one App for both organizations (DOCS_APP_*),
+          # or one per organization (DOCS_APP_RIPTANO_* for riptano's).
+          client-id: ${{ vars.DOCS_APP_RIPTANO_CLIENT_ID || vars.DOCS_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DOCS_APP_RIPTANO_PRIVATE_KEY || secrets.DOCS_APP_PRIVATE_KEY }}
+          owner: riptano
+          repositories: datastax-docs-site
+          permission-actions: write
+
       - name: Deploy Draft
         uses: convictional/trigger-workflow-and-wait@v1.6.5
         with:
           owner: riptano
           repo: datastax-docs-site
-          github_token: ${{ secrets.DOC_GITHUB_PAT_CROSS_ORG }}
+          github_token: ${{ steps.app_token.outputs.token }}
           workflow_file_name: deploy-draft.yml
           client_payload: '{ "build_repository": "${{ github.event.repository.full_name }}", "build_branch": "${{ github.base_ref }}", "draft_branch": "${{ github.event.pull_request.head.ref }}", "pull_request_number": "${{ github.event.pull_request.number }}" }'
